@@ -13,19 +13,21 @@
 #include "lancet/utils.h"
 
 namespace lancet {
-GraphBuilder::GraphBuilder(RefWindow w, absl::Span<const ReadInfo> reads, double avg_cov,
+GraphBuilder::GraphBuilder(std::shared_ptr<const RefWindow> w, absl::Span<const ReadInfo> reads, double avg_cov,
                            std::shared_ptr<const CliParams> p)
     : window(std::move(w)), sampleReads(reads), params(std::move(p)), avgCov(avg_cov) {}
 
 auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::unique_ptr<Graph> {
+#if !defined(NDEBUG)
   Timer timer;
+#endif
 
-  const auto windowId = window.ToRegionString();
+  const auto windowId = window->ToRegionString();
   DebugLog("Starting to build graph for %s using minK=%d", windowId, min_k);
 
   for (currentK = min_k; currentK <= max_k; currentK += 2) {
-    if (utils::HasRepeatKmer(window.SeqView(), currentK)) continue;
-    if (utils::HasAlmostRepeatKmer(window.SeqView(), currentK, params->maxRptMismatch)) continue;
+    if (utils::HasRepeatKmer(window->SeqView(), currentK)) continue;
+    if (utils::HasAlmostRepeatKmer(window->SeqView(), currentK, params->maxRptMismatch)) continue;
 
     nodesMap.clear();
     BuildSampleNodes();
@@ -87,14 +89,14 @@ void GraphBuilder::BuildSampleNodes() {
     }
   }
 
-  const auto windowId = window.ToRegionString();
+  const auto windowId = window->ToRegionString();
   DebugLog("Combined sample coverage for %s is ~%.2fx", windowId, avgCov);
   DebugLog("Built %d sample nodes in graph for %s using K=%d", nodesMap.size(), windowId, currentK);
 }
 
 void GraphBuilder::BuildRefNodes() {
   const auto refDataBuilt = refNmlData.size() == params->windowLength && refTmrData.size() == params->windowLength;
-  const auto refMerHashes = CanonicalKmerHashes(window.SeqView(), currentK);
+  const auto refMerHashes = CanonicalKmerHashes(window->SeqView(), currentK);
 
   if (!refDataBuilt) BuildRefData(absl::MakeConstSpan(refMerHashes));
   std::size_t numMarked = 0;
@@ -123,7 +125,7 @@ void GraphBuilder::BuildRefNodes() {
     }
   }
 
-  DebugLog("Marked %d existing nodes as reference in graph for %s with K=%d", numMarked, window.ToRegionString(),
+  DebugLog("Marked %d existing nodes as reference in graph for %s with K=%d", numMarked, window->ToRegionString(),
            currentK);
 }
 

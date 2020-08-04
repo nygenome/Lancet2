@@ -13,7 +13,7 @@ namespace lancet {
 void Graph::DotSerializer::write_component(std::size_t comp_id, const std::string& suffix) const {
   const auto outDir = graphPtr->params->outGraphsDir.empty() ? std::filesystem::current_path()
                                                              : std::filesystem::path(graphPtr->params->outGraphsDir);
-  const auto windowID = graphPtr->window.ToRegionString();
+  const auto windowID = graphPtr->window->ToRegionString();
   const auto fName = absl::StrFormat("%s/%s_c%d_%s.dot", outDir, windowID, comp_id, suffix);
   std::ofstream outStream(fName, std::ios::trunc);
 
@@ -29,7 +29,7 @@ void Graph::DotSerializer::write_component(std::size_t comp_id, absl::Span<const
   std::size_t pathNum = 0;
   double currentHue = 0.0;
 
-  const auto windowID = graphPtr->window.ToRegionString();
+  const auto windowID = graphPtr->window->ToRegionString();
   const auto outDir = graphPtr->params->outGraphsDir.empty() ? std::filesystem::current_path()
                                                              : std::filesystem::path(graphPtr->params->outGraphsDir);
 

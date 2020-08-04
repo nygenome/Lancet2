@@ -17,7 +17,8 @@
 namespace lancet {
 class GraphBuilder {
  public:
-  GraphBuilder(RefWindow w, absl::Span<const ReadInfo> reads, double avg_cov, std::shared_ptr<const CliParams> p);
+  GraphBuilder(std::shared_ptr<const RefWindow> w, absl::Span<const ReadInfo> reads, double avg_cov,
+               std::shared_ptr<const CliParams> p);
   GraphBuilder() = delete;
 
   [[nodiscard]] auto BuildGraph(std::size_t min_k, std::size_t max_k) -> std::unique_ptr<Graph>;
@@ -30,7 +31,7 @@ class GraphBuilder {
   [[nodiscard]] auto CurrentKmerSize() const noexcept -> std::size_t { return currentK; }
 
  private:
-  RefWindow window;
+  std::shared_ptr<const RefWindow> window;
   absl::Span<const ReadInfo> sampleReads;
   std::shared_ptr<const CliParams> params;
   double avgCov = 0.0;

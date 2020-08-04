@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 #include "lancet/cli_params.h"
 #include "lancet/notification.h"
 #include "lancet/ref_window.h"
@@ -16,23 +17,22 @@ namespace lancet {
 class MicroAssembler {
  public:
   using NotificationPtr = std::shared_ptr<Notification<std::size_t>>;
-
-  explicit MicroAssembler(std::vector<RefWindow>&& ws, std::vector<NotificationPtr>&& notis,
+  explicit MicroAssembler(absl::Span<std::shared_ptr<const RefWindow>> ws, absl::Span<NotificationPtr> notis,
                           std::shared_ptr<const CliParams> p)
-      : windows(std::move(ws)), notifiers(std::move(notis)), params(std::move(p)) {}
+      : windows(ws), notifiers(notis), params(std::move(p)) {}
 
   MicroAssembler() = default;
 
   [[nodiscard]] auto Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
  private:
-  std::vector<RefWindow> windows;
-  std::vector<NotificationPtr> notifiers;
+  absl::Span<std::shared_ptr<const RefWindow>> windows;
+  absl::Span<NotificationPtr> notifiers;
   std::shared_ptr<const CliParams> params;
 
-  [[nodiscard]] auto ProcessWindow(const RefWindow& w, const std::shared_ptr<VariantStore>& store) const
-      -> absl::Status;
+  [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const RefWindow>& w,
+                                   const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
-  [[nodiscard]] auto ShouldSkipWindow(const RefWindow& w, Timer* T) const -> bool;
+  [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w, Timer* T) const -> bool;
 };
 }  // namespace lancet

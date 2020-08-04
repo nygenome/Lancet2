@@ -15,11 +15,11 @@ auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -
   DebugLog("Starting MicroAssembler to process %d windows", windows.size());
 
   for (std::size_t idx = 0; idx < windows.size(); ++idx) {
-    const auto winIdx = windows[idx].WindowIndex();
+    const auto winIdx = windows[idx]->WindowIndex();
     const auto winStatus = ProcessWindow(windows[idx], store);
 
     if (!winStatus.ok()) {
-      const auto regionStr = windows[idx].ToRegionString();
+      const auto regionStr = windows[idx]->ToRegionString();
       const auto errMsg = absl::StrFormat("Error processing %s in MicroAssembler", regionStr);
       FatalLog("%s: %s", errMsg, winStatus.message());
       throw std::runtime_error(winStatus.ToString());
@@ -31,14 +31,14 @@ auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -
   return absl::OkStatus();
 }
 
-auto MicroAssembler::ProcessWindow(const RefWindow& w, const std::shared_ptr<VariantStore>& store) const
-    -> absl::Status {
+auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
+                                   const std::shared_ptr<VariantStore>& store) const -> absl::Status {
   Timer T;
-  const auto regionStr = w.ToRegionString();
+  const auto regionStr = w->ToRegionString();
   DebugLog("Starting to process %s in MicroAssembler", regionStr);
   if (ShouldSkipWindow(w, &T)) return absl::OkStatus();
 
-  ReadExtractor re(params, w.ToGenomicRegion());
+  ReadExtractor re(params, w->ToGenomicRegion());
   if (!params->activeRegionOff && !re.IsActiveRegion()) {
     DebugLog("Skipping %s since no evidence of mutation is found", regionStr);
     DebugLog("Done processing %s in MicroAssembler | Runtime=%s", regionStr, T.HumanRuntime());
@@ -64,9 +64,9 @@ auto MicroAssembler::ProcessWindow(const RefWindow& w, const std::shared_ptr<Var
   return absl::OkStatus();
 }
 
-auto MicroAssembler::ShouldSkipWindow(const RefWindow& w, Timer* T) const -> bool {
-  const auto refseq = w.SeqView();
-  const auto regionStr = w.ToRegionString();
+auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w, Timer* T) const -> bool {
+  const auto refseq = w->SeqView();
+  const auto regionStr = w->ToRegionString();
 
   if (static_cast<std::size_t>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {
     WarnLog("Skipping %s since it has only N bases in reference | Runtime=%s", regionStr, T->HumanRuntime());

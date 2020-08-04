@@ -18,13 +18,13 @@
 #include "lancet/variant.h"
 
 namespace lancet {
-Graph::Graph(RefWindow w, Graph::NodeContainer&& data, double avg_cov, std::size_t k,
+Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, double avg_cov, std::size_t k,
              std::shared_ptr<const CliParams> p)
     : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
 
 void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStore>& store) {
   Timer timer;
-  const auto windowId = window.ToRegionString();
+  const auto windowId = window->ToRegionString();
   DebugLog("Starting to process graph for %s with %d nodes", windowId, nodesMap.size());
 
   RemoveLowCovNodes(0);
@@ -130,11 +130,11 @@ void Graph::MarkConnectedComponents() {
   }
 
   assert(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == 0);  // NOLINT
-  DebugLog("Marked %d components in graph for %s", componentsInfo.size(), window.ToRegionString());
+  DebugLog("Marked %d components in graph for %s", componentsInfo.size(), window->ToRegionString());
 }
 
 auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
-  auto refMerIDs = CanonicalKmerHashes(window.SeqView(), kmerSize);
+  auto refMerIDs = CanonicalKmerHashes(window->SeqView(), kmerSize);
   const auto srcResult = FindRefEnd(GraphEnd::SOURCE, comp_id, absl::MakeConstSpan(refMerIDs));
   if (!srcResult.foundEnd) return {false, 0, 0};
 
@@ -207,7 +207,7 @@ auto Graph::CompressGraph(std::size_t comp_id) -> bool {
 
   if (!nodesToRemove.empty()) {
     RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
-    DebugLog("Compressed %d nodes in component%d for %s", nodesToRemove.size(), comp_id, window.ToRegionString());
+    DebugLog("Compressed %d nodes in component%d for %s", nodesToRemove.size(), comp_id, window->ToRegionString());
   }
 
   return !nodesToRemove.empty();
@@ -218,7 +218,7 @@ auto Graph::RemoveTips(std::size_t comp_id) -> bool {
   std::size_t numTips = 0;
   const auto currK = kmerSize;
   const auto minTipLen = static_cast<std::size_t>(params->minGraphTipLength);
-  const auto windowId = window.ToRegionString();
+  const auto windowId = window->ToRegionString();
 
   // remove tips and compress at least once. compression after tip removal
   // can produce new tips in the graph, so continue until there are no tips
@@ -269,7 +269,7 @@ auto Graph::RemoveShortLinks(std::size_t comp_id) -> bool {
 
   if (!nodesToRemove.empty()) {
     RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
-    DebugLog("Removed %d short links in component%d for %s", nodesToRemove.size(), comp_id, window.ToRegionString());
+    DebugLog("Removed %d short links in component%d for %s", nodesToRemove.size(), comp_id, window->ToRegionString());
     CompressGraph(comp_id);
   }
 
@@ -284,7 +284,7 @@ auto Graph::HasCycle() const -> bool {
 auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkSourceSinkResult& end_info) const
     -> Graph::TranscriptList {
   const auto pathSeq = path.SeqView();
-  const auto refAnchorSeq = window.SeqView().substr(end_info.startOffset, RefAnchorLen(end_info));
+  const auto refAnchorSeq = window->SeqView().substr(end_info.startOffset, RefAnchorLen(end_info));
   if (pathSeq == refAnchorSeq) return {};
 
   // check that reference seq length and reference data lengths are same
@@ -308,7 +308,7 @@ SkipLocalAlignment:
   assert(aligned.qry[aligned.qry.length() - 1] != ALIGNMENT_GAP);              // NOLINT
 
   // 0-based reference anchor position in absolute chromosome coordinates
-  const auto anchorStartGenome = static_cast<std::size_t>(window.StartPosition0()) + end_info.startOffset;
+  const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
   std::size_t refIdx = 0;   // 0-based coordinate
   std::size_t refPos = 0;   // 1-based coordinate
   std::size_t pathPos = 0;  // 1-based coordinate
@@ -382,7 +382,7 @@ SkipLocalAlignment:
           SampleCov(ref_infos[0].at(refIdx), path.HpCovAt(SampleLabel::NORMAL, pathIdx)),
           SampleCov(ref_infos[1].at(refIdx), path.HpCovAt(SampleLabel::TUMOR, pathIdx))};
 
-      const auto chromName = window.Chromosome();
+      const auto chromName = window->Chromosome();
       transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases, sampleCovs, withinTumorNode);
       continue;
     }
@@ -459,7 +459,7 @@ SkipLocalAlignment:
 auto Graph::AddTranscripts(absl::Span<const Transcript> transcripts, const std::shared_ptr<VariantStore>& store) const
     -> std::size_t {
   std::size_t numVariantsAdded = 0;
-  const auto windowIdx = window.WindowIndex();
+  const auto windowIdx = window->WindowIndex();
 
   for (const auto& transcript : transcripts) {
     if (!transcript.has_alt_coverage()) continue;

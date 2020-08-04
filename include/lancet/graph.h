@@ -29,7 +29,8 @@ class Graph {
   using NodeIterator = NodeContainer::iterator;
   using ConstNodeIterator = NodeContainer::const_iterator;
 
-  Graph(RefWindow w, NodeContainer&& data, double avg_cov, std::size_t k, std::shared_ptr<const CliParams> p);
+  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, double avg_cov, std::size_t k,
+        std::shared_ptr<const CliParams> p);
   Graph() = delete;
 
   // 0 = NORMAL, 1 = TUMOR
@@ -103,7 +104,7 @@ class Graph {
   class DotSerializer;
 
  private:
-  RefWindow window;
+  std::shared_ptr<const RefWindow> window;
   double avgSampleCov = 0.0;
   std::size_t kmerSize = 0;
   std::shared_ptr<const CliParams> params = nullptr;

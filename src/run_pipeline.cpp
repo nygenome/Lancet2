@@ -72,9 +72,13 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   assemblers.reserve(perTWindows.size());
 
   for (std::size_t idx = 0; idx < perTWindows.size(); ++idx) {
-    auto task = [&storePtr](std::unique_ptr<MicroAssembler> m) -> absl::Status { return m->Process(storePtr); };
-    auto mas = std::make_unique<MicroAssembler>(std::move(perTWindows[idx]), std::move(perTNotifiers[idx]), paramsPtr);
-    assemblers.emplace_back(std::async(std::launch::async, std::move(task), std::move(mas)));
+    auto threadWindows = absl::MakeSpan(perTWindows[idx]);
+    auto threadNotifiers = absl::MakeSpan(perTNotifiers[idx]);
+
+    assemblers.emplace_back(std::async(
+        std::launch::async,
+        [&storePtr](std::unique_ptr<MicroAssembler> m) -> absl::Status { return m->Process(storePtr); },
+        std::make_unique<MicroAssembler>(threadWindows, threadNotifiers, paramsPtr)));
   }
 
   const auto anyWindowRunning = [&notifiers]() -> bool {
@@ -112,7 +116,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
       const auto winIdx = notifier->WaitForResult();
       alreadyLogged[winIdx] = true;
 
-      const auto windowID = allwindows[winIdx].ToRegionString();
+      const auto windowID = allwindows[winIdx]->ToRegionString();
       InfoLog("Progress: %0.3f%% | Done processing %s | %d of %d completed", pctDone(numDone), windowID, numDone,
               numTotal);
     }

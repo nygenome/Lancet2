@@ -43,10 +43,10 @@ void WindowBuilder::AddAllRefRegions() {
   }
 }
 
-auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<RefWindow>> {
+auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
-  std::vector<RefWindow> results;
+  std::vector<WindowPtr> results;
   const auto stepSize = StepSize(pctWindowOverlap, windowLength);
 
   for (const auto &inRegion : inputRegions) {
@@ -55,10 +55,10 @@ auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<RefWindow>> {
     const auto &region = paddedResult.ValueOrDie();
 
     if (region.Length() <= windowLength) {
-      RefWindow w(region);
-      const auto regResult = refRdr.RegionSequence(w.ToGenomicRegion());
+      auto w = std::make_shared<RefWindow>(region);
+      const auto regResult = refRdr.RegionSequence(w->ToGenomicRegion());
       if (!regResult.ok()) return regResult.status();
-      w.SetSequence(regResult.ValueOrDie());
+      w->SetSequence(regResult.ValueOrDie());
       results.emplace_back(std::move(w));
     }
 
@@ -67,28 +67,28 @@ auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<RefWindow>> {
     while (currWindowStart < maxWindowPos) {
       const std::int64_t currWindowEnd = currWindowStart + windowLength;
 
-      RefWindow w;
-      w.SetChromosome(region.Chromosome());
-      w.SetStartPosition0(currWindowStart);
-      w.SetEndPosition0(currWindowEnd);
-      const auto regResult = refRdr.RegionSequence(w.ToGenomicRegion());
+      auto w = std::make_shared<RefWindow>();
+      w->SetChromosome(region.Chromosome());
+      w->SetStartPosition0(currWindowStart);
+      w->SetEndPosition0(currWindowEnd);
+      const auto regResult = refRdr.RegionSequence(w->ToGenomicRegion());
       if (!regResult.ok()) return regResult.status();
-      w.SetSequence(regResult.ValueOrDie());
-      assert(w.SeqView().length() == windowLength);  // NOLINT
+      w->SetSequence(regResult.ValueOrDie());
+      assert(w->SeqView().length() == windowLength);  // NOLINT
       results.emplace_back(std::move(w));
       currWindowStart += stepSize;
     }
   }
 
-  std::sort(results.begin(), results.end(), [](const RefWindow &r1, const RefWindow &r2) -> bool {
-    if (NaturalCompareLt(r1.Chromosome(), r2.Chromosome())) return true;
-    if (r1.StartPosition0() < r2.StartPosition0()) return true;
-    return r1.EndPosition0() <= r2.EndPosition0();
+  std::sort(results.begin(), results.end(), [](const WindowPtr &r1, const WindowPtr &r2) -> bool {
+    if (NaturalCompareLt(r1->Chromosome(), r2->Chromosome())) return true;
+    if (r1->StartPosition0() < r2->StartPosition0()) return true;
+    return r1->EndPosition0() <= r2->EndPosition0();
   });
 
-  std::for_each(results.begin(), results.end(), [](RefWindow &w) -> void {
+  std::for_each(results.begin(), results.end(), [](WindowPtr &w) -> void {
     static std::size_t currWindowIdx = 0;
-    w.SetWindowIndex(currWindowIdx);
+    w->SetWindowIndex(currWindowIdx);
     currWindowIdx++;
   });
 
@@ -182,7 +182,7 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> StatusOr<RefWindow> {
   return std::move(result);
 }
 
-auto BuildWindows(const CliParams &params) -> std::vector<RefWindow> {
+auto BuildWindows(const CliParams &params) -> std::vector<ConstWindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
   for (const auto &region : params.inRegions) {
     const auto result = wb.AddSamtoolsRegion(region);
@@ -205,12 +205,17 @@ auto BuildWindows(const CliParams &params) -> std::vector<RefWindow> {
   }
 
   InfoLog("Building reference windows from %d input regions", wb.Size());
-  const auto result = wb.BuildWindows();
-  if (!result.ok()) {
-    FatalLog("%s", result.status().message());
+  const auto windows = wb.BuildWindows();
+  if (!windows.ok()) {
+    FatalLog("%s", windows.status().message());
     std::exit(EXIT_FAILURE);
   }
 
-  return result.ValueOrDie();
+  std::vector<ConstWindowPtr> results;
+  for (auto &w : windows.ValueOrDie()) {  // NOLINT
+    results.emplace_back(std::const_pointer_cast<const RefWindow>(w));
+  }
+
+  return results;
 }
 }  // namespace lancet
