@@ -1,0 +1,8 @@
+#pragma once
+
+namespace lancet {
+static constexpr auto VERSION_TAG = "v@LANCET_VERSION_TAG@";
+static constexpr auto GIT_BRANCH = "@LANCET_GIT_BRANCH@";
+static constexpr auto GIT_REVISION = "@LANCET_GIT_REVISION@";
+static constexpr auto LONG_VERSION = "v@LANCET_VERSION_TAG@-@LANCET_GIT_BRANCH@-@LANCET_GIT_REVISION@";
+}  // namespace lancet

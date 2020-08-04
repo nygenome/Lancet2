@@ -1,0 +1,84 @@
+##### Global default #####
+## Any file not listed below will let Git auto-detect text files and normalize EOL,
+* text=auto
+##### Source code #####
+## C++ and C source files
+*.h text diff=cpp
+*.cc text diff=cpp
+*.c text diff=cpp
+*.cpp text diff=cpp
+*.cxx text diff=cpp
+*.hh text diff=cpp
+## Python scripts
+*.py text eol=lf diff=python
+## Perl scripts/libraries/modules
+*.perl text eol=lf diff=perl
+*.pl text eol=lf diff=perl
+*.pm text eol=lf diff=perl
+## Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+## Windows batch scripts
+*.bat text eol=crlf
+## Image files
+*.png binary
+*.jpg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.svg -text diff -merge
+## CMake files
+CMakeLists.txt text
+*.cmake text
+## Makefiles
+Makefile text
+makefile text
+*.mk text
+## Diff/patch files
+*.diff text diff -merge
+*.patch text diff -merge
+## XML and configuration
+*.xml text
+*.cfg text
+# export-ignores
+/hooks export-ignore
+/ci export-ignore
+/tools export-ignore
+/.clang-format export-ignore
+/.clang-tidy-ignore export-ignore
+/.editorconfig export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.travis.yml export-ignore
+/.appveyor.yml export-ignore
+# sources
+*.c text
+*.cc text
+*.cxx text
+*.cpp text
+*.c++ text
+*.hpp text
+*.h text
+*.h++ text
+*.hh text
+# Compiled Object files
+*.slo binary
+*.lo binary
+*.o binary
+*.obj binary
+# Precompiled Headers
+*.gch binary
+*.pch binary
+# Compiled Dynamic libraries
+*.so binary
+*.dylib binary
+*.dll binary
+# Compiled Static libraries
+*.lai binary
+*.la binary
+*.a binary
+*.lib binary
+# Executables
+*.exe binary
+*.out binary
+*.app binary
