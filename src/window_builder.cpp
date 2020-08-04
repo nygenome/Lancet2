@@ -43,7 +43,7 @@ void WindowBuilder::AddAllRefRegions() {
   }
 }
 
-auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<WindowPtr>> {
+auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
   std::vector<WindowPtr> results;
@@ -64,6 +64,7 @@ auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<WindowPtr>> {
 
     std::int64_t currWindowStart = region.StartPosition0();
     const auto maxWindowPos = inRegion.EndPosition0();
+
     while (currWindowStart < maxWindowPos) {
       const std::int64_t currWindowEnd = currWindowStart + windowLength;
 
@@ -72,7 +73,13 @@ auto WindowBuilder::BuildWindows() const -> StatusOr<std::vector<WindowPtr>> {
       w->SetStartPosition0(currWindowStart);
       w->SetEndPosition0(currWindowEnd);
       const auto regResult = refRdr.RegionSequence(w->ToGenomicRegion());
-      if (!regResult.ok()) return regResult.status();
+      if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && skip_trunc_seqs) {
+        WarnLog("Skipping window %s with truncated reference sequence in fasta", w->ToRegionString());
+        currWindowStart += stepSize;
+        continue;
+      }
+
+      if (!regResult.ok() && !skip_trunc_seqs) return regResult.status();
       w->SetSequence(regResult.ValueOrDie());
       assert(w->SeqView().length() == windowLength);  // NOLINT
       results.emplace_back(std::move(w));
@@ -206,7 +213,7 @@ auto BuildWindows(const CliParams &params) -> std::vector<ConstWindowPtr> {
   }
 
   InfoLog("Building reference windows from %d input regions", wb.Size());
-  const auto windows = wb.BuildWindows();
+  const auto windows = wb.BuildWindows(params.skipTruncSeq);
   if (!windows.ok()) {
     FatalLog("%s", windows.status().message());
     std::exit(EXIT_FAILURE);

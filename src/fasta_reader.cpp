@@ -34,7 +34,7 @@ class FastaReader::Impl {
 
     if (rawSeqData == nullptr || parsedSeqLen != expectedSeqLen) {
       const auto errMsg = absl::StrFormat("could not fetch sequence for %s from %s", regionString, srcPath);
-      return absl::InternalError(errMsg);
+      return rawSeqData == nullptr ? absl::InternalError(errMsg) : absl::FailedPreconditionError(errMsg);
     }
 
     const auto rawSeqLen = static_cast<std::size_t>(parsedSeqLen);
