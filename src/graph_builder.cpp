@@ -189,7 +189,8 @@ void GraphBuilder::RecoverKmers() {
   }
 
   if (numRecovered > 0) {
-    DebugLog("Recovered %d singleton tumor %d-mers from graph for %s", numRecovered, currentK, window.ToRegionString());
+    DebugLog("Recovered %d singleton tumor %d-mers from graph for %s", numRecovered, currentK,
+             window->ToRegionString());
   }
 }
 
