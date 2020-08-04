@@ -90,7 +90,7 @@ auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::ve
   std::sort(results.begin(), results.end(), [](const WindowPtr &r1, const WindowPtr &r2) -> bool {
     if (NaturalCompareLt(r1->Chromosome(), r2->Chromosome())) return true;
     if (r1->StartPosition0() < r2->StartPosition0()) return true;
-    return r1->EndPosition0() <= r2->EndPosition0();
+    return r1->EndPosition0() < r2->EndPosition0();
   });
 
   std::for_each(results.begin(), results.end(), [](WindowPtr &w) -> void {
