@@ -37,6 +37,8 @@ class HtsReader {
   [[nodiscard]] auto SampleNames() const -> std::vector<std::string>;
   [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
 
+  [[nodiscard]] auto ContigID(const std::string& contig) const -> int;
+
  private:
   class Impl;
   std::unique_ptr<Impl> pimpl;

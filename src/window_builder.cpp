@@ -10,7 +10,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "lancet/logger.h"
-#include "lancet/natural_compare.h"
 
 namespace lancet {
 WindowBuilder::WindowBuilder(const std::filesystem::path &ref, std::uint32_t region_padding,
@@ -43,13 +42,18 @@ void WindowBuilder::AddAllRefRegions() {
   }
 }
 
-auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>> {
+auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids,
+                                 bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
   std::vector<WindowPtr> results;
   const auto stepSize = StepSize(pctWindowOverlap, windowLength);
 
   for (const auto &inRegion : inputRegions) {
+    if (!contig_ids.contains(inRegion.Chromosome())) {
+      throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", inRegion.Chromosome()));
+    }
+
     const auto paddedResult = PadWindow(inRegion);
     if (!paddedResult.ok()) return paddedResult.status();
     const auto &region = paddedResult.ValueOrDie();
@@ -59,6 +63,7 @@ auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::ve
       const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
       if (!regResult.ok()) return regResult.status();
       results.back()->SetSequence(regResult.ValueOrDie());
+      continue;
     }
 
     std::int64_t currWindowStart = region.StartPosition0();
@@ -85,9 +90,9 @@ auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::ve
     }
   }
 
-  static const auto Comparator = [](const RefWindow &r1, const RefWindow &r2) -> bool {
-    if (NaturalCompareLt(r1.Chromosome(), r2.Chromosome())) return true;
-    if (r1.StartPosition0() < r2.StartPosition0()) return true;
+  static const auto Comparator = [&contig_ids](const RefWindow &r1, const RefWindow &r2) -> bool {
+    if (r1.Chromosome() != r2.Chromosome()) return contig_ids.at(r1.Chromosome()) < contig_ids.at(r2.Chromosome());
+    if (r1.StartPosition0() != r2.StartPosition0()) return r1.StartPosition0() < r2.StartPosition0();
     return r1.EndPosition0() < r2.EndPosition0();
   };
 
@@ -190,7 +195,8 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> StatusOr<RefWindow> {
   return std::move(result);
 }
 
-auto BuildWindows(const CliParams &params) -> std::vector<ConstWindowPtr> {
+auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids, const CliParams &params)
+    -> std::vector<ConstWindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
   for (const auto &region : params.inRegions) {
     const auto result = wb.AddSamtoolsRegion(region);
@@ -214,7 +220,7 @@ auto BuildWindows(const CliParams &params) -> std::vector<ConstWindowPtr> {
   }
 
   InfoLog("Building reference windows from %d input regions", wb.Size());
-  const auto windows = wb.BuildWindows(params.skipTruncSeq);
+  const auto windows = wb.BuildWindows(contig_ids, params.skipTruncSeq);
   if (!windows.ok()) {
     FatalLog("%s", windows.status().message());
     std::exit(EXIT_FAILURE);

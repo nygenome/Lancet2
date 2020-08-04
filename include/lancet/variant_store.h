@@ -26,8 +26,11 @@ class VariantStore {
       -> std::string;
 
   auto AddVariant(std::size_t window_index, Variant&& variant) -> bool;
-  auto FlushWindow(std::size_t window_index, VcfWriter* out) -> bool;
-  auto FlushAll(VcfWriter* out) -> bool;
+
+  auto FlushWindow(std::size_t window_index, VcfWriter* out,
+                   const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
+
+  auto FlushAll(VcfWriter* out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
 
  private:
   Container data{};
@@ -35,6 +38,7 @@ class VariantStore {
   std::vector<WindowIds> windowIds;
   std::shared_ptr<const CliParams> params = nullptr;
 
-  [[nodiscard]] auto FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out) -> bool;
+  [[nodiscard]] auto FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out,
+                                   const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
 };
 }  // namespace lancet

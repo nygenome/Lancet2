@@ -8,6 +8,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
 #include "lancet/logger.h"
 #include "lancet/micro_assembler.h"
@@ -34,6 +35,10 @@ static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string
   return {resultN[0], resultT[0]};
 }
 
+static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::string, std::int64_t> {
+  return FastaReader(p.referencePath).ContigIDs();
+}
+
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   Timer T;
   InfoLog("Starting main thread for processing lancet pipeline");
@@ -54,7 +59,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     std::exit(EXIT_FAILURE);
   }
 
-  const auto allwindows = BuildWindows(*params);
+  const auto contigIDs = GetContigIDs(*params);
+  const auto allwindows = BuildWindows(contigIDs, *params);
   InfoLog("Processing %d windows in %d worker thread(s)", allwindows.size(), params->numWorkerThreads);
 
   std::vector<std::shared_ptr<Notification<std::size_t>>> notifiers(allwindows.size());
@@ -121,13 +127,13 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
               numTotal);
     }
 
-    if (allWindowsUptoDone(idxToFlush + numBufferWindows) && storePtr->FlushWindow(idxToFlush, &outVcf)) {
+    if (allWindowsUptoDone(idxToFlush + numBufferWindows) && storePtr->FlushWindow(idxToFlush, &outVcf, contigIDs)) {
       DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
       idxToFlush++;
     }
   }
 
-  storePtr->FlushAll(&outVcf);
+  storePtr->FlushAll(&outVcf, contigIDs);
   outVcf.Close();
 
   // just to make sure futures get collected and threads released

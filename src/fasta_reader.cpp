@@ -66,6 +66,8 @@ class FastaReader::Impl {
     return result;
   }
 
+  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t> { return contigIds; }
+
   [[nodiscard]] auto ContigId(std::string_view contig) const -> StatusOr<std::int64_t> {
     const auto itr = contigIds.find(contig);
     if (itr != contigIds.end()) return itr->second;
@@ -118,7 +120,8 @@ auto FastaReader::RegionSequence(const GenomicRegion& region) const -> StatusOr<
 
 auto FastaReader::ContigsInfo() const -> std::vector<ContigInfo> { return pimpl->ContigsInfo(); }
 
-auto FastaReader::ContigId(std::string_view contig) const -> StatusOr<std::int64_t> { return pimpl->ContigId(contig); }
+auto FastaReader::ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t> { return pimpl->ContigIDs(); }
+auto FastaReader::ContigID(std::string_view contig) const -> StatusOr<std::int64_t> { return pimpl->ContigId(contig); }
 
 auto FastaReader::ContigLength(std::string_view contig) const -> StatusOr<std::int64_t> {
   return pimpl->ContigLength(contig);

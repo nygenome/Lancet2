@@ -8,7 +8,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "lancet/fisher_exact.h"
-#include "lancet/natural_compare.h"
 #include "lancet/utils.h"
 
 namespace lancet {
@@ -138,13 +137,6 @@ auto Variant::ComputeState() const -> VariantState {
   if (nmlAlt == 0 && tmrAlt > 0) return VariantState::SOMATIC;
   if (nmlAlt > 0 && tmrAlt == 0) return VariantState::NORMAL;
   return VariantState::NONE;
-}
-
-auto Variant::operator<(const Variant& other) const -> bool {
-  if (ChromName != other.ChromName) return NaturalCompareLt(ChromName, other.ChromName);
-  if (Position != other.Position) return Position < other.Position;
-  if (RefAllele != other.RefAllele) return RefAllele < other.RefAllele;
-  return AltAllele < other.AltAllele;
 }
 
 auto Variant::Genotype(int ref, int alt) -> std::string {

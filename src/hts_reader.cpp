@@ -193,6 +193,10 @@ class HtsReader::Impl {
     return result;
   }
 
+  [[nodiscard]] auto ContigID(const std::string& contig) const -> int {
+    return sam_hdr_name2tid(hdr.get(), contig.c_str());
+  }
+
   void ResetIterator() {
     itr.reset(sam_itr_queryi(idx.get(), HTS_IDX_START, 0, 0));
     if (itr == nullptr) {
@@ -292,6 +296,7 @@ auto HtsReader::NextAlignment(HtsAlignment* result, absl::Span<const std::string
 
 auto HtsReader::SampleNames() const -> std::vector<std::string> { return pimpl->SampleNames(); }
 auto HtsReader::ContigsInfo() const -> std::vector<ContigInfo> { return pimpl->ContigsInfo(); }
+auto HtsReader::ContigID(const std::string& contig) const -> int { return pimpl->ContigID(contig); }
 void HtsReader::ResetIterator() { return pimpl->ResetIterator(); }
 
 auto HasTag(const std::filesystem::path& inpath, const std::filesystem::path& ref, const char* tag,

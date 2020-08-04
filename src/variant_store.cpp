@@ -87,13 +87,14 @@ auto VariantStore::AddVariant(std::size_t window_index, Variant&& variant) -> bo
   return false;
 }
 
-auto VariantStore::FlushWindow(std::size_t window_index, VcfWriter* out) -> bool {
+auto VariantStore::FlushWindow(std::size_t window_index, VcfWriter* out,
+                               const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   absl::MutexLock guard(&mutex);
   const auto& windowData = windowIds[window_index];
-  return !windowData.empty() && FlushVariants(absl::MakeConstSpan(windowData), out);
+  return !windowData.empty() && FlushVariants(absl::MakeConstSpan(windowData), out, contig_ids);
 }
 
-auto VariantStore::FlushAll(VcfWriter* out) -> bool {
+auto VariantStore::FlushAll(VcfWriter* out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   absl::MutexLock guard(&mutex);
   std::vector<std::uint64_t> variantIDsToFlush;
   variantIDsToFlush.reserve(data.size());
@@ -103,10 +104,11 @@ auto VariantStore::FlushAll(VcfWriter* out) -> bool {
     variantIDsToFlush.insert(variantIDsToFlush.end(), window.cbegin(), window.cend());
   }
 
-  return !variantIDsToFlush.empty() && FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out);
+  return !variantIDsToFlush.empty() && FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, contig_ids);
 }
 
-auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out) -> bool {
+auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out,
+                                 const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   std::vector<Variant> variantsToFlush;
   variantsToFlush.reserve(variant_ids.size());
 
@@ -116,7 +118,14 @@ auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, Vc
     variantsToFlush.emplace_back(handle.mapped());
   }
 
-  std::sort(variantsToFlush.begin(), variantsToFlush.end());
+  std::sort(variantsToFlush.begin(), variantsToFlush.end(),
+            [&contig_ids](const Variant& v1, const Variant& v2) -> bool {
+              if (v1.ChromName != v2.ChromName) return contig_ids.at(v1.ChromName) < contig_ids.at(v2.ChromName);
+              if (v1.Position != v2.Position) return v1.Position < v2.Position;
+              if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
+              return v1.AltAllele < v2.AltAllele;
+            });
+
   for (const auto& v : variantsToFlush) {
     const auto status = out->Write(v.MakeVcfLine(*params));
     if (!status.ok()) {

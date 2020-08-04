@@ -10,7 +10,6 @@
 #include "absl/types/span.h"
 #include "htslib/sam.h"
 #include "lancet/fractional_sampler.h"
-#include "lancet/natural_compare.h"
 
 namespace lancet {
 ReadExtractor::ReadExtractor(std::shared_ptr<const CliParams> p, GenomicRegion reg)
@@ -80,10 +79,10 @@ void ReadExtractor::ExtractPairs(HtsReader* rdr, const absl::flat_hash_map<std::
   mateRegions.reserve(mate_info.size());
   std::for_each(mate_info.cbegin(), mate_info.cend(),
                 [&mateRegions](const auto& kv) { mateRegions.emplace_back(kv.second); });
-  std::sort(mateRegions.begin(), mateRegions.end(), [](const GenomicRegion& gr1, const GenomicRegion& gr2) -> bool {
-    if (NaturalCompareLt(gr1.Chromosome(), gr2.Chromosome())) return true;
-    if (gr1.StartPosition1() < gr2.StartPosition1()) return true;
-    return gr1.EndPosition1() <= gr2.EndPosition1();
+  std::sort(mateRegions.begin(), mateRegions.end(), [&rdr](const GenomicRegion& gr1, const GenomicRegion& gr2) -> bool {
+    if (gr1.Chromosome() != gr2.Chromosome()) return rdr->ContigID(gr1.Chromosome()) < rdr->ContigID(gr2.Chromosome());
+    if (gr1.StartPosition1() != gr2.StartPosition1()) return gr1.StartPosition1() < gr2.StartPosition1();
+    return gr1.EndPosition1() < gr2.EndPosition1();
   });
 
   const auto jumpStatus = rdr->SetRegions(absl::MakeConstSpan(mateRegions));

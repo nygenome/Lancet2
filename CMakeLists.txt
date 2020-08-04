@@ -45,7 +45,6 @@ add_library(lancet_core STATIC
         include/lancet/logger.h src/logger.cpp
         include/lancet/timer.h
         include/lancet/fractional_sampler.h
-        include/lancet/natural_compare.h src/natural_compare.cpp
         include/lancet/statusor_internals.h
         include/lancet/statusor.h src/statusor.cpp
         include/lancet/utils.h src/utils.cpp

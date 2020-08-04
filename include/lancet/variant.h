@@ -33,7 +33,6 @@ class Variant {
 
   auto operator==(const Variant& other) const -> bool { return this->ID() == other.ID(); }
   auto operator!=(const Variant& other) const -> bool { return this->ID() != other.ID(); }
-  auto operator<(const Variant& other) const -> bool;
 
  private:
   static auto Genotype(int ref, int alt) -> std::string;

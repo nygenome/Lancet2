@@ -28,7 +28,8 @@ class FastaReader {
 
   [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
 
-  [[nodiscard]] auto ContigId(std::string_view contig) const -> StatusOr<std::int64_t>;
+  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t>;
+  [[nodiscard]] auto ContigID(std::string_view contig) const -> StatusOr<std::int64_t>;
   [[nodiscard]] auto ContigLength(std::string_view contig) const -> StatusOr<std::int64_t>;
 
  private:

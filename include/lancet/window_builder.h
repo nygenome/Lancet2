@@ -36,7 +36,8 @@ class WindowBuilder {
   /// 2. Add `regionPadding` to each input region from the previous step
   /// 3. Build result windows each `windowLength` in length and
   ///    overlap of `pctWindowOverlap`% between consecutive windows
-  [[nodiscard]] auto BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>>;
+  [[nodiscard]] auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t>& contig_ids,
+                                  bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>>;
 
   [[nodiscard]] static auto StepSize(std::uint32_t pct_overlap, std::uint32_t window_length) -> std::int64_t;
 
@@ -63,5 +64,6 @@ class WindowBuilder {
 /// 3. Build result windows each `windowLength` in length and
 ///    overlap of `pctWindowOverlap`% between consecutive windows
 /// NOTE: calls std::exit on failure
-[[nodiscard]] auto BuildWindows(const CliParams& params) -> std::vector<ConstWindowPtr>;
+[[nodiscard]] auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t>& contig_ids,
+                                const CliParams& params) -> std::vector<ConstWindowPtr>;
 }  // namespace lancet
