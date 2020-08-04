@@ -122,7 +122,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     }
 
     if (allWindowsUptoDone(idxToFlush + numBufferWindows) && storePtr->FlushWindow(idxToFlush, &outVcf)) {
-      DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush].ToRegionString());
+      DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
       idxToFlush++;
     }
   }
