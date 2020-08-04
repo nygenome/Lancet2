@@ -201,6 +201,7 @@ auto BuildWindows(const CliParams &params) -> std::vector<ConstWindowPtr> {
   }
 
   if (wb.IsEmpty()) {
+    InfoLog("No input regions provided to process. Using all reference contigs in fasta as input");
     wb.AddAllRefRegions();
   }
 
