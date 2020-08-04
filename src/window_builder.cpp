@@ -55,11 +55,10 @@ auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::ve
     const auto &region = paddedResult.ValueOrDie();
 
     if (region.Length() <= windowLength) {
-      auto w = std::make_shared<RefWindow>(region);
-      const auto regResult = refRdr.RegionSequence(w->ToGenomicRegion());
+      results.emplace_back(std::make_shared<RefWindow>(region));
+      const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
       if (!regResult.ok()) return regResult.status();
-      w->SetSequence(regResult.ValueOrDie());
-      results.emplace_back(std::move(w));
+      results.back()->SetSequence(regResult.ValueOrDie());
     }
 
     std::int64_t currWindowStart = region.StartPosition0();
@@ -68,21 +67,20 @@ auto WindowBuilder::BuildWindows(bool skip_trunc_seqs) const -> StatusOr<std::ve
     while (currWindowStart < maxWindowPos) {
       const std::int64_t currWindowEnd = currWindowStart + windowLength;
 
-      auto w = std::make_shared<RefWindow>();
-      w->SetChromosome(region.Chromosome());
-      w->SetStartPosition0(currWindowStart);
-      w->SetEndPosition0(currWindowEnd);
-      const auto regResult = refRdr.RegionSequence(w->ToGenomicRegion());
+      results.emplace_back(std::make_shared<RefWindow>());
+      results.back()->SetChromosome(region.Chromosome());
+      results.back()->SetStartPosition0(currWindowStart);
+      results.back()->SetEndPosition0(currWindowEnd);
+      const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
       if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && skip_trunc_seqs) {
-        WarnLog("Skipping window %s with truncated reference sequence in fasta", w->ToRegionString());
+        WarnLog("Skipping window %s with truncated reference sequence in fasta", results.back()->ToRegionString());
         currWindowStart += stepSize;
         continue;
       }
 
       if (!regResult.ok() && !skip_trunc_seqs) return regResult.status();
-      w->SetSequence(regResult.ValueOrDie());
-      assert(w->SeqView().length() == windowLength);  // NOLINT
-      results.emplace_back(std::move(w));
+      results.back()->SetSequence(regResult.ValueOrDie());
+      assert(results.back()->SeqView().length() == windowLength);  // NOLINT
       currWindowStart += stepSize;
     }
   }
