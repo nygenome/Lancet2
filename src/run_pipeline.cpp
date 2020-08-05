@@ -133,7 +133,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
       idxToFlush++;
     }
 
-    if (idxToFlush > 0 && idxToFlush % 10) outVcf.Flush();
+    if (idxToFlush > 0 && (idxToFlush % 10) == 0) outVcf.Flush();
   }
 
   storePtr->FlushAll(&outVcf, contigIDs);
