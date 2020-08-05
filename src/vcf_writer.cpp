@@ -22,6 +22,11 @@ class VcfWriter::Impl {
     return numWritten == record.length() ? absl::OkStatus() : absl::InternalError("could not write to BGZF handle");
   }
 
+  void Flush() {
+    if (fp == nullptr || isClosed) return;
+    if (bgzf_flush(fp) != 0) throw std::runtime_error("could not flush variants to vcf");
+  }
+
   void Close() {
     if (fp == nullptr || isClosed) return;
     bgzf_close(fp);
@@ -37,5 +42,6 @@ class VcfWriter::Impl {
 VcfWriter::VcfWriter(const std::filesystem::path& out_path) : pimpl(std::make_unique<Impl>(out_path)) {}
 VcfWriter::~VcfWriter() { Close(); }
 auto VcfWriter::Write(std::string_view record) -> absl::Status { return pimpl->Write(record); }
+void VcfWriter::Flush() { return pimpl->Flush(); }
 void VcfWriter::Close() { return pimpl->Close(); }
 }  // namespace lancet

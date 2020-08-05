@@ -20,6 +20,7 @@ class VcfWriter {
 
   auto Write(std::string_view record) -> absl::Status;
 
+  void Flush();
   void Close();
 
  private:
