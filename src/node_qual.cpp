@@ -1,6 +1,6 @@
 #include "lancet/node_qual.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 
 #include "absl/types/span.h"
 #include "lancet/merge_node_info.h"
@@ -13,7 +13,7 @@ void NodeQual::MergeBuddy(const NodeQual &buddy, BuddyPosition dir, bool reverse
 }
 
 void NodeQual::Push(absl::string_view sv) {
-  assert(data.size() == sv.size());  // NOLINT
+  LANCET_ASSERT(data.size() == sv.size());  // NOLINT
 
   for (std::size_t idx = 0; idx < sv.size(); idx++) {
     data[idx].Add(static_cast<double>(sv[idx]));

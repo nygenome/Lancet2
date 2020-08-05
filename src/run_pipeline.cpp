@@ -8,6 +8,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
 #include "lancet/logger.h"
@@ -22,11 +23,11 @@ namespace lancet {
 static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string> {
   HtsReader rdrN(p.normalPath, p.referencePath);
   const auto resultN = rdrN.SampleNames();
-  assert(resultN.size() == 1);  // NOLINT
+  LANCET_ASSERT(resultN.size() == 1);  // NOLINT
 
   HtsReader rdrT(p.tumorPath, p.referencePath);
   const auto resultT = rdrT.SampleNames();
-  assert(resultT.size() == 1);  // NOLINT
+  LANCET_ASSERT(resultT.size() == 1);  // NOLINT
 
   if (resultN.size() != 1 || resultT.size() != 1) {
     throw std::runtime_error("expected both tumor and normal BAM/CRAMs to have one sample name");

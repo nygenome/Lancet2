@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <limits>
 
 #include "lancet/utils.h"
@@ -125,7 +125,7 @@ auto Node::MinSampleBaseCov(bool bq_pass) const -> std::uint16_t {
   auto result = std::numeric_limits<std::uint16_t>::max();
   const auto tmrCovs = covs.BaseCovs(SampleLabel::TUMOR);
   const auto nmlCovs = covs.BaseCovs(SampleLabel::NORMAL);
-  assert(tmrCovs.size() == nmlCovs.size());  // NOLINT
+  LANCET_ASSERT(tmrCovs.size() == nmlCovs.size());  // NOLINT
 
   for (std::size_t idx = 0; idx < tmrCovs.size(); idx++) {
     const auto totalCov = bq_pass ? tmrCovs[idx].BQPassTotalCov() + nmlCovs[idx].BQPassTotalCov()

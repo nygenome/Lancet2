@@ -1,12 +1,12 @@
 #include "lancet/graph.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <deque>
 
 #include "absl/container/btree_set.h"
 #include "lancet/align.h"
+#include "lancet/assert_macro.h"
 #include "lancet/canonical_kmers.h"
 #include "lancet/dot_serializer.h"
 #include "lancet/edmond_karp.h"
@@ -96,7 +96,7 @@ void Graph::MarkConnectedComponents() {
 #ifndef NDEBUG
   static const auto isUnassigned = [](NodeContainer::const_reference p) { return p.second->ComponentID == 0; };
 #endif
-  assert(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == nodesMap.size());  // NOLINT
+  LANCET_ASSERT(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == nodesMap.size());  // NOLINT
 
   for (NodeContainer::reference p : nodesMap) {
     if (p.second->ComponentID != 0) continue;
@@ -109,7 +109,7 @@ void Graph::MarkConnectedComponents() {
 
     while (!connectedNodes.empty()) {
       auto* currNode = connectedNodes.front();
-      assert(currNode != nullptr);  // NOLINT
+      LANCET_ASSERT(currNode != nullptr);  // NOLINT
 
       if (currNode->ComponentID != 0) {
         connectedNodes.pop_front();
@@ -120,8 +120,8 @@ void Graph::MarkConnectedComponents() {
       componentsInfo[currentComponent - 1].numNodes += 1;
       for (const Edge& e : *currNode) {
         const auto neighbourItr = nodesMap.find(e.DestinationID());
-        assert(neighbourItr != nodesMap.end());   // NOLINT
-        assert(neighbourItr->second != nullptr);  // NOLINT
+        LANCET_ASSERT(neighbourItr != nodesMap.end());   // NOLINT
+        LANCET_ASSERT(neighbourItr->second != nullptr);  // NOLINT
         connectedNodes.push_back(neighbourItr->second.get());
       }
 
@@ -129,7 +129,7 @@ void Graph::MarkConnectedComponents() {
     }
   }
 
-  assert(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == 0);  // NOLINT
+  LANCET_ASSERT(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == 0);  // NOLINT
   DebugLog("Marked %d components in graph for %s", componentsInfo.size(), window->ToRegionString());
 }
 
@@ -148,10 +148,10 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
   auto fauxSnkItr = nodesMap.find(MOCK_SINK_ID);
   auto dataSrcItr = nodesMap.find(srcResult.nodeId);
   auto dataSnkItr = nodesMap.find(snkResult.nodeId);
-  assert(fauxSrcItr != nodesMap.end());  // NOLINT
-  assert(fauxSnkItr != nodesMap.end());  // NOLINT
-  assert(dataSrcItr != nodesMap.end());  // NOLINT
-  assert(dataSnkItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(fauxSrcItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(fauxSnkItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(dataSrcItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(dataSnkItr != nodesMap.end());  // NOLINT
 
   DisconnectEdges(dataSrcItr, nodesMap, ReverseStrand(dataSrcItr->second->Orientation()));
   DisconnectEdges(dataSnkItr, nodesMap, dataSnkItr->second->Orientation());
@@ -288,8 +288,8 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
   if (pathSeq == refAnchorSeq) return {};
 
   // check that reference seq length and reference data lengths are same
-  assert(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
-  assert(refAnchorSeq.length() == ref_infos[1].length());  // NOLINT
+  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
+  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[1].length());  // NOLINT
 
   AlignedSequences rawAlignedSeqs;  // need to create this because `goto`
   auto aligned = AlignedSequencesView{refAnchorSeq, pathSeq};
@@ -300,12 +300,12 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
   aligned.qry = rawAlignedSeqs.qry;
 
 SkipLocalAlignment:
-  assert(aligned.ref.length() == aligned.qry.length());  // NOLINT
+  LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
 
   // check that ends (source and sink) match the reference
-  assert(aligned.ref[0] != ALIGNMENT_GAP && aligned.qry[0] != ALIGNMENT_GAP);  // NOLINT
-  assert(aligned.ref[aligned.ref.length() - 1] != ALIGNMENT_GAP);              // NOLINT
-  assert(aligned.qry[aligned.qry.length() - 1] != ALIGNMENT_GAP);              // NOLINT
+  LANCET_ASSERT(aligned.ref[0] != ALIGNMENT_GAP && aligned.qry[0] != ALIGNMENT_GAP);  // NOLINT
+  LANCET_ASSERT(aligned.ref[aligned.ref.length() - 1] != ALIGNMENT_GAP);              // NOLINT
+  LANCET_ASSERT(aligned.qry[aligned.qry.length() - 1] != ALIGNMENT_GAP);              // NOLINT
 
   // 0-based reference anchor position in absolute chromosome coordinates
   const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
@@ -343,7 +343,7 @@ SkipLocalAlignment:
     const auto genomeRefPos = anchorStartGenome + refIdx + 1;  // 1-based genome position
 
     const auto* spanner = path.FindSpanningNode(pathPos, kmerSize);
-    assert(spanner != nullptr);  // NOLINT
+    LANCET_ASSERT(spanner != nullptr);  // NOLINT
     const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
 
     // compute previous base to the current event for both
@@ -352,7 +352,7 @@ SkipLocalAlignment:
     auto prevPathIdx = idx - 1;
 
     // must always be true because we force the ref-path alignment to always align at source and sink.
-    assert(idx > 0);  // NOLINT
+    LANCET_ASSERT(idx > 0);  // NOLINT
     while (aligned.ref[prevRefIdx] != 'A' && aligned.ref[prevRefIdx] != 'C' && aligned.ref[prevRefIdx] != 'G' &&
            aligned.ref[prevRefIdx] != 'T') {
       --prevRefIdx;
@@ -362,9 +362,9 @@ SkipLocalAlignment:
       --prevPathIdx;
     }
 
-    assert(pathIdx < path.Length());         // NOLINT
-    assert(refIdx < ref_infos[0].length());  // NOLINT
-    assert(refIdx < ref_infos[1].length());  // NOLINT
+    LANCET_ASSERT(pathIdx < path.Length());         // NOLINT
+    LANCET_ASSERT(refIdx < ref_infos[0].length());  // NOLINT
+    LANCET_ASSERT(refIdx < ref_infos[1].length());  // NOLINT
 
     // create new transcript if we are sure that we can't extend a previous event
     if (transcripts.empty() || prevCode == TranscriptCode::REF_MATCH) {
@@ -438,7 +438,7 @@ SkipLocalAlignment:
           const auto currRefIdx = transcript.ref_end_offset() + pos;
 
           const auto* spanner = path.FindSpanningNode(currPathIdx, k);
-          assert(spanner != nullptr);  // NOLINT
+          LANCET_ASSERT(spanner != nullptr);  // NOLINT
           constexpr double minRatioForSomatic = 0.8;
           if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.set_somatic_status(true);
 
@@ -507,7 +507,7 @@ auto Graph::FindRefEnd(GraphEnd k, std::size_t comp_id, absl::Span<const NodeIde
     const auto itr = nodesMap.find(ref_mer_hashes[merIndex]);
     if (itr == nodesMap.end()) continue;
 
-    assert(itr->second != nullptr && !itr->second->IsMockNode());  // NOLINT
+    LANCET_ASSERT(itr->second != nullptr && !itr->second->IsMockNode());  // NOLINT
     if (itr->second->ComponentID != comp_id || itr->second->TotalSampleCount() < minEndCov) continue;
 
     const auto resultMerIdx = k == GraphEnd::SOURCE ? merIndex : (numRefMers - merIndex - 1);
@@ -521,14 +521,14 @@ auto Graph::FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btr
   if (src_id == MOCK_SOURCE_ID || src_id == MOCK_SINK_ID) return {};
 
   const auto srcItr = nodesMap.find(src_id);
-  assert(srcItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(srcItr != nodesMap.end());  // NOLINT
   const auto srcNeighbours = srcItr->second->FindMergeableNeighbours();
   if (srcNeighbours.empty()) return {};
 
   absl::btree_set<NodeNeighbour> results;
   for (const auto& srcNbour : srcNeighbours) {
     const auto buddyItr = nodesMap.find(srcNbour.buddyId);
-    assert(buddyItr != nodesMap.end());  // NOLINT
+    LANCET_ASSERT(buddyItr != nodesMap.end());  // NOLINT
     const auto buddysNeighbours = buddyItr->second->FindMergeableNeighbours();
     const auto areMututalBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
                                                [&src_id](const NodeNeighbour& n) { return n.buddyId == src_id; });
@@ -546,7 +546,7 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
   if (buddies.empty() || buddies.size() > 2) return;
 
   const auto srcItr = nodesMap.find(src_id);
-  assert(srcItr != nodesMap.end());  // NOLINT
+  LANCET_ASSERT(srcItr != nodesMap.end());  // NOLINT
 
   absl::btree_set<NodeNeighbour> remaining;
   std::for_each(buddies.cbegin(), buddies.cend(), [&compressed, &remaining](const NodeNeighbour& n) {
@@ -555,9 +555,9 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
 
   while (!remaining.empty() && remaining.size() <= 2) {
     const auto srcToBuddy = *remaining.cbegin();
-    assert(compressed->find(srcToBuddy.buddyId) == compressed->end());  // NOLINT
+    LANCET_ASSERT(compressed->find(srcToBuddy.buddyId) == compressed->end());  // NOLINT
     const auto buddyItr = nodesMap.find(srcToBuddy.buddyId);
-    assert(buddyItr != nodesMap.end());  // NOLINT
+    LANCET_ASSERT(buddyItr != nodesMap.end());  // NOLINT
 
     const auto mergeDir = SourceStrand(srcToBuddy.edgeKind) == Strand::FWD ? BuddyPosition::FRONT : BuddyPosition::BACK;
     srcItr->second->MergeBuddy(*buddyItr->second, mergeDir, kmerSize);
@@ -570,7 +570,7 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
       if (buddyNeighbourId == src_id) continue;
 
       auto buddysNeighbourItr = nodesMap.find(buddyNeighbourId);
-      assert(buddysNeighbourItr != nodesMap.end());  // NOLINT
+      LANCET_ASSERT(buddysNeighbourItr != nodesMap.end());  // NOLINT
 
       const auto srcLinkStrand = srcBuddyDiffStrands ? ReverseStrand(buddyE.SrcDirection()) : buddyE.SrcDirection();
       const auto resultKind = MakeEdgeKind(srcLinkStrand, buddyE.DstDirection());
@@ -620,8 +620,8 @@ auto Graph::ClampToSourceSink(const RefInfos& refs, const MarkSourceSinkResult& 
 void Graph::ResetSourceSink(const NodeContainer& nc, std::size_t current_component) {
   const auto fauxSrcItr = nc.find(MOCK_SOURCE_ID);
   const auto fauxSnkItr = nc.find(MOCK_SINK_ID);
-  assert(fauxSrcItr != nc.end());  // NOLINT
-  assert(fauxSnkItr != nc.end());  // NOLINT
+  LANCET_ASSERT(fauxSrcItr != nc.end());  // NOLINT
+  LANCET_ASSERT(fauxSnkItr != nc.end());  // NOLINT
 
   fauxSrcItr->second->ComponentID = current_component;
   fauxSnkItr->second->ComponentID = current_component;
@@ -630,7 +630,7 @@ void Graph::ResetSourceSink(const NodeContainer& nc, std::size_t current_compone
 }
 
 void Graph::DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand direction) {
-  assert(itr != nc.end());  // NOLINT
+  LANCET_ASSERT(itr != nc.end());  // NOLINT
 
   for (const Edge& e : *itr->second) {
     if (e.DestinationID() == itr->first || e.SrcDirection() != direction) continue;

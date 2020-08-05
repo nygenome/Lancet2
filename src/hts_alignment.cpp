@@ -1,6 +1,6 @@
 #include "lancet/hts_alignment.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <cstddef>
 
 #include "absl/strings/ascii.h"
@@ -10,7 +10,7 @@ namespace lancet {
 auto HtsAlignment::BuildReadInfo(SampleLabel label, std::uint8_t min_bq, std::uint8_t max_kmer_size) -> ReadInfo {
   const auto seqLen = readSequence.length();
   const auto qualLen = readQuality.length();
-  assert(seqLen == qualLen);  // NOLINT
+  LANCET_ASSERT(seqLen == qualLen);  // NOLINT
 
   std::size_t trim5 = 0;
   for (trim5 = 0; trim5 < seqLen; ++trim5) {

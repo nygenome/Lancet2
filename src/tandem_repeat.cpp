@@ -1,7 +1,7 @@
 #include "lancet/tandem_repeat.h"
 
 #include <array>
-#include <cassert>
+#include "lancet/assert_macro.h"
 
 namespace lancet {
 auto FindTandemRepeat(std::string_view seq, std::size_t pos, const TandemRepeatParams& params) -> TandemRepeatResult {
@@ -37,7 +37,7 @@ auto FindTandemRepeat(std::string_view seq, std::size_t pos, const TandemRepeatP
 
       // is endIdx the end of the tandem?
       if (endIdx != merlen || seqIdx + endIdx + 1 == seq.length()) {
-        assert(offset + merlen - 1 < seq.length());  // NOLINT
+        LANCET_ASSERT(offset + merlen - 1 < seq.length());  // NOLINT
 
         // am i the leftmost version of this tandem?
         if (offset == 0 || seq[offset - 1] != seq[offset + merlen - 1]) {

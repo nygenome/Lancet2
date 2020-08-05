@@ -1,7 +1,7 @@
 #include "lancet/base_hpcov.h"
 
 #include <algorithm>
-#include <cassert>
+#include "lancet/assert_macro.h"
 
 namespace lancet {
 BaseHpCov::BaseHpCov(const BaseCov& cov) : BaseHpCov(cov, MakeDefaultHP(cov)) {}
@@ -18,7 +18,7 @@ auto BuildHPCovs(absl::Span<const BaseCov> covs) -> std::vector<BaseHpCov> {
 }
 
 auto BuildHPCovs(absl::Span<const BaseCov> covs, absl::Span<const BaseHP> hps) -> std::vector<BaseHpCov> {
-  assert(covs.size() == hps.size());  // NOLINT
+  LANCET_ASSERT(covs.size() == hps.size());  // NOLINT
   std::vector<BaseHpCov> result;
   result.reserve(covs.size());
   for (std::size_t idx = 0; idx < covs.size(); idx++) result.emplace_back(covs[idx], hps[idx]);

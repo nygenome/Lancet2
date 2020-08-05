@@ -1,6 +1,6 @@
 #include "lancet/canonical_kmers.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 
 #include "absl/strings/string_view.h"
 
@@ -11,7 +11,7 @@ auto KMovingSubstrs(std::string_view sv, std::size_t k) -> absl::FixedArray<std:
 
   for (std::size_t offset = 0; offset <= endPos; offset++) {
     const auto subSeq = absl::ClippedSubstr(sv, offset, k);
-    assert(subSeq.length() == k);  // NOLINT
+    LANCET_ASSERT(subSeq.length() == k);  // NOLINT
     result[offset] = std::string(subSeq);
   }
 
@@ -24,7 +24,7 @@ auto CanonicalKmers(std::string_view sv, std::size_t k) -> absl::FixedArray<Kmer
 
   for (std::size_t offset = 0; offset <= endPos; offset++) {
     const auto subSeq = absl::ClippedSubstr(sv, offset, k);
-    assert(subSeq.length() == k);  // NOLINT
+    LANCET_ASSERT(subSeq.length() == k);  // NOLINT
     result[offset] = Kmer(subSeq);
   }
 
@@ -37,7 +37,7 @@ auto CanonicalKmerHashes(std::string_view sv, std::size_t k) -> absl::FixedArray
 
   for (std::size_t offset = 0; offset <= endPos; offset++) {
     const auto subSeq = absl::ClippedSubstr(sv, offset, k);
-    assert(subSeq.length() == k);  // NOLINT
+    LANCET_ASSERT(subSeq.length() == k);  // NOLINT
     result[offset] = Kmer(subSeq).ID();
   }
 

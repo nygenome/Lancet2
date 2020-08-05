@@ -43,7 +43,7 @@ include(sanitizers)
 # Add lancet core library target
 add_library(lancet_core STATIC
         include/lancet/logger.h src/logger.cpp
-        include/lancet/timer.h
+        include/lancet/assert_macro.h include/lancet/timer.h
         include/lancet/fractional_sampler.h
         include/lancet/statusor_internals.h
         include/lancet/statusor.h src/statusor.cpp

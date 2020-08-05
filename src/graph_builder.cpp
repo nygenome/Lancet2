@@ -1,6 +1,6 @@
 #include "lancet/graph_builder.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <utility>
 
 #include "absl/container/flat_hash_set.h"
@@ -47,12 +47,12 @@ void GraphBuilder::BuildSampleNodes() {
   // mateMer -> readName, kmerHash
   using MateMer = std::pair<std::string, std::uint64_t>;
   absl::flat_hash_set<MateMer> seenMateMers;
-  assert(!sampleReads.empty());  // NOLINT
+  LANCET_ASSERT(!sampleReads.empty());  // NOLINT
 
   for (const auto& rd : sampleReads) {
     const auto result = BuildNodes(rd.sequence);
     const auto qualMers = KMovingSubstrs(rd.quality, currentK);
-    assert(result.nodeIDs.size() == qualMers.size());  // NOLINT
+    LANCET_ASSERT(result.nodeIDs.size() == qualMers.size());  // NOLINT
 
     for (std::size_t idx = 0; idx < result.nodeIDs.size() - 1; idx++) {
       const auto firstId = result.nodeIDs[idx];
@@ -60,8 +60,8 @@ void GraphBuilder::BuildSampleNodes() {
 
       auto itr1 = nodesMap.find(firstId);
       auto itr2 = nodesMap.find(secondId);
-      assert(itr1 != nodesMap.end());  // NOLINT
-      assert(itr2 != nodesMap.end());  // NOLINT
+      LANCET_ASSERT(itr1 != nodesMap.end());  // NOLINT
+      LANCET_ASSERT(itr2 != nodesMap.end());  // NOLINT
 
       const auto firstEk = MakeEdgeKind(itr1->second->Orientation(), itr2->second->Orientation());
       itr1->second->EmplaceEdge(secondId, firstEk);
@@ -231,8 +231,8 @@ void GraphBuilder::BuildRefData(absl::Span<const std::size_t> ref_mer_hashes) {
   refTmrData = params->tenxMode ? BuildHPCovs(refCovs.BaseCovs(SampleLabel::TUMOR), refHPs.BaseHPs(SampleLabel::TUMOR))
                                 : BuildHPCovs(refCovs.BaseCovs(SampleLabel::TUMOR));
 
-  assert(refNmlData.size() == params->windowLength);  // NOLINT
-  assert(refTmrData.size() == params->windowLength);  // NOLINT
+  LANCET_ASSERT(refNmlData.size() == params->windowLength);  // NOLINT
+  LANCET_ASSERT(refTmrData.size() == params->windowLength);  // NOLINT
 }
 
 auto GraphBuilder::MutateSeq(absl::string_view seq, std::size_t base_pos) -> std::vector<std::string> {

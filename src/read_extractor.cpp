@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "lancet/assert_macro.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
@@ -175,15 +176,15 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
       switch (cigUnit.Operation) {
         case CigarOp::INSERTION:
           incrementGPos(insertions, currGPos);
-          assert(!insertions.empty());  // NOLINT
+          LANCET_ASSERT(!insertions.empty());  // NOLINT
           break;
         case CigarOp::DELETION:
           incrementGPos(deletions, currGPos);
-          assert(!deletions.empty());  // NOLINT
+          LANCET_ASSERT(!deletions.empty());  // NOLINT
           break;
         case CigarOp::SEQUENCE_MISMATCH:
           incrementGPos(mismatches, currGPos);
-          assert(!mismatches.empty());  // NOLINT
+          LANCET_ASSERT(!mismatches.empty());  // NOLINT
           break;
         case CigarOp::SOFT_CLIP:
           hasSoftClip = true;
@@ -196,7 +197,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
     genomePositions.clear();
     if (hasSoftClip && aln.SoftClips(nullptr, nullptr, &genomePositions, false)) {
       for (const auto gpos : genomePositions) incrementGPos(softclips, gpos);
-      assert(!softclips.empty());  // NOLINT
+      LANCET_ASSERT(!softclips.empty());  // NOLINT
     }
 
     // if evidence of SNV/insertion/deletion/softclip is found in window, mark region as active

@@ -1,7 +1,7 @@
 #include "lancet/variant.h"
 
 #include <algorithm>
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <vector>
 
 #include "absl/hash/internal/city.h"
@@ -21,7 +21,7 @@ Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
       KmerSize(kmer_size),
       TumorCov(transcript.variant_coverage(SampleLabel::TUMOR)),
       NormalCov(transcript.variant_coverage(SampleLabel::NORMAL)) {
-  assert(Kind != TranscriptCode::REF_MATCH);  // NOLINT
+  LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH);  // NOLINT
 
   // get rid of alignment skip chars `-` in ref and alt alleles
   RefAllele.erase(std::remove(RefAllele.begin(), RefAllele.end(), '-'), RefAllele.end());
@@ -35,11 +35,11 @@ Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
       break;
     case TranscriptCode::INSERTION:
       Length = AltAllele.length();
-      assert(RefAllele.empty());  // NOLINT
+      LANCET_ASSERT(RefAllele.empty());  // NOLINT
       break;
     case TranscriptCode::DELETION:
       Length = RefAllele.length();
-      assert(AltAllele.empty());  // NOLINT
+      LANCET_ASSERT(AltAllele.empty());  // NOLINT
       break;
     case TranscriptCode::COMPLEX:
       Length = refLen == altLen ? altLen : refLen > altLen ? (refLen - altLen) : (altLen - refLen);
@@ -64,7 +64,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
       FisherExact::Test(TumorCov.refAl.fwdCov, TumorCov.refAl.revCov, TumorCov.altAl.fwdCov, TumorCov.altAl.revCov));
 
   const auto varState = ComputeState();
-  assert(varState != VariantState::NONE);  // NOLINT
+  LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
   auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
                               ToString(Kind), Length, KmerSize, strandBiasScore);

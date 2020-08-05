@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "lancet/assert_macro.h"
 #include "lancet/merge_node_info.h"
 #include "lancet/utils.h"
 
@@ -9,7 +10,7 @@ namespace lancet {
 PathBuilder::PathBuilder(std::size_t k, bool is_tenx_mode) : kmerSize(k), isTenxMode(is_tenx_mode) {}
 
 void PathBuilder::Extend(const Edge &link, const Node *destination) {
-  assert(!destination->IsMockNode());  // NOLINT
+  LANCET_ASSERT(!destination->IsMockNode());  // NOLINT
   nodesList.push_back(destination);
   edgesList.push_back(link);
   pathDir = link.DstDirection();
@@ -27,7 +28,7 @@ auto PathBuilder::BuildPath() const -> std::unique_ptr<Path> {
 auto PathBuilder::BuildPathSeq() const -> std::string {
   std::string result;
   result.reserve(pathLen);
-  assert(!nodesList.empty() && !edgesList.empty() && nodesList.size() == edgesList.size());  // NOLINT
+  LANCET_ASSERT(!nodesList.empty() && !edgesList.empty() && nodesList.size() == edgesList.size());  // NOLINT
 
   for (const auto &node : nodesList) {
     if (result.empty()) {
@@ -46,7 +47,7 @@ auto PathBuilder::BuildPathSeq() const -> std::string {
               : utils::PushSeq(&result, result.end(), node->SeqView(), kmerSize - 1, node->Length());
   }
 
-  assert(result.length() == pathLen);  // NOLINT
+  LANCET_ASSERT(result.length() == pathLen);  // NOLINT
   return result;
 }
 
@@ -56,7 +57,7 @@ auto PathBuilder::BuildPathCov() const -> NodeCov {
   for (const auto &node : nodesList) {
     result.MergeBuddy(node->CovData(), BuddyPosition::FRONT, node->Orientation() == Strand::REV, kmerSize);
   }
-  assert(result.Size() == pathLen);  // NOLINT
+  LANCET_ASSERT(result.Size() == pathLen);  // NOLINT
   return result;
 }
 
@@ -66,7 +67,7 @@ auto PathBuilder::BuildPathHP() const -> NodeHP {
   for (const auto &node : nodesList) {
     result.MergeBuddy(node->HPData(), BuddyPosition::FRONT, node->Orientation() == Strand::REV, kmerSize);
   }
-  assert(result.Size() == pathLen);  // NOLINT
+  LANCET_ASSERT(result.Size() == pathLen);  // NOLINT
   return result;
 }
 }  // namespace lancet

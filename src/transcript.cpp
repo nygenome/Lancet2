@@ -1,6 +1,6 @@
 #include "lancet/transcript.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <cmath>
 
 #include "absl/strings/str_format.h"
@@ -110,7 +110,7 @@ auto Transcript::add_coverage(SampleLabel label, Allele al, const BaseHpCov& c) 
     return *this;
   }
 
-  assert(label == SampleLabel::NORMAL);  // NOLINT
+  LANCET_ASSERT(label == SampleLabel::NORMAL);  // NOLINT
   al == Allele::REF ? sampleCovs[0].PushRef(c) : sampleCovs[0].PushAlt(c);
   return *this;
 }

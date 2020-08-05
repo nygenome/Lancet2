@@ -1,6 +1,6 @@
 #include "lancet/edmond_karp.h"
 
-#include <cassert>
+#include "lancet/assert_macro.h"
 #include <deque>
 #include <utility>
 
@@ -11,16 +11,16 @@ namespace lancet {
 EdmondKarpMaxFlow::EdmondKarpMaxFlow(const Graph::NodeContainer *nc, std::size_t kmer_size, std::size_t max_path_len,
                                      std::uint32_t bfs_limit, bool is_tenx_mode)
     : nodesMap(nc), kmerSize(kmer_size), maxPathLen(max_path_len), bfsLimit(bfs_limit), isTenxMode(is_tenx_mode) {
-  assert(nodesMap != nullptr);  // NOLINT
+  LANCET_ASSERT(nodesMap != nullptr);  // NOLINT
 
   const auto srcItr = nodesMap->find(MOCK_SOURCE_ID);
-  assert(srcItr != nodesMap->end() && srcItr->second != nullptr);  // NOLINT
-  assert(srcItr->second->NumEdges() == 1);                         // NOLINT
-  assert(srcItr->second->NumEdges(Strand::FWD) == 1);              // NOLINT
+  LANCET_ASSERT(srcItr != nodesMap->end() && srcItr->second != nullptr);  // NOLINT
+  LANCET_ASSERT(srcItr->second->NumEdges() == 1);                         // NOLINT
+  LANCET_ASSERT(srcItr->second->NumEdges(Strand::FWD) == 1);              // NOLINT
 
   const auto snkItr = nodesMap->find(MOCK_SINK_ID);
-  assert(snkItr != nodesMap->end() && snkItr->second != nullptr);  // NOLINT
-  assert(snkItr->second->NumEdges() == 1);                         // NOLINT
+  LANCET_ASSERT(snkItr != nodesMap->end() && snkItr->second != nullptr);  // NOLINT
+  LANCET_ASSERT(snkItr->second->NumEdges() == 1);                         // NOLINT
 
   sourcePtr = srcItr->second.get();
   sinkPtr = snkItr->second.get();
@@ -38,7 +38,7 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
 
     auto &currBuilder = candidateBuilders.front();
     const auto *lastNode = (currBuilder.NumNodes() == 0 && numVisits == 1) ? sourcePtr : currBuilder.LastNode();
-    assert(lastNode != nullptr);  // NOLINT
+    LANCET_ASSERT(lastNode != nullptr);  // NOLINT
 
     if (currBuilder.TouchedSink() && currBuilder.Score() > 0) {
       if (bestBuilder.IsEmpty() || currBuilder.Score() > bestBuilder.Score()) bestBuilder = currBuilder;
@@ -62,7 +62,7 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
         if (uniqEdgeTouched) extensionBuilder.IncrementScore();
 
         const auto neighbourItr = nodesMap->find(e.DestinationID());
-        assert(neighbourItr != nodesMap->end());  // NOLINT
+        LANCET_ASSERT(neighbourItr != nodesMap->end());  // NOLINT
         extensionBuilder.Extend(e, neighbourItr->second.get());
         candidateBuilders.emplace_back(std::move(extensionBuilder));
       }

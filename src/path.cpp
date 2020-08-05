@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "lancet/assert_macro.h"
+
 namespace lancet {
 Path::Path(absl::FixedArray<const Node *> path_nodes, absl::FixedArray<Edge> path_edges, std::string path_seq,
            NodeCov path_covs, NodeHP path_hps)
@@ -27,7 +29,7 @@ auto Path::FindSpanningNode(std::size_t path_pos, std::size_t curr_k) const -> c
 auto Path::TouchedEdgeIDs() const -> PathNodeIds {
   absl::FixedArray<EdgeNodeIds> result(edgesList.size() + 1);
 
-  assert(!nodesList.empty() && !edgesList.empty() && nodesList.size() == edgesList.size());  // NOLINT
+  LANCET_ASSERT(!nodesList.empty() && !edgesList.empty() && nodesList.size() == edgesList.size());  // NOLINT
 
   auto currentSrcId = MOCK_SOURCE_ID;
   for (std::size_t idx = 0; idx < nodesList.size(); idx++) {

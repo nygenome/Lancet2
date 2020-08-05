@@ -1,11 +1,12 @@
 #include "lancet/merge_node_info.h"
 
+#include "lancet/assert_macro.h"
 #include "lancet/utils.h"
 
 namespace lancet {
 auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition merge_dir, bool reverse_buddy,
                   std::size_t k) -> bool {
-  assert(!source.empty());  // NOLINT
+  LANCET_ASSERT(!source.empty());  // NOLINT
   const auto bSeq = reverse_buddy ? utils::RevComp(buddy) : std::string(buddy);
   std::string_view buddySeq = bSeq;
   if (merge_dir == BuddyPosition::BACK) {
@@ -16,9 +17,9 @@ auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition
 }
 
 void MergeKmerSeqs(std::string* source, std::string_view buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
-  assert(source != nullptr && !source->empty());  // NOLINT
+  LANCET_ASSERT(source != nullptr && !source->empty());  // NOLINT
 #ifndef NDEBUG
-  assert(CanMergeSeqs(*source, buddy, dir, reverse_buddy, k));  // NOLINT
+  LANCET_ASSERT(CanMergeSeqs(*source, buddy, dir, reverse_buddy, k));  // NOLINT
 #endif
 
   switch (dir) {
