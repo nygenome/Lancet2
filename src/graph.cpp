@@ -188,10 +188,11 @@ auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
                 });
 
   if (!nodesToRemove.empty()) {
-    RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
-    DebugLog("Removed %d (%.2f%%) low cov nodes in component%d for %s", nodesToRemove.size(),
+    DebugLog("Removing %d (%.2f%%) low cov nodes in component%d for %s", nodesToRemove.size(),
              100.0 * (static_cast<double>(nodesToRemove.size()) / static_cast<double>(nodesMap.size())), comp_id,
              window->ToRegionString());
+
+    RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
   }
 
   return !nodesToRemove.empty();
