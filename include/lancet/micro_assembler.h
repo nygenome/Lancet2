@@ -7,6 +7,7 @@
 
 #include "absl/status/status.h"
 #include "absl/types/span.h"
+#include "concurrentqueue.h"
 #include "lancet/cli_params.h"
 #include "lancet/notification.h"
 #include "lancet/ref_window.h"
@@ -14,20 +15,23 @@
 #include "lancet/variant_store.h"
 
 namespace lancet {
+using WindowPtr = std::shared_ptr<RefWindow>;
+using ResultNotifierPtr = std::shared_ptr<Notification<std::size_t>>;
+using WindowQueue = moodycamel::ConcurrentQueue<WindowPtr>;
+
 class MicroAssembler {
  public:
-  using NotificationPtr = std::shared_ptr<Notification<std::size_t>>;
-  explicit MicroAssembler(absl::Span<std::shared_ptr<RefWindow>> ws, absl::Span<NotificationPtr> notis,
+  explicit MicroAssembler(std::shared_ptr<WindowQueue> qptr, absl::Span<ResultNotifierPtr> notis,
                           std::shared_ptr<const CliParams> p)
-      : windows(ws), notifiers(notis), params(std::move(p)) {}
+      : windowQPtr(std::move(qptr)), resultNotifiers(notis), params(std::move(p)) {}
 
   MicroAssembler() = default;
 
   [[nodiscard]] auto Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
  private:
-  absl::Span<std::shared_ptr<RefWindow>> windows;
-  absl::Span<NotificationPtr> notifiers;
+  std::shared_ptr<WindowQueue> windowQPtr;
+  absl::Span<ResultNotifierPtr> resultNotifiers;
   std::shared_ptr<const CliParams> params;
 
   [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const RefWindow>& w,

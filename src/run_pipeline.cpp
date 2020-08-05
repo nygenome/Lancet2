@@ -8,6 +8,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "concurrentqueue.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -62,41 +63,39 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);
-  InfoLog("Processing %d windows in %d worker thread(s)", allwindows.size(), params->numWorkerThreads);
 
-  std::vector<std::shared_ptr<Notification<std::size_t>>> notifiers(allwindows.size());
+  std::vector<std::shared_ptr<Notification<std::size_t>>> resultNotifiers(allwindows.size());
   for (std::size_t idx = 0; idx < allwindows.size(); ++idx) {
-    notifiers[idx] = std::make_shared<Notification<std::size_t>>();
+    resultNotifiers[idx] = std::make_shared<Notification<std::size_t>>();
   }
 
-  auto perTWindows = utils::RoundRobinSplit(absl::MakeConstSpan(allwindows), params->numWorkerThreads);
-  auto perTNotifiers = utils::RoundRobinSplit(absl::MakeConstSpan(notifiers), params->numWorkerThreads);
+  const auto windowQueuePtr = std::make_shared<WindowQueue>(allwindows.size());
+  moodycamel::ProducerToken ptok(*windowQueuePtr);
+  windowQueuePtr->enqueue_bulk(ptok, allwindows.begin(), allwindows.size());
 
+  const auto numThreads = static_cast<std::size_t>(params->numWorkerThreads);
   const auto paramsPtr = std::make_shared<const CliParams>(*params);
   const auto storePtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
 
+  InfoLog("Processing %d windows in %d microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<absl::Status>> assemblers;
-  assemblers.reserve(perTWindows.size());
+  assemblers.reserve(numThreads);
 
-  for (std::size_t idx = 0; idx < perTWindows.size(); ++idx) {
-    auto threadWindows = absl::MakeSpan(perTWindows[idx]);
-    auto threadNotifiers = absl::MakeSpan(perTNotifiers[idx]);
-
+  for (std::size_t idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
         std::launch::async,
         [&storePtr](std::unique_ptr<MicroAssembler> m) -> absl::Status { return m->Process(storePtr); },
-        std::make_unique<MicroAssembler>(threadWindows, threadNotifiers, paramsPtr)));
+        std::make_unique<MicroAssembler>(windowQueuePtr, absl::MakeSpan(resultNotifiers), paramsPtr)));
   }
 
-  const auto anyWindowRunning = [&notifiers]() -> bool {
-    return std::any_of(notifiers.cbegin(), notifiers.cend(),
-                       [](const MicroAssembler::NotificationPtr& n) { return n->IsNotDone(); });
+  const auto anyWindowRunning = [&resultNotifiers]() -> bool {
+    return std::any_of(resultNotifiers.cbegin(), resultNotifiers.cend(),
+                       [](const ResultNotifierPtr& n) { return n->IsNotDone(); });
   };
 
-  const auto allWindowsUptoDone = [&notifiers](const std::size_t win_idx) -> bool {
-    auto lastItr = win_idx >= notifiers.size() ? notifiers.cend() : notifiers.cbegin() + win_idx;
-    return std::all_of(notifiers.cbegin(), lastItr,
-                       [](const MicroAssembler::NotificationPtr& n) { return n->IsDone(); });
+  const auto allWindowsUptoDone = [&resultNotifiers](const std::size_t win_idx) -> bool {
+    auto lastItr = win_idx >= resultNotifiers.size() ? resultNotifiers.cend() : resultNotifiers.cbegin() + win_idx;
+    return std::all_of(resultNotifiers.cbegin(), lastItr, [](const ResultNotifierPtr& n) { return n->IsDone(); });
   };
 
   const auto maxFlankLen = static_cast<double>(std::max(params->maxIndelLength, params->windowLength));
@@ -116,7 +115,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   while (anyWindowRunning()) {
     if (idxToFlush == allwindows.size()) break;
 
-    for (const auto& notifier : notifiers) {
+    for (const auto& notifier : resultNotifiers) {
       if (notifier->IsNotDone() || alreadyLogged[notifier->WaitForResult()]) continue;
 
       numDone++;

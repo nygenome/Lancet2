@@ -44,6 +44,14 @@ ExternalProject_Add(htslib
 #FetchContent_Declare(flatbuffers GIT_REPOSITORY https://github.com/google/flatbuffers.git GIT_TAG v1.12.0)
 #FetchContent_MakeAvailable(flatbuffers)
 
+FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.1)
+FetchContent_GetProperties(concurrentqueue)
+if(NOT concurrentqueue_POPULATED)
+    FetchContent_Populate(concurrentqueue)
+    add_library(concurrentqueue INTERFACE)
+    target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
+endif()
+
 FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v1.9.1)
 FetchContent_MakeAvailable(cli11)
 

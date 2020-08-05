@@ -47,6 +47,10 @@ class RefWindow {
     return GenomicRegion(chromName, startPos0 + 1, endPos0);
   }
 
+  [[nodiscard]] auto IsEmpty() const -> bool {
+    return winIdx == 0 && chromName.empty() && sequence.empty() && startPos0 == -1 && endPos0 == -1;
+  }
+
  private:
   std::size_t winIdx = 0;
   std::string chromName;

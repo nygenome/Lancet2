@@ -25,20 +25,6 @@ static constexpr std::uint64_t PRIME_1 = 14480561146010017169LLU;
 
 [[nodiscard]] auto HammingDistWithin(std::string_view s1, std::string_view s2, std::size_t max) -> bool;
 
-template <typename T>
-[[nodiscard]] auto RoundRobinSplit(absl::Span<const T> inlist, std::uint32_t nsplits) -> std::vector<std::vector<T>> {
-  // handle case when inlist.size() < nsplits
-  const auto inSize = inlist.size();
-  const auto usableNSplits = inSize < nsplits ? inSize : static_cast<std::size_t>(nsplits);
-
-  std::vector<std::vector<T>> result(static_cast<std::size_t>(usableNSplits));
-  for (std::size_t idx = 0; idx < inSize; idx++) {
-    result[idx % usableNSplits].push_back(inlist[idx]);
-  }
-
-  return result;
-}
-
 [[nodiscard]] auto HasRepeatKmer(std::string_view seq, std::size_t k) -> bool;
 
 [[nodiscard]] auto HasAlmostRepeatKmer(std::string_view seq, std::size_t k, std::uint32_t max_mismatches) -> bool;
