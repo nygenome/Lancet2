@@ -15,10 +15,12 @@ auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -
 
   for (std::size_t idx = 0; idx < windows.size(); ++idx) {
     const auto winStatus = ProcessWindow(windows[idx], store);
+
     if (!winStatus.ok()) {
-      notifiers[idx]->SetErrorMsg(absl::StrFormat("Error processing %s in MicroAssembler: %s",
-                                                  windows[idx]->ToRegionString(), winStatus.message()));
-      continue;
+      const auto regStr = windows[idx]->ToRegionString();
+      const auto errMsg = absl::StrFormat("Error processing %s: %s", regStr, winStatus.message());
+      notifiers[idx]->SetErrorMsg(errMsg);
+      return absl::InternalError(errMsg);
     }
 
     notifiers[idx]->SetResult(windows[idx]->WindowIndex());
