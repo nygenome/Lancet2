@@ -32,7 +32,7 @@ function(target_set_warnings)
         if(WCLANG)
             list(APPEND WarningFlags ${ABSL_DEFAULT_COPTS} "-Wno-newline-eof"
                     "-Wno-documentation-unknown-command" "-Wno-documentation"
-                    "-Wno-unused-variable")
+                    "-Wno-unused-variable" "-Wno-missing-prototypes")
         endif()
 
         if(WGCC)
