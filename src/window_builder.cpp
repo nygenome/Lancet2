@@ -78,7 +78,7 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
       results.back()->SetEndPosition0(currWindowEnd);
       const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
       if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && skip_trunc_seqs) {
-        WarnLog("Skipping window %s with truncated reference sequence in fasta", results.back()->ToRegionString());
+        DebugLog("Skipping window %s with truncated reference sequence in fasta", results.back()->ToRegionString());
         currWindowStart += stepSize;
         continue;
       }
