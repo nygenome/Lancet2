@@ -1,7 +1,6 @@
 #include "lancet/window_builder.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <fstream>
@@ -42,8 +41,8 @@ void WindowBuilder::AddAllRefRegions() {
   }
 }
 
-auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids,
-                                 bool skip_trunc_seqs) const -> StatusOr<std::vector<WindowPtr>> {
+auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids) const
+    -> StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
   std::vector<WindowPtr> results;
@@ -60,9 +59,6 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
 
     if (region.Length() <= windowLength) {
       results.emplace_back(std::make_shared<RefWindow>(region));
-      const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
-      if (!regResult.ok()) return regResult.status();
-      results.back()->SetSequence(regResult.ValueOrDie());
       continue;
     }
 
@@ -71,21 +67,10 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
 
     while (currWindowStart < maxWindowPos) {
       const std::int64_t currWindowEnd = currWindowStart + windowLength;
-
       results.emplace_back(std::make_shared<RefWindow>());
       results.back()->SetChromosome(region.Chromosome());
       results.back()->SetStartPosition0(currWindowStart);
       results.back()->SetEndPosition0(currWindowEnd);
-      const auto regResult = refRdr.RegionSequence(results.back()->ToGenomicRegion());
-      if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && skip_trunc_seqs) {
-        DebugLog("Skipping window %s with truncated reference sequence in fasta", results.back()->ToRegionString());
-        currWindowStart += stepSize;
-        continue;
-      }
-
-      if (!regResult.ok() && !skip_trunc_seqs) return regResult.status();
-      results.back()->SetSequence(regResult.ValueOrDie());
-      assert(results.back()->SeqView().length() == windowLength);  // NOLINT
       currWindowStart += stepSize;
     }
   }
@@ -196,7 +181,7 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> StatusOr<RefWindow> {
 }
 
 auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids, const CliParams &params)
-    -> std::vector<ConstWindowPtr> {
+    -> std::vector<WindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
   for (const auto &region : params.inRegions) {
     const auto result = wb.AddSamtoolsRegion(region);
@@ -220,17 +205,12 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
   }
 
   InfoLog("Building reference windows from %d input regions", wb.Size());
-  const auto windows = wb.BuildWindows(contig_ids, params.skipTruncSeq);
+  const auto windows = wb.BuildWindows(contig_ids);
   if (!windows.ok()) {
     FatalLog("%s", windows.status().message());
     std::exit(EXIT_FAILURE);
   }
 
-  std::vector<ConstWindowPtr> results;
-  for (auto &w : windows.ValueOrDie()) {  // NOLINT
-    results.emplace_back(std::const_pointer_cast<const RefWindow>(w));
-  }
-
-  return results;
+  return windows.ValueOrDie();
 }
 }  // namespace lancet

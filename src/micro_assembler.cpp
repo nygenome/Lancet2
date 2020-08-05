@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "absl/strings/str_format.h"
+#include "lancet/fasta_reader.h"
 #include "lancet/graph_builder.h"
 #include "lancet/logger.h"
 #include "lancet/read_extractor.h"
@@ -13,11 +14,24 @@ namespace lancet {
 auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status {
   DebugLog("Starting MicroAssembler to process %d windows", windows.size());
 
+  FastaReader refRdr(params->referencePath);
   for (std::size_t idx = 0; idx < windows.size(); ++idx) {
-    const auto winStatus = ProcessWindow(windows[idx], store);
+    const auto regStr = windows[idx]->ToRegionString();
+    const auto regResult = refRdr.RegionSequence(windows[idx]->ToGenomicRegion());
 
+    if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && params->skipTruncSeq) {
+      DebugLog("Skipping window %s with truncated reference sequence in fasta", regStr);
+      continue;
+    }
+
+    if (!regResult.ok()) {
+      notifiers[idx]->SetErrorMsg(regResult.status().ToString());
+      return regResult.status();
+    }
+
+    windows[idx]->SetSequence(regResult.ValueOrDie());
+    const auto winStatus = ProcessWindow(std::const_pointer_cast<const RefWindow>(windows[idx]), store);
     if (!winStatus.ok()) {
-      const auto regStr = windows[idx]->ToRegionString();
       const auto errMsg = absl::StrFormat("Error processing %s: %s", regStr, winStatus.message());
       notifiers[idx]->SetErrorMsg(errMsg);
       return absl::InternalError(errMsg);

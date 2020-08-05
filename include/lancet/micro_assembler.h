@@ -17,7 +17,7 @@ namespace lancet {
 class MicroAssembler {
  public:
   using NotificationPtr = std::shared_ptr<Notification<std::size_t>>;
-  explicit MicroAssembler(absl::Span<std::shared_ptr<const RefWindow>> ws, absl::Span<NotificationPtr> notis,
+  explicit MicroAssembler(absl::Span<std::shared_ptr<RefWindow>> ws, absl::Span<NotificationPtr> notis,
                           std::shared_ptr<const CliParams> p)
       : windows(ws), notifiers(notis), params(std::move(p)) {}
 
@@ -26,7 +26,7 @@ class MicroAssembler {
   [[nodiscard]] auto Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
  private:
-  absl::Span<std::shared_ptr<const RefWindow>> windows;
+  absl::Span<std::shared_ptr<RefWindow>> windows;
   absl::Span<NotificationPtr> notifiers;
   std::shared_ptr<const CliParams> params;
 
