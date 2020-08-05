@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdexcept>
+#include <string>
+
 #include "absl/synchronization/notification.h"
 
 namespace lancet {
@@ -13,6 +16,7 @@ class Notification : private absl::Notification {
 
   [[nodiscard]] auto WaitForResult() const -> T {
     WaitForNotification();
+    if (!errorMsg.empty()) throw std::runtime_error(errorMsg);
     return result;
   }
 
@@ -21,7 +25,13 @@ class Notification : private absl::Notification {
     if (!HasBeenNotified()) Notify();
   }
 
+  void SetErrorMsg(const std::string& msg) {
+    errorMsg = msg;
+    if (!HasBeenNotified()) Notify();
+  }
+
  private:
   T result;
+  std::string errorMsg;
 };
 }  // namespace lancet

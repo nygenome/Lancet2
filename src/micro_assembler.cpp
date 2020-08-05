@@ -1,7 +1,6 @@
 #include "lancet/micro_assembler.h"
 
 #include <algorithm>
-#include <stdexcept>
 #include <utility>
 
 #include "absl/strings/str_format.h"
@@ -15,17 +14,14 @@ auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -
   DebugLog("Starting MicroAssembler to process %d windows", windows.size());
 
   for (std::size_t idx = 0; idx < windows.size(); ++idx) {
-    const auto winIdx = windows[idx]->WindowIndex();
     const auto winStatus = ProcessWindow(windows[idx], store);
-
     if (!winStatus.ok()) {
-      const auto regionStr = windows[idx]->ToRegionString();
-      const auto errMsg = absl::StrFormat("Error processing %s in MicroAssembler", regionStr);
-      FatalLog("%s: %s", errMsg, winStatus.message());
-      throw std::runtime_error(winStatus.ToString());
+      notifiers[idx]->SetErrorMsg(absl::StrFormat("Error processing %s in MicroAssembler: %s",
+                                                  windows[idx]->ToRegionString(), winStatus.message()));
+      continue;
     }
 
-    notifiers[idx]->SetResult(winIdx);
+    notifiers[idx]->SetResult(windows[idx]->WindowIndex());
   }
 
   return absl::OkStatus();
