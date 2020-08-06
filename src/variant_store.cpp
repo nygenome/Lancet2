@@ -90,21 +90,27 @@ auto VariantStore::AddVariant(std::size_t window_index, Variant&& variant) -> bo
 auto VariantStore::FlushWindow(std::size_t window_index, VcfWriter* out,
                                const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   absl::MutexLock guard(&mutex);
-  const auto& windowData = windowIds[window_index];
-  return !windowData.empty() && FlushVariants(absl::MakeConstSpan(windowData), out, contig_ids);
+  if (windowIds[window_index].empty()) return false;
+
+  const auto wasFlushed = FlushVariants(absl::MakeConstSpan(windowIds[window_index]), out, contig_ids);
+  windowIds[window_index].clear();
+  return wasFlushed;
 }
 
 auto VariantStore::FlushAll(VcfWriter* out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   absl::MutexLock guard(&mutex);
+  if (data.empty()) return false;
+
   std::vector<std::uint64_t> variantIDsToFlush;
   variantIDsToFlush.reserve(data.size());
 
-  for (const auto& window : windowIds) {
+  for (auto& window : windowIds) {
     if (window.empty()) continue;
     variantIDsToFlush.insert(variantIDsToFlush.end(), window.cbegin(), window.cend());
+    window.clear();
   }
 
-  return !variantIDsToFlush.empty() && FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, contig_ids);
+  return FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, contig_ids);
 }
 
 auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out,
