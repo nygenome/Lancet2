@@ -25,8 +25,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: gcc
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/gcc.Dockerfile
         cache_froms: gcc:10
         add_git_labels: true
@@ -40,8 +40,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: clang
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/clang.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
@@ -55,8 +55,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: asan
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/asan.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
@@ -70,8 +70,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: ubsan
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/ubsan.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
@@ -85,8 +85,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: msan
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/msan.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
@@ -100,8 +100,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: tsan
-        tags_with_ref: true
-        tags_with_sha: true
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/tsan.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
