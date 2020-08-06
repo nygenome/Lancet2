@@ -14,8 +14,9 @@ namespace lancet {
 auto MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status {
   FastaReader refRdr(params->referencePath);
   auto window = std::make_shared<RefWindow>();
+  moodycamel::ConsumerToken ctok(*windowQPtr);
 
-  while (windowQPtr->try_dequeue(window)) {
+  while (windowQPtr->try_dequeue(ctok, window)) {
     const auto winIdx = window->WindowIndex();
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
