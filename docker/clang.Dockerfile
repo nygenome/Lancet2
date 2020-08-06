@@ -3,7 +3,7 @@ FROM alpine:edge
 MAINTAINER Rajeeva Musunuri <rmusunuri@nygenome.org>
 
 RUN apk update && apk upgrade && apk add --no-cache ca-certificates && rm -rf /var/cache/apk/* && \
-    apk add --no-cache linux-headers libc-dev clang gcc g++ bash make cmake ninja git \
+    apk add --no-cache bash make cmake ninja git linux-headers libc-dev gcc g++ clang \
                        zlib-dev bzip2-dev xz-dev curl-dev openssl-dev
 
 ENV CC  clang
