@@ -8,7 +8,7 @@ if(LANCET_SANITIZER MATCHES "([Mm]emory)" AND APPLE)
     message(FATAL_ERROR "Memory sanitizer is not supported in ${CMAKE_HOST_SYSTEM}")
 endif()
 
-if(LANCET_SANITIZER AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if(LANCET_SANITIZER AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     message(STATUS "Building with debug symbols and -O0 optimizations")
     append("-O1 -g -fno-omit-frame-pointer" CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG)
 
