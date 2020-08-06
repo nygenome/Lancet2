@@ -25,7 +25,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: gcc,release
         tags_with_ref: true
         tags_with_sha: true
@@ -40,7 +40,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: clang,release
         tags_with_ref: true
         tags_with_sha: true
@@ -55,7 +55,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: clang,asan,debug
         tags_with_ref: true
         tags_with_sha: true
@@ -70,7 +70,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: clang,ubsan,debug
         tags_with_ref: true
         tags_with_sha: true
@@ -85,7 +85,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: clang,msan,debug
         tags_with_ref: true
         tags_with_sha: true
@@ -100,7 +100,7 @@ jobs:
       with:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: v2_lancet
+        repository: rmusunuri/v2_lancet
         tags: clang,tsan,debug
         tags_with_ref: true
         tags_with_sha: true
