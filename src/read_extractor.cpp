@@ -5,11 +5,11 @@
 #include <stdexcept>
 #include <utility>
 
-#include "lancet/assert_macro.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
 #include "htslib/sam.h"
+#include "lancet/assert_macro.h"
 #include "lancet/fractional_sampler.h"
 
 namespace lancet {
@@ -215,7 +215,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
 void ReadExtractor::FillMDMismatches(std::string_view md, std::string_view quals, std::int64_t aln_start,
                                      std::uint32_t min_bq, std::map<std::uint32_t, std::uint32_t>* result) {
   if (aln_start < 0) return;
-  auto genomePos = static_cast<std::uint32_t>(aln_start) - 1;
+  auto genomePos = static_cast<std::uint32_t>(aln_start);
   std::string token;
 
   for (const auto& c : md) {
@@ -225,14 +225,13 @@ void ReadExtractor::FillMDMismatches(std::string_view md, std::string_view quals
     }
 
     const auto step = token.empty() ? 0 : std::strtol(token.c_str(), nullptr, 10);
-    genomePos += (static_cast<std::uint32_t>(step) + 1);
+    genomePos += static_cast<std::uint32_t>(step);
     token.clear();
 
     const auto basePos = static_cast<std::size_t>(genomePos - aln_start);
     if (static_cast<int>(quals[basePos]) < static_cast<int>(min_bq)) continue;
 
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(c));
-
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
       const auto& itr = result->find(genomePos);
       if (itr != result->end()) {
