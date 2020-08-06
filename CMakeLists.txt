@@ -103,20 +103,20 @@ target_set_warnings(lancet_core ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_include_directories(lancet_core PUBLIC include PRIVATE ${CMAKE_BINARY_DIR} ${HTSLIB_INCLUDE_DIR})
 
 target_link_libraries(lancet_core
-        PUBLIC mimalloc absl::status absl::flat_hash_map absl::flat_hash_set concurrentqueue absl::str_format
+        PUBLIC absl::status absl::flat_hash_map absl::flat_hash_set concurrentqueue absl::str_format
                absl::fixed_array absl::span absl::time absl::random_random absl::synchronization
         PRIVATE CLI11 absl::failure_signal_handler absl::strings ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES})
 
-set_target_properties(lancet_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
-        INTERPROCEDURAL_OPTIMIZATION TRUE POSITION_INDEPENDENT_CODE 1)
+set_target_properties(lancet_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
 
 # Add main lancet executable target
-add_executable(lancet src/main.cpp)
+set(LANCET_MAIN_CPP "${CMAKE_BINARY_DIR}/generated/lancet_main.cpp")
+configure_file(main.cpp.in ${LANCET_MAIN_CPP} @ONLY)
+add_executable(lancet ${LANCET_MAIN_CPP})
 target_set_warnings(lancet ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-target_link_libraries(lancet PRIVATE lancet_core)
-set_target_properties(lancet PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
-        INTERPROCEDURAL_OPTIMIZATION TRUE POSITION_INDEPENDENT_CODE 1)
+target_link_libraries(lancet PRIVATE mimalloc lancet_core)
+set_target_properties(lancet PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
 
 if(LANCET_UNIT_TESTS)
     add_subdirectory(tests)

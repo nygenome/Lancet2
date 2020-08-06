@@ -55,6 +55,7 @@ endif()
 FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v1.9.1)
 FetchContent_MakeAvailable(cli11)
 
+set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v1.6.3)
 FetchContent_MakeAvailable(mimalloc)
 
@@ -70,15 +71,19 @@ if(NOT abseil_POPULATED)
     include(${abseil_SOURCE_DIR}/absl/copts/AbseilConfigureCopts.cmake)
 endif()
 
+if(LANCET_UNIT_TESTS)
 FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.0)
 FetchContent_MakeAvailable(catch)
+endif()
 
 
+if(LANCET_BENCHMARKS)
 set(BENCHMARK_ENABLE_TESTING OFF)
 set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
 set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
 set(BENCHMARK_ENABLE_INSTALL OFF)
 FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.5.1)
 FetchContent_MakeAvailable(benchmark)
+endif()
 
 #unset(MESSAGE_QUIET)
