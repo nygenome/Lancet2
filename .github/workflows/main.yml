@@ -1,0 +1,110 @@
+name: CI/CD
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+
+    - name: Build and push GCC build Docker image
+      id: DockerGCC
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: gcc,release
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/gcc.Dockerfile
+        cache_froms: alpine:edge
+        add_git_labels: true
+        push: true
+
+    - name: Build and push Clang build Docker image
+      id: DockerClang
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: clang,release
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/clang.Dockerfile
+        cache_froms: alpine:edge
+        add_git_labels: true
+        push: true
+
+    - name: Build and push ASan build Docker image
+      id: DockerASan
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: clang,asan,debug
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/asan.Dockerfile
+        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        add_git_labels: true
+        push: true
+
+    - name: Build and push UBSan build Docker image
+      id: DockerUBSan
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: clang,ubsan,debug
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/ubsan.Dockerfile
+        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        add_git_labels: true
+        push: true
+
+    - name: Build and push MSan build Docker image
+      id: DockerMSan
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: clang,msan,debug
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/msan.Dockerfile
+        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        add_git_labels: true
+        push: true
+
+    - name: Build and push TSan build Docker image
+      id: DockerTSan
+      uses: docker/build-push-action@v1.1.0
+      with:
+        username: rmusunuri
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: v2_lancet
+        tags: clang,tsan,debug
+        tags_with_ref: true
+        tags_with_sha: true
+        dockerfile: docker/tsan.Dockerfile
+        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        add_git_labels: true
+        push: true
