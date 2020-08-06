@@ -4,7 +4,7 @@ set -e
 
 readonly ROOT_DIR="${1}"
 readonly C_COMPILER="${2}"
-readonly CFG_CFLAGS="-O3 -DNDEBUG -march=native"
+readonly CFG_CFLAGS="-O3 -DNDEBUG"
 
 echo "  HTSLIB CONFIGURE ROOT_DIR : ${ROOT_DIR}"
 echo "HTSLIB CONFIGURE C_COMPILER : ${C_COMPILER}"
