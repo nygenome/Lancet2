@@ -24,7 +24,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: gcc,release
+        tags: gcc
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/gcc.Dockerfile
@@ -39,7 +39,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: clang,release
+        tags: clang
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/clang.Dockerfile
@@ -54,7 +54,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: clang,asan,debug
+        tags: asan
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/asan.Dockerfile
@@ -69,7 +69,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: clang,ubsan,debug
+        tags: ubsan
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/ubsan.Dockerfile
@@ -84,7 +84,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: clang,msan,debug
+        tags: msan
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/msan.Dockerfile
@@ -99,7 +99,7 @@ jobs:
         username: rmusunuri
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
-        tags: clang,tsan,debug
+        tags: tsan
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/tsan.Dockerfile
