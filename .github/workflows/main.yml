@@ -28,7 +28,7 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/gcc.Dockerfile
-        cache_froms: alpine:edge
+        cache_froms: gcc:10
         add_git_labels: true
         push: true
 
@@ -43,7 +43,7 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/clang.Dockerfile
-        cache_froms: alpine:edge
+        cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
         push: true
 
@@ -58,7 +58,7 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/asan.Dockerfile
-        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
         push: true
 
@@ -73,7 +73,7 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/ubsan.Dockerfile
-        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
         push: true
 
@@ -88,7 +88,7 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/msan.Dockerfile
-        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
         push: true
 
@@ -103,6 +103,6 @@ jobs:
         tags_with_ref: true
         tags_with_sha: true
         dockerfile: docker/tsan.Dockerfile
-        cache_froms: gcr.io/oss-fuzz-base/base-clang
+        cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
         push: true
