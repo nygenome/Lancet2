@@ -57,8 +57,6 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
       return;
     }
 
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));  // NOLINT
-
     std::size_t numPaths = 0;
     std::size_t numVariants = 0;
     const auto clampedRefInfos = ClampToSourceSink(ref_infos, markResult);
@@ -651,27 +649,5 @@ void Graph::DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand di
     itr->second->EraseEdge(neighbourItr->first, e.Kind());
     neighbourItr->second->EraseEdge(itr->first);
   }
-}
-
-auto Graph::HasRefEnds(const NodeContainer& nc, const MarkSourceSinkResult& ends, std::string_view ref, std::size_t k)
-    -> bool {
-  const auto fauxSrcItr = nc.find(MOCK_SOURCE_ID);
-  const auto fauxSnkItr = nc.find(MOCK_SINK_ID);
-
-  LANCET_ASSERT(fauxSrcItr != nc.end() && fauxSnkItr != nc.end());
-  if (fauxSrcItr == nc.end() || fauxSnkItr == nc.end()) return false;
-
-  LANCET_ASSERT(fauxSrcItr->second->NumEdges() == 1 && fauxSnkItr->second->NumEdges() == 1);
-  const auto dataSrcItr = nc.find((*fauxSrcItr->second->begin()).DestinationID());
-  const auto dataSnkItr = nc.find((*fauxSnkItr->second->begin()).DestinationID());
-
-  LANCET_ASSERT(dataSrcItr != nc.end() && dataSnkItr != nc.end());
-  if (dataSrcItr == nc.end() || dataSnkItr == nc.end()) return false;
-
-  const auto snkLen = dataSnkItr->second->Length();
-  return (ref.substr(ends.startOffset, k) == dataSrcItr->second->SeqView().substr(0, k) ||
-          ref.substr(ends.startOffset, k) == utils::RevComp(dataSrcItr->second->SeqView().substr(0, k))) &&
-         (ref.substr(ends.endOffset - k, k) == dataSnkItr->second->SeqView().substr(snkLen - k, k) ||
-          ref.substr(ends.endOffset - k, k) == utils::RevComp(dataSnkItr->second->SeqView()).substr(snkLen - k, k));
 }
 }  // namespace lancet

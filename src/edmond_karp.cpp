@@ -1,9 +1,9 @@
 #include "lancet/edmond_karp.h"
 
-#include "lancet/assert_macro.h"
 #include <deque>
 #include <utility>
 
+#include "lancet/assert_macro.h"
 #include "lancet/core_enums.h"
 #include "lancet/path_builder.h"
 
@@ -62,7 +62,8 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
         if (uniqEdgeTouched) extensionBuilder.IncrementScore();
 
         const auto neighbourItr = nodesMap->find(e.DestinationID());
-        LANCET_ASSERT(neighbourItr != nodesMap->end());  // NOLINT
+        if (neighbourItr == nodesMap->end()) continue;
+
         extensionBuilder.Extend(e, neighbourItr->second.get());
         candidateBuilders.emplace_back(std::move(extensionBuilder));
       }
