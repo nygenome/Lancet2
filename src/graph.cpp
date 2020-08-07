@@ -136,7 +136,8 @@ void Graph::MarkConnectedComponents() {
 }
 
 auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
-  auto refMerIDs = CanonicalKmerHashes(window->SeqView(), kmerSize);
+  const auto refseq = window->SeqView();
+  auto refMerIDs = CanonicalKmerHashes(refseq, kmerSize);
   const auto srcResult = FindRefEnd(GraphEnd::SOURCE, comp_id, absl::MakeConstSpan(refMerIDs));
   if (!srcResult.foundEnd) return {false, 0, 0};
 
@@ -169,10 +170,11 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
   const auto startBaseIdx = srcResult.refMerIdx;
   const auto endBaseIdx = snkResult.refMerIdx + dataSnkItr->second->Length();
 
-  LANCET_ASSERT((window->SeqView().substr(startBaseIdx, kmerSize) == dataSrcItr->second->SeqView() ||
-                 window->SeqView().substr(startBaseIdx, kmerSize) == dataSrcItr->second->FwdSeq()) &&
-                (window->SeqView().substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
-                 window->SeqView().substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->FwdSeq()));
+  LANCET_ASSERT((refseq.substr(startBaseIdx, kmerSize) == dataSrcItr->second->SeqView() ||
+                 utils::RevComp(refseq.substr(startBaseIdx, kmerSize)) == dataSrcItr->second->SeqView()) &&
+                (refseq.substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
+                 utils::RevComp(refseq.substr(endBaseIdx - kmerSize, kmerSize)) == dataSnkItr->second->SeqView()));
+
   return MarkSourceSinkResult{true, startBaseIdx, endBaseIdx};
 }
 
@@ -579,7 +581,7 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
       if (buddyNeighbourId == src_id) continue;
 
       auto buddysNeighbourItr = nodesMap.find(buddyNeighbourId);
-      LANCET_ASSERT(buddysNeighbourItr != nodesMap.end());  // NOLINT
+      if (buddysNeighbourItr == nodesMap.end()) continue;
 
       const auto srcLinkStrand = srcBuddyDiffStrands ? ReverseStrand(buddyE.SrcDirection()) : buddyE.SrcDirection();
       const auto resultKind = MakeEdgeKind(srcLinkStrand, buddyE.DstDirection());
@@ -668,8 +670,8 @@ auto Graph::HasRefEnds(const NodeContainer& nc, const MarkSourceSinkResult& ends
 
   const auto snkLen = dataSnkItr->second->Length();
   return (ref.substr(ends.startOffset, k) == dataSrcItr->second->SeqView().substr(0, k) ||
-          ref.substr(ends.startOffset, k) == dataSrcItr->second->FwdSeq().substr(0, k)) &&
+          utils::RevComp(ref.substr(ends.startOffset, k)) == dataSrcItr->second->SeqView().substr(0, k)) &&
          (ref.substr(ends.endOffset - k, k) == dataSnkItr->second->SeqView().substr(snkLen - k, k) ||
-          ref.substr(ends.endOffset - k, k) == dataSnkItr->second->FwdSeq().substr(snkLen - k, k));
+          utils::RevComp(ref.substr(ends.endOffset - k, k)) == dataSnkItr->second->SeqView().substr(snkLen - k, k));
 }
 }  // namespace lancet
