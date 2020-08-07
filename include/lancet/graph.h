@@ -132,7 +132,5 @@ class Graph {
   static auto ClampToSourceSink(const RefInfos& refs, const MarkSourceSinkResult& ends) -> RefInfos;
   static void ResetSourceSink(const NodeContainer& nc, std::size_t current_component);
   static void DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand direction);
-  static auto HasRefEnds(const NodeContainer& nc, const MarkSourceSinkResult& ends, std::string_view ref, std::size_t k)
-      -> bool;
 };
 }  // namespace lancet
