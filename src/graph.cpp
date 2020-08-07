@@ -43,19 +43,12 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
     }
 
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "before_pruning");
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     CompressGraph(comp.ID);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveLowCovNodes(comp.ID);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     CompressGraph(comp.ID);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveTips(comp.ID);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveShortLinks(comp.ID);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     nodesMap.rehash(0);
-    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "after_pruning");
 
     if (HasCycle()) {
@@ -63,6 +56,8 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
       DebugLog("Found graph cycle in component%d for %s with K=%d", comp.ID, windowId, kmerSize);
       return;
     }
+
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));  // NOLINT
 
     std::size_t numPaths = 0;
     std::size_t numVariants = 0;
@@ -213,7 +208,12 @@ auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
 auto Graph::CompressGraph(std::size_t comp_id) -> bool {
   absl::flat_hash_set<NodeIdentifier> nodesToRemove;
   for (NodeContainer::const_reference p : nodesMap) {
-    if (p.second->IsMockNode() || p.second->ComponentID != comp_id) continue;
+    // If node not in component (or) mock node (or) connected to mock node (i.e data src/snk nodes), skip compressing
+    if (p.second->ComponentID != comp_id || p.second->IsMockNode() || p.second->HasConnection(MOCK_SOURCE_ID) ||
+        p.second->HasConnection(MOCK_SINK_ID)) {
+      continue;
+    }
+
     if (nodesToRemove.find(p.first) != nodesToRemove.end()) continue;
     CompressNode(p.first, FindCompressibleNeighbours(p.first), &nodesToRemove);
   }
@@ -542,6 +542,12 @@ auto Graph::FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btr
   for (const auto& srcNbour : srcNeighbours) {
     const auto buddyItr = nodesMap.find(srcNbour.buddyId);
     LANCET_ASSERT(buddyItr != nodesMap.end() && buddyItr->second != nullptr);  // NOLINT
+
+    // skip compressing data source and sink nodes (ones immediately adjacent to mock nodes)
+    if (buddyItr->second->HasConnection(MOCK_SOURCE_ID) || buddyItr->second->HasConnection(MOCK_SINK_ID)) {
+      continue;
+    }
+
     const auto buddysNeighbours = buddyItr->second->FindMergeableNeighbours();
     const auto areMututalBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
                                                [&src_id](const NodeNeighbour& n) { return n.buddyId == src_id; });
