@@ -43,12 +43,19 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
     }
 
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "before_pruning");
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     CompressGraph(comp.ID);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveLowCovNodes(comp.ID);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     CompressGraph(comp.ID);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveTips(comp.ID);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     RemoveShortLinks(comp.ID);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     nodesMap.rehash(0);
+    LANCET_ASSERT(HasRefEnds(nodesMap, markResult, window->SeqView(), kmerSize));
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "after_pruning");
 
     if (HasCycle()) {
@@ -166,6 +173,11 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
 
   const auto startBaseIdx = srcResult.refMerIdx;
   const auto endBaseIdx = snkResult.refMerIdx + dataSnkItr->second->Length();
+
+  LANCET_ASSERT((window->SeqView().substr(startBaseIdx, kmerSize) == dataSrcItr->second->SeqView() ||
+                 window->SeqView().substr(startBaseIdx, kmerSize) == dataSrcItr->second->FwdSeq()) &&
+                (window->SeqView().substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
+                 window->SeqView().substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->FwdSeq()));
   return MarkSourceSinkResult{true, startBaseIdx, endBaseIdx};
 }
 
@@ -641,5 +653,27 @@ void Graph::DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand di
     itr->second->EraseEdge(neighbourItr->first, e.Kind());
     neighbourItr->second->EraseEdge(itr->first);
   }
+}
+
+auto Graph::HasRefEnds(const NodeContainer& nc, const MarkSourceSinkResult& ends, std::string_view ref, std::size_t k)
+    -> bool {
+  const auto fauxSrcItr = nc.find(MOCK_SOURCE_ID);
+  const auto fauxSnkItr = nc.find(MOCK_SINK_ID);
+
+  LANCET_ASSERT(fauxSrcItr != nc.end() && fauxSnkItr != nc.end());
+  if (fauxSrcItr == nc.end() || fauxSnkItr == nc.end()) return false;
+
+  LANCET_ASSERT(fauxSrcItr->second->NumEdges() == 1 && fauxSnkItr->second->NumEdges() == 1);
+  const auto dataSrcItr = nc.find((*fauxSrcItr->second->begin()).DestinationID());
+  const auto dataSnkItr = nc.find((*fauxSnkItr->second->begin()).DestinationID());
+
+  LANCET_ASSERT(dataSrcItr != nc.end() && dataSnkItr != nc.end());
+  if (dataSrcItr == nc.end() || dataSnkItr == nc.end()) return false;
+
+  const auto snkLen = dataSnkItr->second->Length();
+  return (ref.substr(ends.startOffset, k) == dataSrcItr->second->SeqView().substr(0, k) ||
+          ref.substr(ends.startOffset, k) == dataSrcItr->second->FwdSeq().substr(0, k)) &&
+         (ref.substr(ends.endOffset - k, k) == dataSnkItr->second->SeqView().substr(snkLen - k, k) ||
+          ref.substr(ends.endOffset - k, k) == dataSnkItr->second->FwdSeq().substr(snkLen - k, k));
 }
 }  // namespace lancet
