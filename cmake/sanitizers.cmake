@@ -10,7 +10,8 @@ endif()
 
 if(LANCET_SANITIZER AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     message(STATUS "Building with debug symbols and -O0 optimizations")
-    append("-O1 -g -fno-omit-frame-pointer" CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG)
+    append("-O1 -g -fno-omit-frame-pointer -fsanitize-blacklist=${CMAKE_SOURCE_DIR}/cmake/sanitizer-blacklist.txt"
+            CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG)
 
     if(UNIX)
         if(LANCET_SANITIZER MATCHES "([Aa]ddress)") # ASAN
