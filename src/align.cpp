@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "absl/strings/str_format.h"
+#include "lancet/assert_macro.h"
 
 namespace lancet {
 // Original:
@@ -83,24 +84,6 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   refAln.reserve(std::max(refLen, qryLen) + std::min(refLen, qryLen));
   qryAln.reserve(std::max(refLen, qryLen) + std::min(refLen, qryLen));
 
-  /*
-   * gdb --args ~/dev/projects/Lancet/lancet/build-gcc9-debug/bin/lancet --tumor
-   * ~/dev/projects/Lancet/VirtualTumors/Tumor_INDEL.NA12892_mem_binomial_indel.final.bam --normal
-   * ~/dev/projects/Lancet/VirtualTumors/Normal.NA12892_mem_normal.final.bam --reference
-   * ~/dev/projects/Lancet/human_g1k_v37_decoy.fasta --out-vcf indel.r1.vcf.gz --log-level TRACE --region
-   * 1:3553050-3553150
-   *
-   * catch signal
-   * catch catch
-   *
-   *
-   * gdb --args /nfs/sw/lancet/lancet-1.0.7/lancet --tumor
-   * ~/dev/projects/Lancet/VirtualTumors/Tumor_INDEL.NA12892_mem_binomial_indel.final.bam --normal
-   * ~/dev/projects/Lancet/VirtualTumors/Normal.NA12892_mem_normal.final.bam --ref
-   * ~/dev/projects/Lancet/human_g1k_v37_decoy.fasta --reg 1:3553050-3553150 --verbose
-   *
-   */
-
   while (i > 0 || j > 0) {
     char t = m.at(i, j).trace_back;
     if (t == '*') break;
@@ -131,8 +114,7 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
       --i;
       --j;
     } else {
-      throw std::runtime_error{
-          absl::StrFormat("unexpected error in SW alignment. ref: %s, query: %s", ref, qry)};
+      throw std::runtime_error{absl::StrFormat("unexpected error in SW alignment. ref: %s, query: %s", ref, qry)};
     }
 
     refAln.push_back(alnBases.first);
@@ -141,6 +123,10 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
 
   std::reverse(refAln.begin(), refAln.end());
   std::reverse(qryAln.begin(), qryAln.end());
+
+  LANCET_ASSERT(refAln[0] != ALIGNMENT_GAP && qryAln[0] != ALIGNMENT_GAP &&
+                refAln[refAln.length() - 1] != ALIGNMENT_GAP && qryAln[qryAln.length() - 1] != ALIGNMENT_GAP);
+
   return AlignedSequences{refAln, qryAln};
 }
 }  // namespace lancet
