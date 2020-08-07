@@ -6,11 +6,13 @@
 #include "absl/time/time.h"
 
 namespace lancet {
+[[nodiscard]] inline auto Humanized(const absl::Duration& d) -> std::string { return absl::FormatDuration(d); }
+
 class Timer {
  public:
   Timer() : startTime(absl::Now()) {}
 
-  auto Runtime() -> absl::Duration {
+  [[nodiscard]] auto Runtime() -> absl::Duration {
     if (runComplete) return prevElapsed;
 
     const auto elapsed = absl::Now() - startTime;
@@ -19,7 +21,7 @@ class Timer {
     return elapsed;
   }
 
-  auto HumanRuntime() -> std::string { return absl::FormatDuration(Runtime()); }
+  [[nodiscard]] auto HumanRuntime() -> std::string { return Humanized(Runtime()); }
 
   void Reset() {
     runComplete = false;
