@@ -122,7 +122,7 @@ void Graph::MarkConnectedComponents() {
       componentsInfo[currentComponent - 1].numNodes += 1;
       for (const Edge& e : *currNode) {
         const auto neighbourItr = nodesMap.find(e.DestinationID());
-        LANCET_ASSERT(neighbourItr != nodesMap.end());   // NOLINT
+        if (neighbourItr == nodesMap.end()) continue;
         LANCET_ASSERT(neighbourItr->second != nullptr);  // NOLINT
         connectedNodes.push_back(neighbourItr->second.get());
       }
