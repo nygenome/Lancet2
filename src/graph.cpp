@@ -309,28 +309,7 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
 
 SkipLocalAlignment:
   LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
-
-  // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
-  {
-    const auto initLen = aligned.ref.length();
-    auto start = std::size_t(0);
-    auto end = initLen - 1;
-    if (aligned.ref[start] == ALIGNMENT_GAP || aligned.qry[start] == ALIGNMENT_GAP ||
-        aligned.ref[end] == ALIGNMENT_GAP || aligned.qry[end] == ALIGNMENT_GAP) {
-      // move start until no begin alignment gaps are found
-      while (aligned.ref[start] == ALIGNMENT_GAP || aligned.qry[start] == ALIGNMENT_GAP) {
-        start++;
-      }
-
-      // move end until no end alignment gaps are found
-      while (aligned.ref[end] == ALIGNMENT_GAP || aligned.qry[end] == ALIGNMENT_GAP) {
-        end--;
-      }
-
-      aligned.ref = aligned.ref.substr(start, end - start);
-      aligned.qry = aligned.qry.substr(start, end - start);
-    }
-  }
+  TrimEndGaps(&aligned);
 
   // 0-based reference anchor position in absolute chromosome coordinates
   const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
@@ -347,11 +326,11 @@ SkipLocalAlignment:
   for (std::size_t idx = 0; idx < aligned.ref.length(); ++idx) {
     prevCode = code;
 
-    if (aligned.ref[idx] == ALIGNMENT_GAP) {
+    if (aligned.ref[idx] == ALIGN_GAP) {
       code = TranscriptCode::INSERTION;
       refIdx = refPos;  // save variant position in reference before increment
       ++pathPos;
-    } else if (aligned.qry[idx] == ALIGNMENT_GAP) {
+    } else if (aligned.qry[idx] == ALIGN_GAP) {
       code = TranscriptCode::DELETION;
       refIdx = refPos;  // save variant position in reference before increment
       ++refPos;
@@ -585,6 +564,11 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
     LANCET_ASSERT(buddyItr != nodesMap.end());  // NOLINT
 
     const auto mergeDir = SourceStrand(srcToBuddy.edgeKind) == Strand::FWD ? BuddyPosition::FRONT : BuddyPosition::BACK;
+    if (!srcItr->second->CanMerge(*buddyItr->second, mergeDir, kmerSize)) {
+      remaining.erase(remaining.begin());
+      continue;
+    }
+
     srcItr->second->MergeBuddy(*buddyItr->second, mergeDir, kmerSize);
     srcItr->second->EraseEdge(srcToBuddy.buddyId);
     compressed->emplace(srcToBuddy.buddyId);
