@@ -10,7 +10,7 @@ namespace lancet {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-const-variable"
 #endif
-static constexpr char ALIGNMENT_GAP = '-';
+static constexpr char ALIGN_GAP = '-';
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
@@ -24,6 +24,8 @@ struct AlignedSequencesView {
   std::string_view ref{};
   std::string_view qry{};
 };
+
+void TrimEndGaps(AlignedSequencesView* aln);
 
 [[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences;
 
