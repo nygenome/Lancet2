@@ -78,13 +78,12 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   const auto storePtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
 
   InfoLog("Processing %d windows in %d microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
-  std::vector<std::future<absl::Status>> assemblers;
+  std::vector<std::future<void>> assemblers;
   assemblers.reserve(numThreads);
 
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
-        std::launch::async,
-        [&storePtr](std::unique_ptr<MicroAssembler> m) -> absl::Status { return m->Process(storePtr); },
+        std::launch::async, [&storePtr](std::unique_ptr<MicroAssembler> m) -> void { return m->Process(storePtr); },
         std::make_unique<MicroAssembler>(windowQueuePtr, absl::MakeSpan(resultNotifiers), paramsPtr)));
   }
 
@@ -123,8 +122,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
       alreadyLogged[winIdx] = true;
 
       const auto windowID = allwindows[winIdx]->ToRegionString();
-      InfoLog("Progress: %0.3f%% | Done processing %s | %d of %d completed", pctDone(numDone), windowID, numDone,
-              numTotal);
+      InfoLog("Progress: %0.3f%% | Done processing %s in %s | %d of %d windows completed", pctDone(numDone), windowID,
+              notifier->HumanRuntime(), numDone, numTotal);
     }
 
     if (allWindowsUptoDone(idxToFlush + numBufferWindows) && storePtr->FlushWindow(idxToFlush, &outVcf, contigIDs)) {
@@ -139,14 +138,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   outVcf.Close();
 
   // just to make sure futures get collected and threads released
-  for (auto& assembler : assemblers) {
-    const auto status = assembler.get();
-    if (!status.ok()) {
-      FatalLog("Exited MicroAssembler thread with error: %s", status.message());
-      std::exit(EXIT_FAILURE);
-    }
-  }
-
+  std::for_each(assemblers.begin(), assemblers.end(), [](std::future<void>& fut) { return fut.get(); });
   InfoLog("Successfully completed lancet pipeline | Runtime=%s", T.HumanRuntime());
   std::exit(EXIT_SUCCESS);
 }

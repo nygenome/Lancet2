@@ -27,7 +27,7 @@ class MicroAssembler {
 
   MicroAssembler() = default;
 
-  [[nodiscard]] auto Process(const std::shared_ptr<VariantStore>& store) const -> absl::Status;
+  void Process(const std::shared_ptr<VariantStore>& store) const;
 
  private:
   std::shared_ptr<WindowQueue> windowQPtr;
@@ -37,6 +37,6 @@ class MicroAssembler {
   [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const RefWindow>& w,
                                    const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
-  [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w, Timer* T) const -> bool;
+  [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool;
 };
 }  // namespace lancet
