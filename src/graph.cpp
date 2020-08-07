@@ -670,8 +670,8 @@ auto Graph::HasRefEnds(const NodeContainer& nc, const MarkSourceSinkResult& ends
 
   const auto snkLen = dataSnkItr->second->Length();
   return (ref.substr(ends.startOffset, k) == dataSrcItr->second->SeqView().substr(0, k) ||
-          utils::RevComp(ref.substr(ends.startOffset, k)) == dataSrcItr->second->SeqView().substr(0, k)) &&
+          ref.substr(ends.startOffset, k) == utils::RevComp(dataSrcItr->second->SeqView().substr(0, k))) &&
          (ref.substr(ends.endOffset - k, k) == dataSnkItr->second->SeqView().substr(snkLen - k, k) ||
-          utils::RevComp(ref.substr(ends.endOffset - k, k)) == dataSnkItr->second->SeqView().substr(snkLen - k, k));
+          ref.substr(ends.endOffset - k, k) == utils::RevComp(dataSnkItr->second->SeqView()).substr(snkLen - k, k));
 }
 }  // namespace lancet
