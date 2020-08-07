@@ -123,10 +123,6 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
 
   std::reverse(refAln.begin(), refAln.end());
   std::reverse(qryAln.begin(), qryAln.end());
-
-  LANCET_ASSERT(refAln[0] != ALIGNMENT_GAP && qryAln[0] != ALIGNMENT_GAP &&
-                refAln[refAln.length() - 1] != ALIGNMENT_GAP && qryAln[qryAln.length() - 1] != ALIGNMENT_GAP);
-
   return AlignedSequences{refAln, qryAln};
 }
 }  // namespace lancet
