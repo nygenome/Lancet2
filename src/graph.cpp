@@ -309,6 +309,29 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
 
 SkipLocalAlignment:
   LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
+
+  // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
+  {
+    const auto initLen = aligned.ref.length();
+    auto start = std::size_t(0);
+    auto end = initLen - 1;
+    if (aligned.ref[start] == ALIGNMENT_GAP || aligned.qry[start] == ALIGNMENT_GAP ||
+        aligned.ref[end] == ALIGNMENT_GAP || aligned.qry[end] == ALIGNMENT_GAP) {
+      // move start until no begin alignment gaps are found
+      while (aligned.ref[start] == ALIGNMENT_GAP || aligned.qry[start] == ALIGNMENT_GAP) {
+        start++;
+      }
+
+      // move end until no end alignment gaps are found
+      while (aligned.ref[end] == ALIGNMENT_GAP || aligned.qry[end] == ALIGNMENT_GAP) {
+        end--;
+      }
+
+      aligned.ref = aligned.ref.substr(start, end - start);
+      aligned.qry = aligned.qry.substr(start, end - start);
+    }
+  }
+
   // 0-based reference anchor position in absolute chromosome coordinates
   const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
   std::size_t refIdx = 0;   // 0-based coordinate
