@@ -208,12 +208,7 @@ auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
 auto Graph::CompressGraph(std::size_t comp_id) -> bool {
   absl::flat_hash_set<NodeIdentifier> nodesToRemove;
   for (NodeContainer::const_reference p : nodesMap) {
-    // If node not in component (or) mock node (or) connected to mock node (i.e data src/snk nodes), skip compressing
-    if (p.second->ComponentID != comp_id || p.second->IsMockNode() || p.second->HasConnection(MOCK_SOURCE_ID) ||
-        p.second->HasConnection(MOCK_SINK_ID)) {
-      continue;
-    }
-
+    if (p.second->ComponentID != comp_id || p.second->IsMockNode()) continue;
     if (nodesToRemove.find(p.first) != nodesToRemove.end()) continue;
     CompressNode(p.first, FindCompressibleNeighbours(p.first), &nodesToRemove);
   }
@@ -314,12 +309,6 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
 
 SkipLocalAlignment:
   LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
-
-  // check that ends (source and sink) match the reference
-  LANCET_ASSERT(aligned.ref[0] != ALIGNMENT_GAP && aligned.qry[0] != ALIGNMENT_GAP);  // NOLINT
-  LANCET_ASSERT(aligned.ref[aligned.ref.length() - 1] != ALIGNMENT_GAP);              // NOLINT
-  LANCET_ASSERT(aligned.qry[aligned.qry.length() - 1] != ALIGNMENT_GAP);              // NOLINT
-
   // 0-based reference anchor position in absolute chromosome coordinates
   const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
   std::size_t refIdx = 0;   // 0-based coordinate
@@ -542,12 +531,6 @@ auto Graph::FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btr
   for (const auto& srcNbour : srcNeighbours) {
     const auto buddyItr = nodesMap.find(srcNbour.buddyId);
     LANCET_ASSERT(buddyItr != nodesMap.end() && buddyItr->second != nullptr);  // NOLINT
-
-    // skip compressing data source and sink nodes (ones immediately adjacent to mock nodes)
-    if (buddyItr->second->HasConnection(MOCK_SOURCE_ID) || buddyItr->second->HasConnection(MOCK_SINK_ID)) {
-      continue;
-    }
-
     const auto buddysNeighbours = buddyItr->second->FindMergeableNeighbours();
     const auto areMututalBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
                                                [&src_id](const NodeNeighbour& n) { return n.buddyId == src_id; });
