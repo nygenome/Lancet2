@@ -55,7 +55,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     }
   }
 
-  VcfWriter outVcf(params->outVcfPath);
+  VcfWriter outVcf(params->outVcfPath, false);
   if (!outVcf.Write(VariantStore::BuildVcfHeader(GetSampleNames(*params), *params)).ok()) {
     FatalLog("Could not write header to output vcf: %s", params->outVcfPath);
     std::exit(EXIT_FAILURE);
