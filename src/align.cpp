@@ -90,21 +90,21 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
 
     if (forcex) {
       alnBases.first = ref[i - 1];
-      alnBases.second = ALIGNMENT_GAP;
+      alnBases.second = ALIGN_GAP;
       if (x.at(i, j).trace_back == '<') forcex = false;
       --i;
     } else if (t == '<') {
       alnBases.first = ref[i - 1];
-      alnBases.second = ALIGNMENT_GAP;
+      alnBases.second = ALIGN_GAP;
       if (x.at(i, j).trace_back == '-') forcex = true;
       --i;
     } else if (forcey) {
-      alnBases.first = ALIGNMENT_GAP;
+      alnBases.first = ALIGN_GAP;
       alnBases.second = qry[j - 1];
       if (y.at(i, j).trace_back == '^') forcey = false;
       --j;
     } else if (t == '^') {
-      alnBases.first = ALIGNMENT_GAP;
+      alnBases.first = ALIGN_GAP;
       alnBases.second = qry[j - 1];
       if (y.at(i, j).trace_back == '|') forcey = true;
       --j;
@@ -124,5 +124,30 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   std::reverse(refAln.begin(), refAln.end());
   std::reverse(qryAln.begin(), qryAln.end());
   return AlignedSequences{refAln, qryAln};
+}
+
+void TrimEndGaps(AlignedSequencesView* aln) {
+  // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
+  const auto initLen = aln->ref.length();
+  auto start = std::size_t(0);
+  auto end = initLen - 1;
+
+  const auto startGap = aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP;
+  const auto endGap = aln->ref[end] == ALIGN_GAP || aln->qry[end] == ALIGN_GAP;
+
+  if (startGap || endGap) {
+    // move start until no begin alignment gaps are found
+    while (aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP) {
+      start++;
+    }
+
+    // move end until no end alignment gaps are found
+    while (aln->ref[end] == ALIGN_GAP || aln->qry[end] == ALIGN_GAP) {
+      end--;
+    }
+
+    aln->ref = aln->ref.substr(start, end - start);
+    aln->qry = aln->qry.substr(start, end - start);
+  }
 }
 }  // namespace lancet
