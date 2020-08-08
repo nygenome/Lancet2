@@ -25,7 +25,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
 
-    if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && params->skipTruncSeq) {
+    if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       DebugLog("Skipping window %s with truncated reference sequence in fasta", regStr);
       resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
