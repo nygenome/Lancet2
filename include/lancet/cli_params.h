@@ -97,6 +97,5 @@ class CliParams {
   bool tenxMode = false;          // NOLINT
   bool extractReadPairs = false;  // NOLINT
   bool noCtgCheck = false;        // NOLINT
-  bool skipTruncSeq = false;      // NOLINT
 };
 }  // namespace lancet
