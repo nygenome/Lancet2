@@ -15,7 +15,6 @@
 #include "lancet/base_hpcov.h"
 #include "lancet/cli_params.h"
 #include "lancet/core_enums.h"
-#include "lancet/logger.h"
 #include "lancet/node.h"
 #include "lancet/path.h"
 #include "lancet/ref_window.h"
@@ -45,8 +44,7 @@ class Graph {
     std::size_t numNodes = 0;
   };
 
-  void MarkConnectedComponents();
-  [[nodiscard]] auto ComponentsInfo() const noexcept -> std::vector<ComponentInfo> { return componentsInfo; }
+  [[nodiscard]] auto MarkConnectedComponents() -> std::vector<ComponentInfo>;
 
   struct MarkSourceSinkResult {
     bool foundSourceAndSink = false;
@@ -111,7 +109,6 @@ class Graph {
   std::shared_ptr<const CliParams> params = nullptr;
   bool shouldIncrementK = false;
   NodeContainer nodesMap;
-  std::vector<ComponentInfo> componentsInfo;
 
   struct RefEndResult {
     NodeIdentifier nodeId = 0;

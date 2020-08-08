@@ -11,12 +11,12 @@
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
-#include "lancet/logger.h"
 #include "lancet/micro_assembler.h"
 #include "lancet/timer.h"
 #include "lancet/utils.h"
 #include "lancet/variant_store.h"
 #include "lancet/window_builder.h"
+#include "spdlog/spdlog.h"
 
 namespace lancet {
 static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string> {
@@ -48,14 +48,14 @@ static inline auto RequiredBufferWindows(const CliParams& p) -> std::size_t {
 
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   Timer T;
-  InfoLog("Starting main thread for processing lancet pipeline");
+  SPDLOG_INFO("Starting main thread for processing lancet pipeline");
   if (!params->ValidateParams()) std::exit(EXIT_FAILURE);
-  InfoLog("Successfully validated input command line parameters");
+  SPDLOG_INFO("Successfully validated input command line parameters");
 
   if (!params->outGraphsDir.empty()) {
     const auto result = utils::MakeDir(params->outGraphsDir);
     if (!result.ok()) {
-      FatalLog("Could not create output graphs dir: %s; %s", params->outGraphsDir, result.message());
+      SPDLOG_CRITICAL("Could not create output graphs dir: {}; {}", params->outGraphsDir, result.message());
       std::exit(EXIT_FAILURE);
     }
   }
@@ -71,7 +71,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   const auto numBufWindows = RequiredBufferWindows(*paramsPtr);
   const auto vDBPtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
 
-  InfoLog("Processing %d windows in %d microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
+  SPDLOG_INFO("Processing {} windows in {} microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<void>> assemblers;
   assemblers.reserve(numThreads);
 
@@ -113,13 +113,13 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    InfoLog("Progress: %0.3f%% | %d of %d done | Window %s processed in %s", pctDone(numDone), numDone, numTotal,
-            windowID, Humanized(result.runtime));
+    SPDLOG_INFO("Progress: {.3f}% | {} of {} done | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
+                windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
       const auto flushed = vDBPtr->FlushWindow(idxToFlush, outVcf, contigIDs);
       if (flushed) {
-        DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
+        SPDLOG_DEBUG("Flushed variants from {} to output vcf", allwindows[idxToFlush]->ToRegionString());
         outVcf.flush();
       }
 
@@ -132,7 +132,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   // just to make sure futures get collected and threads released
   std::for_each(assemblers.begin(), assemblers.end(), [](std::future<void>& fut) { return fut.get(); });
-  InfoLog("Successfully completed lancet pipeline | Runtime=%s", T.HumanRuntime());
+  SPDLOG_INFO("Successfully completed lancet pipeline | Runtime={}", T.HumanRuntime());
   std::exit(EXIT_SUCCESS);
 }
 }  // namespace lancet

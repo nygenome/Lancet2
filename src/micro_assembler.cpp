@@ -6,10 +6,10 @@
 #include "absl/strings/str_format.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/graph_builder.h"
-#include "lancet/logger.h"
 #include "lancet/read_extractor.h"
 #include "lancet/timer.h"
 #include "lancet/utils.h"
+#include "spdlog/spdlog.h"
 
 namespace lancet {
 void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
@@ -26,13 +26,13 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
     const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
-      DebugLog("Skipping window %s with truncated reference sequence in fasta", regStr);
+      SPDLOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
       resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
     if (!regResult.ok()) {
-      WarnLog("Error processing %s: %s", regStr, regResult.status().message());
+      SPDLOG_WARN("Error processing {}: {}", regStr, regResult.status().message());
       resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
@@ -42,7 +42,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
     if (!procStatus.ok()) {
       const auto errMsg = absl::StrFormat("Error processing %s: %s", regStr, procStatus.message());
-      WarnLog("%s", errMsg);
+      SPDLOG_WARN(errMsg);
       resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
@@ -54,12 +54,12 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
                                    const std::shared_ptr<VariantStore>& store) const -> absl::Status {
   const auto regionStr = w->ToRegionString();
-  DebugLog("Starting to process %s in MicroAssembler", regionStr);
+  SPDLOG_DEBUG("Starting to process {} in MicroAssembler", regionStr);
   if (ShouldSkipWindow(w)) return absl::OkStatus();
 
   ReadExtractor re(params, w->ToGenomicRegion());
   if (!params->activeRegionOff && !re.IsActiveRegion()) {
-    DebugLog("Skipping %s since no evidence of mutation is found", regionStr);
+    SPDLOG_DEBUG("Skipping {} since no evidence of mutation is found", regionStr);
     return absl::OkStatus();
   }
 
@@ -70,7 +70,7 @@ auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
 
   while (graph->ShouldIncrementK()) {
     if (gb.CurrentKmerSize() == params->maxKmerSize) {
-      WarnLog("Skipping %s after trying max kmer=%d", regionStr, params->maxKmerSize);
+      SPDLOG_WARN("Skipping {} after trying max kmer={}", regionStr, params->maxKmerSize);
       break;
     }
 
@@ -86,12 +86,12 @@ auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w)
   const auto regionStr = w->ToRegionString();
 
   if (static_cast<std::size_t>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {
-    WarnLog("Skipping %s since it has only N bases in reference", regionStr);
+    SPDLOG_WARN("Skipping {} since it has only N bases in reference", regionStr);
     return true;
   }
 
   if (utils::HasRepeatKmer(refseq, params->maxKmerSize)) {
-    WarnLog("Skipping %s since reference has repeat %d-mers", regionStr, params->maxKmerSize);
+    SPDLOG_WARN("Skipping {} since reference has repeat {}-mers", regionStr, params->maxKmerSize);
     return true;
   }
 

@@ -6,8 +6,9 @@
 
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "generated/lancet_version.h"
-#include "lancet/logger.h"
 
 namespace lancet {
 VariantStore::VariantStore(std::size_t num_windows, std::shared_ptr<const CliParams> p)
@@ -46,9 +47,10 @@ auto VariantStore::BuildVcfHeader(const std::vector<std::string>& sample_names, 
 ##FORMAT=<ID=SR,Number=2,Type=Integer,Description="Number of reads in the forward and reverse strands supporting the reference allele">
 ##FORMAT=<ID=SA,Number=2,Type=Integer,Description="Number of reads in the forward and reverse strands supporting the alternate allele">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
-)raw", RFC3339Time(), LONG_VERSION, p.commandLine, p.referencePath, p.minSTRFisher, p.minFisher,
-       p.minNmlCov, p.maxNmlCov, p.minTmrCov, p.maxTmrCov, p.minTmrVAF, p.maxNmlVAF, p.minTmrAltCnt,
-       p.maxNmlAltCnt, p.minStrandCnt);
+)raw", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone()), LONG_VERSION, // NOLINT
+       p.commandLine, p.referencePath, p.minSTRFisher, p.minFisher,
+       p.minNmlCov, p.maxNmlCov, p.minTmrCov, p.maxTmrCov, p.minTmrVAF, p.maxNmlVAF,
+       p.minTmrAltCnt, p.maxNmlAltCnt, p.minStrandCnt);
 
   static constexpr auto tenxTemplate = R"raw(##FILTER=<ID=MultiHP,Description="Reads supporting alternate allele found in multiple haplotypes">
 ##INFO=<ID=HPS,Number=1,Type=Float,Description="Phred-scaled probability of Fisher exact test of total haplotype counts (HP1 + HP2) in normal and tumor">

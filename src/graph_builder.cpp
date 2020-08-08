@@ -1,21 +1,24 @@
 #include "lancet/graph_builder.h"
 
-#include "lancet/assert_macro.h"
 #include <utility>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
+#include "lancet/assert_macro.h"
 #include "lancet/canonical_kmers.h"
 #include "lancet/core_enums.h"
 #include "lancet/kmer.h"
-#include "lancet/logger.h"
-#include "lancet/timer.h"
 #include "lancet/utils.h"
+#include "spdlog/spdlog.h"
+
+#ifndef NDEBUG
+#include "lancet/timer.h"
+#endif
 
 namespace lancet {
 GraphBuilder::GraphBuilder(std::shared_ptr<const RefWindow> w, absl::Span<const ReadInfo> reads, double avg_cov,
                            std::shared_ptr<const CliParams> p)
-    : window(std::move(w)), sampleReads(reads), params(std::move(p)), avgCov(avg_cov) {}
+    : avgCov(avg_cov), window(std::move(w)), params(std::move(p)), sampleReads(reads) {}
 
 auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::unique_ptr<Graph> {
 #if !defined(NDEBUG)
@@ -23,7 +26,7 @@ auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::uniq
 #endif
 
   const auto windowId = window->ToRegionString();
-  DebugLog("Starting to build graph for %s using minK=%d", windowId, min_k);
+  SPDLOG_DEBUG("Starting to build graph for {} using minK={}", windowId, min_k);
 
   for (currentK = min_k; currentK <= max_k; currentK += 2) {
     if (utils::HasRepeatKmer(window->SeqView(), currentK)) continue;
@@ -39,7 +42,7 @@ auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::uniq
     break;
   }
 
-  DebugLog("Built graph for %s with K=%d | Runtime=%s", windowId, currentK, timer.HumanRuntime());
+  SPDLOG_DEBUG("Built graph for {} with K={} | Runtime={}", windowId, currentK, timer.HumanRuntime());
   return std::make_unique<Graph>(window, std::move(nodesMap), avgCov, currentK, params);
 }
 
@@ -90,8 +93,8 @@ void GraphBuilder::BuildSampleNodes() {
   }
 
   const auto windowId = window->ToRegionString();
-  DebugLog("Combined sample coverage for %s is ~%.2fx", windowId, avgCov);
-  DebugLog("Built %d sample nodes in graph for %s using K=%d", nodesMap.size(), windowId, currentK);
+  SPDLOG_DEBUG("Combined sample coverage for {} is ~{.2f}x", windowId, avgCov);
+  SPDLOG_DEBUG("Built {} sample nodes in graph for {} using K={}", nodesMap.size(), windowId, currentK);
 }
 
 void GraphBuilder::BuildRefNodes() {
@@ -125,8 +128,8 @@ void GraphBuilder::BuildRefNodes() {
     }
   }
 
-  DebugLog("Marked %d existing nodes as reference in graph for %s with K=%d", numMarked, window->ToRegionString(),
-           currentK);
+  SPDLOG_DEBUG("Marked {} existing nodes as reference in graph for {} with K={}", numMarked, window->ToRegionString(),
+               currentK);
 }
 
 auto GraphBuilder::BuildNodes(absl::string_view seq) -> GraphBuilder::BuildNodesResult {
@@ -189,8 +192,8 @@ void GraphBuilder::RecoverKmers() {
   }
 
   if (numRecovered > 0) {
-    DebugLog("Recovered %d singleton tumor %d-mers from graph for %s", numRecovered, currentK,
-             window->ToRegionString());
+    SPDLOG_DEBUG("Recovered %d singleton tumor %d-mers from graph for %s", numRecovered, currentK,
+                 window->ToRegionString());
   }
 }
 

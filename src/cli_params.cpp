@@ -3,7 +3,7 @@
 #include "lancet/contig_info.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
-#include "lancet/logger.h"
+#include "spdlog/spdlog.h"
 
 namespace lancet {
 static const auto TagPresent = [](const CliParams& p, const char* tag) -> bool {
@@ -22,25 +22,25 @@ static const auto RefContigsMatch = [](const CliParams& p) -> bool {
 auto CliParams::ValidateParams() -> bool {
   // ensure MD tag is present when active region is not turned off
   if (!activeRegionOff && !TagPresent(*this, "MD")) {
-    WarnLog("MD tag is missing from tumor and normal BAMs/CRAMs. Turning off active region detection.");
+    SPDLOG_WARN("MD tag is missing from tumor and normal BAMs/CRAMs. Turning off active region detection.");
     activeRegionOff = true;
   }
 
   // ensure HP and BX tags are present when tenxMode is turned on
   if (tenxMode) {
     if (!TagPresent(*this, "BX")) {
-      WarnLog("BX tag is missing from tumor and normal BAMs/CRAMs. Turning off tenx-mode.");
+      SPDLOG_WARN("BX tag is missing from tumor and normal BAMs/CRAMs. Turning off tenx-mode.");
       tenxMode = false;
     }
 
     if (!TagPresent(*this, "HP")) {
-      WarnLog("HP tag is missing from tumor and normal BAMs/CRAMs. Turning off tenx-mode.");
+      SPDLOG_WARN("HP tag is missing from tumor and normal BAMs/CRAMs. Turning off tenx-mode.");
       tenxMode = false;
     }
   }
 
   if (!noCtgCheck && !RefContigsMatch(*this)) {
-    FatalLog("Reference contigs in tumor/normal BAM/CRAMs do not match with reference FASTA.");
+    SPDLOG_ERROR("Reference contigs in tumor/normal BAM/CRAMs do not match with reference FASTA.");
     return false;
   }
 
