@@ -58,7 +58,6 @@ add_library(lancet_core STATIC
         include/lancet/vcf_writer.h src/vcf_writer.cpp
 
         include/lancet/ref_window.h
-        include/lancet/notification.h
         include/lancet/read_info.h
         include/lancet/window_builder.h src/window_builder.cpp
         include/lancet/cli_params.h src/cli_params.cpp
