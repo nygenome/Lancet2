@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <string_view>
 
@@ -25,26 +24,7 @@ struct AlignedSequencesView {
   std::string_view qry{};
 };
 
-void TrimEndGaps(AlignedSequencesView* aln);
-
 [[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences;
 
-namespace detail {
-template <typename T>
-class NaiveTwoDimArray {
- public:
-  explicit NaiveTwoDimArray(std::size_t nrows, std::size_t ncols)
-      : numRows(nrows), numCols(ncols), data(std::make_unique<T[]>(nrows * ncols)) {}  // NOLINT
-
-  NaiveTwoDimArray() = delete;
-
-  auto at(std::size_t row, std::size_t col) -> T& { return data[row * numCols + col]; }
-  auto at(std::size_t row, std::size_t col) const -> const T& { return data[row * numCols + col]; }
-
- private:
-  std::size_t numRows;
-  std::size_t numCols;
-  std::unique_ptr<T[]> data;  // NOLINT
-};
-}  // namespace detail
+[[nodiscard]] auto TrimEndGaps(AlignedSequencesView* aln) -> std::size_t;
 }  // namespace lancet

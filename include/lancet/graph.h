@@ -67,7 +67,7 @@ class Graph {
 
   using TranscriptList = std::vector<Transcript>;
   [[nodiscard]] auto ProcessPath(const Path& path, const RefInfos& ref_infos,
-                                 const MarkSourceSinkResult& end_info) const -> TranscriptList;
+                                 const MarkSourceSinkResult& einfo) const -> TranscriptList;
 
   [[nodiscard]] auto AddTranscripts(absl::Span<const Transcript> transcripts,
                                     const std::shared_ptr<VariantStore>& store) const -> std::size_t;
