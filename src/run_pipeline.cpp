@@ -114,10 +114,14 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     InfoLog("Progress: %0.3f%% | %d of %d done | Window %s processed in %s", pctDone(numDone), numDone, numTotal,
             windowID, Humanized(result.runtime));
 
-    if (allWindowsUptoDone(idxToFlush + numBufWindows) && vDBPtr->FlushWindow(idxToFlush, &outVcf, contigIDs)) {
-      DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
+    if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
+      const auto flushed = vDBPtr->FlushWindow(idxToFlush, &outVcf, contigIDs);
+      if (flushed) {
+        DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
+        outVcf.Flush();
+      }
+
       idxToFlush++;
-      outVcf.Flush();
     }
   }
 
