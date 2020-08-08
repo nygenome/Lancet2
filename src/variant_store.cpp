@@ -139,6 +139,7 @@ auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, Vc
     }
   }
 
+  if (!variantsToFlush.empty() && data.load_factor() < 0.7) data.rehash(0);
   return !variantsToFlush.empty();
 }
 }  // namespace lancet
