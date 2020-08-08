@@ -9,7 +9,7 @@
 namespace lancet {
 class VcfWriter {
  public:
-  explicit VcfWriter(const std::filesystem::path& out_path, bool compress);
+  explicit VcfWriter(const std::filesystem::path& out_path);
   VcfWriter() = delete;
   ~VcfWriter();
 

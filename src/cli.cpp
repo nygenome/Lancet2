@@ -90,10 +90,9 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Required")
       ->check(CLI::ExistingFile);
 
-  subcmd->add_option("-o,--out-vcf", params->outVcfPath, "Output path to bgzip'ed VCF file")
+  subcmd->add_option("-o,--out-prefix", params->outVcfPrefix, "Output path prefix to bgzip'ed VCF file")
       ->required(true)
-      ->group("Required")
-      ->check(CLI::ExistingFile | CLI::NonexistentPath);
+      ->group("Required");
 
   // Regions
   subcmd->add_option("--region", params->inRegions, "One or more regions to process (samtools region format)")

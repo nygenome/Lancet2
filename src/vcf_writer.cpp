@@ -1,6 +1,5 @@
 #include "lancet/vcf_writer.h"
 
-#include <fstream>
 #include <stdexcept>
 
 #include "absl/strings/str_format.h"
@@ -10,46 +9,28 @@
 namespace lancet {
 class VcfWriter::Impl {
  public:
-  explicit Impl(const std::filesystem::path& out_path, bool compress) : isCompressedOut(compress), vcfPath(out_path) {
-    compress ? OpenBgzfHandle(out_path.c_str()) : outFile.open(out_path, std::ios_base::out | std::ios_base::trunc);
-  }
+  explicit Impl(const std::filesystem::path& out_path) : vcfPath(out_path) { OpenBgzfHandle(out_path.c_str()); }
 
   auto Write(std::string_view record) -> absl::Status {
-    if (isCompressedOut) {
-      const auto numWritten = bgzf_write(fp, record.data(), record.length());
-      return numWritten == record.length() ? absl::OkStatus() : absl::InternalError("could not write to BGZF handle");
-    }
-
-    outFile.write(record.data(), record.length());
-    return absl::OkStatus();
+    const auto numWritten = bgzf_write(fp, record.data(), record.length());
+    return numWritten == record.length() ? absl::OkStatus() : absl::InternalError("could not write to BGZF handle");
   }
 
   void Flush() {
-    if (isCompressedOut) {
-      if (fp == nullptr || isClosed) return;
-      if (bgzf_flush(fp) != 0) throw std::runtime_error("could not flush variants to vcf");
-      return;
-    }
-
-    outFile.flush();
+    if (fp == nullptr || isClosed) return;
+    if (bgzf_flush(fp) != 0) throw std::runtime_error("could not flush variants to vcf");
+    return;
   }
 
   void Close() {
-    if (isCompressedOut) {
-      if (fp == nullptr || isClosed) return;
-      bgzf_close(fp);
-      tbx_index_build(vcfPath.c_str(), 0, &tbx_conf_vcf);
-      return;
-    }
-
-    return outFile.close();
+    if (fp == nullptr || isClosed) return;
+    bgzf_close(fp);
+    tbx_index_build(vcfPath.c_str(), 0, &tbx_conf_vcf);
   }
 
  private:
   bool isClosed = false;
-  bool isCompressedOut = false;
   std::filesystem::path vcfPath;
-  std::ofstream outFile;
   BGZF* fp = nullptr;
 
   void OpenBgzfHandle(const char* path) {
@@ -61,9 +42,7 @@ class VcfWriter::Impl {
   }
 };
 
-VcfWriter::VcfWriter(const std::filesystem::path& out_path, bool compress)
-    : pimpl(std::make_unique<Impl>(out_path, compress)) {}
-
+VcfWriter::VcfWriter(const std::filesystem::path& out_path) : pimpl(std::make_unique<Impl>(out_path)) {}
 VcfWriter::~VcfWriter() { Close(); }
 auto VcfWriter::Write(std::string_view record) -> absl::Status { return pimpl->Write(record); }
 void VcfWriter::Flush() { return pimpl->Flush(); }
