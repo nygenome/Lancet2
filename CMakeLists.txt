@@ -42,7 +42,6 @@ include(sanitizers)
 
 # Add lancet core library target
 add_library(lancet_core STATIC
-        include/lancet/logger.h src/logger.cpp
         include/lancet/assert_macro.h include/lancet/timer.h
         include/lancet/fractional_sampler.h
         include/lancet/statusor_internals.h
@@ -103,7 +102,7 @@ target_include_directories(lancet_core PUBLIC include PRIVATE ${CMAKE_BINARY_DIR
 target_link_libraries(lancet_core
         PUBLIC absl::status absl::flat_hash_map absl::flat_hash_set concurrentqueue absl::str_format
                absl::fixed_array absl::span absl::time absl::random_random absl::synchronization
-        PRIVATE CLI11 absl::failure_signal_handler absl::strings ${LIBHTS}
+        PRIVATE CLI11 absl::failure_signal_handler absl::strings spdlog::spdlog ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES})
 
 set_target_properties(lancet_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
