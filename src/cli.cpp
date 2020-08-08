@@ -43,7 +43,7 @@ auto RunCli(int argc, char** argv) noexcept -> int {
 
   auto stderrLogger = spdlog::stderr_color_mt("stderr", spdlog::color_mode::automatic);
   spdlog::set_default_logger(stderrLogger);
-  spdlog::set_pattern("%Y-%m-%dT%H:%M:%S.%o%z | %^[%l]%$ | %v");
+  spdlog::set_pattern("%Y-%m-%dT%H:%M:%S%z | %^[%l]%$ | %v");
 
   constexpr auto appDesc = "Microassembly based somatic variant caller";
   CLI::App app(appDesc, "Lancet");
