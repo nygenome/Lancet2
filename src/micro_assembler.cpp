@@ -8,6 +8,7 @@
 #include "lancet/graph_builder.h"
 #include "lancet/logger.h"
 #include "lancet/read_extractor.h"
+#include "lancet/timer.h"
 #include "lancet/utils.h"
 
 namespace lancet {
@@ -15,9 +16,10 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
   Timer T;
   FastaReader refRdr(params->referencePath);
   auto window = std::make_shared<RefWindow>();
-  moodycamel::ConsumerToken ctok(*windowQPtr);
+  moodycamel::ConsumerToken consumerToken(*windowQPtr);
+  moodycamel::ProducerToken producerToken(*resultQPtr);
 
-  while (windowQPtr->try_dequeue(ctok, window)) {
+  while (windowQPtr->try_dequeue(consumerToken, window)) {
     T.Reset();
     const auto winIdx = window->WindowIndex();
     const auto regStr = window->ToRegionString();
@@ -25,13 +27,13 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status()) && params->skipTruncSeq) {
       DebugLog("Skipping window %s with truncated reference sequence in fasta", regStr);
-      resultNotifiers[winIdx]->SetResult(winIdx, T.Runtime());
+      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
     if (!regResult.ok()) {
-      resultNotifiers[winIdx]->SetResult(winIdx, T.Runtime());
       WarnLog("Error processing %s: %s", regStr, regResult.status().message());
+      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
@@ -41,11 +43,11 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
     if (!procStatus.ok()) {
       const auto errMsg = absl::StrFormat("Error processing %s: %s", regStr, procStatus.message());
       WarnLog("%s", errMsg);
-      resultNotifiers[winIdx]->SetResult(winIdx, T.Runtime());
+      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
-    resultNotifiers[winIdx]->SetResult(winIdx, T.Runtime());
+    resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
   }
 }
 
