@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,7 +13,6 @@
 #include "absl/types/span.h"
 #include "lancet/cli_params.h"
 #include "lancet/variant.h"
-#include "lancet/vcf_writer.h"
 
 namespace lancet {
 class VariantStore {
@@ -27,11 +27,11 @@ class VariantStore {
 
   auto ABSL_LOCKS_EXCLUDED(mutex) AddVariant(std::size_t window_index, Variant&& variant) -> bool;
 
-  auto ABSL_LOCKS_EXCLUDED(mutex) FlushWindow(std::size_t window_index, VcfWriter* out,
-                                              const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
+  auto ABSL_LOCKS_EXCLUDED(mutex) FlushWindow(std::size_t window_index, std::ostream& out,
+                                              const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
 
   auto ABSL_LOCKS_EXCLUDED(mutex)
-      FlushAll(VcfWriter* out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
+      FlushAll(std::ostream& out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
 
  private:
   absl::Mutex mutex;
@@ -40,7 +40,7 @@ class VariantStore {
   std::shared_ptr<const CliParams> params = nullptr;
 
   [[nodiscard]] ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) auto FlushVariants(
-      absl::Span<const std::uint64_t> variant_ids, VcfWriter* out,
-      const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
+      absl::Span<const std::uint64_t> variant_ids, std::ostream& out,
+      const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
 };
 }  // namespace lancet

@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <fstream>
 #include <future>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
-#include "absl/strings/str_format.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -16,7 +16,6 @@
 #include "lancet/timer.h"
 #include "lancet/utils.h"
 #include "lancet/variant_store.h"
-#include "lancet/vcf_writer.h"
 #include "lancet/window_builder.h"
 
 namespace lancet {
@@ -61,11 +60,9 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     }
   }
 
-  VcfWriter outVcf(absl::StrFormat("%s.vcf.gz", params->outVcfPrefix));
-  if (!outVcf.Write(VariantStore::BuildVcfHeader(GetSampleNames(*params), *params)).ok()) {
-    FatalLog("Could not write header to output vcf: %s.vcf.gz", params->outVcfPrefix);
-    std::exit(EXIT_FAILURE);
-  }
+  std::ofstream outVcf(params->outVcfPath, std::ios_base::out | std::ios_base::trunc);
+  const auto outHdr = VariantStore::BuildVcfHeader(GetSampleNames(*params), *params);
+  outVcf.write(outHdr.c_str(), outHdr.length());
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);
@@ -92,6 +89,10 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   absl::FixedArray<bool> doneWindows(allwindows.size());
   doneWindows.fill(false);
 
+  const auto anyWindowsRunning = [&doneWindows]() -> bool {
+    return std::any_of(doneWindows.cbegin(), doneWindows.cend(), [](const bool& wdone) { return !wdone; });
+  };
+
   const auto allWindowsUptoDone = [&doneWindows](const std::size_t win_idx) -> bool {
     const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
     return std::all_of(doneWindows.cbegin(), lastItr, [](const bool& wdone) { return wdone; });
@@ -106,7 +107,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   WindowResult result;
   moodycamel::ConsumerToken consumerToken(*resultQueuePtr);
-  while (numDone < numTotal) {
+  while (anyWindowsRunning()) {
     resultQueuePtr->wait_dequeue(consumerToken, result);
 
     numDone++;
@@ -116,18 +117,18 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
             windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
-      const auto flushed = vDBPtr->FlushWindow(idxToFlush, &outVcf, contigIDs);
+      const auto flushed = vDBPtr->FlushWindow(idxToFlush, outVcf, contigIDs);
       if (flushed) {
         DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
-        outVcf.Flush();
+        outVcf.flush();
       }
 
       idxToFlush++;
     }
   }
 
-  vDBPtr->FlushAll(&outVcf, contigIDs);
-  outVcf.Close();
+  vDBPtr->FlushAll(outVcf, contigIDs);
+  outVcf.close();
 
   // just to make sure futures get collected and threads released
   std::for_each(assemblers.begin(), assemblers.end(), [](std::future<void>& fut) { return fut.get(); });
