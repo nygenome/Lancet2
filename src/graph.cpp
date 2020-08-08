@@ -535,7 +535,7 @@ auto Graph::FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btr
   absl::btree_set<NodeNeighbour> results;
   for (const auto& srcNbour : srcNeighbours) {
     const auto buddyItr = nodesMap.find(srcNbour.buddyId);
-    if (buddyItr == nodesMap.end() && buddyItr->second == nullptr) continue;
+    if (buddyItr == nodesMap.end() || buddyItr->second == nullptr) continue;
 
     const auto buddysNeighbours = buddyItr->second->FindMergeableNeighbours();
     const auto areMutualBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
