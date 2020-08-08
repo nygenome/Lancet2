@@ -113,7 +113,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    SPDLOG_INFO("Progress: {.3f}% | {} of {} done | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
+    SPDLOG_INFO("Progress: {:03.3f}% | {} of {} done | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
                 windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
