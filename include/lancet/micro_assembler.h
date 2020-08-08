@@ -6,32 +6,38 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "blockingconcurrentqueue.h"
 #include "concurrentqueue.h"
 #include "lancet/cli_params.h"
-#include "lancet/notification.h"
 #include "lancet/ref_window.h"
-#include "lancet/timer.h"
 #include "lancet/variant_store.h"
 
 namespace lancet {
-using WindowPtr = std::shared_ptr<RefWindow>;
-using ResultNotifierPtr = std::shared_ptr<Notification<std::size_t>>;
-using WindowQueue = moodycamel::ConcurrentQueue<WindowPtr>;
+struct WindowResult {
+  absl::Duration runtime = absl::ZeroDuration();  // NOLINT
+  std::size_t windowIdx = 0;                      // NOLINT
+
+  [[nodiscard]] auto IsEmpty() const -> bool { return runtime == absl::ZeroDuration() && windowIdx == 0; }
+};
+
+using InWindowQueue = moodycamel::ConcurrentQueue<std::shared_ptr<RefWindow>>;
+using OutResultQueue = moodycamel::BlockingConcurrentQueue<WindowResult>;
 
 class MicroAssembler {
  public:
-  explicit MicroAssembler(std::shared_ptr<WindowQueue> qptr, absl::Span<ResultNotifierPtr> notis,
+  explicit MicroAssembler(std::shared_ptr<InWindowQueue> winq, std::shared_ptr<OutResultQueue> resq,
                           std::shared_ptr<const CliParams> p)
-      : windowQPtr(std::move(qptr)), resultNotifiers(notis), params(std::move(p)) {}
+      : windowQPtr(std::move(winq)), resultQPtr(std::move(resq)), params(std::move(p)) {}
 
   MicroAssembler() = default;
 
   void Process(const std::shared_ptr<VariantStore>& store) const;
 
  private:
-  std::shared_ptr<WindowQueue> windowQPtr;
-  absl::Span<ResultNotifierPtr> resultNotifiers;
+  std::shared_ptr<InWindowQueue> windowQPtr;
+  std::shared_ptr<OutResultQueue> resultQPtr;
   std::shared_ptr<const CliParams> params;
 
   [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const RefWindow>& w,

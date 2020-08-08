@@ -7,8 +7,6 @@
 #include <vector>
 
 #include "absl/container/fixed_array.h"
-#include "absl/status/status.h"
-#include "concurrentqueue.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -41,6 +39,13 @@ static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::
   return FastaReader(p.referencePath).ContigIDs();
 }
 
+static inline auto RequiredBufferWindows(const CliParams& p) -> std::size_t {
+  // Number of windows ahead of current window to be done in order to flush current window
+  const auto maxFlankLen = static_cast<double>(std::max(p.maxIndelLength, p.windowLength));
+  const auto windowStep = static_cast<double>(WindowBuilder::StepSize(p.pctOverlap, p.windowLength));
+  return static_cast<std::size_t>(3.0 * std::ceil(maxFlankLen / windowStep));
+}
+
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   Timer T;
   InfoLog("Starting main thread for processing lancet pipeline");
@@ -63,46 +68,33 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);
-
-  std::vector<std::shared_ptr<Notification<std::size_t>>> resultNotifiers(allwindows.size());
-  for (std::size_t idx = 0; idx < allwindows.size(); ++idx) {
-    resultNotifiers[idx] = std::make_shared<Notification<std::size_t>>();
-  }
-
-  const auto windowQueuePtr = std::make_shared<WindowQueue>(allwindows.size());
-  moodycamel::ProducerToken ptok(*windowQueuePtr);
-  windowQueuePtr->enqueue_bulk(ptok, allwindows.begin(), allwindows.size());
-
   const auto numThreads = static_cast<std::size_t>(params->numWorkerThreads);
   const auto paramsPtr = std::make_shared<const CliParams>(*params);
-  const auto storePtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
+  const auto numBufWindows = RequiredBufferWindows(*paramsPtr);
+  const auto vDBPtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
 
   InfoLog("Processing %d windows in %d microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<void>> assemblers;
   assemblers.reserve(numThreads);
 
+  const auto resultQueuePtr = std::make_shared<OutResultQueue>(allwindows.size());
+  const auto windowQueuePtr = std::make_shared<InWindowQueue>(allwindows.size());
+  moodycamel::ProducerToken producerToken(*windowQueuePtr);
+  windowQueuePtr->enqueue_bulk(producerToken, allwindows.begin(), allwindows.size());
+
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
-        std::launch::async, [&storePtr](std::unique_ptr<MicroAssembler> m) -> void { return m->Process(storePtr); },
-        std::make_unique<MicroAssembler>(windowQueuePtr, absl::MakeSpan(resultNotifiers), paramsPtr)));
+        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { return m->Process(vDBPtr); },
+        std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
-  const auto anyWindowRunning = [&resultNotifiers]() -> bool {
-    return std::any_of(resultNotifiers.cbegin(), resultNotifiers.cend(),
-                       [](const ResultNotifierPtr& n) { return n->IsNotDone(); });
+  absl::FixedArray<bool> doneWindows(allwindows.size());
+  doneWindows.fill(false);
+
+  const auto allWindowsUptoDone = [&doneWindows](const std::size_t win_idx) -> bool {
+    const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
+    return std::all_of(doneWindows.cbegin(), lastItr, [](const bool& wdone) { return wdone; });
   };
-
-  const auto allWindowsUptoDone = [&resultNotifiers](const std::size_t win_idx) -> bool {
-    auto lastItr = win_idx >= resultNotifiers.size() ? resultNotifiers.cend() : resultNotifiers.cbegin() + win_idx;
-    return std::all_of(resultNotifiers.cbegin(), lastItr, [](const ResultNotifierPtr& n) { return n->IsDone(); });
-  };
-
-  const auto maxFlankLen = static_cast<double>(std::max(params->maxIndelLength, params->windowLength));
-  const auto windowStep = static_cast<double>(WindowBuilder::StepSize(params->pctOverlap, params->windowLength));
-  const auto numBufferWindows = static_cast<std::size_t>(3.0 * std::ceil(maxFlankLen / windowStep));
-
-  absl::FixedArray<bool> alreadyLogged(allwindows.size());
-  alreadyLogged.fill(false);
 
   std::size_t idxToFlush = 0;
   std::size_t numDone = 0;
@@ -111,30 +103,25 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     return 100.0 * (static_cast<double>(done) / static_cast<double>(numTotal));
   };
 
-  while (anyWindowRunning()) {
-    if (idxToFlush == allwindows.size()) break;
+  WindowResult result;
+  moodycamel::ConsumerToken consumerToken(*resultQueuePtr);
+  while (numDone < numTotal) {
+    resultQueuePtr->wait_dequeue(consumerToken, result);
 
-    for (const auto& notifier : resultNotifiers) {
-      if (notifier->IsNotDone() || alreadyLogged[notifier->WaitForResult()]) continue;
+    numDone++;
+    doneWindows[result.windowIdx] = true;
+    const auto windowID = allwindows[result.windowIdx]->ToRegionString();
+    InfoLog("Progress: %0.3f%% | %d of %d done | Window %s processed in %s", pctDone(numDone), numDone, numTotal,
+            windowID, Humanized(result.runtime));
 
-      numDone++;
-      const auto winIdx = notifier->WaitForResult();
-      alreadyLogged[winIdx] = true;
-
-      const auto windowID = allwindows[winIdx]->ToRegionString();
-      InfoLog("Progress: %0.3f%% | Done processing %s in %s | %d of %d windows completed", pctDone(numDone), windowID,
-              notifier->HumanRuntime(), numDone, numTotal);
-    }
-
-    if (allWindowsUptoDone(idxToFlush + numBufferWindows) && storePtr->FlushWindow(idxToFlush, &outVcf, contigIDs)) {
+    if (allWindowsUptoDone(idxToFlush + numBufWindows) && vDBPtr->FlushWindow(idxToFlush, &outVcf, contigIDs)) {
       DebugLog("Flushed variants from %s to output vcf", allwindows[idxToFlush]->ToRegionString());
       idxToFlush++;
+      outVcf.Flush();
     }
-
-    if (idxToFlush > 0 && (idxToFlush % 10) == 0) outVcf.Flush();
   }
 
-  storePtr->FlushAll(&outVcf, contigIDs);
+  vDBPtr->FlushAll(&outVcf, contigIDs);
   outVcf.Close();
 
   // just to make sure futures get collected and threads released
