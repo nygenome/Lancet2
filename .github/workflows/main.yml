@@ -25,6 +25,8 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: gcc
+        tag_with_ref: true
+        tag_with_sha: true
         dockerfile: docker/gcc.Dockerfile
         cache_froms: gcc:10
         add_git_labels: true
@@ -38,8 +40,6 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         repository: rmusunuri/v2_lancet
         tags: clang
-        tag_with_ref: true
-        tag_with_sha: true
         dockerfile: docker/clang.Dockerfile
         cache_froms: clangbuiltlinux/ubuntu:llvm10-latest
         add_git_labels: true
