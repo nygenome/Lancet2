@@ -533,13 +533,15 @@ auto Graph::FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btr
   for (const auto& srcNbour : srcNeighbours) {
     const auto buddyItr = nodesMap.find(srcNbour.buddyId);
     if (buddyItr == nodesMap.end() && buddyItr->second == nullptr) continue;
+
     const auto buddysNeighbours = buddyItr->second->FindMergeableNeighbours();
-    const auto areMututalBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
-                                               [&src_id](const NodeNeighbour& n) { return n.buddyId == src_id; });
+    const auto areMutualBuddies = std::any_of(buddysNeighbours.cbegin(), buddysNeighbours.cend(),
+                                              [&src_id](const NodeNeighbour& n) { return n.buddyId == src_id; });
+    if (!areMutualBuddies) continue;
 
     const auto mergeDir = SourceStrand(srcNbour.edgeKind) == Strand::FWD ? BuddyPosition::FRONT : BuddyPosition::BACK;
     const auto canMergeWithBuddySeq = srcItr->second->CanMerge(*buddyItr->second, mergeDir, kmerSize);
-    if (areMututalBuddies && canMergeWithBuddySeq) results.emplace(srcNbour);
+    if (canMergeWithBuddySeq) results.emplace(srcNbour);
   }
 
   return results;
