@@ -1,7 +1,7 @@
 #include "lancet/variant_store.h"
 
 #include <algorithm>
-#include <stdexcept>
+#include <ostream>
 #include <utility>
 
 #include "absl/strings/str_format.h"
@@ -87,7 +87,7 @@ auto VariantStore::AddVariant(std::size_t window_index, Variant&& variant) -> bo
   return false;
 }
 
-auto VariantStore::FlushWindow(std::size_t window_index, VcfWriter* out,
+auto VariantStore::FlushWindow(std::size_t window_index, std::ostream& out,
                                const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
   absl::MutexLock guard(&mutex);
   if (windowIds[window_index].empty()) return false;
@@ -97,7 +97,7 @@ auto VariantStore::FlushWindow(std::size_t window_index, VcfWriter* out,
   return wasFlushed;
 }
 
-auto VariantStore::FlushAll(VcfWriter* out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
+auto VariantStore::FlushAll(std::ostream& out, const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
   absl::MutexLock guard(&mutex);
   if (data.empty()) return false;
 
@@ -110,11 +110,11 @@ auto VariantStore::FlushAll(VcfWriter* out, const absl::flat_hash_map<std::strin
     window.clear();
   }
 
-  return FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, contig_ids);
+  return FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
 }
 
-auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, VcfWriter* out,
-                                 const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
+auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, std::ostream& out,
+                                 const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
   std::vector<Variant> variantsToFlush;
   variantsToFlush.reserve(variant_ids.size());
 
@@ -124,19 +124,16 @@ auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, Vc
     variantsToFlush.emplace_back(handle.mapped());
   }
 
-  std::sort(variantsToFlush.begin(), variantsToFlush.end(),
-            [&contig_ids](const Variant& v1, const Variant& v2) -> bool {
-              if (v1.ChromName != v2.ChromName) return contig_ids.at(v1.ChromName) < contig_ids.at(v2.ChromName);
-              if (v1.Position != v2.Position) return v1.Position < v2.Position;
-              if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
-              return v1.AltAllele < v2.AltAllele;
-            });
+  std::sort(variantsToFlush.begin(), variantsToFlush.end(), [&ctg_ids](const Variant& v1, const Variant& v2) -> bool {
+    if (v1.ChromName != v2.ChromName) return ctg_ids.at(v1.ChromName) < ctg_ids.at(v2.ChromName);
+    if (v1.Position != v2.Position) return v1.Position < v2.Position;
+    if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
+    return v1.AltAllele < v2.AltAllele;
+  });
 
   for (const auto& v : variantsToFlush) {
-    const auto status = out->Write(v.MakeVcfLine(*params));
-    if (!status.ok()) {
-      throw std::runtime_error(absl::StrFormat("could not write variants: %s", status.message()));
-    }
+    const auto recordLine = v.MakeVcfLine(*params);
+    out.write(recordLine.c_str(), recordLine.length());
   }
 
   if (!variantsToFlush.empty() && data.load_factor() < 0.7) data.rehash(0);
