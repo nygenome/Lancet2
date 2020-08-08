@@ -31,11 +31,11 @@ class GraphBuilder {
   [[nodiscard]] auto CurrentKmerSize() const noexcept -> std::size_t { return currentK; }
 
  private:
-  std::shared_ptr<const RefWindow> window;
-  absl::Span<const ReadInfo> sampleReads;
-  std::shared_ptr<const CliParams> params;
   double avgCov = 0.0;
   std::size_t currentK = 0;
+  std::shared_ptr<const RefWindow> window;
+  std::shared_ptr<const CliParams> params;
+  absl::Span<const ReadInfo> sampleReads;
   Graph::NodeContainer nodesMap;
   ReferenceData refTmrData;
   ReferenceData refNmlData;

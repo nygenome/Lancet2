@@ -17,6 +17,18 @@
 #include "generated/lancet_version.h"
 #include "lancet/cli_params.h"
 #include "lancet/run_pipeline.h"
+#include "spdlog/sinks/stdout_color_sinks-inl.h"
+#include "spdlog/spdlog.h"
+
+#ifdef SPDLOG_ACTIVE_LEVEL
+#undef SPDLOG_ACTIVE_LEVEL
+#endif
+
+#ifndef NDEBUG
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE  // NOLINT
+#else
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO  // NOLINT
+#endif
 
 namespace lancet {
 auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void;
@@ -28,6 +40,10 @@ auto RunCli(int argc, char** argv) noexcept -> int {
 
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
+
+  auto stderrLogger = spdlog::stderr_color_mt("stderr", spdlog::color_mode::automatic);
+  spdlog::set_default_logger(stderrLogger);
+  spdlog::set_pattern("%Y-%m-%dT%H:%M:%S.%o%z | %^[%l]%$ | %v");
 
   constexpr auto appDesc = "Microassembly based somatic variant caller";
   CLI::App app(appDesc, "Lancet");

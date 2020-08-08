@@ -8,7 +8,7 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
-#include "lancet/logger.h"
+#include "spdlog/spdlog.h"
 
 namespace lancet {
 WindowBuilder::WindowBuilder(const std::filesystem::path &ref, std::uint32_t region_padding,
@@ -186,7 +186,7 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
   for (const auto &region : params.inRegions) {
     const auto result = wb.AddSamtoolsRegion(region);
     if (!result.ok()) {
-      FatalLog("%s", result.message());
+      spdlog::error(result.message());
       std::exit(EXIT_FAILURE);
     }
   }
@@ -194,20 +194,20 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
   if (!params.bedFilePath.empty()) {
     const auto result = wb.AddBedFileRegions(params.bedFilePath);
     if (!result.ok()) {
-      FatalLog("%s", result.message());
+      spdlog::error(result.message());
       std::exit(EXIT_FAILURE);
     }
   }
 
   if (wb.IsEmpty()) {
-    InfoLog("No input regions provided to process. Using all reference contigs in fasta as input");
+    spdlog::info("No input regions provided to process. Using all reference contigs in fasta as input");
     wb.AddAllRefRegions();
   }
 
-  InfoLog("Building reference windows from %d input regions", wb.Size());
+  spdlog::info("Building reference windows from {} input regions", wb.Size());
   const auto windows = wb.BuildWindows(contig_ids);
   if (!windows.ok()) {
-    FatalLog("%s", windows.status().message());
+    spdlog::error(windows.status().message());
     std::exit(EXIT_FAILURE);
   }
 

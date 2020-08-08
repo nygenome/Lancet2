@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "absl/strings/str_format.h"
-#include "lancet/assert_macro.h"
 
 namespace lancet {
 // Original:
