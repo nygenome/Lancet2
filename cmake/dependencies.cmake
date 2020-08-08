@@ -52,9 +52,6 @@ if(NOT concurrentqueue_POPULATED)
     target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
 endif()
 
-FetchContent_Declare(edlib GIT_REPOSITORY https://github.com/Martinsos/edlib.git GIT_TAG v1.2.6)
-FetchContent_MakeAvailable(edlib)
-
 FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.7.0)
 FetchContent_MakeAvailable(spdlog)
 

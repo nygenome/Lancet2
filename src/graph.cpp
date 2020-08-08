@@ -292,10 +292,10 @@ auto Graph::HasCycle() const -> bool {
   return HasCycle(MOCK_SOURCE_ID, Strand::FWD, &touchedIDs) || HasCycle(MOCK_SOURCE_ID, Strand::REV, &touchedIDs);
 }
 
-auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkSourceSinkResult& end_info) const
+auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkSourceSinkResult& einfo) const
     -> Graph::TranscriptList {
   const auto pathSeq = path.SeqView();
-  const auto refAnchorSeq = window->SeqView().substr(end_info.startOffset, RefAnchorLen(end_info));
+  const auto refAnchorSeq = window->SeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
   if (pathSeq == refAnchorSeq) return {};
 
   // check that reference seq length and reference data lengths are same
@@ -312,10 +312,10 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
 
 SkipLocalAlignment:
   LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
-  TrimEndGaps(&aligned);
+  const auto refStartTrim = TrimEndGaps(&aligned);
 
   // 0-based reference anchor position in absolute chromosome coordinates
-  const auto anchorStartGenome = static_cast<std::size_t>(window->StartPosition0()) + end_info.startOffset;
+  const auto anchorGenomeStart = static_cast<std::size_t>(window->StartPosition0()) + einfo.startOffset + refStartTrim;
   std::size_t refIdx = 0;   // 0-based coordinate
   std::size_t refPos = 0;   // 1-based coordinate
   std::size_t pathPos = 0;  // 1-based coordinate
@@ -347,7 +347,7 @@ SkipLocalAlignment:
     if (code == TranscriptCode::REF_MATCH) continue;
 
     const auto pathIdx = pathPos - 1;                          // 0-based index into the path sequence
-    const auto genomeRefPos = anchorStartGenome + refIdx + 1;  // 1-based genome position
+    const auto genomeRefPos = anchorGenomeStart + refIdx + 1;  // 1-based genome position
 
     const auto* spanner = path.FindSpanningNode(pathPos, kmerSize);
     LANCET_ASSERT(spanner != nullptr);  // NOLINT

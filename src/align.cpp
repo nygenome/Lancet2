@@ -1,12 +1,31 @@
 #include "lancet/align.h"
 
 #include <algorithm>
-#include <cstdint>
-#include <utility>
+#include <memory>
+#include <stdexcept>
 
 #include "absl/strings/str_format.h"
 
 namespace lancet {
+namespace detail {
+template <typename T>
+class NaiveTwoDimArray {
+ public:
+  explicit NaiveTwoDimArray(std::size_t nrows, std::size_t ncols)
+      : numRows(nrows), numCols(ncols), data(std::make_unique<T[]>(nrows * ncols)) {}  // NOLINT
+
+  NaiveTwoDimArray() = delete;
+
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& { return data[row * numCols + col]; }
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& { return data[row * numCols + col]; }
+
+ private:
+  std::size_t numRows;
+  std::size_t numCols;
+  std::unique_ptr<T[]> data;  // NOLINT
+};
+}  // namespace detail
+
 // Original:
 static constexpr int MATCH_SCORE = 2;
 static constexpr int MISMATCH_SCORE = -4;
@@ -16,10 +35,11 @@ static constexpr int GAP_EXTEND_SCORE = -1;
 inline auto Compare(const char& s, const char& t) -> int { return s == t ? MATCH_SCORE : MISMATCH_SCORE; }
 
 struct Cell {
-  explicit Cell(int s = 0, char tb = '*') : score(s), trace_back(tb) {}
+  Cell() = default;
+  Cell(int s, char tb) : score(s), trace_back(tb) {}
 
-  int score;        // NOLINT
-  char trace_back;  // NOLINT
+  int score = 0;          // NOLINT
+  char trace_back = '*';  // NOLINT
 };
 
 static inline auto MaxScoreX(int a, int b) -> Cell { return a > b ? Cell(a, '-') : Cell(b, '<'); }
@@ -39,6 +59,8 @@ static inline auto MaxScoreXY(const Cell& scorex, const Cell& scorey, int scorez
 
   return result;
 }
+
+static constexpr inline auto IsValidBase(const char& b) -> bool { return b == 'A' || b == 'C' || b == 'G' || b == 'T'; }
 
 using AlignedBases = std::pair<char, char>;
 auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
@@ -65,16 +87,16 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   // ri -> reference sequence index
   for (std::size_t qi = 1; qi <= qryLen; qi++) {
     for (std::size_t ri = 1; ri <= refLen; ri++) {
+      const auto cmpScore = Compare(ref[ri - 1], qry[qi - 1]);
       x.at(ri, qi) = MaxScoreX(x.at(ri - 1, qi).score + GAP_EXTEND_SCORE, m.at(ri - 1, qi).score + GAP_OPEN_SCORE);
       y.at(ri, qi) = MaxScoreY(y.at(ri, qi - 1).score + GAP_EXTEND_SCORE, m.at(ri, qi - 1).score + GAP_OPEN_SCORE);
-      m.at(ri, qi) =
-          MaxScoreXY(x.at(ri, qi), y.at(ri, qi), m.at(ri - 1, qi - 1).score + Compare(ref[ri - 1], qry[qi - 1]));
+      m.at(ri, qi) = MaxScoreXY(x.at(ri, qi), y.at(ri, qi), m.at(ri - 1, qi - 1).score + cmpScore);
     }
   }
 
   AlignedBases alnBases;
-  std::int64_t i = refLen;
-  std::int64_t j = qryLen;
+  int i = refLen;
+  int j = qryLen;
   bool forcey = false;
   bool forcex = false;
 
@@ -116,8 +138,8 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
       throw std::runtime_error{absl::StrFormat("unexpected error in SW alignment. ref: %s, query: %s", ref, qry)};
     }
 
-    refAln.push_back(alnBases.first);
-    qryAln.push_back(alnBases.second);
+    refAln.push_back(IsValidBase(alnBases.first) ? alnBases.first : ALIGN_GAP);
+    qryAln.push_back(IsValidBase(alnBases.second) ? alnBases.second : ALIGN_GAP);
   }
 
   std::reverse(refAln.begin(), refAln.end());
@@ -125,11 +147,11 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   return AlignedSequences{refAln, qryAln};
 }
 
-void TrimEndGaps(AlignedSequencesView* aln) {
+auto TrimEndGaps(AlignedSequencesView* aln) -> std::size_t {
   // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
-  const auto initLen = aln->ref.length();
-  auto start = std::size_t(0);
-  auto end = initLen - 1;
+  std::size_t refStartTrim = 0;
+  std::size_t start = 0;
+  std::size_t end = aln->ref.length() - 1;
 
   const auto startGap = aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP;
   const auto endGap = aln->ref[end] == ALIGN_GAP || aln->qry[end] == ALIGN_GAP;
@@ -137,6 +159,7 @@ void TrimEndGaps(AlignedSequencesView* aln) {
   if (startGap || endGap) {
     // move start until no begin alignment gaps are found
     while (aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP) {
+      if (aln->ref[start] == ALIGN_GAP) refStartTrim++;
       start++;
     }
 
@@ -148,5 +171,7 @@ void TrimEndGaps(AlignedSequencesView* aln) {
     aln->ref = aln->ref.substr(start, end - start);
     aln->qry = aln->qry.substr(start, end - start);
   }
+
+  return refStartTrim;
 }
 }  // namespace lancet
