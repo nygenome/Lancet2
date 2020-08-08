@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/strings/str_format.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -60,9 +61,9 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     }
   }
 
-  VcfWriter outVcf(params->outVcfPath, false);
+  VcfWriter outVcf(absl::StrFormat("%s.vcf.gz", params->outVcfPrefix));
   if (!outVcf.Write(VariantStore::BuildVcfHeader(GetSampleNames(*params), *params)).ok()) {
-    FatalLog("Could not write header to output vcf: %s", params->outVcfPath);
+    FatalLog("Could not write header to output vcf: %s.vcf.gz", params->outVcfPrefix);
     std::exit(EXIT_FAILURE);
   }
 
