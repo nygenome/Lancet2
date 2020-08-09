@@ -6,10 +6,12 @@
 #include <exception>
 #include <fstream>
 #include <future>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/hash/hash.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -84,14 +86,18 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   windowQueuePtr->enqueue_bulk(producerToken, allwindows.begin(), allwindows.size());
 
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
-    auto threadTask = [&vDBPtr, &threadExceptionPtr, &idx](std::unique_ptr<MicroAssembler> m) -> void {
-      SPDLOG_WARN("Starting MicroAssembler thread {}", idx + 1);
+    // Build thread task which catches all exceptions in a thread and populates exception ptr
+    auto threadTask = [&vDBPtr, &threadExceptionPtr](std::unique_ptr<MicroAssembler> m) -> void {
+      static thread_local const auto threadId = std::this_thread::get_id();
+      SPDLOG_WARN("Starting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(threadId));
+
       try {
         m->Process(vDBPtr);
       } catch (...) {
         threadExceptionPtr = std::current_exception();
       }
-      SPDLOG_WARN("Exiting MicroAssembler thread {}", idx + 1);
+
+      SPDLOG_WARN("Exiting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(threadId));
     };
 
     assemblers.emplace_back(std::async(std::launch::async, std::move(threadTask),
@@ -126,7 +132,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    SPDLOG_INFO("Progress: {:03.3f}% | {} of {} done | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
+    SPDLOG_INFO("Progress: {:03.3f}% ({} of {} done) | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
                 windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
