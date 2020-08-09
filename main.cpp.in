@@ -6,8 +6,5 @@
 #endif
 
 auto main(int argc, char** argv) noexcept -> int {
-#ifndef LANCET_SANITIZER
-  mi_option_set(mi_option_show_stats, 1);
-#endif
   return lancet::RunCli(argc, argv);
 }
