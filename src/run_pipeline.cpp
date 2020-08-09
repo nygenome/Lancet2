@@ -85,6 +85,14 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   moodycamel::ProducerToken producerToken(*windowQueuePtr);
   windowQueuePtr->enqueue_bulk(producerToken, allwindows.begin(), allwindows.size());
 
+  static absl::FixedArray<bool> doneWindows(allwindows.size());
+  doneWindows.fill(false);
+  std::set_terminate([]() -> void {
+    SPDLOG_CRITICAL("Caught unexpected program termination call! Exiting abnormally...");
+    for (bool& doneWindow : doneWindows) doneWindow = true;
+    std::abort();
+  });
+
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
     // Build thread task which catches all exceptions in a thread and populates exception ptr
     auto threadTask = [&vDBPtr, &threadExceptionPtr](std::unique_ptr<MicroAssembler> m) -> void {
@@ -104,14 +112,11 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
                                        std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
-  absl::FixedArray<bool> doneWindows(allwindows.size());
-  doneWindows.fill(false);
-
-  const auto anyWindowsRunning = [&doneWindows]() -> bool {
+  const auto anyWindowsRunning = []() -> bool {
     return std::any_of(doneWindows.cbegin(), doneWindows.cend(), [](const bool& wdone) { return !wdone; });
   };
 
-  const auto allWindowsUptoDone = [&doneWindows](const std::size_t win_idx) -> bool {
+  const auto allWindowsUptoDone = [](const std::size_t win_idx) -> bool {
     const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
     return std::all_of(doneWindows.cbegin(), lastItr, [](const bool& wdone) { return wdone; });
   };
@@ -132,8 +137,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    SPDLOG_INFO("Progress: {:03.3f}% ({} of {} done) | Window {} processed in {}", pctDone(numDone), numDone, numTotal,
-                windowID, Humanized(result.runtime));
+    SPDLOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
       const auto flushed = vDBPtr->FlushWindow(idxToFlush, outVcf, contigIDs);

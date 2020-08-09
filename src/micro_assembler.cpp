@@ -1,6 +1,7 @@
 #include "lancet/micro_assembler.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <thread>
 #include <utility>
 
@@ -20,12 +21,14 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
   auto window = std::make_shared<RefWindow>();
   moodycamel::ConsumerToken consumerToken(*windowQPtr);
   moodycamel::ProducerToken producerToken(*resultQPtr);
+  std::size_t numWindowsProcessed = 0;
 
   while (windowQPtr->try_dequeue(consumerToken, window)) {
     T.Reset();
     const auto winIdx = window->WindowIndex();
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
+    numWindowsProcessed++;
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       SPDLOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
@@ -53,7 +56,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
   }
 
   static thread_local const auto threadId = std::this_thread::get_id();
-  SPDLOG_INFO("Finished processing all windows in MicroAssembler thread {:#x}",
+  SPDLOG_INFO("Processed {} windows in MicroAssembler thread {:#x}", numWindowsProcessed,
               absl::Hash<std::thread::id>()(threadId));
 }
 
