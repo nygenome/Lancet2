@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <future>
+#include <utility>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
@@ -74,6 +76,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   SPDLOG_INFO("Processing {} windows in {} microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<void>> assemblers;
   assemblers.reserve(numThreads);
+  std::exception_ptr threadExceptionPtr;
 
   const auto resultQueuePtr = std::make_shared<OutResultQueue>(allwindows.size());
   const auto windowQueuePtr = std::make_shared<InWindowQueue>(allwindows.size());
@@ -81,9 +84,18 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   windowQueuePtr->enqueue_bulk(producerToken, allwindows.begin(), allwindows.size());
 
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
-    assemblers.emplace_back(std::async(
-        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { return m->Process(vDBPtr); },
-        std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
+    auto threadTask = [&vDBPtr, &threadExceptionPtr, &idx](std::unique_ptr<MicroAssembler> m) -> void {
+      SPDLOG_WARN("Starting MicroAssembler thread {}", idx + 1);
+      try {
+        m->Process(vDBPtr);
+      } catch (...) {
+        threadExceptionPtr = std::current_exception();
+      }
+      SPDLOG_WARN("Exiting MicroAssembler thread {}", idx + 1);
+    };
+
+    assemblers.emplace_back(std::async(std::launch::async, std::move(threadTask),
+                                       std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
   absl::FixedArray<bool> doneWindows(allwindows.size());
@@ -110,6 +122,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   while (anyWindowsRunning()) {
     resultQueuePtr->wait_dequeue(consumerToken, result);
 
+    if (threadExceptionPtr) std::rethrow_exception(threadExceptionPtr);
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
