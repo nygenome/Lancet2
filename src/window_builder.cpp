@@ -200,11 +200,11 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
   }
 
   if (wb.IsEmpty()) {
-    spdlog::info("No input regions provided to process. Using all reference contigs in fasta as input");
+    spdlog::info("No input regions provided to build windows. Using reference contigs in fasta as input");
     wb.AddAllRefRegions();
   }
 
-  spdlog::info("Building reference windows from {} input regions", wb.Size());
+  spdlog::info("Building windows using {} reference contigs as input regions", wb.Size());
   const auto windows = wb.BuildWindows(contig_ids);
   if (!windows.ok()) {
     spdlog::error(windows.status().message());
