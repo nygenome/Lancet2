@@ -1,8 +1,10 @@
 #include "lancet/micro_assembler.h"
 
 #include <algorithm>
+#include <thread>
 #include <utility>
 
+#include "absl/hash/hash.h"
 #include "absl/strings/str_format.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/graph_builder.h"
@@ -49,6 +51,10 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
     resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
   }
+
+  static thread_local const auto threadId = std::this_thread::get_id();
+  SPDLOG_INFO("Finished processing all windows in MicroAssembler thread {:#x}",
+              absl::Hash<std::thread::id>()(threadId));
 }
 
 auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
