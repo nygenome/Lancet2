@@ -100,8 +100,8 @@ target_set_warnings(lancet_core ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_include_directories(lancet_core PUBLIC include PRIVATE ${CMAKE_BINARY_DIR} ${HTSLIB_INCLUDE_DIR})
 
 target_link_libraries(lancet_core
-        PUBLIC absl::status absl::flat_hash_map absl::flat_hash_set concurrentqueue absl::str_format
-               absl::fixed_array absl::span absl::time absl::random_random absl::synchronization
+        PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set absl::str_format absl::fixed_array
+               absl::inlined_vector absl::span absl::time absl::random_random absl::synchronization
         PRIVATE CLI11 absl::failure_signal_handler absl::strings spdlog::spdlog ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES})
 

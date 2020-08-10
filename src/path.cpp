@@ -6,8 +6,8 @@
 #include "lancet/assert_macro.h"
 
 namespace lancet {
-Path::Path(absl::FixedArray<const Node *> path_nodes, absl::FixedArray<Edge> path_edges, std::string path_seq,
-           NodeCov path_covs, NodeHP path_hps)
+Path::Path(absl::FixedArray<const Node *const> path_nodes, absl::FixedArray<const Edge *const> path_edges,
+           std::string path_seq, NodeCov path_covs, NodeHP path_hps)
     : nodesList(std::move(path_nodes)),
       edgesList(std::move(path_edges)),
       pathSeq(std::move(path_seq)),
@@ -34,8 +34,8 @@ auto Path::TouchedEdgeIDs() const -> PathNodeIds {
   auto currentSrcId = MOCK_SOURCE_ID;
   for (std::size_t idx = 0; idx < nodesList.size(); idx++) {
     result[idx].srcId = currentSrcId;
-    result[idx].dstId = edgesList[idx].DestinationID();
-    currentSrcId = edgesList[idx].DestinationID();
+    result[idx].dstId = edgesList[idx]->DestinationID();
+    currentSrcId = edgesList[idx]->DestinationID();
   }
 
   result[result.size() - 1].srcId = currentSrcId;
