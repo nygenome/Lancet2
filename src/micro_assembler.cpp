@@ -22,11 +22,11 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
   FastaReader refRdr(params->referencePath);
   ReadExtractor readExtractor(params);
   auto window = std::make_shared<RefWindow>();
-  moodycamel::ConsumerToken consumerToken(*windowQPtr);
-  moodycamel::ProducerToken producerToken(*resultQPtr);
+  moodycamel::ConsumerToken windowConsumerToken(*windowQPtr);
+  moodycamel::ProducerToken resultProducerToken(*resultQPtr);
   std::size_t numProcessed = 0;
 
-  while (windowQPtr->try_dequeue(consumerToken, window)) {
+  while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
     T.Reset();
     const auto winIdx = window->WindowIndex();
     const auto regStr = window->ToRegionString();
@@ -35,13 +35,13 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       SPDLOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
-      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
+      resultQPtr->enqueue(resultProducerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
     if (!regResult.ok()) {
       SPDLOG_ERROR("Error processing window {}: {}", regStr, regResult.status().message());
-      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
+      resultQPtr->enqueue(resultProducerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
@@ -55,7 +55,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
       SPDLOG_ERROR("Error processing window {}: unknown exception caught", regStr);
     }
 
-    resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
+    resultQPtr->enqueue(resultProducerToken, WindowResult{T.Runtime(), winIdx});
   }
 
   SPDLOG_INFO("Processed {} windows in MicroAssembler thread {:#x}", numProcessed, absl::Hash<std::thread::id>()(tid));
