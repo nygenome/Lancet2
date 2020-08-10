@@ -20,8 +20,8 @@ using PathNodeIds = absl::FixedArray<EdgeNodeIds>;
 
 class Path {
  public:
-  Path(absl::FixedArray<const Node* const> path_nodes, absl::FixedArray<const Edge* const> path_edges,
-       std::string path_seq, NodeCov path_covs, NodeHP path_hps);
+  Path(absl::FixedArray<const Node*> path_nodes, absl::FixedArray<const Edge*> path_edges, std::string path_seq,
+       NodeCov path_covs, NodeHP path_hps);
   Path() = delete;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return pathSeq.empty(); }
@@ -45,8 +45,8 @@ class Path {
   [[nodiscard]] auto TouchedEdgeIDs() const -> PathNodeIds;
 
  private:
-  absl::FixedArray<const Node* const> nodesList;
-  absl::FixedArray<const Edge* const> edgesList;
+  absl::FixedArray<const Node*> nodesList;
+  absl::FixedArray<const Edge*> edgesList;
   std::string pathSeq;
   NodeCov pathCovs;
   NodeHP pathHPs;
