@@ -59,7 +59,7 @@ FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git 
 FetchContent_MakeAvailable(cli11)
 
 set(MI_BUILD_TESTS OFF)
-FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v1.6.3)
+FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v1.6.4)
 FetchContent_MakeAvailable(mimalloc)
 
 # Add abseil for general utilities. Update as often as possible.
