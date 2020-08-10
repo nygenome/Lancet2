@@ -30,6 +30,6 @@ class EdmondKarpMaxFlow {
   bool isTenxMode = false;
 
   // to identify edges already returned in the previous call to `next_path`.
-  absl::flat_hash_set<Edge> markedEdges;
+  absl::flat_hash_set<const Edge* const> markedEdges;
 };
 }  // namespace lancet
