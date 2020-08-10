@@ -55,7 +55,8 @@ auto ReadExtractor::ExtractReads(HtsReader* rdr, ReadInfoList* result, SampleLab
   HtsAlignment aln;
 
   while (rdr->NextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
-    if (!sampler.ShouldSample() || !aln.IsWithinRegion(targetRegion) || !PassesFilters(aln, *params)) continue;
+    if (!sampler.ShouldSample() || !PassesFilters(aln, *params)) continue;
+    if (!params->useOverlapReads && !aln.IsWithinRegion(targetRegion)) continue;
     if (label == SampleLabel::TUMOR && !PassesTmrFilters(aln, *params)) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
@@ -163,7 +164,8 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
     if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.Length();
 
     // skip processing further if already an active region or if doesn't pass filters
-    if (isActiveRegion || !aln.IsWithinRegion(region) || !PassesFilters(aln, params)) continue;
+    if (isActiveRegion || !PassesFilters(aln, params)) continue;
+    if (!params.useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     if (aln.HasTag("MD")) {
       FillMDMismatches(bam_aux2Z(aln.TagData("MD").ValueOrDie()), aln.ReadQuality(), aln.StartPosition0(),
