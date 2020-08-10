@@ -3,15 +3,12 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
-#include <exception>
 #include <fstream>
 #include <future>
-#include <thread>
 #include <utility>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
-#include "absl/hash/hash.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/hts_reader.h"
@@ -78,7 +75,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   SPDLOG_INFO("Processing {} windows in {} microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<void>> assemblers;
   assemblers.reserve(numThreads);
-  std::exception_ptr threadExceptionPtr;
 
   const auto resultQueuePtr = std::make_shared<OutResultQueue>(allwindows.size());
   const auto windowQueuePtr = std::make_shared<InWindowQueue>(allwindows.size());
@@ -94,22 +90,9 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   });
 
   for (std::size_t idx = 0; idx < numThreads; ++idx) {
-    // Build thread task which catches all exceptions in a thread and populates exception ptr
-    auto threadTask = [&vDBPtr, &threadExceptionPtr](std::unique_ptr<MicroAssembler> m) -> void {
-      static thread_local const auto threadId = std::this_thread::get_id();
-      SPDLOG_WARN("Starting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(threadId));
-
-      try {
-        m->Process(vDBPtr);
-      } catch (...) {
-        threadExceptionPtr = std::current_exception();
-      }
-
-      SPDLOG_WARN("Exiting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(threadId));
-    };
-
-    assemblers.emplace_back(std::async(std::launch::async, std::move(threadTask),
-                                       std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
+    assemblers.emplace_back(std::async(
+        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr); },
+        std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
   const auto anyWindowsRunning = []() -> bool {
@@ -133,7 +116,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   while (anyWindowsRunning()) {
     resultQueuePtr->wait_dequeue(consumerToken, result);
 
-    if (threadExceptionPtr) std::rethrow_exception(threadExceptionPtr);
     numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
