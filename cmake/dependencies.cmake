@@ -29,7 +29,7 @@ ExternalProject_Add(htslib
         BUILD_BYPRODUCTS ${LIBHTS} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON
         USES_TERMINAL_DOWNLOAD OFF USER_TERMINAL_CONFIGURE OFF USES_TERMINAL_BUILD OFF)
 
-#set(MESSAGE_QUIET ON)
+set(MESSAGE_QUIET ON)
 
 #FetchContent_Declare(gzipxx GIT_REPOSITORY https://github.com/mapbox/gzip-hpp.git GIT_TAG v0.1.0)
 #FetchContent_GetProperties(gzipxx)
@@ -75,18 +75,18 @@ if(NOT abseil_POPULATED)
 endif()
 
 if(LANCET_UNIT_TESTS)
-FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.0)
-FetchContent_MakeAvailable(catch)
+    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.0)
+    FetchContent_MakeAvailable(catch)
 endif()
 
 
 if(LANCET_BENCHMARKS)
-set(BENCHMARK_ENABLE_TESTING OFF)
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
-set(BENCHMARK_ENABLE_INSTALL OFF)
-FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.5.1)
-FetchContent_MakeAvailable(benchmark)
+    set(BENCHMARK_ENABLE_TESTING OFF)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+    set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
+    set(BENCHMARK_ENABLE_INSTALL OFF)
+    FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.5.1)
+    FetchContent_MakeAvailable(benchmark)
 endif()
 
-#unset(MESSAGE_QUIET)
+unset(MESSAGE_QUIET)
