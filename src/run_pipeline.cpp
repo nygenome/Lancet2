@@ -78,8 +78,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   const auto resultQueuePtr = std::make_shared<OutResultQueue>(allwindows.size());
   const auto windowQueuePtr = std::make_shared<InWindowQueue>(allwindows.size());
-  moodycamel::ProducerToken producerToken(*windowQueuePtr);
-  windowQueuePtr->enqueue_bulk(producerToken, allwindows.begin(), allwindows.size());
+  moodycamel::ProducerToken windowProducerToken(*windowQueuePtr);
+  windowQueuePtr->enqueue_bulk(windowProducerToken, allwindows.begin(), allwindows.size());
 
   static absl::FixedArray<bool> doneWindows(allwindows.size());
   doneWindows.fill(false);
@@ -112,9 +112,9 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   };
 
   WindowResult result;
-  moodycamel::ConsumerToken consumerToken(*resultQueuePtr);
+  moodycamel::ConsumerToken resultConsumerToken(*resultQueuePtr);
   while (anyWindowsRunning()) {
-    resultQueuePtr->wait_dequeue(consumerToken, result);
+    resultQueuePtr->wait_dequeue(resultConsumerToken, result);
 
     numDone++;
     doneWindows[result.windowIdx] = true;
