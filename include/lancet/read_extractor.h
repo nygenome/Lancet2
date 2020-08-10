@@ -18,8 +18,10 @@ using ReadInfoList = std::vector<ReadInfo>;
 
 class ReadExtractor {
  public:
-  ReadExtractor(std::shared_ptr<const CliParams> p, GenomicRegion reg);
+  explicit ReadExtractor(std::shared_ptr<const CliParams> p);
   ReadExtractor() = delete;
+
+  void SetTargetRegion(const GenomicRegion& region);
 
   [[nodiscard]] auto IsActiveRegion() const -> bool { return isActiveRegion; }
   [[nodiscard]] auto AverageCoverage() const -> double { return avgCoverage; }
@@ -29,7 +31,7 @@ class ReadExtractor {
  private:
   HtsReader tmrRdr;
   HtsReader nmlRdr;
-  GenomicRegion targetRegion;
+  GenomicRegion targetRegion{"\0", -1, -1};
   bool isActiveRegion = false;
   double avgCoverage = 0.0F;
   std::shared_ptr<const CliParams> params;

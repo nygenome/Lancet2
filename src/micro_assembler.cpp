@@ -9,7 +9,6 @@
 #include "absl/strings/str_format.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/graph_builder.h"
-#include "lancet/read_extractor.h"
 #include "lancet/timer.h"
 #include "lancet/utils.h"
 #include "spdlog/spdlog.h"
@@ -21,6 +20,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
   Timer T;
   FastaReader refRdr(params->referencePath);
+  ReadExtractor readExtractor(params);
   auto window = std::make_shared<RefWindow>();
   moodycamel::ConsumerToken consumerToken(*windowQPtr);
   moodycamel::ProducerToken producerToken(*resultQPtr);
@@ -47,7 +47,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
 
     try {
       window->SetSequence(regResult.ValueOrDie());
-      const auto windowStatus = ProcessWindow(std::const_pointer_cast<const RefWindow>(window), store);
+      const auto windowStatus = ProcessWindow(&readExtractor, std::const_pointer_cast<const RefWindow>(window), store);
       if (!windowStatus.ok()) SPDLOG_ERROR("Error processing window {}: {}", regStr, windowStatus.message());
     } catch (const std::exception& exception) {
       SPDLOG_ERROR("Error processing window {}: {}", regStr, exception.what());
@@ -62,20 +62,20 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
   SPDLOG_INFO("Exiting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 }
 
-auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
+auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w,
                                    const std::shared_ptr<VariantStore>& store) const -> absl::Status {
   const auto regionStr = w->ToRegionString();
   SPDLOG_DEBUG("Starting to process {} in MicroAssembler", regionStr);
   if (ShouldSkipWindow(w)) return absl::OkStatus();
 
-  ReadExtractor re(params, w->ToGenomicRegion());
-  if (!params->activeRegionOff && !re.IsActiveRegion()) {
+  re->SetTargetRegion(w->ToGenomicRegion());
+  if (!params->activeRegionOff && !re->IsActiveRegion()) {
     SPDLOG_DEBUG("Skipping {} since no evidence of mutation is found", regionStr);
     return absl::OkStatus();
   }
 
-  const auto reads = re.Extract();
-  GraphBuilder gb(w, absl::MakeConstSpan(reads), re.AverageCoverage(), params);
+  const auto reads = re->Extract();
+  GraphBuilder gb(w, absl::MakeConstSpan(reads), re->AverageCoverage(), params);
   auto graph = gb.BuildGraph(params->minKmerSize, params->maxKmerSize);
   graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, store);
 

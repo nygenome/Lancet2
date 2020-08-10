@@ -10,6 +10,7 @@
 #include "blockingconcurrentqueue.h"
 #include "concurrentqueue.h"
 #include "lancet/cli_params.h"
+#include "lancet/read_extractor.h"
 #include "lancet/ref_window.h"
 #include "lancet/variant_store.h"
 
@@ -39,7 +40,7 @@ class MicroAssembler {
   std::shared_ptr<OutResultQueue> resultQPtr;
   std::shared_ptr<const CliParams> params;
 
-  [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const RefWindow>& w,
+  [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w,
                                    const std::shared_ptr<VariantStore>& store) const -> absl::Status;
 
   [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool;
