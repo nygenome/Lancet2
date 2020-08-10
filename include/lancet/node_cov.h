@@ -19,8 +19,8 @@ class NodeCov {
   [[nodiscard]] auto TotalCov(SampleLabel label) const -> std::uint16_t;
 
   void Update(SampleLabel label, Strand s, std::size_t pos);
-  void Update(SampleLabel label, Strand s, const std::vector<std::size_t>& bq_pass);
-  void Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<std::size_t>& bq_pass);
+  void Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pass);
+  void Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass);
 
   [[nodiscard]] auto BaseCovs(SampleLabel label) const noexcept -> std::vector<BaseCov> {
     return label == SampleLabel::TUMOR ? tmrBases : nmlBases;

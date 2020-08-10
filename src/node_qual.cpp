@@ -1,14 +1,13 @@
 #include "lancet/node_qual.h"
 
-#include "lancet/assert_macro.h"
-
 #include "absl/types/span.h"
+#include "lancet/assert_macro.h"
 #include "lancet/merge_node_info.h"
 
 namespace lancet {
 NodeQual::NodeQual(std::size_t count) { data.resize(count); }
 
-void NodeQual::MergeBuddy(const NodeQual &buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void NodeQual::MergeBuddy(const NodeQual& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
   MergeNodeInfo(&data, absl::MakeConstSpan(buddy.data), dir, reverse_buddy, k);
 }
 
@@ -20,19 +19,15 @@ void NodeQual::Push(absl::string_view sv) {
   }
 }
 
-auto NodeQual::LowQualPositions(double max_bq) const -> std::vector<std::size_t> {
-  std::vector<std::size_t> result;
-  for (std::size_t idx = 0; idx < data.size(); idx++) {
-    if (data[idx].Mean() < max_bq) result.push_back(idx);
-  }
+auto NodeQual::LowQualPositions(double max_bq) const -> std::vector<bool> {
+  std::vector<bool> result;
+  for (const auto& baseQual : data) result.emplace_back(baseQual.Mean() < max_bq);
   return result;
 }
 
-auto NodeQual::HighQualPositions(double min_bq) const -> std::vector<std::size_t> {
-  std::vector<std::size_t> result;
-  for (std::size_t idx = 0; idx < data.size(); idx++) {
-    if (data[idx].Mean() >= min_bq) result.push_back(idx);
-  }
+auto NodeQual::HighQualPositions(double min_bq) const -> std::vector<bool> {
+  std::vector<bool> result;
+  for (const auto& baseQual : data) result.emplace_back(baseQual.Mean() >= min_bq);
   return result;
 }
 }  // namespace lancet

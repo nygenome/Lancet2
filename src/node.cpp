@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <array>
-#include "lancet/assert_macro.h"
 #include <limits>
 
+#include "lancet/assert_macro.h"
 #include "lancet/utils.h"
 
 namespace lancet {
@@ -136,7 +136,7 @@ auto Node::MinSampleBaseCov(bool bq_pass) const -> std::uint16_t {
   return result;
 }
 
-auto Node::LowQualPositions(std::uint32_t min_bq) const -> std::vector<std::size_t> {
+auto Node::LowQualPositions(std::uint32_t min_bq) const -> std::vector<bool> {
   return quals.LowQualPositions(static_cast<double>(min_bq));
 }
 

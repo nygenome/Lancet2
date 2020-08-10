@@ -22,13 +22,17 @@ void NodeHP::MergeBuddy(const NodeHP& buddy, BuddyPosition dir, bool reverse_bud
   MergeNodeInfo(&nmlHPs, absl::MakeConstSpan(buddy.nmlHPs), dir, reverse_buddy, k);
 }
 
-void NodeHP::Update(std::size_t hp, SampleLabel label, const std::vector<std::size_t>& bq_pass) {
+void NodeHP::Update(std::size_t hp, SampleLabel label, const std::vector<bool>& bq_pass) {
   if (label == SampleLabel::TUMOR) {
-    std::for_each(tmrHPs.begin(), tmrHPs.end(), [&hp](auto& base) { base.at(hp).raw++; });
-    for (const auto& pos : bq_pass) tmrHPs[pos][hp].bqPass += 1;
+    for (std::size_t idx = 0; idx < tmrHPs.size(); ++idx) {
+      tmrHPs[idx].at(hp).raw++;
+      if (bq_pass[idx]) tmrHPs[idx][hp].bqPass++;
+    }
   } else {
-    std::for_each(nmlHPs.begin(), nmlHPs.end(), [&hp](auto& base) { base.at(hp).raw++; });
-    for (const auto& pos : bq_pass) nmlHPs[pos][hp].bqPass += 1;
+    for (std::size_t idx = 0; idx < nmlHPs.size(); ++idx) {
+      nmlHPs[idx].at(hp).raw++;
+      if (bq_pass[idx]) nmlHPs[idx][hp].bqPass++;
+    }
   }
 }
 
