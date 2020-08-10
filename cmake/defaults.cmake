@@ -11,9 +11,6 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
-include(CheckIPOSupported)
-check_ipo_supported(RESULT IPO_SUPPORTED OUTPUT IPO_ERROR)
-
 # Use ccache if found to cache previously built object files
 find_program(CCACHE_EXE ccache)
 mark_as_advanced(FORCE CCACHE_EXE)
