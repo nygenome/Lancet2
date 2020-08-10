@@ -168,7 +168,10 @@ void GraphBuilder::RecoverKmers() {
     if (p.second->SampleCount(SampleLabel::TUMOR) != 1) continue;
 
     // identify positions with low quality bases
-    for (const auto basePos : p.second->LowQualPositions(params->minBaseQual)) {
+    const auto lowQualBits = p.second->LowQualPositions(params->minBaseQual);
+    for (std::size_t basePos = 0; basePos < lowQualBits.size(); ++basePos) {
+      if (!lowQualBits[basePos]) continue;
+
       // get 6 alternative kmers within 1 edit distance to original kmer
       // TODO(omicsnut): pick alt kmer with highest/lowest support and only increment that?
       for (const auto& altKmer : MutateSeq(p.second->SeqView(), basePos)) {

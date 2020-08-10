@@ -97,7 +97,7 @@ class Node {
   [[nodiscard]] auto CovAt(SampleLabel label, std::size_t pos) const -> const BaseCov& { return covs.At(label, pos); }
   [[nodiscard]] auto MinSampleBaseCov(bool bq_pass = false) const -> std::uint16_t;
 
-  [[nodiscard]] auto LowQualPositions(std::uint32_t min_bq) const -> std::vector<std::size_t>;
+  [[nodiscard]] auto LowQualPositions(std::uint32_t min_bq) const -> std::vector<bool>;
 
   [[nodiscard]] auto CovData() const noexcept -> NodeCov { return covs; }
   [[nodiscard]] auto HasBXData() const noexcept -> bool { return !bxData.IsEmpty(); }

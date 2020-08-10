@@ -30,54 +30,67 @@ auto NodeCov::TotalCov(SampleLabel label) const -> std::uint16_t {
   return StrandCov(label, Strand::FWD) + StrandCov(label, Strand::REV);
 }
 
-void NodeCov::Update(SampleLabel label, Strand s, const std::vector<std::size_t>& bq_pass) {
+void NodeCov::Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pass) {
   if (label == SampleLabel::TUMOR) {
     if (s == Strand::FWD) {
       cntTumorFwd++;
-      std::for_each(tmrBases.begin(), tmrBases.end(), [](auto& b) { b.fwdRaw++; });
-      for (const auto& pos : bq_pass) tmrBases[pos].fwdBQPass += 1;
+      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+        tmrBases[idx].fwdRaw++;
+        if (bq_pass[idx]) tmrBases[idx].fwdBQPass++;
+      }
     } else {
       cntTumorRev++;
-      std::for_each(tmrBases.begin(), tmrBases.end(), [](auto& b) { b.revRaw++; });
-      for (const auto& pos : bq_pass) tmrBases[pos].revBQPass += 1;
+      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+        tmrBases[idx].revRaw++;
+        if (bq_pass[idx]) tmrBases[idx].revBQPass++;
+      }
     }
-    return;
-  }
-
-  if (s == Strand::FWD) {
-    cntNormalFwd++;
-    std::for_each(nmlBases.begin(), nmlBases.end(), [](auto& b) { b.fwdRaw++; });
-    for (const auto& pos : bq_pass) nmlBases[pos].fwdBQPass += 1;
   } else {
-    cntNormalRev++;
-    std::for_each(nmlBases.begin(), nmlBases.end(), [](auto& b) { b.revRaw++; });
-    for (const auto& pos : bq_pass) nmlBases[pos].revBQPass += 1;
+    if (s == Strand::FWD) {
+      cntNormalFwd++;
+      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+        nmlBases[idx].fwdRaw++;
+        if (bq_pass[idx]) nmlBases[idx].fwdBQPass++;
+      }
+    } else {
+      cntNormalRev++;
+      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+        nmlBases[idx].revRaw++;
+        if (bq_pass[idx]) nmlBases[idx].revBQPass++;
+      }
+    }
   }
 }
 
-void NodeCov::Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<std::size_t>& bq_pass) {
+void NodeCov::Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass) {
   if (label == SampleLabel::TUMOR) {
     if (s == Strand::FWD) {
       cntTumorFwd++;
-      std::for_each(tmrBases.begin(), tmrBases.end(), [&val](auto& b) { b.fwdRaw = val; });
-      for (auto& bcov : tmrBases) bcov.fwdRaw = val;
-      for (const auto& pos : bq_pass) tmrBases[pos].fwdBQPass += 1;
+      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+        tmrBases[idx].fwdRaw = val;
+        if (bq_pass[idx]) tmrBases[idx].fwdBQPass++;
+      }
     } else {
       cntTumorRev++;
-      std::for_each(tmrBases.begin(), tmrBases.end(), [&val](auto& b) { b.revRaw = val; });
-      for (const auto& pos : bq_pass) tmrBases[pos].revBQPass += 1;
+      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+        tmrBases[idx].revRaw = val;
+        if (bq_pass[idx]) tmrBases[idx].revBQPass++;
+      }
     }
-    return;
-  }
-
-  if (s == Strand::FWD) {
-    cntNormalFwd++;
-    std::for_each(nmlBases.begin(), nmlBases.end(), [&val](auto& b) { b.fwdRaw = val; });
-    for (const auto& pos : bq_pass) nmlBases[pos].fwdBQPass += 1;
   } else {
-    cntNormalRev++;
-    std::for_each(nmlBases.begin(), nmlBases.end(), [&val](auto& b) { b.revRaw = val; });
-    for (const auto& pos : bq_pass) nmlBases[pos].revBQPass += 1;
+    if (s == Strand::FWD) {
+      cntNormalFwd++;
+      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+        nmlBases[idx].fwdRaw = val;
+        if (bq_pass[idx]) nmlBases[idx].fwdBQPass++;
+      }
+    } else {
+      cntNormalRev++;
+      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+        nmlBases[idx].revRaw = val;
+        if (bq_pass[idx]) nmlBases[idx].revBQPass++;
+      }
+    }
   }
 }
 
