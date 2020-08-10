@@ -15,7 +15,7 @@ class NodeHP {
 
   void MergeBuddy(const NodeHP& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k);
 
-  void Update(std::size_t hp, SampleLabel label, const std::vector<std::size_t>& bq_pass);
+  void Update(std::size_t hp, SampleLabel label, const std::vector<bool>& bq_pass);
   void Update(std::size_t hp, SampleLabel label, std::size_t base_position);
 
   [[nodiscard]] auto BaseHPs(SampleLabel label) const noexcept -> std::vector<BaseHP> {

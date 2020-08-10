@@ -17,8 +17,8 @@ class NodeQual {
 
   void Push(absl::string_view sv);
 
-  [[nodiscard]] auto LowQualPositions(double max_bq) const -> std::vector<std::size_t>;
-  [[nodiscard]] auto HighQualPositions(double min_bq) const -> std::vector<std::size_t>;
+  [[nodiscard]] auto LowQualPositions(double max_bq) const -> std::vector<bool>;
+  [[nodiscard]] auto HighQualPositions(double min_bq) const -> std::vector<bool>;
 
   [[nodiscard]] auto Length() const noexcept -> std::size_t { return data.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return data.empty(); }
