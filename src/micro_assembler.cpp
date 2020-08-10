@@ -81,7 +81,7 @@ auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
 
   while (graph->ShouldIncrementK()) {
     if (gb.CurrentKmerSize() == params->maxKmerSize) {
-      SPDLOG_WARN("Skipping {} after trying max kmer={}", regionStr, params->maxKmerSize);
+      SPDLOG_DEBUG("Skipping {} after trying to build graph with max k={}", regionStr, params->maxKmerSize);
       break;
     }
 
@@ -97,12 +97,12 @@ auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w)
   const auto regionStr = w->ToRegionString();
 
   if (static_cast<std::size_t>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {
-    SPDLOG_WARN("Skipping {} since it has only N bases in reference", regionStr);
+    SPDLOG_DEBUG("Skipping {} since it has only N bases in reference", regionStr);
     return true;
   }
 
   if (utils::HasRepeatKmer(refseq, params->maxKmerSize)) {
-    SPDLOG_WARN("Skipping {} since reference has repeat {}-mers", regionStr, params->maxKmerSize);
+    SPDLOG_DEBUG("Skipping {} since reference has repeat {}-mers", regionStr, params->maxKmerSize);
     return true;
   }
 
