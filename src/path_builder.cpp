@@ -20,8 +20,8 @@ void PathBuilder::Extend(const Edge *link, const Node *destination) {
 auto PathBuilder::BuildPath() const -> std::unique_ptr<Path> {
   auto pathSeq = BuildPathSeq();
   if (pathSeq.empty()) return nullptr;
-  return std::make_unique<Path>(absl::FixedArray<const Node *const>(nodesList.cbegin(), nodesList.cend()),
-                                absl::FixedArray<const Edge *const>(edgesList.cbegin(), edgesList.cend()),
+  return std::make_unique<Path>(absl::FixedArray<const Node *>(nodesList.cbegin(), nodesList.cend()),
+                                absl::FixedArray<const Edge *>(edgesList.cbegin(), edgesList.cend()),
                                 std::move(pathSeq), BuildPathCov(), isTenxMode ? BuildPathHP() : NodeHP{});
 }
 

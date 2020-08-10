@@ -6,8 +6,8 @@
 #include "lancet/assert_macro.h"
 
 namespace lancet {
-Path::Path(absl::FixedArray<const Node *const> path_nodes, absl::FixedArray<const Edge *const> path_edges,
-           std::string path_seq, NodeCov path_covs, NodeHP path_hps)
+Path::Path(absl::FixedArray<const Node *> path_nodes, absl::FixedArray<const Edge *> path_edges, std::string path_seq,
+           NodeCov path_covs, NodeHP path_hps)
     : nodesList(std::move(path_nodes)),
       edgesList(std::move(path_edges)),
       pathSeq(std::move(path_seq)),
