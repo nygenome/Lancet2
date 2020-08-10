@@ -20,8 +20,8 @@ using PathNodeIds = absl::FixedArray<EdgeNodeIds>;
 
 class Path {
  public:
-  Path(absl::FixedArray<const Node*> path_nodes, absl::FixedArray<Edge> path_edges, std::string path_seq,
-       NodeCov path_covs, NodeHP path_hps);
+  Path(absl::FixedArray<const Node* const> path_nodes, absl::FixedArray<const Edge* const> path_edges,
+       std::string path_seq, NodeCov path_covs, NodeHP path_hps);
   Path() = delete;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return pathSeq.empty(); }
@@ -39,14 +39,14 @@ class Path {
   auto operator==(const Path& other) const -> bool { return pathSeq == other.pathSeq; }
   auto operator!=(const Path& other) const -> bool { return !(*this == other); }
 
-  [[nodiscard]] auto TouchedEdges() const -> absl::Span<const Edge> { return absl::MakeConstSpan(edgesList); }
+  [[nodiscard]] auto TouchedEdges() const -> absl::Span<const Edge* const> { return absl::MakeConstSpan(edgesList); }
   [[nodiscard]] auto TouchedNodes() const -> absl::Span<const Node* const> { return absl::MakeConstSpan(nodesList); }
 
   [[nodiscard]] auto TouchedEdgeIDs() const -> PathNodeIds;
 
  private:
-  absl::FixedArray<const Node*> nodesList;
-  absl::FixedArray<Edge> edgesList;
+  absl::FixedArray<const Node* const> nodesList;
+  absl::FixedArray<const Edge* const> edgesList;
   std::string pathSeq;
   NodeCov pathCovs;
   NodeHP pathHPs;

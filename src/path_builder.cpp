@@ -9,20 +9,20 @@
 namespace lancet {
 PathBuilder::PathBuilder(std::size_t k, bool is_tenx_mode) : kmerSize(k), isTenxMode(is_tenx_mode) {}
 
-void PathBuilder::Extend(const Edge &link, const Node *destination) {
+void PathBuilder::Extend(const Edge *link, const Node *destination) {
   LANCET_ASSERT(!destination->IsMockNode());  // NOLINT
   nodesList.push_back(destination);
   edgesList.push_back(link);
-  pathDir = link.DstDirection();
+  pathDir = link->DstDirection();
   pathLen += pathLen == 0 ? destination->Length() : (destination->Length() - kmerSize + 1);
 }
 
 auto PathBuilder::BuildPath() const -> std::unique_ptr<Path> {
   auto pathSeq = BuildPathSeq();
   if (pathSeq.empty()) return nullptr;
-  return std::make_unique<Path>(absl::FixedArray<const Node *>(nodesList.cbegin(), nodesList.cend()),
-                                absl::FixedArray<Edge>(edgesList.cbegin(), edgesList.cend()), std::move(pathSeq),
-                                BuildPathCov(), isTenxMode ? BuildPathHP() : NodeHP{});
+  return std::make_unique<Path>(absl::FixedArray<const Node *const>(nodesList.cbegin(), nodesList.cend()),
+                                absl::FixedArray<const Edge *const>(edgesList.cbegin(), edgesList.cend()),
+                                std::move(pathSeq), BuildPathCov(), isTenxMode ? BuildPathHP() : NodeHP{});
 }
 
 auto PathBuilder::BuildPathSeq() const -> std::string {

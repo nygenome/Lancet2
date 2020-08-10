@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/container/inlined_vector.h"
 #include "absl/types/span.h"
 #include "lancet/core_enums.h"
 #include "lancet/edge.h"
@@ -32,15 +33,17 @@ class PathBuilder {
     return nodesList.empty() ? nullptr : nodesList[nodesList.size() - 1];
   }
 
-  void Extend(const Edge& link, const Node* destination);
+  void Extend(const Edge* link, const Node* destination);
 
-  [[nodiscard]] auto PathEdges() const noexcept -> absl::Span<const Edge> { return absl::MakeConstSpan(edgesList); }
+  [[nodiscard]] auto PathEdges() const noexcept -> absl::Span<const Edge* const> {
+    return absl::MakeConstSpan(edgesList);
+  }
 
   [[nodiscard]] auto BuildPath() const -> std::unique_ptr<Path>;
 
  private:
-  std::vector<const Node*> nodesList;
-  std::vector<Edge> edgesList;
+  absl::InlinedVector<const Node*, 64> nodesList;
+  absl::InlinedVector<const Edge*, 64> edgesList;
   Strand pathDir = Strand::FWD;
   std::size_t kmerSize = 0;
   std::size_t pathLen = 0;

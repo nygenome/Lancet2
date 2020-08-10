@@ -58,13 +58,13 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
         if (e.DestinationID() == MOCK_SOURCE_ID || e.SrcDirection() != currBuilder.Direction()) continue;
         PathBuilder extensionBuilder(currBuilder);
         // If extension found a new edge between multiple calls to next_path, increment path score
-        const auto uniqEdgeTouched = markedEdges.find(e) == markedEdges.end();
+        const auto uniqEdgeTouched = markedEdges.find(&e) == markedEdges.end();
         if (uniqEdgeTouched) extensionBuilder.IncrementScore();
 
         const auto neighbourItr = nodesMap->find(e.DestinationID());
         if (neighbourItr == nodesMap->end()) continue;
 
-        extensionBuilder.Extend(e, neighbourItr->second.get());
+        extensionBuilder.Extend(&e, neighbourItr->second.get());
         candidateBuilders.emplace_back(std::move(extensionBuilder));
       }
     }
