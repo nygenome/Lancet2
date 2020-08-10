@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <exception>
 #include <thread>
-#include <utility>
 
 #include "absl/hash/hash.h"
 #include "absl/strings/str_format.h"
@@ -16,19 +16,22 @@
 
 namespace lancet {
 void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
+  static thread_local const auto tid = std::this_thread::get_id();
+  SPDLOG_INFO("Starting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
+
   Timer T;
   FastaReader refRdr(params->referencePath);
   auto window = std::make_shared<RefWindow>();
   moodycamel::ConsumerToken consumerToken(*windowQPtr);
   moodycamel::ProducerToken producerToken(*resultQPtr);
-  std::size_t numWindowsProcessed = 0;
+  std::size_t numProcessed = 0;
 
   while (windowQPtr->try_dequeue(consumerToken, window)) {
     T.Reset();
     const auto winIdx = window->WindowIndex();
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
-    numWindowsProcessed++;
+    numProcessed++;
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       SPDLOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
@@ -37,27 +40,26 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) const {
     }
 
     if (!regResult.ok()) {
-      SPDLOG_WARN("Error processing {}: {}", regStr, regResult.status().message());
+      SPDLOG_ERROR("Error processing window {}: {}", regStr, regResult.status().message());
       resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
       continue;
     }
 
-    window->SetSequence(regResult.ValueOrDie());
-    const auto procStatus = ProcessWindow(std::const_pointer_cast<const RefWindow>(window), store);
-
-    if (!procStatus.ok()) {
-      const auto errMsg = absl::StrFormat("Error processing %s: %s", regStr, procStatus.message());
-      SPDLOG_WARN(errMsg);
-      resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
-      continue;
+    try {
+      window->SetSequence(regResult.ValueOrDie());
+      const auto windowStatus = ProcessWindow(std::const_pointer_cast<const RefWindow>(window), store);
+      if (!windowStatus.ok()) SPDLOG_ERROR("Error processing window {}: {}", regStr, windowStatus.message());
+    } catch (const std::exception& exception) {
+      SPDLOG_ERROR("Error processing window {}: {}", regStr, exception.what());
+    } catch (...) {
+      SPDLOG_ERROR("Error processing window {}: unknown exception caught", regStr);
     }
 
     resultQPtr->enqueue(producerToken, WindowResult{T.Runtime(), winIdx});
   }
 
-  static thread_local const auto threadId = std::this_thread::get_id();
-  SPDLOG_INFO("Processed {} windows in MicroAssembler thread {:#x}", numWindowsProcessed,
-              absl::Hash<std::thread::id>()(threadId));
+  SPDLOG_INFO("Processed {} windows in MicroAssembler thread {:#x}", numProcessed, absl::Hash<std::thread::id>()(tid));
+  SPDLOG_INFO("Exiting MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 }
 
 auto MicroAssembler::ProcessWindow(const std::shared_ptr<const RefWindow>& w,
