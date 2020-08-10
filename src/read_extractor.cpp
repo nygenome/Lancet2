@@ -13,10 +13,13 @@
 #include "lancet/fractional_sampler.h"
 
 namespace lancet {
-ReadExtractor::ReadExtractor(std::shared_ptr<const CliParams> p, GenomicRegion reg)
-    : tmrRdr(p->tumorPath, p->referencePath), nmlRdr(p->normalPath, p->referencePath), targetRegion(std::move(reg)) {
+ReadExtractor::ReadExtractor(std::shared_ptr<const CliParams> p)
+    : tmrRdr(p->tumorPath, p->referencePath), nmlRdr(p->normalPath, p->referencePath) {
   params = std::move(p);
+}
 
+void ReadExtractor::SetTargetRegion(const GenomicRegion& region) {
+  targetRegion = region;
   const auto tmrResult = EvaluateRegion(&tmrRdr, targetRegion, *params);
   const auto nmlResult = EvaluateRegion(&nmlRdr, targetRegion, *params);
 
