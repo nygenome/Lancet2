@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <stdexcept>
 
 #include "absl/container/btree_set.h"
+#include "absl/strings/str_format.h"
 #include "lancet/align.h"
 #include "lancet/assert_macro.h"
 #include "lancet/canonical_kmers.h"
@@ -306,7 +308,14 @@ auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkS
   auto aligned = AlignedSequencesView{refAnchorSeq, pathSeq};
   if (utils::HammingDistWithin(refAnchorSeq, pathSeq, 5)) goto SkipLocalAlignment;  // NOLINT
 
-  rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
+  try {
+    rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
+  } catch (...) {
+    const auto errMsg = absl::StrFormat("error aligning ref: %s, qry: %s in window: %s", refAnchorSeq, pathSeq,
+                                        window->ToRegionString());
+    throw std::runtime_error(errMsg);
+  }
+
   aligned.ref = rawAlignedSeqs.ref;
   aligned.qry = rawAlignedSeqs.qry;
 
