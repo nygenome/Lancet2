@@ -35,10 +35,7 @@ class PathBuilder {
 
   void Extend(const Edge* link, const Node* destination);
 
-  [[nodiscard]] auto PathEdges() const noexcept -> absl::Span<const Edge* const> {
-    return absl::MakeConstSpan(edgesList);
-  }
-
+  [[nodiscard]] auto PathEdges() -> absl::Span<const Edge*> { return absl::MakeSpan(edgesList); }
   [[nodiscard]] auto BuildPath() const -> std::unique_ptr<Path>;
 
  private:

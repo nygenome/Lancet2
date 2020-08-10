@@ -261,7 +261,7 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
 
   subcmd->callback([params]() -> void {
     const auto isTty = static_cast<bool>(isatty(fileno(stderr)));
-    if (isTty) std::clog << logo;
+    if (isTty) std::cerr << logo;
     RunPipeline(params);
   });
 }
