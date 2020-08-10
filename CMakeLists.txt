@@ -106,9 +106,6 @@ target_link_libraries(lancet_core
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES})
 
 set_target_properties(lancet_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set_target_properties(lancet_core PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
 
 # Add main lancet executable target
 set(LANCET_MAIN_CPP "${CMAKE_BINARY_DIR}/generated/lancet_main.cpp")
@@ -117,9 +114,6 @@ add_executable(lancet ${LANCET_MAIN_CPP})
 target_set_warnings(lancet ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_link_libraries(lancet PRIVATE mimalloc lancet_core)
 set_target_properties(lancet PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set_target_properties(lancet PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
 
 if(LANCET_UNIT_TESTS)
     add_subdirectory(tests)
