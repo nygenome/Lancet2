@@ -109,12 +109,13 @@ class HtsReader::Impl {
 
     result->Clear();
     result->SetReadName(bam_get_qname(aln.get()));  // NOLINT
-    result->SetContig(sam_hdr_tid2name(hdr.get(), aln->core.tid));
-    result->SetMateContig(sam_hdr_tid2name(hdr.get(), aln->core.mtid));
     result->SetStartPosition0(aln->core.pos);
     result->SetMateStartPosition0(aln->core.mpos);
     result->SetEndPosition0(bam_endpos(aln.get()));
     result->SetMappingQuality(aln->core.qual);
+
+    if (aln->core.tid != -1) result->SetContig(sam_hdr_tid2name(hdr.get(), aln->core.tid));
+    if (aln->core.mtid != -1) result->SetMateContig(sam_hdr_tid2name(hdr.get(), aln->core.mtid));
 
     const auto queryLength = static_cast<std::size_t>(aln->core.l_qseq);
     std::string sequence(queryLength, 'N');
