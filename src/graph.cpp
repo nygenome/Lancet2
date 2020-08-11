@@ -475,15 +475,12 @@ SkipLocalAlignment:
 auto Graph::AddTranscripts(absl::Span<const Transcript> transcripts, const std::shared_ptr<VariantStore>& store) const
     -> std::size_t {
   std::size_t numVariantsAdded = 0;
-  const auto windowIdx = window->WindowIndex();
-
   for (const auto& transcript : transcripts) {
     if (!transcript.has_alt_coverage()) continue;
     Variant variant(transcript, kmerSize);
     if (variant.ComputeState() == VariantState::NONE) continue;
-    if (store->AddVariant(windowIdx, std::move(variant))) numVariantsAdded++;
+    if (store->AddVariant(std::move(variant))) numVariantsAdded++;
   }
-
   return numVariantsAdded;
 }
 

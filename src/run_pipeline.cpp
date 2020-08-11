@@ -44,7 +44,7 @@ static inline auto RequiredBufferWindows(const CliParams& p) -> std::size_t {
   // Number of windows ahead of current window to be done in order to flush current window
   const auto maxFlankLen = static_cast<double>(std::max(p.maxIndelLength, p.windowLength));
   const auto windowStep = static_cast<double>(WindowBuilder::StepSize(p.pctOverlap, p.windowLength));
-  return static_cast<std::size_t>((1e4 / maxFlankLen) * std::ceil(maxFlankLen / windowStep));
+  return static_cast<std::size_t>(4.0 * std::ceil(maxFlankLen / windowStep));
 }
 
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
@@ -62,7 +62,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   }
 
   std::ofstream outVcf(params->outVcfPath, std::ios_base::out | std::ios_base::trunc);
-  const auto outHdr = VariantStore::BuildVcfHeader(GetSampleNames(*params), *params);
+  const auto outHdr = VariantStore::GetHeader(GetSampleNames(*params), *params);
   outVcf.write(outHdr.c_str(), outHdr.length());
 
   const auto contigIDs = GetContigIDs(*params);
@@ -70,7 +70,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   const auto numThreads = static_cast<std::size_t>(params->numWorkerThreads);
   const auto paramsPtr = std::make_shared<const CliParams>(*params);
   const auto numBufWindows = RequiredBufferWindows(*paramsPtr);
-  const auto vDBPtr = std::make_shared<VariantStore>(allwindows.size(), paramsPtr);
+  const auto vDBPtr = std::make_shared<VariantStore>(paramsPtr);
 
   SPDLOG_INFO("Processing {} windows in {} microassembler thread(s)", allwindows.size(), params->numWorkerThreads);
   std::vector<std::future<void>> assemblers;
@@ -122,7 +122,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     SPDLOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
-      const auto flushed = vDBPtr->FlushWindow(idxToFlush, outVcf, contigIDs);
+      const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], outVcf, contigIDs);
       if (flushed) {
         SPDLOG_DEBUG("Flushed variants from {} to output vcf", allwindows[idxToFlush]->ToRegionString());
         outVcf.flush();

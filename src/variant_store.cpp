@@ -11,10 +11,9 @@
 #include "generated/lancet_version.h"
 
 namespace lancet {
-VariantStore::VariantStore(std::size_t num_windows, std::shared_ptr<const CliParams> p)
-    : windowIds(num_windows), params(std::move(p)) {}
+VariantStore::VariantStore(std::shared_ptr<const CliParams> p) : params(std::move(p)) {}
 
-auto VariantStore::BuildVcfHeader(const std::vector<std::string>& sample_names, const CliParams& p) -> std::string {
+auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const CliParams& p) -> std::string {
   // clang-format off
   const auto stdResult = absl::StrFormat(R"raw(##fileformat=VCFv4.3
 ##fileDate=%s
@@ -67,13 +66,12 @@ auto VariantStore::BuildVcfHeader(const std::vector<std::string>& sample_names, 
                     : absl::StrFormat("%s%s", stdResult, chromLine);
 }
 
-auto VariantStore::AddVariant(std::size_t window_index, Variant&& variant) -> bool {
+auto VariantStore::AddVariant(Variant&& variant) -> bool {
   const auto variantId = variant.ID();
-
   absl::MutexLock guard(&mutex);
+
   auto itr = data.find(variantId);
   if (itr == data.end()) {
-    windowIds[window_index].push_back(variantId);
     data.emplace(variantId, std::move(variant));
     return true;
   }
@@ -89,60 +87,61 @@ auto VariantStore::AddVariant(std::size_t window_index, Variant&& variant) -> bo
   return false;
 }
 
-auto VariantStore::FlushWindow(std::size_t window_index, std::ostream& out,
-                               const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool {
+auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
   absl::MutexLock guard(&mutex);
-  if (windowIds[window_index].empty()) return false;
 
-  const auto wasFlushed = FlushVariants(absl::MakeConstSpan(windowIds[window_index]), out, contig_ids);
-  windowIds[window_index].clear();
-  return wasFlushed;
+  using vDBPair = std::pair<std::uint64_t, Variant>;
+  std::vector<VariantID> variantIDsToFlush;
+  variantIDsToFlush.reserve(1024);
+  std::for_each(data.cbegin(), data.cend(), [&variantIDsToFlush, &w, &ctg_ids](const vDBPair& p) {
+    if (IsVariantInOrBefore(p.second, w, ctg_ids)) variantIDsToFlush.emplace_back(p.first);
+  });
+
+  return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
 }
 
-auto VariantStore::FlushAll(std::ostream& out, const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
+auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool {
   absl::MutexLock guard(&mutex);
   if (data.empty()) return false;
 
   std::vector<std::uint64_t> variantIDsToFlush;
   variantIDsToFlush.reserve(data.size());
-
-  for (auto& window : windowIds) {
-    if (window.empty()) continue;
-    variantIDsToFlush.insert(variantIDsToFlush.end(), window.cbegin(), window.cend());
-    window.clear();
-  }
-
-  return FlushVariants(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
+  for (const auto& p : data) variantIDsToFlush.emplace_back(p.first);
+  return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
 }
 
-auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, std::ostream& out,
-                                 const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
+auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
   std::vector<Variant> variantsToFlush;
-  variantsToFlush.reserve(variant_ids.size());
+  variantsToFlush.reserve(ids.size());
 
-  for (const auto variantId : variant_ids) {
+  for (const auto variantId : ids) {
     const auto handle = data.extract(variantId);
     if (handle.empty()) continue;
     variantsToFlush.emplace_back(handle.mapped());
   }
 
   std::sort(variantsToFlush.begin(), variantsToFlush.end(),
-            [&ctg_ids](const Variant& v1, const Variant& v2) -> bool { return IsVariantLesser(v1, v2, ctg_ids); });
+            [&ctg_ids](const Variant& v1, const Variant& v2) -> bool { return IsVariant1LessThan2(v1, v2, ctg_ids); });
 
   for (const auto& v : variantsToFlush) {
     const auto recordLine = v.MakeVcfLine(*params);
     out.write(recordLine.c_str(), recordLine.length());
   }
 
-  if (!variantsToFlush.empty() && data.load_factor() < 0.7) data.rehash(0);
+  if (!variantsToFlush.empty() && data.load_factor() < 0.75) data.rehash(0);
   return !variantsToFlush.empty();
 }
 
-auto VariantStore::IsVariantLesser(const Variant& v1, const Variant& v2,
-                                   const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
+auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
+                                       const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
   if (v1.ChromName != v2.ChromName) return ctg_ids.at(v1.ChromName) < ctg_ids.at(v2.ChromName);
   if (v1.Position != v2.Position) return v1.Position < v2.Position;
   if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
   return v1.AltAllele < v2.AltAllele;
+}
+
+auto VariantStore::IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool {
+  if (v.ChromName != w.Chromosome()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.Chromosome());
+  return v.Position <= (w.EndPosition0() + 1);
 }
 }  // namespace lancet
