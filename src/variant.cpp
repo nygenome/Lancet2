@@ -1,12 +1,12 @@
 #include "lancet/variant.h"
 
 #include <algorithm>
-#include "lancet/assert_macro.h"
 #include <vector>
 
 #include "absl/hash/internal/city.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "lancet/assert_macro.h"
 #include "lancet/fisher_exact.h"
 #include "lancet/utils.h"
 
@@ -123,7 +123,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
                          BuildSampleFormat(TumorCov, params.tenxMode));
 }
 
-auto Variant::ID() const -> std::uint64_t {
+auto Variant::ID() const -> VariantID {
   const auto state = absl::StrFormat("%s|%d|%s|%s", ChromName, Position, RefAllele, AltAllele);
   return absl::hash_internal::CityHash64WithSeeds(state.c_str(), state.length(), utils::PRIME_0,  // NOLINT
                                                   utils::PRIME_1);
