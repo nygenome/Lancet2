@@ -112,7 +112,7 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->check(CLI::ExistingFile | CLI::NonexistentPath);
 
   // Regions
-  subcmd->add_option("--region", params->inRegionsList, "One or more regions (semicolon separated, 1-based)")
+  subcmd->add_option("--region", params->inRegions, "One or more regions to process (1-based start & end)")
       ->group("Regions")
       ->type_name("REF:[:START[-END]]");
 

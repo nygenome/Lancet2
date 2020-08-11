@@ -46,14 +46,14 @@ class CliParams {
 
   [[nodiscard]] auto ValidateParams() -> bool;
 
-  std::string inRegionsList;  // NOLINT
-  std::string bedFilePath;    // NOLINT
-  std::string outGraphsDir;   // NOLINT
-  std::string referencePath;  // NOLINT
-  std::string tumorPath;      // NOLINT
-  std::string normalPath;     // NOLINT
-  std::string outVcfPath;     // NOLINT
-  std::string commandLine;    // NOLINT
+  std::vector<std::string> inRegions;  // NOLINT
+  std::string bedFilePath;             // NOLINT
+  std::string outGraphsDir;            // NOLINT
+  std::string referencePath;           // NOLINT
+  std::string tumorPath;               // NOLINT
+  std::string normalPath;              // NOLINT
+  std::string outVcfPath;              // NOLINT
+  std::string commandLine;             // NOLINT
 
   double minCovRatio = DEFAULT_MIN_NODE_COV_RATIO;      // NOLINT
   double maxWindowCov = DEFAULT_MAX_WINDOW_COV;         // NOLINT
