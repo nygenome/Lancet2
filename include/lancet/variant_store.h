@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +13,7 @@
 #include "lancet/cli_params.h"
 #include "lancet/ref_window.h"
 #include "lancet/variant.h"
+#include "lancet/vcf_writer.h"
 
 namespace lancet {
 class VariantStore {
@@ -27,15 +27,15 @@ class VariantStore {
   [[nodiscard]] static auto GetHeader(const std::vector<std::string>& sample_names, const CliParams& p) -> std::string;
 
   auto ABSL_LOCKS_EXCLUDED(mutex) AddVariant(Variant&& variant) -> bool;
-  auto ABSL_LOCKS_EXCLUDED(mutex) FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool;
-  auto ABSL_LOCKS_EXCLUDED(mutex) FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool;
+  auto ABSL_LOCKS_EXCLUDED(mutex) FlushWindow(const RefWindow& w, VcfWriter* out, const ContigIDs& ctg_ids) -> bool;
+  auto ABSL_LOCKS_EXCLUDED(mutex) FlushAll(VcfWriter* out, const ContigIDs& ctg_ids) -> bool;
 
  private:
   mutable absl::Mutex mutex;
   absl::flat_hash_map<VariantID, Variant> data ABSL_GUARDED_BY(mutex);
   std::shared_ptr<const CliParams> params = nullptr;
 
-  [[nodiscard]] ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) auto Flush(absl::Span<const VariantID> ids, std::ostream& out,
+  [[nodiscard]] ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) auto Flush(absl::Span<const VariantID> ids, VcfWriter* out,
                                                                 const ContigIDs& ctg_ids) -> bool;
 
   [[nodiscard]] static auto IsVariant1LessThan2(const Variant& v1, const Variant& v2, const ContigIDs& ctg_ids) -> bool;

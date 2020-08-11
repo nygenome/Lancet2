@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
-#include <fstream>
 #include <future>
 #include <utility>
 #include <vector>
@@ -16,6 +15,7 @@
 #include "lancet/timer.h"
 #include "lancet/utils.h"
 #include "lancet/variant_store.h"
+#include "lancet/vcf_writer.h"
 #include "lancet/window_builder.h"
 #include "spdlog/spdlog.h"
 
@@ -61,9 +61,11 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     }
   }
 
-  std::ofstream outVcf(params->outVcfPath, std::ios_base::out | std::ios_base::trunc);
-  const auto outHdr = VariantStore::GetHeader(GetSampleNames(*params), *params);
-  outVcf.write(outHdr.c_str(), outHdr.length());
+  VcfWriter outVcf(params->outVcfPrefix + ".vcf.gz");
+  if (!outVcf.Write(VariantStore::GetHeader(GetSampleNames(*params), *params)).ok()) {
+    SPDLOG_CRITICAL("Could not write header to VCF output file");
+    std::exit(EXIT_FAILURE);
+  }
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);
@@ -122,18 +124,18 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     SPDLOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
-      const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], outVcf, contigIDs);
+      const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], &outVcf, contigIDs);
       if (flushed) {
         SPDLOG_DEBUG("Flushed variants from {} to output vcf", allwindows[idxToFlush]->ToRegionString());
-        outVcf.flush();
+        outVcf.Flush();
       }
 
       idxToFlush++;
     }
   }
 
-  vDBPtr->FlushAll(outVcf, contigIDs);
-  outVcf.close();
+  vDBPtr->FlushAll(&outVcf, contigIDs);
+  outVcf.Close();
 
   // just to make sure futures get collected and threads released
   std::for_each(assemblers.begin(), assemblers.end(), [](std::future<void>& fut) { return fut.get(); });

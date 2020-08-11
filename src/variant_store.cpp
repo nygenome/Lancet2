@@ -1,7 +1,6 @@
 #include "lancet/variant_store.h"
 
 #include <algorithm>
-#include <ostream>
 #include <utility>
 
 #include "absl/strings/str_format.h"
@@ -9,6 +8,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "generated/lancet_version.h"
+#include "lancet/assert_macro.h"
 
 namespace lancet {
 VariantStore::VariantStore(std::shared_ptr<const CliParams> p) : params(std::move(p)) {}
@@ -87,7 +87,7 @@ auto VariantStore::AddVariant(Variant&& variant) -> bool {
   return false;
 }
 
-auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::FlushWindow(const RefWindow& w, VcfWriter* out, const ContigIDs& ctg_ids) -> bool {
   absl::MutexLock guard(&mutex);
 
   using vDBPair = std::pair<std::uint64_t, Variant>;
@@ -100,7 +100,7 @@ auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const Cont
   return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
 }
 
-auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::FlushAll(VcfWriter* out, const ContigIDs& ctg_ids) -> bool {
   absl::MutexLock guard(&mutex);
   if (data.empty()) return false;
 
@@ -110,7 +110,7 @@ auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool
   return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
 }
 
-auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::Flush(absl::Span<const VariantID> ids, VcfWriter* out, const ContigIDs& ctg_ids) -> bool {
   std::vector<Variant> variantsToFlush;
   variantsToFlush.reserve(ids.size());
 
@@ -123,9 +123,10 @@ auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, con
   std::sort(variantsToFlush.begin(), variantsToFlush.end(),
             [&ctg_ids](const Variant& v1, const Variant& v2) -> bool { return IsVariant1LessThan2(v1, v2, ctg_ids); });
 
+  absl::Status status;
   for (const auto& v : variantsToFlush) {
-    const auto recordLine = v.MakeVcfLine(*params);
-    out.write(recordLine.c_str(), recordLine.length());
+    status = out->Write(v.MakeVcfLine(*params));
+    LANCET_ASSERT(status.ok());
   }
 
   if (!variantsToFlush.empty() && data.load_factor() < 0.75) data.rehash(0);
