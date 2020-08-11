@@ -31,10 +31,10 @@ class VariantStore {
                                               const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
 
   auto ABSL_LOCKS_EXCLUDED(mutex)
-      FlushAll(std::ostream& out, const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) -> bool;
+      FlushAll(std::ostream& out, const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
 
  private:
-  absl::Mutex mutex;
+  mutable absl::Mutex mutex;
   std::vector<WindowIds> windowIds ABSL_GUARDED_BY(mutex);
   absl::flat_hash_map<std::uint64_t, Variant> data ABSL_GUARDED_BY(mutex);
   std::shared_ptr<const CliParams> params = nullptr;
@@ -42,5 +42,8 @@ class VariantStore {
   [[nodiscard]] ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) auto FlushVariants(
       absl::Span<const std::uint64_t> variant_ids, std::ostream& out,
       const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
+
+  [[nodiscard]] static auto IsVariantLesser(const Variant& v1, const Variant& v2,
+                                            const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool;
 };
 }  // namespace lancet

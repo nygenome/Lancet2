@@ -126,12 +126,8 @@ auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, st
     variantsToFlush.emplace_back(handle.mapped());
   }
 
-  std::sort(variantsToFlush.begin(), variantsToFlush.end(), [&ctg_ids](const Variant& v1, const Variant& v2) -> bool {
-    if (v1.ChromName != v2.ChromName) return ctg_ids.at(v1.ChromName) < ctg_ids.at(v2.ChromName);
-    if (v1.Position != v2.Position) return v1.Position < v2.Position;
-    if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
-    return v1.AltAllele < v2.AltAllele;
-  });
+  std::sort(variantsToFlush.begin(), variantsToFlush.end(),
+            [&ctg_ids](const Variant& v1, const Variant& v2) -> bool { return IsVariantLesser(v1, v2, ctg_ids); });
 
   for (const auto& v : variantsToFlush) {
     const auto recordLine = v.MakeVcfLine(*params);
@@ -140,5 +136,13 @@ auto VariantStore::FlushVariants(absl::Span<const std::uint64_t> variant_ids, st
 
   if (!variantsToFlush.empty() && data.load_factor() < 0.7) data.rehash(0);
   return !variantsToFlush.empty();
+}
+
+auto VariantStore::IsVariantLesser(const Variant& v1, const Variant& v2,
+                                   const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
+  if (v1.ChromName != v2.ChromName) return ctg_ids.at(v1.ChromName) < ctg_ids.at(v2.ChromName);
+  if (v1.Position != v2.Position) return v1.Position < v2.Position;
+  if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
+  return v1.AltAllele < v2.AltAllele;
 }
 }  // namespace lancet
