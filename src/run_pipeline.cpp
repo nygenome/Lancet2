@@ -44,7 +44,7 @@ static inline auto RequiredBufferWindows(const CliParams& p) -> std::size_t {
   // Number of windows ahead of current window to be done in order to flush current window
   const auto maxFlankLen = static_cast<double>(std::max(p.maxIndelLength, p.windowLength));
   const auto windowStep = static_cast<double>(WindowBuilder::StepSize(p.pctOverlap, p.windowLength));
-  return static_cast<std::size_t>(10.0 * std::ceil(maxFlankLen / windowStep));
+  return static_cast<std::size_t>((1e4 / maxFlankLen) * std::ceil(maxFlankLen / windowStep));
 }
 
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
