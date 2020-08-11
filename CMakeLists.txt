@@ -54,7 +54,6 @@ add_library(lancet_core STATIC
         include/lancet/cigar.h src/cigar.cpp
         include/lancet/hts_alignment.h src/hts_alignment.cpp
         include/lancet/hts_reader.h src/hts_reader.cpp
-        include/lancet/vcf_writer.h src/vcf_writer.cpp
 
         include/lancet/ref_window.h
         include/lancet/read_info.h

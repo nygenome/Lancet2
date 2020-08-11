@@ -52,7 +52,7 @@ class CliParams {
   std::string referencePath;           // NOLINT
   std::string tumorPath;               // NOLINT
   std::string normalPath;              // NOLINT
-  std::string outVcfPrefix;            // NOLINT
+  std::string outVcfPath;              // NOLINT
   std::string commandLine;             // NOLINT
 
   double minCovRatio = DEFAULT_MIN_NODE_COV_RATIO;      // NOLINT
