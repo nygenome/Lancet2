@@ -11,13 +11,15 @@
 #include "lancet/variant_hpcov.h"
 
 namespace lancet {
+using VariantID = std::uint64_t;
+
 class Variant {
  public:
   explicit Variant(const Transcript& transcript, std::size_t kmer_size);
   Variant() = delete;
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
-  [[nodiscard]] auto ID() const -> std::uint64_t;
+  [[nodiscard]] auto ID() const -> VariantID;
   [[nodiscard]] auto ComputeState() const -> VariantState;
 
   std::string ChromName;   // NOLINT
