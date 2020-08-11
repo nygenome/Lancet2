@@ -183,8 +183,7 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> StatusOr<RefWindow> {
 auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids, const CliParams &params)
     -> std::vector<WindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
-  const std::vector<std::string> inputRegionStrs = absl::StrSplit(params.inRegionsList, ';');
-  for (const auto &region : inputRegionStrs) {
+  for (const auto &region : params.inRegions) {
     const auto result = wb.AddSamtoolsRegion(region);
     if (!result.ok()) {
       spdlog::error(result.message());
