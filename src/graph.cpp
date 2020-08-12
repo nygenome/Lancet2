@@ -405,36 +405,36 @@ SkipLocalAlignment:
 
     // extend transcript from previous event
     Transcript& tr = transcripts[transcripts.size() - 1];
-    const auto sameTranscriptCode = tr.code() == code;
+    const auto sameTranscriptCode = tr.Code() == code;
 
-    if (withinTumorNode && !tr.is_somatic()) tr.set_somatic_status(true);
-    tr.add_ref_base(aligned.ref[idx]).add_alt_base(aligned.qry[idx]);
-    if (code == TranscriptCode::INSERTION || code == TranscriptCode::SNV) tr.set_alt_end_offset(pathIdx + 1);
-    if (code == TranscriptCode::DELETION || code == TranscriptCode::SNV) tr.set_ref_end_offset(refIdx + 1);
+    if (withinTumorNode && !tr.IsSomatic()) tr.SetSomaticStatus(true);
+    tr.AddRefBase(aligned.ref[idx]).AddRefBase(aligned.qry[idx]);
+    if (code == TranscriptCode::INSERTION || code == TranscriptCode::SNV) tr.SetAltEndOffset(pathIdx + 1);
+    if (code == TranscriptCode::DELETION || code == TranscriptCode::SNV) tr.SetRefEndOffset(refIdx + 1);
 
     // extend existing insertion, if possible
-    if (sameTranscriptCode && code == TranscriptCode::INSERTION && tr.position() == genomeRefPos) {
-      tr.add_coverage(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-          .add_coverage(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
+    if (sameTranscriptCode && code == TranscriptCode::INSERTION && tr.Position() == genomeRefPos) {
+      tr.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
+          .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
       continue;
     }
 
     // extend existing deletion, if possible
-    const auto deletedRefLen = tr.alt_seq().length();
-    if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.position() + deletedRefLen) == genomeRefPos) {
-      tr.add_coverage(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-          .add_coverage(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx));
+    const auto deletedRefLen = tr.AltSeq().length();
+    if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen) == genomeRefPos) {
+      tr.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
+          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx));
       continue;
     }
 
     // extend into MNP or complex event
     // If current code is SNV & previous code is SNV, extend into MNP (also complex event for now)
     // If current code is SNV & previous code is not SNV, extend into complex event
-    tr.set_code(TranscriptCode::COMPLEX)
-        .add_coverage(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-        .add_coverage(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx))
-        .add_coverage(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-        .add_coverage(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
+    tr.SetCode(TranscriptCode::COMPLEX)
+        .AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
+        .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx))
+        .AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
+        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
   }
 
   // If alignment left shifts the InDel, reference and path coverages can get out of sync.
@@ -445,27 +445,27 @@ SkipLocalAlignment:
 
   std::for_each(
       transcripts.begin(), transcripts.end(), [&path, &ref_infos, &k, &tandemParams, &pathSeq](Transcript& transcript) {
-        transcript.add_str_result(FindTandemRepeat(pathSeq, transcript.alt_start_offset(), tandemParams));
+        transcript.AddSTRResult(FindTandemRepeat(pathSeq, transcript.AltStartOffset(), tandemParams));
 
-        if (transcript.code() == TranscriptCode::REF_MATCH || transcript.code() == TranscriptCode::SNV) return;
+        if (transcript.Code() == TranscriptCode::REF_MATCH || transcript.Code() == TranscriptCode::SNV) return;
 
         for (std::size_t pos = 0; pos <= k; pos++) {
-          const auto currPathIdx = transcript.alt_end_offset() + pos;
-          const auto currRefIdx = transcript.ref_end_offset() + pos;
+          const auto currPathIdx = transcript.AltEndOffset() + pos;
+          const auto currRefIdx = transcript.RefEndOffset() + pos;
 
           const auto* spanner = path.FindSpanningNode(currPathIdx, k);
           LANCET_ASSERT(spanner != nullptr);  // NOLINT
           constexpr double minRatioForSomatic = 0.8;
-          if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.set_somatic_status(true);
+          if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
 
           if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
-            transcript.add_coverage(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
-                .add_coverage(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
+            transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
+                .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
           }
 
           if (currPathIdx >= path.Length()) continue;
-          transcript.add_coverage(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
-              .add_coverage(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
+          transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
+              .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
         }
       });
 
@@ -476,7 +476,7 @@ auto Graph::AddTranscripts(absl::Span<const Transcript> transcripts, const std::
     -> std::size_t {
   std::size_t numVariantsAdded = 0;
   for (const auto& transcript : transcripts) {
-    if (!transcript.has_alt_coverage()) continue;
+    if (!transcript.HasAltCov()) continue;
     Variant variant(transcript, kmerSize);
     if (variant.ComputeState() == VariantState::NONE) continue;
     if (store->AddVariant(std::move(variant))) numVariantsAdded++;

@@ -12,15 +12,15 @@
 
 namespace lancet {
 Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
-    : ChromName(transcript.chromosome()),
-      Position(transcript.position()),
-      RefAllele(transcript.ref_seq()),
-      AltAllele(transcript.alt_seq()),
-      Kind(transcript.code()),
-      STRResult(transcript.str_result()),
+    : ChromName(transcript.ChromName()),
+      Position(transcript.Position()),
+      RefAllele(transcript.RefSeq()),
+      AltAllele(transcript.AltSeq()),
+      Kind(transcript.Code()),
+      STRResult(transcript.STRResult()),
       KmerSize(kmer_size),
-      TumorCov(transcript.variant_coverage(SampleLabel::TUMOR)),
-      NormalCov(transcript.variant_coverage(SampleLabel::NORMAL)) {
+      TumorCov(transcript.VariantCov(SampleLabel::TUMOR)),
+      NormalCov(transcript.VariantCov(SampleLabel::NORMAL)) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH);  // NOLINT
 
   // get rid of alignment skip chars `-` in ref and alt alleles
@@ -50,8 +50,8 @@ Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
 
   // Add previous base for InDels and complex events
   if (Kind != TranscriptCode::SNV) {
-    RefAllele.insert(RefAllele.begin(), 1, transcript.prev_ref_base());
-    AltAllele.insert(AltAllele.begin(), 1, transcript.prev_alt_base());
+    RefAllele.insert(RefAllele.begin(), 1, transcript.PrevRefBase());
+    AltAllele.insert(AltAllele.begin(), 1, transcript.PrevAltBase());
     Position--;
   }
 }
