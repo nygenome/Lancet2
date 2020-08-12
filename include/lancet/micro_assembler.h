@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -12,6 +13,7 @@
 #include "lancet/cli_params.h"
 #include "lancet/read_extractor.h"
 #include "lancet/ref_window.h"
+#include "lancet/variant.h"
 #include "lancet/variant_store.h"
 
 namespace lancet {
@@ -33,16 +35,21 @@ class MicroAssembler {
 
   MicroAssembler() = default;
 
-  void Process(const std::shared_ptr<VariantStore>& store) const;
+  void Process(const std::shared_ptr<VariantStore>& store);
 
  private:
   std::shared_ptr<InWindowQueue> windowQPtr;
   std::shared_ptr<OutResultQueue> resultQPtr;
   std::shared_ptr<const CliParams> params;
 
-  [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w,
-                                   const std::shared_ptr<VariantStore>& store) const -> absl::Status;
+  // Flush happens when 1000 variants present (or) Process completes
+  static constexpr std::size_t VARIANTS_BATCH_SIZE = 1000;
+  std::vector<Variant> variants;
+  std::vector<WindowResult> results;
 
+  [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
   [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool;
+
+  void Flush(const std::shared_ptr<VariantStore>& store, bool should_flush = false);
 };
 }  // namespace lancet
