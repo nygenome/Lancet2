@@ -35,7 +35,7 @@ class Graph {
 
   // 0 = NORMAL, 1 = TUMOR
   using RefInfos = std::array<absl::Span<const BaseHpCov>, 2>;
-  void ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStore>& store);
+  void ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results);
 
   [[nodiscard]] auto ShouldIncrementK() const noexcept -> bool { return shouldIncrementK; }
 
@@ -46,17 +46,14 @@ class Graph {
 
   [[nodiscard]] auto MarkConnectedComponents() -> std::vector<ComponentInfo>;
 
-  struct MarkSourceSinkResult {
-    bool foundSourceAndSink = false;
+  struct SrcSnkResult {
+    bool foundSrcAndSnk = false;
     std::size_t startOffset = 0;
     std::size_t endOffset = 0;
   };
 
-  auto MarkSourceSink(std::size_t comp_id) -> MarkSourceSinkResult;
-
-  static auto RefAnchorLen(const MarkSourceSinkResult& r) noexcept -> std::size_t {
-    return r.endOffset - r.startOffset;
-  }
+  auto MarkSourceSink(std::size_t comp_id) -> SrcSnkResult;
+  static auto RefAnchorLen(const SrcSnkResult& r) noexcept -> std::size_t { return r.endOffset - r.startOffset; }
 
   auto RemoveLowCovNodes(std::size_t comp_id) -> bool;
   auto CompressGraph(std::size_t comp_id) -> bool;
@@ -65,12 +62,8 @@ class Graph {
 
   [[nodiscard]] auto HasCycle() const -> bool;
 
-  using TranscriptList = std::vector<Transcript>;
-  [[nodiscard]] auto ProcessPath(const Path& path, const RefInfos& ref_infos,
-                                 const MarkSourceSinkResult& einfo) const -> TranscriptList;
-
-  [[nodiscard]] auto AddTranscripts(absl::Span<const Transcript> transcripts,
-                                    const std::shared_ptr<VariantStore>& store) const -> std::size_t;
+  void ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
+                   std::vector<Variant>* results) const;
 
   void WriteDot(std::size_t comp_id, const std::string& suffix) const;
   void WriteDot(std::size_t comp_id, absl::Span<const PathNodeIds> flow_paths) const;
@@ -126,7 +119,7 @@ class Graph {
 
   auto HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_set<NodeIdentifier>* touched) const -> bool;
 
-  static auto ClampToSourceSink(const RefInfos& refs, const MarkSourceSinkResult& ends) -> RefInfos;
+  static auto ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> RefInfos;
   static void ResetSourceSink(const NodeContainer& nc, std::size_t current_component);
   static void DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand direction);
 };

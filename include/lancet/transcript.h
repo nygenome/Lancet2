@@ -66,6 +66,8 @@ class Transcript {
   [[nodiscard]] auto IsSomatic() const noexcept -> bool { return isSomatic; }
   auto SetSomaticStatus(bool val = true) -> Transcript&;
 
+  [[nodiscard]] auto ComputeState() const -> VariantState;
+
  private:
   std::string chromName;
   std::size_t genomeRefPos = 0;  // 1-based genome position for VCF

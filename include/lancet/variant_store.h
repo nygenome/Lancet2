@@ -26,7 +26,7 @@ class VariantStore {
 
   [[nodiscard]] static auto GetHeader(const std::vector<std::string>& sample_names, const CliParams& p) -> std::string;
 
-  auto ABSL_LOCKS_EXCLUDED(mutex) AddVariant(Variant&& variant) -> bool;
+  void ABSL_LOCKS_EXCLUDED(mutex) AddVariantBatch(absl::Span<const Variant> variants);
   auto ABSL_LOCKS_EXCLUDED(mutex) FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool;
   auto ABSL_LOCKS_EXCLUDED(mutex) FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool;
 

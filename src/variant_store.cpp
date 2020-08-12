@@ -65,25 +65,25 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
                     : absl::StrFormat("%s%s", stdResult, chromLine);
 }
 
-auto VariantStore::AddVariant(Variant&& variant) -> bool {
-  const auto variantId = variant.ID();
+void VariantStore::AddVariantBatch(absl::Span<const Variant> variants) {
   absl::MutexLock guard(&mutex);
 
-  auto itr = data.find(variantId);
-  if (itr == data.end()) {
-    data.emplace(variantId, std::move(variant));
-    return true;
-  }
+  for (const auto& variant : variants) {
+    const auto vID = variant.ID();
+    auto itr = data.find(vID);
+    if (itr == data.end()) {
+      data.emplace(vID, variant);
+      continue;
+    }
 
-  const auto oldTotalCov = itr->second.TumorCov.TotalCov() + itr->second.NormalCov.TotalCov();
-  const auto newTotalCov = variant.TumorCov.TotalCov() + variant.NormalCov.TotalCov();
-  if (oldTotalCov < newTotalCov) {
-    itr->second.KmerSize = variant.KmerSize;
-    itr->second.TumorCov = variant.TumorCov;
-    itr->second.NormalCov = variant.NormalCov;
+    const auto oldTotalCov = itr->second.TumorCov.TotalCov() + itr->second.NormalCov.TotalCov();
+    const auto newTotalCov = variant.TumorCov.TotalCov() + variant.NormalCov.TotalCov();
+    if (oldTotalCov < newTotalCov) {
+      itr->second.KmerSize = variant.KmerSize;
+      itr->second.TumorCov = variant.TumorCov;
+      itr->second.NormalCov = variant.NormalCov;
+    }
   }
-
-  return false;
 }
 
 auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {

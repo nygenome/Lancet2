@@ -24,7 +24,7 @@ Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, do
              std::shared_ptr<const CliParams> p)
     : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
 
-void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStore>& store) {
+void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
   SPDLOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
@@ -35,7 +35,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
 
   for (const auto& comp : componentsInfo) {
     const auto markResult = MarkSourceSink(comp.ID);
-    if (!markResult.foundSourceAndSink) continue;
+    if (!markResult.foundSrcAndSnk) continue;
     SPDLOG_DEBUG("Marked source and sink in component{} ({} nodes) for {}", comp.ID, comp.numNodes, windowId);
 
     if (HasCycle()) {
@@ -60,7 +60,6 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
     }
 
     std::size_t numPaths = 0;
-    std::size_t numVariants = 0;
     const auto clampedRefInfos = ClampToSourceSink(ref_infos, markResult);
     const auto maxPathLength = RefAnchorLen(markResult) + static_cast<std::size_t>(params->maxIndelLength);
 
@@ -78,13 +77,11 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, const std::shared_ptr<VariantStor
         return;
       }
 
-      const auto transcripts = ProcessPath(*pathPtr, clampedRefInfos, markResult);
-      numVariants += AddTranscripts(absl::MakeConstSpan(transcripts), store);
+      ProcessPath(*pathPtr, clampedRefInfos, markResult, results);
       pathPtr = flow.NextPath();
     }
 
     if (numPaths == 0) SPDLOG_DEBUG("No path found in component{} for {} with K={}", comp.ID, windowId, kmerSize);
-    if (numVariants > 0) SPDLOG_DEBUG("Added {} variant(s) from {} using K={}", numVariants, windowId, kmerSize);
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, absl::MakeConstSpan(perPathTouches));
   }
 
@@ -137,7 +134,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   return componentsInfo;
 }
 
-auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
+auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::SrcSnkResult {
   const auto refseq = window->SeqView();
   auto refMerIDs = CanonicalKmerHashes(refseq, kmerSize);
   const auto srcResult = FindRefEnd(GraphEnd::SOURCE, comp_id, absl::MakeConstSpan(refMerIDs));
@@ -177,7 +174,7 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::MarkSourceSinkResult {
                 (refseq.substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
                  utils::RevComp(refseq.substr(endBaseIdx - kmerSize, kmerSize)) == dataSnkItr->second->SeqView()));
 
-  return MarkSourceSinkResult{true, startBaseIdx, endBaseIdx};
+  return SrcSnkResult{true, startBaseIdx, endBaseIdx};
 }
 
 auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
@@ -294,11 +291,11 @@ auto Graph::HasCycle() const -> bool {
   return HasCycle(MOCK_SOURCE_ID, Strand::FWD, &touchedIDs) || HasCycle(MOCK_SOURCE_ID, Strand::REV, &touchedIDs);
 }
 
-auto Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const MarkSourceSinkResult& einfo) const
-    -> Graph::TranscriptList {
+void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
+                        std::vector<Variant>* results) const {
   const auto pathSeq = path.SeqView();
   const auto refAnchorSeq = window->SeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
-  if (pathSeq == refAnchorSeq) return {};
+  if (pathSeq == refAnchorSeq) return;
 
   // check that reference seq length and reference data lengths are same
   LANCET_ASSERT(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
@@ -443,45 +440,38 @@ SkipLocalAlignment:
   const TandemRepeatParams tandemParams{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen,
                                         params->maxSTRDist};
 
-  std::for_each(
-      transcripts.begin(), transcripts.end(), [&path, &ref_infos, &k, &tandemParams, &pathSeq](Transcript& transcript) {
-        transcript.AddSTRResult(FindTandemRepeat(pathSeq, transcript.AltStartOffset(), tandemParams));
+  std::for_each(transcripts.begin(), transcripts.end(),
+                [&path, &ref_infos, &k, &tandemParams, &pathSeq](Transcript& transcript) {
+                  transcript.AddSTRResult(FindTandemRepeat(pathSeq, transcript.AltStartOffset(), tandemParams));
 
-        if (transcript.Code() == TranscriptCode::REF_MATCH || transcript.Code() == TranscriptCode::SNV) return;
+                  if (transcript.Code() == TranscriptCode::REF_MATCH || transcript.Code() == TranscriptCode::SNV) {
+                    return;
+                  }
 
-        for (std::size_t pos = 0; pos <= k; pos++) {
-          const auto currPathIdx = transcript.AltEndOffset() + pos;
-          const auto currRefIdx = transcript.RefEndOffset() + pos;
+                  for (std::size_t pos = 0; pos <= k; pos++) {
+                    const auto currPathIdx = transcript.AltEndOffset() + pos;
+                    const auto currRefIdx = transcript.RefEndOffset() + pos;
 
-          const auto* spanner = path.FindSpanningNode(currPathIdx, k);
-          LANCET_ASSERT(spanner != nullptr);  // NOLINT
-          constexpr double minRatioForSomatic = 0.8;
-          if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
+                    const auto* spanner = path.FindSpanningNode(currPathIdx, k);
+                    LANCET_ASSERT(spanner != nullptr);  // NOLINT
+                    constexpr double minRatioForSomatic = 0.8;
+                    if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
 
-          if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
-            transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
-                .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
-          }
+                    if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
+                      transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
+                          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
+                    }
 
-          if (currPathIdx >= path.Length()) continue;
-          transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
-              .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
-        }
-      });
+                    if (currPathIdx >= path.Length()) continue;
+                    transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
+                        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
+                  }
+                });
 
-  return transcripts;
-}
-
-auto Graph::AddTranscripts(absl::Span<const Transcript> transcripts, const std::shared_ptr<VariantStore>& store) const
-    -> std::size_t {
-  std::size_t numVariantsAdded = 0;
-  for (const auto& transcript : transcripts) {
-    if (!transcript.HasAltCov()) continue;
-    Variant variant(transcript, kmerSize);
-    if (variant.ComputeState() == VariantState::NONE) continue;
-    if (store->AddVariant(std::move(variant))) numVariantsAdded++;
+  for (const Transcript& T : transcripts) {
+    if (!T.HasAltCov() || T.ComputeState() == VariantState::NONE) continue;
+    results->emplace_back(T, kmerSize);
   }
-  return numVariantsAdded;
 }
 
 void Graph::WriteDot(std::size_t comp_id, const std::string& suffix) const {
@@ -631,7 +621,7 @@ auto Graph::HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_s
   return false;
 }
 
-auto Graph::ClampToSourceSink(const RefInfos& refs, const MarkSourceSinkResult& ends) -> Graph::RefInfos {
+auto Graph::ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> Graph::RefInfos {
   const auto length = ends.endOffset - ends.startOffset;
   return std::array<absl::Span<const BaseHpCov>, 2>{refs[0].subspan(ends.startOffset, length),
                                                     refs[1].subspan(ends.startOffset, length)};
