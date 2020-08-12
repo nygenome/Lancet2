@@ -32,39 +32,39 @@ class Transcript {
 
   Transcript() = delete;
 
-  [[nodiscard]] auto chromosome() const noexcept -> std::string { return chromName; }
-  [[nodiscard]] auto position() const noexcept -> std::size_t { return genomeRefPos; }
-  [[nodiscard]] auto ref_start_offset() const noexcept -> std::size_t { return idxs.refStart; }
-  [[nodiscard]] auto alt_start_offset() const noexcept -> std::size_t { return idxs.altStart; }
+  [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
+  [[nodiscard]] auto Position() const noexcept -> std::size_t { return genomeRefPos; }
+  [[nodiscard]] auto RefStartOffset() const noexcept -> std::size_t { return idxs.refStart; }
+  [[nodiscard]] auto AltStartOffset() const noexcept -> std::size_t { return idxs.altStart; }
 
-  [[nodiscard]] auto has_alt_coverage() const -> bool;
+  [[nodiscard]] auto HasAltCov() const -> bool;
 
-  [[nodiscard]] auto ref_end_offset() const noexcept -> std::size_t { return idxs.refEnd; }
-  auto set_ref_end_offset(std::size_t val) -> Transcript&;
+  [[nodiscard]] auto RefEndOffset() const noexcept -> std::size_t { return idxs.refEnd; }
+  auto SetRefEndOffset(std::size_t val) -> Transcript&;
 
-  [[nodiscard]] auto alt_end_offset() const noexcept -> std::size_t { return idxs.altEnd; }
-  auto set_alt_end_offset(std::size_t val) -> Transcript&;
+  [[nodiscard]] auto AltEndOffset() const noexcept -> std::size_t { return idxs.altEnd; }
+  auto SetAltEndOffset(std::size_t val) -> Transcript&;
 
-  [[nodiscard]] auto code() const noexcept -> TranscriptCode { return kind; }
-  auto set_code(TranscriptCode val) -> Transcript&;
+  [[nodiscard]] auto Code() const noexcept -> TranscriptCode { return kind; }
+  auto SetCode(TranscriptCode val) -> Transcript&;
 
-  [[nodiscard]] auto variant_coverage(SampleLabel label) const -> VariantHpCov;
-  auto add_coverage(SampleLabel label, Allele al, const BaseHpCov& c) -> Transcript&;
+  [[nodiscard]] auto VariantCov(SampleLabel label) const -> VariantHpCov;
+  auto AddCov(SampleLabel label, Allele al, const BaseHpCov& c) -> Transcript&;
 
-  [[nodiscard]] auto str_result() const noexcept -> std::string;
-  auto add_str_result(const TandemRepeatResult& val) -> Transcript&;
+  [[nodiscard]] auto STRResult() const noexcept -> std::string;
+  auto AddSTRResult(const TandemRepeatResult& val) -> Transcript&;
 
-  [[nodiscard]] auto ref_seq() const noexcept -> std::string { return refSeq; }
-  auto add_ref_base(const char& b) -> Transcript&;
+  [[nodiscard]] auto RefSeq() const noexcept -> std::string { return refSeq; }
+  auto AddRefBase(const char& b) -> Transcript&;
 
-  [[nodiscard]] auto alt_seq() const noexcept -> std::string { return altSeq; }
-  auto add_alt_base(const char& b) -> Transcript&;
+  [[nodiscard]] auto AltSeq() const noexcept -> std::string { return altSeq; }
+  auto AddAltBase(const char& b) -> Transcript&;
 
-  [[nodiscard]] auto prev_ref_base() const noexcept -> char { return prevRefBase; }
-  [[nodiscard]] auto prev_alt_base() const noexcept -> char { return prevAltBase; }
+  [[nodiscard]] auto PrevRefBase() const noexcept -> char { return prevRefBase; }
+  [[nodiscard]] auto PrevAltBase() const noexcept -> char { return prevAltBase; }
 
-  [[nodiscard]] auto is_somatic() const noexcept -> bool { return isSomatic; }
-  auto set_somatic_status(bool val = true) -> Transcript&;
+  [[nodiscard]] auto IsSomatic() const noexcept -> bool { return isSomatic; }
+  auto SetSomaticStatus(bool val = true) -> Transcript&;
 
  private:
   std::string chromName;

@@ -1,9 +1,9 @@
 #include "lancet/transcript.h"
 
-#include "lancet/assert_macro.h"
 #include <cmath>
 
 #include "absl/strings/str_format.h"
+#include "lancet/assert_macro.h"
 
 namespace lancet {
 Transcript::Transcript(std::string chrom, std::size_t genome_ref_pos, TranscriptCode k, TranscriptOffsets offs,
@@ -20,7 +20,7 @@ Transcript::Transcript(std::string chrom, std::size_t genome_ref_pos, Transcript
   prevAltBase = bases.prevAltBase;
 }
 
-auto Transcript::has_alt_coverage() const -> bool {
+auto Transcript::HasAltCov() const -> bool {
   const auto isSnv = kind == TranscriptCode::SNV;
   const auto acnf = isSomatic ? 0 : sampleCovs[0].NonZeroMinimum(Allele::ALT, Strand::FWD, isSnv);
   const auto acnr = isSomatic ? 0 : sampleCovs[0].NonZeroMinimum(Allele::ALT, Strand::REV, isSnv);
@@ -30,22 +30,22 @@ auto Transcript::has_alt_coverage() const -> bool {
   return acnf > 0 || acnr > 0 || actf > 0 || actr > 0;
 }
 
-auto Transcript::set_ref_end_offset(std::size_t val) -> Transcript& {
+auto Transcript::SetRefEndOffset(std::size_t val) -> Transcript& {
   idxs.refEnd = val;
   return *this;
 }
 
-auto Transcript::set_alt_end_offset(std::size_t val) -> Transcript& {
+auto Transcript::SetAltEndOffset(std::size_t val) -> Transcript& {
   idxs.altEnd = val;
   return *this;
 }
 
-auto Transcript::set_code(TranscriptCode val) -> Transcript& {
+auto Transcript::SetCode(TranscriptCode val) -> Transcript& {
   kind = val;
   return *this;
 }
 
-auto Transcript::variant_coverage(SampleLabel label) const -> VariantHpCov {
+auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
   const auto isSnv = kind == TranscriptCode::SNV;
   using U16 = std::uint16_t;
 
@@ -100,11 +100,11 @@ auto Transcript::variant_coverage(SampleLabel label) const -> VariantHpCov {
                       HpCov(std::make_pair(altFwd, altRev), {altHp0, altHp1, altHp2}));
 }
 
-auto Transcript::str_result() const noexcept -> std::string {
+auto Transcript::STRResult() const noexcept -> std::string {
   return strQry.foundSTR ? absl::StrFormat("%d:%s", strQry.strLength, strQry.strMotif) : "";
 }
 
-auto Transcript::add_coverage(SampleLabel label, Allele al, const BaseHpCov& c) -> Transcript& {
+auto Transcript::AddCov(SampleLabel label, Allele al, const BaseHpCov& c) -> Transcript& {
   if (label == SampleLabel::TUMOR) {
     al == Allele::REF ? sampleCovs[1].PushRef(c) : sampleCovs[1].PushAlt(c);
     return *this;
@@ -115,22 +115,22 @@ auto Transcript::add_coverage(SampleLabel label, Allele al, const BaseHpCov& c) 
   return *this;
 }
 
-auto Transcript::add_str_result(const TandemRepeatResult& val) -> Transcript& {
+auto Transcript::AddSTRResult(const TandemRepeatResult& val) -> Transcript& {
   strQry = val;
   return *this;
 }
 
-auto Transcript::add_ref_base(const char& b) -> Transcript& {
+auto Transcript::AddRefBase(const char& b) -> Transcript& {
   refSeq.push_back(b);
   return *this;
 }
 
-auto Transcript::add_alt_base(const char& b) -> Transcript& {
+auto Transcript::AddAltBase(const char& b) -> Transcript& {
   altSeq.push_back(b);
   return *this;
 }
 
-auto Transcript::set_somatic_status(bool val) -> Transcript& {
+auto Transcript::SetSomaticStatus(bool val) -> Transcript& {
   isSomatic = val;
   return *this;
 }
