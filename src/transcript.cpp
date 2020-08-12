@@ -134,4 +134,14 @@ auto Transcript::SetSomaticStatus(bool val) -> Transcript& {
   isSomatic = val;
   return *this;
 }
+
+auto Transcript::ComputeState() const -> VariantState {
+  const auto nmlAlt = VariantCov(SampleLabel::NORMAL).TotalAltCov();
+  const auto tmrAlt = VariantCov(SampleLabel::TUMOR).TotalAltCov();
+
+  if (nmlAlt > 0 && tmrAlt > 0) return VariantState::SHARED;
+  if (nmlAlt == 0 && tmrAlt > 0) return VariantState::SOMATIC;
+  if (nmlAlt > 0 && tmrAlt == 0) return VariantState::NORMAL;
+  return VariantState::NONE;
+}
 }  // namespace lancet
