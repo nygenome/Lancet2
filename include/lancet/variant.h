@@ -15,7 +15,7 @@ using VariantID = std::uint64_t;
 
 class Variant {
  public:
-  explicit Variant(const Transcript& transcript, std::size_t kmer_size);
+  Variant(const Transcript& transcript, std::size_t kmer_size);
   Variant() = delete;
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
