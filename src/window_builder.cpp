@@ -49,27 +49,27 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
   std::vector<WindowPtr> results;
   const auto stepSize = StepSize(pctWindowOverlap, windowLength);
 
-  for (const auto &inRegion : inputRegions) {
-    if (!contig_ids.contains(inRegion.Chromosome())) {
-      throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", inRegion.Chromosome()));
+  for (const auto &rawReg : inputRegions) {
+    if (!contig_ids.contains(rawReg.Chromosome())) {
+      throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", rawReg.Chromosome()));
     }
 
-    const auto paddedResult = PadWindow(inRegion);
+    const auto paddedResult = PadWindow(rawReg);
     if (!paddedResult.ok()) return paddedResult.status();
-    const auto &region = paddedResult.ValueOrDie();
+    const auto &finalRegion = paddedResult.ValueOrDie();
 
-    if (region.Length() <= windowLength) {
-      results.emplace_back(std::make_shared<RefWindow>(region));
+    if (finalRegion.Length() <= windowLength) {
+      results.emplace_back(std::make_shared<RefWindow>(finalRegion));
       continue;
     }
 
-    std::int64_t currWindowStart = region.StartPosition0();
-    const auto maxWindowPos = inRegion.EndPosition0();
+    std::int64_t currWindowStart = finalRegion.StartPosition0();
+    const auto maxWindowPos = finalRegion.EndPosition0();
 
     while (currWindowStart < maxWindowPos) {
       const std::int64_t currWindowEnd = currWindowStart + windowLength;
       results.emplace_back(std::make_shared<RefWindow>());
-      results.back()->SetChromosome(region.Chromosome());
+      results.back()->SetChromosome(finalRegion.Chromosome());
       results.back()->SetStartPosition0(currWindowStart);
       results.back()->SetEndPosition0(currWindowEnd);
       currWindowStart += stepSize;
@@ -201,11 +201,11 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
   }
 
   if (wb.IsEmpty()) {
-    LOG_INFO("No input regions provided to build windows. Using reference contigs in fasta as input");
+    LOG_INFO("No input regions provided to build windows. Using contigs in fasta as input regions");
     wb.AddAllRefRegions();
   }
 
-  LOG_INFO("Building windows using {} reference contigs as input regions", wb.Size());
+  LOG_INFO("Building windows using {} input regions", wb.Size());
   const auto windows = wb.BuildWindows(contig_ids);
   if (!windows.ok()) {
     LOG_ERROR(windows.status().message());
