@@ -16,6 +16,7 @@
 #include "absl/strings/str_format.h"
 #include "generated/lancet_version.h"
 #include "lancet/cli_params.h"
+#include "lancet/log_macros.h"
 #include "lancet/run_pipeline.h"
 #include "spdlog/sinks/stdout_color_sinks-inl.h"
 #include "spdlog/spdlog.h"
@@ -256,6 +257,7 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
     if (params->verboseLogging) spdlog::get("stderr")->set_level(spdlog::level::trace);
     const auto isTty = static_cast<bool>(isatty(fileno(stderr)));
     if (isTty) std::cerr << logo << std::endl;
+    LOG_INFO("Initializing Lancet {}", lancet::LONG_VERSION);
     RunPipeline(params);
   });
 }
