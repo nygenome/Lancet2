@@ -35,11 +35,9 @@ Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
       break;
     case TranscriptCode::INSERTION:
       Length = AltAllele.length();
-      LANCET_ASSERT(RefAllele.empty());  // NOLINT
       break;
     case TranscriptCode::DELETION:
       Length = RefAllele.length();
-      LANCET_ASSERT(AltAllele.empty());  // NOLINT
       break;
     case TranscriptCode::COMPLEX:
       Length = refLen == altLen ? altLen : refLen > altLen ? (refLen - altLen) : (altLen - refLen);

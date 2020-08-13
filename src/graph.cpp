@@ -12,6 +12,7 @@
 #include "lancet/canonical_kmers.h"
 #include "lancet/dot_serializer.h"
 #include "lancet/edmond_karp.h"
+#include "lancet/log_macros.h"
 #include "lancet/node_neighbour.h"
 #include "lancet/tandem_repeat.h"
 #include "lancet/timer.h"
@@ -27,7 +28,7 @@ Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, do
 void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
-  SPDLOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
+  LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
 
   RemoveLowCovNodes(0);
   nodesMap.rehash(0);
@@ -36,11 +37,11 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
   for (const auto& comp : componentsInfo) {
     const auto markResult = MarkSourceSink(comp.ID);
     if (!markResult.foundSrcAndSnk) continue;
-    SPDLOG_DEBUG("Marked source and sink in component{} ({} nodes) for {}", comp.ID, comp.numNodes, windowId);
+    LOG_DEBUG("Marked source and sink in component{} ({} nodes) for {}", comp.ID, comp.numNodes, windowId);
 
     if (HasCycle()) {
       shouldIncrementK = true;
-      SPDLOG_DEBUG("Found graph cycle in component{} for {} with K={}", comp.ID, windowId, kmerSize);
+      LOG_DEBUG("Found graph cycle in component{} for {} with K={}", comp.ID, windowId, kmerSize);
       return;
     }
 
@@ -55,7 +56,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
 
     if (HasCycle()) {
       shouldIncrementK = true;
-      SPDLOG_DEBUG("Found graph cycle in component{} for {} with K={}", comp.ID, windowId, kmerSize);
+      LOG_DEBUG("Found graph cycle in component{} for {} with K={}", comp.ID, windowId, kmerSize);
       return;
     }
 
@@ -72,7 +73,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
       if (!params->outGraphsDir.empty()) perPathTouches.emplace_back(pathPtr->TouchedEdgeIDs());
 
       if (utils::HasAlmostRepeatKmer(pathPtr->SeqView(), kmerSize, params->maxRptMismatch)) {
-        SPDLOG_DEBUG("Found repeat {}-mer in path{} of component{} for {}", kmerSize, numPaths, comp.ID, windowId);
+        LOG_DEBUG("Found repeat {}-mer in path{} of component{} for {}", kmerSize, numPaths, comp.ID, windowId);
         shouldIncrementK = true;
         return;
       }
@@ -81,11 +82,11 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
       pathPtr = flow.NextPath();
     }
 
-    if (numPaths == 0) SPDLOG_DEBUG("No path found in component{} for {} with K={}", comp.ID, windowId, kmerSize);
+    if (numPaths == 0) LOG_DEBUG("No path found in component{} for {} with K={}", comp.ID, windowId, kmerSize);
     if (!params->outGraphsDir.empty()) WriteDot(comp.ID, absl::MakeConstSpan(perPathTouches));
   }
 
-  SPDLOG_DEBUG("Done processing graph for {} | Runtime={}", windowId, timer.HumanRuntime());
+  LOG_DEBUG("Done processing graph for {} | Runtime={}", windowId, timer.HumanRuntime());
 }
 
 auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
@@ -129,7 +130,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   }
 
   LANCET_ASSERT(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == 0);  // NOLINT
-  SPDLOG_DEBUG("Marked {} components in graph for {}", componentsInfo.size(), window->ToRegionString());
+  LOG_DEBUG("Marked {} components in graph for {}", componentsInfo.size(), window->ToRegionString());
 
   return componentsInfo;
 }
@@ -196,9 +197,9 @@ auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
                 });
 
   if (!nodesToRemove.empty()) {
-    SPDLOG_DEBUG("Removing {} ({.2f}%) low cov nodes in component{} for {}", nodesToRemove.size(),
-                 100.0 * (static_cast<double>(nodesToRemove.size()) / static_cast<double>(nodesMap.size())), comp_id,
-                 window->ToRegionString());
+    LOG_DEBUG("Removing {} ({:.2f}%) low cov nodes in component{} for {}", nodesToRemove.size(),
+              100.0 * (static_cast<double>(nodesToRemove.size()) / static_cast<double>(nodesMap.size())), comp_id,
+              window->ToRegionString());
 
     RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
   }
@@ -216,7 +217,7 @@ auto Graph::CompressGraph(std::size_t comp_id) -> bool {
 
   if (!nodesToRemove.empty()) {
     RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
-    SPDLOG_DEBUG("Compressed {} nodes in component{} for {}", nodesToRemove.size(), comp_id, window->ToRegionString());
+    LOG_DEBUG("Compressed {} nodes in component{} for {}", nodesToRemove.size(), comp_id, window->ToRegionString());
   }
 
   return !nodesToRemove.empty();
@@ -249,7 +250,7 @@ auto Graph::RemoveTips(std::size_t comp_id) -> bool {
     }
   } while (numTips > 0);
 
-  if (totalTips > 0) SPDLOG_DEBUG("Removed {} tips in component{} for {}", totalTips, comp_id, windowId);
+  if (totalTips > 0) LOG_DEBUG("Removed {} tips in component{} for {}", totalTips, comp_id, windowId);
   return totalTips > 0;
 }
 
@@ -278,8 +279,7 @@ auto Graph::RemoveShortLinks(std::size_t comp_id) -> bool {
 
   if (!nodesToRemove.empty()) {
     RemoveNodes(nodesToRemove.cbegin(), nodesToRemove.cend());
-    SPDLOG_DEBUG("Removed {} short links in component{} for {}", nodesToRemove.size(), comp_id,
-                 window->ToRegionString());
+    LOG_DEBUG("Removed {} short links in component{} for {}", nodesToRemove.size(), comp_id, window->ToRegionString());
     CompressGraph(comp_id);
   }
 
