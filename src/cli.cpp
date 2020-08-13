@@ -20,16 +20,6 @@
 #include "spdlog/sinks/stdout_color_sinks-inl.h"
 #include "spdlog/spdlog.h"
 
-#ifdef SPDLOG_ACTIVE_LEVEL
-#undef SPDLOG_ACTIVE_LEVEL
-#endif
-
-#ifndef NDEBUG
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE  // NOLINT
-#else
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO  // NOLINT
-#endif
-
 namespace lancet {
 auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void;
 
@@ -42,8 +32,8 @@ auto RunCli(int argc, char** argv) noexcept -> int {
   std::cin.tie(nullptr);
 
   auto stderrLogger = spdlog::stderr_color_mt("stderr", spdlog::color_mode::automatic);
-  spdlog::set_default_logger(stderrLogger);
-  spdlog::set_pattern("%^%Y-%m-%dT%H:%M:%S%z | [%L] | %v%$");
+  stderrLogger->set_pattern("%^%Y-%m-%dT%H:%M:%S%z | [%L] | %v%$");
+  stderrLogger->set_level(spdlog::level::info);
 
   constexpr auto appDesc = "Microassembly based somatic variant caller";
   CLI::App app(appDesc, "Lancet");
@@ -230,6 +220,7 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Filters");
 
   // Feature flags
+  subcmd->add_flag("--verbose", params->verboseLogging, "Turn on verbose logging")->group("Flags");
   subcmd->add_flag("--tenx-mode", params->tenxMode, "Run Lancet in 10X Linked Reads mode")->group("Flags");
   subcmd->add_flag("--active-region-off", params->activeRegionOff, "Turn off active region detection")->group("Flags");
   subcmd->add_flag("--kmer-recovery-on", params->kmerRecoveryOn, "Turn on experimental kmer recovery")->group("Flags");
@@ -262,8 +253,9 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
   // clang-format on
 
   subcmd->callback([params]() -> void {
+    if (params->verboseLogging) spdlog::get("stderr")->set_level(spdlog::level::trace);
     const auto isTty = static_cast<bool>(isatty(fileno(stderr)));
-    if (isTty) std::cerr << logo;
+    if (isTty) std::cerr << logo << std::endl;
     RunPipeline(params);
   });
 }
