@@ -90,6 +90,7 @@ class CliParams {
   std::uint32_t maxSTRDist = DEFAULT_MAX_DIST_FROM_STR;               // NOLINT
   std::uint32_t minReadAsXsDiff = DEFAULT_MIN_READ_AS_XS_DIFF;        // NOLINT
 
+  bool verboseLogging = false;    // NOLINT
   bool activeRegionOff = false;   // NOLINT
   bool kmerRecoveryOn = false;    // NOLINT
   bool skipMultipleHits = false;  // NOLINT
