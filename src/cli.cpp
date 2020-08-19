@@ -36,8 +36,7 @@ auto RunCli(int argc, char** argv) noexcept -> int {
   stderrLogger->set_pattern("%^%Y-%m-%dT%H:%M:%S%z | [%L] | %v%$");
   stderrLogger->set_level(spdlog::level::info);
 
-  constexpr auto appDesc = "Microassembly based somatic variant caller";
-  CLI::App app(appDesc, "Lancet");
+  CLI::App app(absl::StrFormat("Lancet, %s\nMicroassembly based somatic variant caller\n", lancet::LONG_VERSION));
   app.require_subcommand(1);
 
   const auto pipelineParams = std::make_shared<CliParams>();
@@ -257,7 +256,7 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
     if (params->verboseLogging) spdlog::get("stderr")->set_level(spdlog::level::trace);
     const auto isTty = static_cast<bool>(isatty(fileno(stderr)));
     if (isTty) std::cerr << logo << std::endl;
-    LOG_INFO("Initializing Lancet {}", lancet::LONG_VERSION);
+    LOG_INFO("Initializing Lancet, {}", lancet::LONG_VERSION);
     RunPipeline(params);
   });
 }

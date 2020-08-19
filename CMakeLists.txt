@@ -7,9 +7,12 @@ option(LANCET_BENCHMARKS "Build snifty benchmarks" "OFF")
 set(LANCET_SANITIZER "OFF" CACHE STRING "Build with an LLVM sanitizer")
 set_property(CACHE LANCET_SANITIZER PROPERTY STRINGS "OFF" "Address" "Undefined" "Thread" "Memory")
 
-project(lancet VERSION 1.0.0 LANGUAGES C CXX
+project(lancet LANGUAGES C CXX
         HOMEPAGE_URL https://github.com/omicsnut/v2_lancet
         DESCRIPTION "Microassembly based somatic variant caller")
+
+# https://gitlab.kitware.com/cmake/cmake/-/issues/16716
+set(PROJECT_VERSION "2.0.0.alpha0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
