@@ -16,17 +16,7 @@
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/cli11-src/extern/googletest" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/cli11-src/tests/mesonTest/subprojects/CLI11" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/concurrentqueue-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/flatbuffers-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/gzipxx-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/mimalloc-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/spdlog-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/abseil-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/catch-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/cli11-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/cli11-src/extern/googletest" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/cli11-src/tests/mesonTest/subprojects/CLI11" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/concurrentqueue-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/mimalloc-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-relwithdebinfo/_deps/spdlog-src" vcs="Git" />
   </component>
 </project>
