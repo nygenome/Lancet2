@@ -1,31 +1,29 @@
 #include "lancet/align.h"
 
 #include <algorithm>
-#include <memory>
 #include <stdexcept>
+#include <vector>
 
 #include "absl/strings/str_format.h"
 
-namespace lancet {
-namespace detail {
+namespace {
 template <typename T>
-class NaiveTwoDimArray {
+class TwoDimVector {
  public:
-  explicit NaiveTwoDimArray(std::size_t nrows, std::size_t ncols)
-      : numRows(nrows), numCols(ncols), data(std::make_unique<T[]>(nrows * ncols)) {}  // NOLINT
+  TwoDimVector(std::size_t nrows, std::size_t ncols) : numRows(nrows), numCols(ncols), data(nrows * ncols) {}
+  TwoDimVector() = delete;
 
-  NaiveTwoDimArray() = delete;
-
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& { return data[row * numCols + col]; }
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& { return data[row * numCols + col]; }
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& { return data.at(row * numCols + col); }
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& { return data.at(row * numCols + col); }
 
  private:
   std::size_t numRows;
   std::size_t numCols;
-  std::unique_ptr<T[]> data;  // NOLINT
+  std::vector<T> data;  // NOLINT
 };
-}  // namespace detail
+}  // namespace
 
+namespace lancet {
 // Original:
 static constexpr int MATCH_SCORE = 2;
 static constexpr int MISMATCH_SCORE = -4;
@@ -67,9 +65,9 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   const auto refLen = ref.length();
   const auto qryLen = qry.length();
 
-  auto x = detail::NaiveTwoDimArray<Cell>{refLen + 2, qryLen + 2};
-  auto y = detail::NaiveTwoDimArray<Cell>{refLen + 2, qryLen + 2};
-  auto m = detail::NaiveTwoDimArray<Cell>{refLen + 2, qryLen + 2};
+  TwoDimVector<Cell> x(refLen + 2, qryLen + 2);
+  TwoDimVector<Cell> y(refLen + 2, qryLen + 2);
+  TwoDimVector<Cell> m(refLen + 2, qryLen + 2);
 
   for (std::size_t j = 0; j <= qryLen; ++j) {
     x.at(0, j).score = GAP_OPEN_SCORE + (static_cast<int>(j) * GAP_EXTEND_SCORE);
@@ -110,28 +108,28 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
     if (t == '*') break;
 
     if (forcex) {
-      alnBases.first = ref[i - 1];
+      alnBases.first = ref.at(i - 1);
       alnBases.second = ALIGN_GAP;
       if (x.at(i, j).trace_back == '<') forcex = false;
       --i;
     } else if (t == '<') {
-      alnBases.first = ref[i - 1];
+      alnBases.first = ref.at(i - 1);
       alnBases.second = ALIGN_GAP;
       if (x.at(i, j).trace_back == '-') forcex = true;
       --i;
     } else if (forcey) {
       alnBases.first = ALIGN_GAP;
-      alnBases.second = qry[j - 1];
+      alnBases.second = qry.at(j - 1);
       if (y.at(i, j).trace_back == '^') forcey = false;
       --j;
     } else if (t == '^') {
       alnBases.first = ALIGN_GAP;
-      alnBases.second = qry[j - 1];
+      alnBases.second = qry.at(j - 1);
       if (y.at(i, j).trace_back == '|') forcey = true;
       --j;
     } else if (t == '\\') {
-      alnBases.first = ref[i - 1];
-      alnBases.second = qry[j - 1];
+      alnBases.first = ref.at(i - 1);
+      alnBases.second = qry.at(j - 1);
       --i;
       --j;
     } else {
