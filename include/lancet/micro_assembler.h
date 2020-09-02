@@ -42,14 +42,16 @@ class MicroAssembler {
   std::shared_ptr<OutResultQueue> resultQPtr;
   std::shared_ptr<const CliParams> params;
 
-  // Flush happens when 1000 variants present (or) Process completes
-  static constexpr std::size_t VARIANTS_BATCH_SIZE = 1000;
   std::vector<Variant> variants;
   std::vector<WindowResult> results;
 
   [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
   [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool;
 
-  void Flush(const std::shared_ptr<VariantStore>& store, bool should_flush = false);
+  // Try to flush variants to store if its possible to write to store without waiting for other threads
+  void TryFlush(const std::shared_ptr<VariantStore>& store, const moodycamel::ProducerToken& token);
+
+  // Force flush variants to store blocking current thread if any other threads are writing to store.
+  void ForceFlush(const std::shared_ptr<VariantStore>& store, const moodycamel::ProducerToken& token);
 };
 }  // namespace lancet
