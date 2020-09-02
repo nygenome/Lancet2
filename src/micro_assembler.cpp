@@ -19,18 +19,19 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
   static thread_local const auto tid = std::this_thread::get_id();
   LOG_INFO("Started MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 
-  variants.reserve(VARIANTS_BATCH_SIZE);
-  results.reserve(VARIANTS_BATCH_SIZE);
+  variants.reserve(2048);
+  results.reserve(1024);
 
   Timer T;
   FastaReader refRdr(params->referencePath);
   ReadExtractor readExtractor(params);
   auto window = std::make_shared<RefWindow>();
   moodycamel::ConsumerToken windowConsumerToken(*windowQPtr);
+  moodycamel::ProducerToken resultProducerToken(*resultQPtr);
   std::size_t numProcessed = 0;
 
   while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
-    Flush(store);
+    TryFlush(store, resultProducerToken);
     T.Reset();
 
     const auto winIdx = window->WindowIndex();
@@ -63,7 +64,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     results.emplace_back(WindowResult{T.Runtime(), winIdx});
   }
 
-  Flush(store, true);
+  ForceFlush(store, resultProducerToken);
   LOG_INFO("Done processing {} windows in MicroAssembler thread {:#x}", numProcessed,
            absl::Hash<std::thread::id>()(tid));
 }
@@ -114,13 +115,18 @@ auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w)
   return false;
 }
 
-void MicroAssembler::Flush(const std::shared_ptr<VariantStore>& store, bool should_flush) {
-  if (!should_flush && variants.size() < VARIANTS_BATCH_SIZE) return;
+void MicroAssembler::TryFlush(const std::shared_ptr<VariantStore>& store, const moodycamel::ProducerToken& token) {
+  const auto addedVariants = store->TryAddVariants(variants);
+  if (addedVariants) {
+    resultQPtr->enqueue_bulk(token, results.cbegin(), results.size());
+    variants.clear();
+    results.clear();
+  }
+}
 
-  static moodycamel::ProducerToken resultProducerToken(*resultQPtr);
-  store->AddVariantBatch(absl::MakeConstSpan(variants));
-  resultQPtr->enqueue_bulk(resultProducerToken, results.cbegin(), results.size());
-
+void MicroAssembler::ForceFlush(const std::shared_ptr<VariantStore>& store, const moodycamel::ProducerToken& token) {
+  store->ForceAddVariants(variants);
+  resultQPtr->enqueue_bulk(token, results.cbegin(), results.size());
   variants.clear();
   results.clear();
 }
