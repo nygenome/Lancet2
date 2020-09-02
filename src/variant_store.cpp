@@ -121,7 +121,12 @@ auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, con
     out.write(record.c_str(), record.length());
   }
 
-  if (!variantsToFlush.empty() && data.load_factor() < 0.75) data.rehash(0);
+  if (!variantsToFlush.empty() && data.load_factor() < 0.8) {
+    // swap data with temp to force releasing hash table memory
+    absl::flat_hash_map<VariantID, Variant> temp(data);
+    data.swap(temp);
+  }
+
   return !variantsToFlush.empty();
 }
 
