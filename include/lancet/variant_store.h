@@ -37,6 +37,7 @@ class VariantStore {
   auto FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool;
 
  private:
+  // https://nathanpetersen.com/2019/02/17/optimizing-for-workloads-linux-spinlocks-vs-mutexes/
   mutable utils::SpinLock spinLock = utils::SpinLock();
   absl::flat_hash_map<VariantID, Variant> data;
   std::shared_ptr<const CliParams> params = nullptr;
