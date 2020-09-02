@@ -1,6 +1,7 @@
 #include "lancet/variant_store.h"
 
 #include <algorithm>
+#include <mutex>
 #include <utility>
 
 #include "absl/strings/str_format.h"
@@ -65,29 +66,22 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
                     : absl::StrFormat("%s%s", stdResult, chromLine);
 }
 
-void VariantStore::AddVariantBatch(absl::Span<const Variant> variants) {
-  absl::MutexLock guard(&mutex);
+auto VariantStore::TryAddVariants(absl::Span<const Variant> variants) -> bool {
+  const auto isLocked = spinLock.TryLock();
+  if (!isLocked) return false;
 
-  for (const auto& variant : variants) {
-    const auto vID = variant.ID();
-    auto itr = data.find(vID);
-    if (itr == data.end()) {
-      data.emplace(vID, variant);
-      continue;
-    }
+  UnsafeAddVariantBatch(variants);
+  spinLock.Unlock();
+  return true;
+}
 
-    const auto oldTotalCov = itr->second.TumorCov.TotalCov() + itr->second.NormalCov.TotalCov();
-    const auto newTotalCov = variant.TumorCov.TotalCov() + variant.NormalCov.TotalCov();
-    if (oldTotalCov < newTotalCov) {
-      itr->second.KmerSize = variant.KmerSize;
-      itr->second.TumorCov = variant.TumorCov;
-      itr->second.NormalCov = variant.NormalCov;
-    }
-  }
+void VariantStore::ForceAddVariants(absl::Span<const Variant> variants) {
+  std::lock_guard<utils::SpinLock> guard(spinLock);
+  UnsafeAddVariantBatch(variants);
 }
 
 auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
-  absl::MutexLock guard(&mutex);
+  std::lock_guard<utils::SpinLock> guard(spinLock);
 
   using vDBPair = std::pair<std::uint64_t, Variant>;
   std::vector<VariantID> variantIDsToFlush;
@@ -100,7 +94,7 @@ auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const Cont
 }
 
 auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool {
-  absl::MutexLock guard(&mutex);
+  std::lock_guard<utils::SpinLock> guard(spinLock);
   if (data.empty()) return false;
 
   std::vector<std::uint64_t> variantIDsToFlush;
@@ -142,5 +136,24 @@ auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
 auto VariantStore::IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool {
   if (v.ChromName != w.Chromosome()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.Chromosome());
   return v.Position <= (w.EndPosition0() + 1);
+}
+
+void VariantStore::UnsafeAddVariantBatch(absl::Span<const Variant> variants) {
+  for (const auto& variant : variants) {
+    const auto vID = variant.ID();
+    auto itr = data.find(vID);
+    if (itr == data.end()) {
+      data.emplace(vID, variant);
+      continue;
+    }
+
+    const auto oldTotalCov = itr->second.TumorCov.TotalCov() + itr->second.NormalCov.TotalCov();
+    const auto newTotalCov = variant.TumorCov.TotalCov() + variant.NormalCov.TotalCov();
+    if (oldTotalCov < newTotalCov) {
+      itr->second.KmerSize = variant.KmerSize;
+      itr->second.TumorCov = variant.TumorCov;
+      itr->second.NormalCov = variant.NormalCov;
+    }
+  }
 }
 }  // namespace lancet

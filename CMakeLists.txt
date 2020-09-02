@@ -47,7 +47,7 @@ include(sanitizers)
 add_library(lancet_core STATIC
         include/lancet/assert_macro.h include/lancet/log_macros.h
         include/lancet/timer.h include/lancet/fractional_sampler.h
-        include/lancet/statusor_internals.h
+        include/lancet/spinlock.h include/lancet/statusor_internals.h
         include/lancet/statusor.h src/statusor.cpp
         include/lancet/utils.h src/utils.cpp
 
@@ -102,8 +102,8 @@ add_dependencies(lancet_core htslib)
 target_set_warnings(lancet_core ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_include_directories(lancet_core PUBLIC include PRIVATE ${CMAKE_BINARY_DIR} ${HTSLIB_INCLUDE_DIR})
 target_link_libraries(lancet_core
-        PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set absl::str_format absl::fixed_array
-               absl::inlined_vector absl::span absl::time absl::random_random absl::synchronization
+        PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set absl::str_format
+               absl::fixed_array absl::inlined_vector absl::span absl::time absl::random_random
         PRIVATE CLI11 absl::failure_signal_handler absl::strings spdlog::spdlog ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES})
 set_target_properties(lancet_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
