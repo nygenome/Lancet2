@@ -64,7 +64,7 @@ if(NOT concurrentqueue_POPULATED)
     target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
 endif()
 
-FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.7.0)
+FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.8.0)
 FetchContent_MakeAvailable(spdlog)
 
 FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v1.9.1)
@@ -76,7 +76,8 @@ FetchContent_MakeAvailable(mimalloc)
 
 # Add abseil for general utilities. Update as often as possible.
 # See https://abseil.io/about/philosophy#upgrade-support
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG origin/master)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+                            GIT_TAG 6af91b35109cb35ae53cfe908e31a0c31c4a47f3)
 FetchContent_GetProperties(abseil)
 if(NOT abseil_POPULATED)
     set(BUILD_TESTING OFF)
@@ -87,7 +88,7 @@ if(NOT abseil_POPULATED)
 endif()
 
 if(LANCET_UNIT_TESTS)
-    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.0)
+    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.1)
     FetchContent_MakeAvailable(catch)
 endif()
 
@@ -97,7 +98,7 @@ if(LANCET_BENCHMARKS)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
     set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
     set(BENCHMARK_ENABLE_INSTALL OFF)
-    FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.5.1)
+    FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.5.2)
     FetchContent_MakeAvailable(benchmark)
 endif()
 
