@@ -24,6 +24,6 @@ class Graph::DotSerializer {
   void dump_component(std::size_t comp_id, std::ostream& out_stream) const;
   static void dump_path_flow(const PathNodeIds& path_flow, double hue, std::ostream& out_stream) ;
 
-  static std::string opposite_strand_sequence(std::string_view seq);
+  static auto opposite_strand_sequence(std::string_view seq) -> std::string;
 };
 }  // namespace lancet
