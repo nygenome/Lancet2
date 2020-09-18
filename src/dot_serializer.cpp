@@ -71,7 +71,7 @@ void Graph::DotSerializer::dump_component(std::size_t comp_id, std::ostream& out
 
     const auto forwardSequence = p.second->FwdSeq();
     const auto nodeName = isSrc ? "source" : isSnk ? "sink" : absl::StrFormat("nodeID_%d", p.first);
-    const auto nodeShape = isSrc || isSnk ? "diamond" : "circle";
+    const auto* nodeShape = isSrc || isSnk ? "diamond" : "circle";
 
     out_stream << absl::StreamFormat(R"raw(%d [shape=%s fillcolor=%s label="F:%s\nR:%s\n %s:%s\ncoverage=%d"]
 )raw",
