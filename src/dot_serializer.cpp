@@ -32,22 +32,20 @@ void Graph::DotSerializer::write_component(std::size_t comp_id, absl::Span<const
   const auto windowID = graphPtr->window->ToRegionString();
   const auto outDir = graphPtr->params->outGraphsDir.empty() ? std::filesystem::current_path()
                                                              : std::filesystem::path(graphPtr->params->outGraphsDir);
+  const auto fName = absl::StrFormat("%s/%s_c%d_path_flow.dot", outDir, windowID, comp_id);
+  std::ofstream outStream(fName, std::ios::out | std::ios::trunc);
+  dump_header(outStream);
+  dump_component(comp_id, outStream);
 
   std::for_each(flow_paths.cbegin(), flow_paths.cend(), [&](const PathNodeIds& path_flow) {
     pathNum++;
     currentHue += goldenRatioConjugate;
     currentHue = std::fmod(currentHue, 1.0);
-
-    const auto suffix = absl::StrFormat("path%d_flow", pathNum);
-    const auto fName = absl::StrFormat("%s/%s_c%d_%s.dot", outDir, windowID, comp_id, suffix);
-    std::ofstream outStream(fName, std::ios::trunc);
-
-    dump_header(outStream);
-    dump_component(comp_id, outStream);
     dump_path_flow(path_flow, currentHue, outStream);
-    outStream << "}\n";
-    outStream.close();
   });
+
+  outStream << "}\n";
+  outStream.close();
 }
 
 void Graph::DotSerializer::dump_header(std::ostream& out_stream) {
