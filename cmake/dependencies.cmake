@@ -21,8 +21,8 @@ set(HTSLIB_INCLUDE_DIR "${HTSLIB_ROOT_DIR}")
 set(LIBHTS "${HTSLIB_ROOT_DIR}/libhts.a")
 
 ExternalProject_Add(htslib
-        URL https://github.com/samtools/htslib/releases/download/1.10.2/htslib-1.10.2.tar.bz2
-        URL_MD5 9b03764c4809388625ab0b6352b13c93
+        URL https://github.com/samtools/htslib/releases/download/1.11/htslib-1.11.tar.bz2
+        URL_MD5 c488c7a79283e5252c04cae335ee80e8
         PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${HTSLIB_ROOT_DIR}
         BUILD_IN_SOURCE 1 INSTALL_COMMAND "" BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static
         CONFIGURE_COMMAND ${CMAKE_SOURCE_DIR}/scripts/configure_htslib.sh ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER}
@@ -56,7 +56,7 @@ set(MESSAGE_QUIET ON)
 #FetchContent_Declare(flatbuffers GIT_REPOSITORY https://github.com/google/flatbuffers.git GIT_TAG v1.12.0)
 #FetchContent_MakeAvailable(flatbuffers)
 
-FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.1)
+FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.2)
 FetchContent_GetProperties(concurrentqueue)
 if(NOT concurrentqueue_POPULATED)
     FetchContent_Populate(concurrentqueue)
@@ -64,20 +64,20 @@ if(NOT concurrentqueue_POPULATED)
     target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
 endif()
 
-FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.8.0)
+FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.8.1)
 FetchContent_MakeAvailable(spdlog)
 
 FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v1.9.1)
 FetchContent_MakeAvailable(cli11)
 
 set(MI_BUILD_TESTS OFF)
-FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v1.6.4)
+FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v1.6.7)
 FetchContent_MakeAvailable(mimalloc)
 
 # Add abseil for general utilities. Update as often as possible.
 # See https://abseil.io/about/philosophy#upgrade-support
 FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-                            GIT_TAG 6af91b35109cb35ae53cfe908e31a0c31c4a47f3)
+                            GIT_TAG e63a5a61045e516b7b3dbca090e2b9ff1d057e46)
 FetchContent_GetProperties(abseil)
 if(NOT abseil_POPULATED)
     set(BUILD_TESTING OFF)
@@ -88,7 +88,7 @@ if(NOT abseil_POPULATED)
 endif()
 
 if(LANCET_UNIT_TESTS)
-    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.1)
+    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v2.13.2)
     FetchContent_MakeAvailable(catch)
 endif()
 
