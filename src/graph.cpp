@@ -236,7 +236,7 @@ auto Graph::RemoveTips(std::size_t comp_id) -> bool {
     std::vector<NodeIdentifier> nodesToRemove;
     std::for_each(nodesMap.cbegin(), nodesMap.cend(),
                   [&nodesToRemove, &comp_id, &currK, &minTipLen](NodeContainer::const_reference p) {
-                    if (p.second->IsMockNode() || p.second->ComponentID == comp_id) return;
+                    if (p.second->IsMockNode() || p.second->ComponentID != comp_id) return;
                     if (p.second->NumEdges() <= 1 && (p.second->Length() - currK + 1) < minTipLen) {
                       nodesToRemove.emplace_back(p.first);
                     }
