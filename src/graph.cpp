@@ -83,7 +83,9 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
     }
 
     if (numPaths == 0) LOG_DEBUG("No path found in component{} for {} with K={}", comp.ID, windowId, kmerSize);
-    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, absl::MakeConstSpan(perPathTouches));
+    if (!params->outGraphsDir.empty() && !perPathTouches.empty()) {
+      WriteDot(comp.ID, absl::MakeConstSpan(perPathTouches));
+    }
   }
 
   LOG_DEBUG("Done processing graph for {} | Runtime={}", windowId, timer.HumanRuntime());
@@ -143,33 +145,39 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::SrcSnkResult {
 
   std::reverse(refMerIDs.begin(), refMerIDs.end());
   const auto snkResult = FindRefEnd(GraphEnd::SINK, comp_id, absl::MakeConstSpan(refMerIDs));
-  if (!snkResult.foundEnd) return {false, 0, 0};
-  if (srcResult.nodeId == snkResult.nodeId) return {false, 0, 0};
+  if (!snkResult.foundEnd || srcResult.nodeId == snkResult.nodeId) return {false, 0, 0};
 
-  ResetSourceSink(nodesMap, comp_id);
   auto fauxSrcItr = nodesMap.find(MOCK_SOURCE_ID);
+  LANCET_ASSERT(fauxSrcItr != nodesMap.end());  // NOLINT
+  fauxSrcItr->second->ComponentID = comp_id;
+  DisconnectEdgesTo(fauxSrcItr, nodesMap);
+  fauxSrcItr->second->ClearEdges();
+
   auto fauxSnkItr = nodesMap.find(MOCK_SINK_ID);
+  LANCET_ASSERT(fauxSnkItr != nodesMap.end());  // NOLINT
+  fauxSnkItr->second->ComponentID = comp_id;
+  DisconnectEdgesTo(fauxSnkItr, nodesMap);
+  fauxSnkItr->second->ClearEdges();
+
   auto dataSrcItr = nodesMap.find(srcResult.nodeId);
   auto dataSnkItr = nodesMap.find(snkResult.nodeId);
-  LANCET_ASSERT(fauxSrcItr != nodesMap.end());  // NOLINT
-  LANCET_ASSERT(fauxSnkItr != nodesMap.end());  // NOLINT
   LANCET_ASSERT(dataSrcItr != nodesMap.end());  // NOLINT
   LANCET_ASSERT(dataSnkItr != nodesMap.end());  // NOLINT
-
-  DisconnectEdges(dataSrcItr, nodesMap, ReverseStrand(dataSrcItr->second->Orientation()));
-  DisconnectEdges(dataSnkItr, nodesMap, dataSnkItr->second->Orientation());
 
   const auto fauxSrcToDataSrcKind = MakeEdgeKind(Strand::FWD, dataSrcItr->second->Orientation());
   fauxSrcItr->second->EmplaceEdge(dataSrcItr->first, fauxSrcToDataSrcKind);
   dataSrcItr->second->EmplaceEdge(MOCK_SOURCE_ID, ReverseEdgeKind(fauxSrcToDataSrcKind));
 
-  const auto fauxSnkToDataSnkKind = MakeEdgeKind(Strand::FWD, dataSnkItr->second->Orientation());
+  const auto isDataSnkRev = dataSnkItr->second->Orientation() == Strand::REV;
+  const auto fauxSnkToDataSnkKind = isDataSnkRev ? EdgeKind::FF : EdgeKind::RR;
   fauxSnkItr->second->EmplaceEdge(dataSnkItr->first, fauxSnkToDataSnkKind);
   dataSnkItr->second->EmplaceEdge(MOCK_SINK_ID, ReverseEdgeKind(fauxSnkToDataSnkKind));
 
   const auto startBaseIdx = srcResult.refMerIdx;
   const auto endBaseIdx = snkResult.refMerIdx + dataSnkItr->second->Length();
 
+  LANCET_ASSERT(fauxSrcItr->second->NumEdges() == 1);
+  LANCET_ASSERT(fauxSnkItr->second->NumEdges() == 1);
   LANCET_ASSERT((refseq.substr(startBaseIdx, kmerSize) == dataSrcItr->second->SeqView() ||
                  utils::RevComp(refseq.substr(startBaseIdx, kmerSize)) == dataSrcItr->second->SeqView()) &&
                 (refseq.substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
@@ -627,27 +635,12 @@ auto Graph::ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) ->
                                                     refs[1].subspan(ends.startOffset, length)};
 }
 
-void Graph::ResetSourceSink(const NodeContainer& nc, std::size_t current_component) {
-  const auto fauxSrcItr = nc.find(MOCK_SOURCE_ID);
-  const auto fauxSnkItr = nc.find(MOCK_SINK_ID);
-  LANCET_ASSERT(fauxSrcItr != nc.end());  // NOLINT
-  LANCET_ASSERT(fauxSnkItr != nc.end());  // NOLINT
-
-  fauxSrcItr->second->ComponentID = current_component;
-  fauxSnkItr->second->ComponentID = current_component;
-  fauxSrcItr->second->ClearEdges();
-  fauxSnkItr->second->ClearEdges();
-}
-
-void Graph::DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand direction) {
+void Graph::DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc) {
   LANCET_ASSERT(itr != nc.end());  // NOLINT
 
   for (const Edge& e : *itr->second) {
-    if (e.DestinationID() == itr->first || e.SrcDirection() != direction) continue;
     auto neighbourItr = nc.find(e.DestinationID());
     if (neighbourItr == nc.end()) continue;
-
-    itr->second->EraseEdge(neighbourItr->first, e.Kind());
     neighbourItr->second->EraseEdge(itr->first);
   }
 }
