@@ -120,7 +120,6 @@ class Graph {
   auto HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_set<NodeIdentifier>* touched) const -> bool;
 
   static auto ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> RefInfos;
-  static void ResetSourceSink(const NodeContainer& nc, std::size_t current_component);
-  static void DisconnectEdges(NodeIterator itr, const NodeContainer& nc, Strand direction);
+  static void DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc);
 };
 }  // namespace lancet
