@@ -234,7 +234,7 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
 
   // Optional
   subcmd->add_option("--graphs-dir", params->outGraphsDir, "Output path to dump serialized graphs for the run", true)
-      ->check(CLI::NonexistentPath)
+      ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
 
   // clang-format off
