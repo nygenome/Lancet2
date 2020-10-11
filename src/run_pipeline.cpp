@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <future>
 #include <utility>
@@ -15,7 +16,6 @@
 #include "lancet/log_macros.h"
 #include "lancet/micro_assembler.h"
 #include "lancet/timer.h"
-#include "lancet/utils.h"
 #include "lancet/variant_store.h"
 #include "lancet/window_builder.h"
 #include "spdlog/spdlog.h"
@@ -55,11 +55,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   LOG_INFO("Successfully validated input command line parameters");
 
   if (!params->outGraphsDir.empty()) {
-    const auto result = utils::MakeDir(params->outGraphsDir);
-    if (!result.ok()) {
-      LOG_CRITICAL("Could not create output graphs dir: {}; {}", params->outGraphsDir, result.message());
-      std::exit(EXIT_FAILURE);
-    }
+    std::filesystem::remove_all(params->outGraphsDir);
+    std::filesystem::create_directory(params->outGraphsDir);
   }
 
   std::ofstream outVcf(params->outVcfPath, std::ios_base::out | std::ios_base::trunc);

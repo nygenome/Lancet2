@@ -21,8 +21,6 @@ static constexpr std::uint64_t PRIME_1 = 14480561146010017169LLU;
 #pragma clang diagnostic pop
 #endif
 
-[[nodiscard]] auto MakeDir(const std::filesystem::path& dirname) -> absl::Status;
-
 [[nodiscard]] auto HammingDistWithin(std::string_view s1, std::string_view s2, std::size_t max) -> bool;
 
 [[nodiscard]] auto HasRepeatKmer(std::string_view seq, std::size_t k) -> bool;
