@@ -23,7 +23,6 @@ class EdmondKarpMaxFlow {
  private:
   const Graph::NodeContainer* nodesMap = nullptr;
   const Node* sourcePtr = nullptr;
-  const Node* sinkPtr = nullptr;
   std::size_t kmerSize = 0;
   std::size_t maxPathLen = std::numeric_limits<std::size_t>::max();
   std::uint32_t bfsLimit = 0;
