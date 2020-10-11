@@ -55,11 +55,11 @@ Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
 }
 
 auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
-  const auto somaticScore = PhredScaledProbability(FisherExact::Test(NormalCov.TotalRefCov(), TumorCov.TotalRefCov(),
-                                                                     NormalCov.TotalAltCov(), TumorCov.TotalAltCov()));
+  const auto somaticScore = PhredFisherScore(NormalCov.TotalRefCov(), TumorCov.TotalRefCov(), NormalCov.TotalAltCov(),
+                                             TumorCov.TotalAltCov());
 
-  const auto strandBiasScore = PhredScaledProbability(
-      FisherExact::Test(TumorCov.refAl.fwdCov, TumorCov.refAl.revCov, TumorCov.altAl.fwdCov, TumorCov.altAl.revCov));
+  const auto strandBiasScore =
+      PhredFisherScore(TumorCov.refAl.fwdCov, TumorCov.refAl.revCov, TumorCov.altAl.fwdCov, TumorCov.altAl.revCov);
 
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
@@ -70,17 +70,14 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   if (!STRResult.empty()) info += absl::StrFormat(";MS=%s", STRResult);
 
   if (params.tenxMode) {
-    const auto nmlHpScore = PhredScaledProbability(
-        FisherExact::Test(NormalCov.RefHP(Haplotype::FIRST), NormalCov.RefHP(Haplotype::SECOND),
-                          NormalCov.AltHP(Haplotype::FIRST), NormalCov.AltHP(Haplotype::SECOND)));
+    const auto nmlHpScore = PhredFisherScore(NormalCov.RefHP(Haplotype::FIRST), NormalCov.RefHP(Haplotype::SECOND),
+                                             NormalCov.AltHP(Haplotype::FIRST), NormalCov.AltHP(Haplotype::SECOND));
 
-    const auto tmrHpScore =
-        PhredScaledProbability(FisherExact::Test(TumorCov.RefHP(Haplotype::FIRST), TumorCov.RefHP(Haplotype::SECOND),
-                                                 TumorCov.AltHP(Haplotype::FIRST), TumorCov.AltHP(Haplotype::SECOND)));
+    const auto tmrHpScore = PhredFisherScore(TumorCov.RefHP(Haplotype::FIRST), TumorCov.RefHP(Haplotype::SECOND),
+                                             TumorCov.AltHP(Haplotype::FIRST), TumorCov.AltHP(Haplotype::SECOND));
 
-    const auto pairHpScore = PhredScaledProbability(
-        FisherExact::Test(NormalCov.TotalHP(Haplotype::FIRST), NormalCov.TotalHP(Haplotype::SECOND),
-                          TumorCov.TotalHP(Haplotype::FIRST), TumorCov.TotalHP(Haplotype::SECOND)));
+    const auto pairHpScore = PhredFisherScore(NormalCov.TotalHP(Haplotype::FIRST), NormalCov.TotalHP(Haplotype::SECOND),
+                                              TumorCov.TotalHP(Haplotype::FIRST), TumorCov.TotalHP(Haplotype::SECOND));
 
     info += absl::StrFormat(";HPS=%f;HPSN=%f;HPST=%f", pairHpScore, nmlHpScore, tmrHpScore);
   }
