@@ -7,11 +7,10 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "lancet/cli_params.h"
 #include "lancet/fasta_reader.h"
 #include "lancet/ref_window.h"
-#include "lancet/statusor.h"
 
 namespace lancet {
 using WindowPtr = std::shared_ptr<RefWindow>;
@@ -36,7 +35,7 @@ class WindowBuilder {
   /// 3. Build result windows each `windowLength` in length and
   ///    overlap of `pctWindowOverlap`% between consecutive windows
   [[nodiscard]] auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t>& contig_ids) const
-      -> StatusOr<std::vector<WindowPtr>>;
+      -> absl::StatusOr<std::vector<WindowPtr>>;
 
   [[nodiscard]] static auto StepSize(std::uint32_t pct_overlap, std::uint32_t window_length) -> std::int64_t;
 
@@ -48,13 +47,13 @@ class WindowBuilder {
   std::vector<RefWindow> inputRegions;  // sequence only added in `BuildWindows`
 
   // Parse samtools region string, padding is not added yet
-  [[nodiscard]] static auto ParseRegion(std::string_view region_str) -> StatusOr<RefWindow>;
+  [[nodiscard]] static auto ParseRegion(std::string_view region_str) -> absl::StatusOr<RefWindow>;
 
   // Parse input regions from bed file, padding is not added yet
-  [[nodiscard]] static auto ParseBed(const std::filesystem::path& bed) -> StatusOr<std::vector<RefWindow>>;
+  [[nodiscard]] static auto ParseBed(const std::filesystem::path& bed) -> absl::StatusOr<std::vector<RefWindow>>;
 
   // Add `regionPadding` to start and end, while checking for coordinate under/over-flow
-  [[nodiscard]] auto PadWindow(const RefWindow& w) const -> StatusOr<RefWindow>;
+  [[nodiscard]] auto PadWindow(const RefWindow& w) const -> absl::StatusOr<RefWindow>;
 };
 
 /// 1. Combine the input regions from bed file & samtools-style regions.

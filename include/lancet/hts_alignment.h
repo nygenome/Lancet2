@@ -6,11 +6,11 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/statusor.h"
 #include "lancet/cigar.h"
 #include "lancet/core_enums.h"
 #include "lancet/genomic_region.h"
 #include "lancet/read_info.h"
-#include "lancet/statusor.h"
 
 namespace lancet {
 class HtsAlignment {
@@ -58,7 +58,7 @@ class HtsAlignment {
 
   // NOTE: Returned tag data only valid until HtsReader's alignment data is valid
   [[nodiscard]] auto HasTag(std::string_view tag) const -> bool { return tagsData.contains(tag); }
-  [[nodiscard]] auto TagData(std::string_view tag) const -> StatusOr<const std::uint8_t*> {
+  [[nodiscard]] auto TagData(std::string_view tag) const -> absl::StatusOr<const std::uint8_t*> {
     const auto itr = tagsData.find(tag);
     if (itr == tagsData.end()) return absl::NotFoundError("requested tag is not present");
     return itr->second;

@@ -7,9 +7,9 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "lancet/contig_info.h"
 #include "lancet/genomic_region.h"
-#include "lancet/statusor.h"
 
 namespace lancet {
 class FastaReader {
@@ -23,14 +23,14 @@ class FastaReader {
   FastaReader(const FastaReader&) = delete;
   auto operator=(const FastaReader&) -> FastaReader& = delete;
 
-  [[nodiscard]] auto RegionSequence(const GenomicRegion& region) const -> StatusOr<std::string>;
-  [[nodiscard]] auto ContigSequence(const std::string& contig) const -> StatusOr<std::string>;
+  [[nodiscard]] auto RegionSequence(const GenomicRegion& region) const -> absl::StatusOr<std::string>;
+  [[nodiscard]] auto ContigSequence(const std::string& contig) const -> absl::StatusOr<std::string>;
 
   [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
 
   [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t>;
-  [[nodiscard]] auto ContigID(std::string_view contig) const -> StatusOr<std::int64_t>;
-  [[nodiscard]] auto ContigLength(std::string_view contig) const -> StatusOr<std::int64_t>;
+  [[nodiscard]] auto ContigID(std::string_view contig) const -> absl::StatusOr<std::int64_t>;
+  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<std::int64_t>;
 
  private:
   class Impl;

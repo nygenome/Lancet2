@@ -9,12 +9,23 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic ignored "-Wcast-qual"
+#endif
+
 #include "htslib/hts.h"
 #include "htslib/sam.h"
-#include "lancet/statusor.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace lancet {
 struct BamHdrDeleter {
@@ -47,7 +58,7 @@ struct Bam1Deleter {
   }
 };
 
-static inline auto GetAuxPtr(bam1_t* b, const char* tag) -> StatusOr<const std::uint8_t*> {
+static inline auto GetAuxPtr(bam1_t* b, const char* tag) -> absl::StatusOr<const std::uint8_t*> {
   const std::uint8_t* auxData = bam_aux_get(b, tag);
   if (auxData == nullptr && errno == ENOENT) {
     return absl::NotFoundError(absl::StrFormat("could not find tag %s in alignment", tag));
@@ -157,7 +168,7 @@ class HtsReader::Impl {
     for (const auto& tag : fill_tags) {
       auto auxResult = GetAuxPtr(aln.get(), tag.c_str());
       if (!auxResult.ok()) continue;
-      result->SetTagData(tag, auxResult.ValueOrDie());
+      result->SetTagData(tag, auxResult.value());
     }
 
     return IteratorState::VALID;

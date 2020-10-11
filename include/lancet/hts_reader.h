@@ -11,7 +11,6 @@
 #include "lancet/contig_info.h"
 #include "lancet/genomic_region.h"
 #include "lancet/hts_alignment.h"
-#include "lancet/statusor.h"
 
 namespace lancet {
 class HtsReader {
