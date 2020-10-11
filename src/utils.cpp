@@ -1,17 +1,8 @@
 #include "lancet/utils.h"
 
-#include <cerrno>
-#include <cstring>
-
 #include "absl/container/flat_hash_set.h"
-#include "sys/stat.h"
 
 namespace lancet::utils {
-auto MakeDir(const std::filesystem::path& dirname) -> absl::Status {
-  const auto status = mkdir(dirname.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  // NOLINT
-  if (status == 0) return absl::OkStatus();
-  return absl::InternalError(std::strerror(errno));
-}
 
 auto HammingDistWithin(std::string_view s1, std::string_view s2, std::size_t max) -> bool {
   if (s1.length() != s2.length()) return false;
