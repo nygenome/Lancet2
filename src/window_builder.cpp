@@ -19,14 +19,14 @@ WindowBuilder::WindowBuilder(const std::filesystem::path &ref, std::uint32_t reg
 auto WindowBuilder::AddSamtoolsRegion(const std::string &region_str) -> absl::Status {
   const auto result = ParseRegion(region_str);
   if (!result.ok()) return result.status();
-  inputRegions.emplace_back(result.ValueOrDie());
+  inputRegions.emplace_back(result.value());
   return absl::OkStatus();
 }
 
 auto WindowBuilder::AddBedFileRegions(const std::filesystem::path &bed) -> absl::Status {
   const auto results = ParseBed(bed);
   if (!results.ok()) return results.status();
-  const auto &parsedRegions = results.ValueOrDie();
+  const auto &parsedRegions = results.value();
   inputRegions.insert(inputRegions.end(), parsedRegions.begin(), parsedRegions.end());
   return absl::OkStatus();
 }
@@ -43,7 +43,7 @@ void WindowBuilder::AddAllRefRegions() {
 }
 
 auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids) const
-    -> StatusOr<std::vector<WindowPtr>> {
+    -> absl::StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
   std::vector<WindowPtr> results;
@@ -56,7 +56,7 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
 
     const auto paddedResult = PadWindow(rawReg);
     if (!paddedResult.ok()) return paddedResult.status();
-    const auto &finalRegion = paddedResult.ValueOrDie();
+    const auto &finalRegion = paddedResult.value();
 
     if (finalRegion.Length() <= windowLength) {
       results.emplace_back(std::make_shared<RefWindow>(finalRegion));
@@ -100,7 +100,7 @@ auto WindowBuilder::StepSize(std::uint32_t pct_overlap, std::uint32_t window_len
   return static_cast<std::int64_t>(std::round(rawVal / 100.0) * 100.0);
 }
 
-auto WindowBuilder::ParseRegion(std::string_view region_str) -> StatusOr<RefWindow> {
+auto WindowBuilder::ParseRegion(std::string_view region_str) -> absl::StatusOr<RefWindow> {
   std::vector<std::string> tokens = absl::StrSplit(region_str, absl::ByAnyChar(":-"));
 
   if (tokens.empty() || tokens.size() > 3) {
@@ -130,7 +130,7 @@ auto WindowBuilder::ParseRegion(std::string_view region_str) -> StatusOr<RefWind
   return std::move(w);
 }
 
-auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> StatusOr<std::vector<RefWindow>> {
+auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> absl::StatusOr<std::vector<RefWindow>> {
   std::ifstream bedFh(bed, std::ios_base::in);
   std::string line;
   auto lineNum = 0;
@@ -164,11 +164,11 @@ auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> StatusOr<std::
   return std::move(results);
 }
 
-auto WindowBuilder::PadWindow(const RefWindow &w) const -> StatusOr<RefWindow> {
+auto WindowBuilder::PadWindow(const RefWindow &w) const -> absl::StatusOr<RefWindow> {
   const auto ctgMaxLen = refRdr.ContigLength(w.Chromosome());
   if (!ctgMaxLen.ok()) return ctgMaxLen.status();
 
-  const auto currMax = static_cast<std::int64_t>(ctgMaxLen.ValueOrDie());
+  const auto currMax = static_cast<std::int64_t>(ctgMaxLen.value());
   const auto currStart = w.StartPosition0();
   const auto currEnd = w.EndPosition0();
 
@@ -212,6 +212,6 @@ auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_i
     std::exit(EXIT_FAILURE);
   }
 
-  return windows.ValueOrDie();
+  return windows.value();
 }
 }  // namespace lancet

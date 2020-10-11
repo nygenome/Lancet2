@@ -52,7 +52,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     }
 
     try {
-      window->SetSequence(regResult.ValueOrDie());
+      window->SetSequence(regResult.value());
       const auto windowStatus = ProcessWindow(&readExtractor, std::const_pointer_cast<const RefWindow>(window));
       if (!windowStatus.ok()) LOG_ERROR("Error processing window {}: {}", regStr, windowStatus.message());
     } catch (const std::exception& exception) {

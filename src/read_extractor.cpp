@@ -8,9 +8,20 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
-#include "htslib/sam.h"
 #include "lancet/assert_macro.h"
 #include "lancet/fractional_sampler.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic ignored "-Wcast-qual"
+#endif
+
+#include "htslib/sam.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace lancet {
 ReadExtractor::ReadExtractor(std::shared_ptr<const CliParams> p)
@@ -122,8 +133,8 @@ auto ReadExtractor::PassesTmrFilters(const HtsAlignment& aln, const CliParams& p
   // AS: Alignment score
   // XS: Suboptimal alignment score
   if (aln.HasTag("AS") && aln.HasTag("XS")) {
-    const auto AS = bam_aux2i(aln.TagData("AS").ValueOrDie());
-    const auto XS = bam_aux2i(aln.TagData("XS").ValueOrDie());
+    const auto AS = bam_aux2i(aln.TagData("AS").value());
+    const auto XS = bam_aux2i(aln.TagData("XS").value());
     return std::abs(AS - XS) >= params.minReadAsXsDiff;
   }
 
@@ -168,7 +179,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
     if (!params.useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     if (aln.HasTag("MD")) {
-      FillMDMismatches(bam_aux2Z(aln.TagData("MD").ValueOrDie()), aln.ReadQuality(), aln.StartPosition0(),
+      FillMDMismatches(bam_aux2Z(aln.TagData("MD").value()), aln.ReadQuality(), aln.StartPosition0(),
                        params.minBaseQual, &mismatches);
     }
 
