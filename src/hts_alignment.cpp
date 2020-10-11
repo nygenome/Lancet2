@@ -1,10 +1,21 @@
 #include "lancet/hts_alignment.h"
 
-#include "lancet/assert_macro.h"
 #include <cstddef>
 
 #include "absl/strings/ascii.h"
+#include "lancet/assert_macro.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic ignored "-Wcast-qual"
+#endif
+
 #include "htslib/sam.h"
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace lancet {
 auto HtsAlignment::BuildReadInfo(SampleLabel label, std::uint8_t min_bq, std::uint8_t max_kmer_size) -> ReadInfo {
