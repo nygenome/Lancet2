@@ -20,8 +20,16 @@
 #pragma clang diagnostic ignored "-Wcast-qual"
 #endif
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+
 #include "htslib/hts.h"
 #include "htslib/sam.h"
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
