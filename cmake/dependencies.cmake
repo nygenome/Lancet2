@@ -56,7 +56,7 @@ set(MESSAGE_QUIET ON)
 #FetchContent_Declare(flatbuffers GIT_REPOSITORY https://github.com/google/flatbuffers.git GIT_TAG v1.12.0)
 #FetchContent_MakeAvailable(flatbuffers)
 
-FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.2)
+FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.1)
 FetchContent_GetProperties(concurrentqueue)
 if(NOT concurrentqueue_POPULATED)
     FetchContent_Populate(concurrentqueue)
