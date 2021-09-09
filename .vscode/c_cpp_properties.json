@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "gccDefaultNygc",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/nfs/sw/gcc/gcc-9.2.0/bin/gcc",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/**"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
+}
