@@ -363,7 +363,7 @@ SkipLocalAlignment:
     const auto pathIdx = pathPos - 1;                          // 0-based index into the path sequence
     const auto genomeRefPos = anchorGenomeStart + refIdx + 1;  // 1-based genome position
 
-    const auto* spanner = path.FindSpanningNode(pathPos, kmerSize);
+    const auto* spanner = path.FindSpanningNode(pathIdx, kmerSize);
     LANCET_ASSERT(spanner != nullptr);  // NOLINT
     const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
 
