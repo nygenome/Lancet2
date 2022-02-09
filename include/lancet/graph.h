@@ -65,6 +65,8 @@ class Graph {
   void ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
                    std::vector<Variant>* results) const;
 
+  void WritePathFasta(std::string_view path_seq, std::size_t comp_id, std::size_t path_num) const;
+
   void WriteDot(std::size_t comp_id, const std::string& suffix) const;
   void WriteDot(std::size_t comp_id, absl::Span<const PathNodeIds> flow_paths) const;
 
