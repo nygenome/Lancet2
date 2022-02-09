@@ -2,14 +2,16 @@
 <project version="4">
   <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="NYGCRemoteLinux (793b04b3-2aba-4a68-bcb0-4df2d1f07b45)">
+      <paths name="NYGCRemoteLinux (5879fecb-f195-4a62-a639-5b423baf7175)">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/tmp.u3rPvZYo9w" local="$PROJECT_DIR$" />
+            <mapping deploy="/tmp/tmp.93jvr6yj8s" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-nygcremotelinux" />
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release-nygcremotelinux" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
           </excludedPaths>
         </serverdata>
       </paths>
