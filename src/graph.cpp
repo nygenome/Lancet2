@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <filesystem>
+#include <fstream>
 #include <stdexcept>
 
 #include "absl/container/btree_set.h"
@@ -79,6 +81,10 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
       }
 
       ProcessPath(*pathPtr, clampedRefInfos, markResult, results);
+      if (!params->outGraphsDir.empty()) {
+        WritePathFasta(pathPtr->SeqView(), comp.ID, numPaths);
+      }
+
       pathPtr = flow.NextPath();
     }
 
@@ -480,6 +486,19 @@ SkipLocalAlignment:
     if (!T.HasAltCov() || T.ComputeState() == VariantState::NONE) continue;
     results->emplace_back(T, kmerSize);
   }
+}
+
+void Graph::WritePathFasta(std::string_view path_seq, std::size_t comp_id, std::size_t path_num) const {
+  const auto outDir =
+      params->outGraphsDir.empty() ? std::filesystem::current_path() : std::filesystem::path(params->outGraphsDir);
+  const auto windowID = window->ToRegionString();
+
+  const auto pathID = absl::StrFormat("%s_c%d_p%d", windowID, comp_id, path_num);
+  const auto fName = absl::StrFormat("%s/%s.fasta", outDir, windowID);
+
+  std::ofstream outStream(fName, std::ios::out | std::ios::app);
+  outStream << absl::StreamFormat(">%s\n%s\n", pathID, path_seq);
+  outStream.close();
 }
 
 void Graph::WriteDot(std::size_t comp_id, const std::string& suffix) const {
