@@ -9,7 +9,7 @@ class FractionalSampler {
  public:
   explicit FractionalSampler(double needed_fraction) : fractionToKeep(needed_fraction) {}
 
-  auto ShouldSample() -> bool { return distGen(ubrg) <= fractionToKeep; }
+  [[nodiscard]] auto ShouldSample() -> bool { return (fractionToKeep == 1.0) || distGen(ubrg) <= fractionToKeep; }
 
  private:
   double fractionToKeep;
