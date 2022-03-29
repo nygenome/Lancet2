@@ -1,6 +1,6 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,clang-diagnostic-*,clang-analyzer-*,abseil-*,bugprone-*cert-*,cppcoreguidelines-*,google-*,hicpp-*,llvm-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-clang-analyzer-alpha.*,-llvm-include-order,-llvm-header-guard,-hicpp-braces-around-statements,-readability-magic-numbers,-cppcoreguidelines-avoid-magic-numbers'
-WarningsAsErrors: 'clang-diagnostic-*,clang-analyzer-*,clang-diagnostic-*,clang-analyzer-*,abseil-*,bugprone-*cert-*,cppcoreguidelines-*,google-*,hicpp-*,llvm-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-clang-analyzer-alpha.*,-llvm-include-order,-llvm-header-guard,-hicpp-braces-around-statements,-readability-magic-numbers,-cppcoreguidelines-avoid-magic-numbers'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,clang-diagnostic-*,clang-analyzer-*,abseil-*,bugprone-*cert-*,cppcoreguidelines-*,google-*,hicpp-*,llvm-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-clang-analyzer-alpha.*,-llvm-include-order,-llvm-header-guard,-hicpp-braces-around-statements,-readability-magic-numbers,-cppcoreguidelines-avoid-magic-numbers,-readability-identifier-length'
+WarningsAsErrors: 'clang-diagnostic-*,clang-analyzer-*,clang-diagnostic-*,clang-analyzer-*,abseil-*,bugprone-*cert-*,cppcoreguidelines-*,google-*,hicpp-*,llvm-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-clang-analyzer-alpha.*,-llvm-include-order,-llvm-header-guard,-hicpp-braces-around-statements,-readability-magic-numbers,-cppcoreguidelines-avoid-magic-numbers,-readability-identifier-length'
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
 FormatStyle:     file
