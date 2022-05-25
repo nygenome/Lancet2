@@ -62,7 +62,7 @@ auto ReadExtractor::ExtractReads(HtsReader* rdr, ReadInfoList* result, SampleLab
   const auto jumpStatus = rdr->SetRegion(targetRegion);
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
-  const auto fractionToSample = avgCoverage > params->maxWindowCov ? (avgCoverage / params->maxWindowCov) : 1.0;
+  const auto fractionToSample = avgCoverage > params->maxWindowCov ? (params->maxWindowCov / avgCoverage) : 1.0;
   FractionalSampler sampler(fractionToSample);
 
   // readName -> mateRegion
