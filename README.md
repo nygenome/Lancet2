@@ -3,7 +3,8 @@
 
 [![Build Status](https://img.shields.io/travis/com/omicsnut/v2_lancet/master.svg?label=Linux/MacOS&style=flat)](https://travis-ci.com/omicsnut/v2_lancet)
 [![Codecov](https://codecov.io/gh/omicsnut/v2_lancet/branch/master/graph/badge.svg)](https://codecov.io/gh/omicsnut/v2_lancet)
-[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?label=API%20docs&style=flat)](https://omicsnut.github.io/v2_lancet)
+[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?label=API%20docs&style=flat)](https://nygenome.github.io/Lancet2)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ## Installation
 #### Dependencies
