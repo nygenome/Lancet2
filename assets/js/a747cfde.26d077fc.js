@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktest_website=self.webpackChunktest_website||[]).push([[9554],{5540:function(e){e.exports=JSON.parse('{"label":"hola","permalink":"/Lancet2/blog/tags/hola","allTagsPath":"/Lancet2/blog/tags","count":1}')}}]);

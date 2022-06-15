@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktest_website=self.webpackChunktest_website||[]).push([[7008],{4664:function(s){s.exports=JSON.parse('{"label":"docusaurus","permalink":"/Lancet2/blog/tags/docusaurus","allTagsPath":"/Lancet2/blog/tags","count":4}')}}]);
