@@ -1,13 +1,13 @@
 function(target_set_warnings)
-    if(NOT LANCET_WARNINGS)
+    if (NOT LANCET_WARNINGS)
         return()
-    endif()
+    endif ()
 
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         set(WGCC TRUE)
     elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
         set(WCLANG TRUE)
-    endif()
+    endif ()
 
     set(multiValueArgs ENABLE DISABLE AS_ERROR)
     cmake_parse_arguments(this "" "" "${multiValueArgs}" ${ARGN})
@@ -16,48 +16,49 @@ function(target_set_warnings)
     list(FIND this_AS_ERROR "ALL" as_error_all)
 
     if (NOT ${enable_all} EQUAL -1)
-        if(WGCC)
+        if (WGCC)
             list(APPEND WarningFlags "-Wall" "-Wextra")
-        elseif(WCLANG)
+        elseif (WCLANG)
             list(APPEND WarningFlags "-Wall" "-Weverything" "-Wpedantic")
         endif ()
-    elseif(NOT ${disable_all} EQUAL -1)
+    elseif (NOT ${disable_all} EQUAL -1)
         # Assume all includes coming from system
         set(SystemIncludes TRUE)
         list(APPEND WarningFlags "-w")
-    endif()
+    endif ()
 
     list(FIND this_DISABLE "Annoying" disable_annoying)
-    if(NOT ${disable_annoying} EQUAL -1)
-        if(WCLANG)
+    if (NOT ${disable_annoying} EQUAL -1)
+        if (WCLANG)
             list(APPEND WarningFlags ${ABSL_DEFAULT_COPTS} "-Wno-newline-eof"
                     "-Wno-documentation-unknown-command" "-Wno-documentation"
                     "-Wno-unused-variable" "-Wno-missing-prototypes" "-Wno-c++2a-compat"
                     "-Wno-signed-enum-bitfield" "-Wno-undefined-func-template" "-Wno-shadow")
-        endif()
+        endif ()
 
-        if(WGCC)
-            list(APPEND WarningFlags ${ABSL_DEFAULT_COPTS} "-Wno-redundant-move")
-        endif()
-    endif()
+        if (WGCC)
+            list(APPEND WarningFlags ${ABSL_DEFAULT_COPTS} "-Wno-redundant-move"
+                    "-Wno-unused-parameter")
+        endif ()
+    endif ()
 
-    if(NOT ${as_error_all} EQUAL -1)
+    if (NOT ${as_error_all} EQUAL -1)
         list(APPEND WarningFlags "-Werror")
-    endif()
+    endif ()
 
-    foreach(target IN LISTS this_UNPARSED_ARGUMENTS)
-        if(WarningFlags)
+    foreach (target IN LISTS this_UNPARSED_ARGUMENTS)
+        if (WarningFlags)
             target_compile_options(${target} PRIVATE ${WarningFlags})
-        endif()
+        endif ()
 
-        if(WarningDefinitions)
+        if (WarningDefinitions)
             target_compile_definitions(${target} PRIVATE ${WarningDefinitions})
-        endif()
+        endif ()
 
-        if(SystemIncludes)
+        if (SystemIncludes)
             set_target_properties(${target} PROPERTIES
                     INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
                     $<TARGET_PROPERTY:${target},INTERFACE_INCLUDE_DIRECTORIES>)
-        endif()
-    endforeach()
+        endif ()
+    endforeach ()
 endfunction(target_set_warnings)

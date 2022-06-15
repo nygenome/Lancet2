@@ -140,7 +140,7 @@ auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
 
 auto VariantStore::IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool {
   if (v.ChromName != w.Chromosome()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.Chromosome());
-  return v.Position <= (w.EndPosition0() + 1);
+  return v.Position <= (static_cast<std::size_t>(w.EndPosition0()) + 1);
 }
 
 void VariantStore::UnsafeAddVariantBatch(absl::Span<const Variant> variants) {
