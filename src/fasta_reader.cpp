@@ -32,7 +32,7 @@ class FastaReader::Impl {
     const auto regionString = region.ToRegionString();
     char* rawSeqData = fai_fetch(idx.get(), regionString.c_str(), &parsedSeqLen);
 
-    if (rawSeqData == nullptr || parsedSeqLen != expectedSeqLen) {
+    if (rawSeqData == nullptr || static_cast<std::size_t>(parsedSeqLen) != expectedSeqLen) {
       const auto errMsg = absl::StrFormat("could not fetch sequence for %s from %s", regionString, srcPath);
       return rawSeqData == nullptr ? absl::InternalError(errMsg) : absl::FailedPreconditionError(errMsg);
     }
