@@ -104,7 +104,8 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
 #ifndef NDEBUG
   static const auto isUnassigned = [](NodeContainer::const_reference p) { return p.second->ComponentID == 0; };
 #endif
-  LANCET_ASSERT(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned) == nodesMap.size());  // NOLINT
+  LANCET_ASSERT(static_cast<std::size_t>(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned)) ==
+                nodesMap.size());  // NOLINT
 
   for (NodeContainer::reference p : nodesMap) {
     if (p.second->ComponentID != 0) continue;

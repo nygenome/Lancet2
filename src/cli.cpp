@@ -79,6 +79,7 @@ auto RunCli(int argc, char** argv) noexcept -> int {
 
 auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void {  // NOLINT
   auto* subcmd = app->add_subcommand("pipeline", "Run Lancet variant calling pipeline");
+  subcmd->option_defaults()->always_capture_default();
 
   // Required
   subcmd->add_option("-t,--tumor", params->tumorPath, "Path to tumor BAM/CRAM file")
@@ -110,113 +111,111 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Regions")
       ->check(CLI::ExistingFile);
 
-  subcmd->add_option("-P,--padding", params->regionPadLength, "Padding to apply for all input regions", true)
+  subcmd->add_option("-P,--padding", params->regionPadLength, "Padding to apply for all input regions")
       ->group("Regions");
 
-  subcmd->add_option("-w,--window-size", params->windowLength, "Window size for each microassemby task", true)
+  subcmd->add_option("-w,--window-size", params->windowLength, "Window size for each microassemby task")
       ->group("Regions");
 
-  subcmd->add_option("--pct-overlap", params->pctOverlap, "Percent overlap between consecutive windows", true)
+  subcmd->add_option("--pct-overlap", params->pctOverlap, "Percent overlap between consecutive windows")
       ->group("Regions")
-      ->check(CLI::Range(std::uint32_t(5), std::uint32_t(95)));
+      ->check(CLI::Range(static_cast<std::uint32_t>(5), static_cast<std::uint32_t>(95)));
 
   // Parameters
   const auto maxNumThreads = static_cast<std::uint32_t>(std::thread::hardware_concurrency());
-  subcmd->add_option("-T,--num-threads", params->numWorkerThreads, "Number of additional worker threads", true)
+  subcmd->add_option("-T,--num-threads", params->numWorkerThreads, "Number of additional worker threads")
       ->group("Parameters")
-      ->check(CLI::Range(std::uint32_t(1), maxNumThreads));
+      ->check(CLI::Range(static_cast<std::uint32_t>(1), maxNumThreads));
 
-  subcmd->add_option("-k,--min-kmer-length", params->minKmerSize, "Min. kmer length for graph nodes", true)
+  subcmd->add_option("-k,--min-kmer-length", params->minKmerSize, "Min. kmer length for graph nodes")
       ->group("Parameters")
-      ->check(CLI::Range(std::uint32_t(11), std::uint32_t(99)));
+      ->check(CLI::Range(static_cast<std::uint32_t>(11), static_cast<std::uint32_t>(99)));
 
-  subcmd->add_option("-K,--max-kmer-length", params->maxKmerSize, "Max. kmer length for graph nodes", true)
+  subcmd->add_option("-K,--max-kmer-length", params->maxKmerSize, "Max. kmer length for graph nodes")
       ->group("Parameters")
-      ->check(CLI::Range(std::uint32_t(13), std::uint32_t(101)));
+      ->check(CLI::Range(static_cast<std::uint32_t>(13), static_cast<std::uint32_t>(101)));
 
-  subcmd->add_option("--min-trim-qual", params->trimBelowQual, "Min. base quality to trim 5' and 3' read bases", true)
+  subcmd->add_option("--min-trim-qual", params->trimBelowQual, "Min. base quality to trim 5' and 3' read bases")
       ->group("Parameters")
-      ->check(CLI::Range(std::uint32_t(0), std::uint32_t(30)));
+      ->check(CLI::Range(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(30)));
 
-  subcmd->add_option("-q,--min-base-qual", params->minBaseQual, "Min. base quality to consider for SNV calling", true)
+  subcmd->add_option("-q,--min-base-qual", params->minBaseQual, "Min. base quality to consider for SNV calling")
       ->group("Parameters")
-      ->check(CLI::Range(std::uint32_t(0), std::uint32_t(30)));
+      ->check(CLI::Range(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(30)));
 
-  subcmd->add_option("-Q,--min-mapping-qual", params->minReadMappingQual, "Min. mapping quality to use a read", true)
+  subcmd->add_option("-Q,--min-mapping-qual", params->minReadMappingQual, "Min. mapping quality to use a read")
       ->group("Parameters");
 
-  subcmd->add_option("--max-rpt-mismatch", params->maxRptMismatch, "Max. mismatches to detect approx. repeats", true)
+  subcmd->add_option("--max-rpt-mismatch", params->maxRptMismatch, "Max. mismatches to detect approx. repeats")
       ->group("Parameters");
 
-  subcmd->add_option("--max-tip-length", params->minGraphTipLength, "Max. allowed tip length in the graph", true)
+  subcmd->add_option("--max-tip-length", params->minGraphTipLength, "Max. allowed tip length in the graph")
       ->group("Parameters");
 
-  subcmd->add_option("--graph-traversal-limit", params->graphTraversalLimit, "Max. BFS/DFS graph traversal limit", true)
+  subcmd->add_option("--graph-traversal-limit", params->graphTraversalLimit, "Max. BFS/DFS graph traversal limit")
       ->group("Parameters");
 
-  subcmd->add_option("--max-indel-length", params->maxIndelLength, "Max. limit on the indel length to detect", true)
+  subcmd->add_option("--max-indel-length", params->maxIndelLength, "Max. limit on the indel length to detect")
       ->group("Parameters");
 
-  subcmd->add_option("--min-anchor-cov", params->minAnchorCov, "Min. coverage for anchor nodes (source & sink)", true)
+  subcmd->add_option("--min-anchor-cov", params->minAnchorCov, "Min. coverage for anchor nodes (source & sink)")
       ->group("Parameters");
 
-  subcmd->add_option("--min-node-cov", params->minNodeCov, "Min. coverage for all nodes in the graph", true)
+  subcmd->add_option("--min-node-cov", params->minNodeCov, "Min. coverage for all nodes in the graph")
       ->group("Parameters");
 
-  subcmd->add_option("--min-cov-ratio", params->minCovRatio, "Min. node by window coverage for all nodes", true)
+  subcmd->add_option("--min-cov-ratio", params->minCovRatio, "Min. node by window coverage for all nodes")
       ->group("Parameters");
 
-  subcmd->add_option("--max-window-cov", params->maxWindowCov, "Max. average window coverage before downsampling", true)
+  subcmd->add_option("--max-window-cov", params->maxWindowCov, "Max. average window coverage before downsampling")
       ->group("Parameters");
 
-  subcmd->add_option("--min-as-xs-diff", params->minReadAsXsDiff, "Min. diff. between AS & XS scores (BWA-mem)", true)
+  subcmd->add_option("--min-as-xs-diff", params->minReadAsXsDiff, "Min. diff. between AS & XS scores (BWA-mem)")
       ->group("Parameters");
 
   //  STR parameters
-  subcmd->add_option("--max-str-unit-len", params->maxSTRUnitLength, "Max. unit length for an STR motif", true)
+  subcmd->add_option("--max-str-unit-len", params->maxSTRUnitLength, "Max. unit length for an STR motif")
       ->group("STR parameters");
 
-  subcmd->add_option("--min-str-units", params->minSTRUnits, "Min. number of STR units required to report", true)
+  subcmd->add_option("--min-str-units", params->minSTRUnits, "Min. number of STR units required to report")
       ->group("STR parameters");
 
-  subcmd->add_option("--min-str-len", params->minSTRLen, "Min. required STR length (in bp) to report", true)
+  subcmd->add_option("--min-str-len", params->minSTRLen, "Min. required STR length (in bp) to report")
       ->group("STR parameters");
 
-  subcmd->add_option("--max-str-dist", params->maxSTRDist, "Max. distance (in bp) of variant from the STR motif", true)
+  subcmd->add_option("--max-str-dist", params->maxSTRDist, "Max. distance (in bp) of variant from the STR motif")
       ->group("STR parameters");
 
   // Filters
-  subcmd->add_option("-c,--max-nml-alt-cnt", params->maxNmlAltCnt, "Max. ALT allele count in normal sample", true)
+  subcmd->add_option("-c,--max-nml-alt-cnt", params->maxNmlAltCnt, "Max. ALT allele count in normal sample")
       ->group("Filters");
 
-  subcmd->add_option("-C,--min-tmr-alt-cnt", params->minTmrAltCnt, "Min. ALT allele count in tumor sample", true)
+  subcmd->add_option("-C,--min-tmr-alt-cnt", params->minTmrAltCnt, "Min. ALT allele count in tumor sample")
       ->group("Filters");
 
-  subcmd->add_option("-v,--max-nml-vaf", params->maxNmlVAF, "Max. variant allele frequency in normal sample", true)
+  subcmd->add_option("-v,--max-nml-vaf", params->maxNmlVAF, "Max. variant allele frequency in normal sample")
       ->group("Filters");
 
-  subcmd->add_option("-V,--min-tmr-vaf", params->minTmrVAF, "Min. variant allele frequency in tumor sample", true)
+  subcmd->add_option("-V,--min-tmr-vaf", params->minTmrVAF, "Min. variant allele frequency in tumor sample")
       ->group("Filters");
 
-  subcmd->add_option("--min-nml-cov", params->minNmlCov, "Min. variant coverage in the normal sample", true)
+  subcmd->add_option("--min-nml-cov", params->minNmlCov, "Min. variant coverage in the normal sample")
       ->group("Filters");
 
-  subcmd->add_option("--min-tmr-cov", params->minTmrCov, "Min. variant coverage in the tumor sample", true)
+  subcmd->add_option("--min-tmr-cov", params->minTmrCov, "Min. variant coverage in the tumor sample")->group("Filters");
+
+  subcmd->add_option("--max-nml-cov", params->maxNmlCov, "Max. variant coverage in the normal sample")
       ->group("Filters");
 
-  subcmd->add_option("--max-nml-cov", params->maxNmlCov, "Max. variant coverage in the normal sample", true)
+  subcmd->add_option("--max-tmr-cov", params->maxTmrCov, "Max. variant coverage in the tumor sample")->group("Filters");
+
+  subcmd->add_option("--min-fisher", params->minFisher, "Min. phred scaled score for somatic variants")
       ->group("Filters");
 
-  subcmd->add_option("--max-tmr-cov", params->maxTmrCov, "Max. variant coverage in the tumor sample", true)
+  subcmd->add_option("--min-str-fisher", params->minSTRFisher, "Min. phred scaled score for STR variants")
       ->group("Filters");
 
-  subcmd->add_option("--min-fisher", params->minFisher, "Min. phred scaled score for somatic variants", true)
-      ->group("Filters");
-
-  subcmd->add_option("--min-str-fisher", params->minSTRFisher, "Min. phred scaled score for STR variants", true)
-      ->group("Filters");
-
-  subcmd->add_option("--min-strand-cnt", params->minStrandCnt, "Min. per strand contribution for a variant", true)
+  subcmd->add_option("--min-strand-cnt", params->minStrandCnt, "Min. per strand contribution for a variant")
       ->group("Filters");
 
   // Feature flags
@@ -233,7 +232,7 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Flags");
 
   // Optional
-  subcmd->add_option("--graphs-dir", params->outGraphsDir, "Output path to dump serialized graphs for the run", true)
+  subcmd->add_option("--graphs-dir", params->outGraphsDir, "Output path to dump serialized graphs for the run")
       ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
 
