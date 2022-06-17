@@ -33,7 +33,8 @@ function(target_set_warnings)
             list(APPEND WarningFlags ${ABSL_DEFAULT_COPTS} "-Wno-newline-eof"
                     "-Wno-documentation-unknown-command" "-Wno-documentation"
                     "-Wno-unused-variable" "-Wno-missing-prototypes" "-Wno-c++2a-compat"
-                    "-Wno-signed-enum-bitfield" "-Wno-undefined-func-template" "-Wno-shadow")
+                    "-Wno-signed-enum-bitfield" "-Wno-undefined-func-template" "-Wno-shadow"
+                    "-Wno-c++98-compat")
         endif ()
 
         if (WGCC)
