@@ -13,13 +13,27 @@ class TwoDimVector {
   TwoDimVector(std::size_t nrows, std::size_t ncols) : numRows(nrows), numCols(ncols), data(nrows * ncols) {}
   TwoDimVector() = delete;
 
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& { return data.at(row * numCols + col); }
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& { return data.at(row * numCols + col); }
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& {
+    check(row, col);
+    return data.at(row * numCols + col);
+  }
+
+  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& {
+    check(row, col);
+    return data.at(row * numCols + col);
+  }
 
  private:
   std::size_t numRows;
   std::size_t numCols;
   std::vector<T> data;  // NOLINT
+
+  auto check(std::size_t row, std::size_t col) -> void {
+    if ((row >= numRows) or (col >= numCols)) {
+      throw std::out_of_range(
+          absl::StrFormat("requestedRow=%d, numRows=%d, requestedCol=%d, numCols=%d", row, numRows, col, numCols));
+    }
+  }
 };
 }  // namespace
 
@@ -93,8 +107,8 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   }
 
   AlignedBases alnBases;
-  int i = refLen;
-  int j = qryLen;
+  int i = static_cast<int>(refLen);
+  int j = static_cast<int>(qryLen);
   bool forcey = false;
   bool forcex = false;
 
