@@ -39,7 +39,8 @@ function(target_set_warnings)
                     "-Wno-zero-as-null-pointer-constant" "-Wno-thread-safety-negative"
                     "-Wno-double-promotion" "-Wno-weak-vtables" "-Wno-covered-switch-default"
                     "-Wno-extra-semi-stmt" "-Wno-switch-enum" "-Wno-global-constructors"
-                    "-Wno-float-equal" "-Wno-exit-time-destructors")
+                    "-Wno-float-equal" "-Wno-exit-time-destructors" "-Wno-reserved-identifier"
+                    "-Wno-disabled-macro-expansion" "-Wno-unused-parameter")
         endif ()
 
         if (WGCC)
