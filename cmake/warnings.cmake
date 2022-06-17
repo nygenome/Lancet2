@@ -34,7 +34,7 @@ function(target_set_warnings)
                     "-Wno-documentation-unknown-command" "-Wno-documentation"
                     "-Wno-unused-variable" "-Wno-missing-prototypes" "-Wno-c++2a-compat"
                     "-Wno-signed-enum-bitfield" "-Wno-undefined-func-template" "-Wno-shadow"
-                    "-Wno-c++98-compat")
+                    "-Wno-c++98-compat" "-Wno-c++98-compat-pedantic" "-Wno-padded")
         endif ()
 
         if (WGCC)
