@@ -34,7 +34,10 @@ function(target_set_warnings)
                     "-Wno-documentation-unknown-command" "-Wno-documentation"
                     "-Wno-unused-variable" "-Wno-missing-prototypes" "-Wno-c++2a-compat"
                     "-Wno-signed-enum-bitfield" "-Wno-undefined-func-template" "-Wno-shadow"
-                    "-Wno-c++98-compat" "-Wno-c++98-compat-pedantic" "-Wno-padded")
+                    "-Wno-c++98-compat" "-Wno-c++98-compat-pedantic" "-Wno-padded"
+                    "-Wno-old-style-cast" "-Wno-reserved-id-macro" "-Wno-gcc-compat"
+                    "-Wno-zero-as-null-pointer-constant" "-Wno-thread-safety-negative"
+                    "-Wno-double-promotion")
         endif ()
 
         if (WGCC)
