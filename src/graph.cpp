@@ -342,7 +342,7 @@ SkipLocalAlignment:
   std::size_t pathPos = 0;  // 1-based coordinate
 
   auto code = TranscriptCode::REF_MATCH;
-  TranscriptCode prevCode;
+  TranscriptCode prevCode = TranscriptCode::REF_MATCH;
   TranscriptOffsets tmpOffsets;
   TranscriptBases tmpBases;
 
