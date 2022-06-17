@@ -37,7 +37,9 @@ function(target_set_warnings)
                     "-Wno-c++98-compat" "-Wno-c++98-compat-pedantic" "-Wno-padded"
                     "-Wno-old-style-cast" "-Wno-reserved-id-macro" "-Wno-gcc-compat"
                     "-Wno-zero-as-null-pointer-constant" "-Wno-thread-safety-negative"
-                    "-Wno-double-promotion")
+                    "-Wno-double-promotion" "-Wno-weak-vtables" "-Wno-covered-switch-default"
+                    "-Wno-extra-semi-stmt" "-Wno-switch-enum" "-Wno-global-constructors"
+                    "-Wno-float-equal" "-Wno-exit-time-destructors")
         endif ()
 
         if (WGCC)
