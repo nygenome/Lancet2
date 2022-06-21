@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Page1
-nav_order: 2
+nav_order: 1
 description: "Page 1"
 permalink: /
 ---
