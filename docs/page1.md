@@ -1,9 +1,9 @@
 ---
 layout: default
 title: Page1
-nav_order: 1
+nav_order: 2
 description: "Page 1"
-permalink: /
+permalink: /docs
 ---
 
 This is page 1
