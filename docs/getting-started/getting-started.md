@@ -5,11 +5,11 @@ nav_order: 2
 has_children: true
 ---
 
-#Getting Started
+# Getting Started
 
 Clone the repository from the [Lancet GitHub](https://github.com/nygenome/Lancet2)
 
-#Prerequisites
+# Prerequisites
 
 * CMake >= 3.14.x
 * C++ compiler with support for ISO C++17 standard 
