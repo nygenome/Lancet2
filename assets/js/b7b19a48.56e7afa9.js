@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunklancet_2_website=self.webpackChunklancet_2_website||[]).push([[8],{4664:function(e){e.exports=JSON.parse('{"label":"docusaurus","permalink":"/Lancet2/blog/tags/docusaurus","allTagsPath":"/Lancet2/blog/tags","count":4}')}}]);
