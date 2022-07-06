@@ -44,11 +44,11 @@ TEST_CASE("Can combine 2 online stats objects", "[lancet2::OnlineStats]") {
   lancet2::OnlineStats stats1;
   lancet2::OnlineStats stats2;
 
-  for (std::size_t idx = 0; idx < 50; ++idx) {
+  for (usize idx = 0; idx < 50; ++idx) {
     stats1.Add(EXAMPLE_DATA.at(idx));
   }
 
-  for (std::size_t idx = 50; idx < 100; ++idx) {
+  for (usize idx = 50; idx < 100; ++idx) {
     stats2.Add(EXAMPLE_DATA.at(idx));
   }
 

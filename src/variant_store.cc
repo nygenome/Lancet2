@@ -7,7 +7,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/time/clock.h"
-#include "absl/time/time.h" // NOLINT
+#include "absl/time/time.h"  // NOLINT
 #include "generated/lancet2_version.h"
 
 namespace lancet2 {
@@ -83,7 +83,7 @@ void VariantStore::ForceAddVariants(absl::Span<const Variant> variants) {
 auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
   std::lock_guard<utils::SpinLock> guard(spinLock);
 
-  using vDBPair = std::pair<std::uint64_t, Variant>;
+  using vDBPair = std::pair<u64, Variant>;
   std::vector<VariantID> variantIDsToFlush;
   variantIDsToFlush.reserve(1024);
   std::for_each(data.cbegin(), data.cend(), [&variantIDsToFlush, &w, &ctg_ids](const vDBPair& p) {
@@ -97,7 +97,7 @@ auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool
   std::lock_guard<utils::SpinLock> guard(spinLock);
   if (data.empty()) return false;
 
-  std::vector<std::uint64_t> variantIDsToFlush;
+  std::vector<u64> variantIDsToFlush;
   variantIDsToFlush.reserve(data.size());
   for (const auto& p : data) variantIDsToFlush.emplace_back(p.first);
   return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
@@ -131,7 +131,7 @@ auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, con
 }
 
 auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
-                                       const absl::flat_hash_map<std::string, std::int64_t>& ctg_ids) -> bool {
+                                       const absl::flat_hash_map<std::string, i64>& ctg_ids) -> bool {
   if (v1.ChromName != v2.ChromName) return ctg_ids.at(v1.ChromName) < ctg_ids.at(v2.ChromName);
   if (v1.Position != v2.Position) return v1.Position < v2.Position;
   if (v1.RefAllele != v2.RefAllele) return v1.RefAllele < v2.RefAllele;
@@ -140,7 +140,7 @@ auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
 
 auto VariantStore::IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool {
   if (v.ChromName != w.Chromosome()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.Chromosome());
-  return v.Position <= (static_cast<std::size_t>(w.EndPosition0()) + 1);
+  return v.Position <= (static_cast<usize>(w.EndPosition0()) + 1);
 }
 
 void VariantStore::UnsafeAddVariantBatch(absl::Span<const Variant> variants) {

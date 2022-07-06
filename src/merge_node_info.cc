@@ -4,8 +4,8 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition merge_dir, bool reverse_buddy,
-                  std::size_t k) -> bool {
+auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition merge_dir, bool reverse_buddy, usize k)
+    -> bool {
   LANCET_ASSERT(!source.empty());  // NOLINT
   const auto bSeq = reverse_buddy ? utils::RevComp(buddy) : std::string(buddy);
   std::string_view buddySeq = bSeq;
@@ -16,7 +16,7 @@ auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition
   return source.substr(source.length() - k + 1, k - 1) == buddySeq.substr(0, k - 1);
 }
 
-void MergeKmerSeqs(std::string* source, std::string_view buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void MergeKmerSeqs(std::string* source, std::string_view buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   LANCET_ASSERT(source != nullptr && !source->empty());  // NOLINT
 #ifndef NDEBUG
   LANCET_ASSERT(CanMergeSeqs(*source, buddy, dir, reverse_buddy, k));  // NOLINT

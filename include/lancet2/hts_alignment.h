@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -11,6 +10,7 @@
 #include "lancet2/core_enums.h"
 #include "lancet2/genomic_region.h"
 #include "lancet2/read_info.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class HtsAlignment {
@@ -23,10 +23,10 @@ class HtsAlignment {
   [[nodiscard]] auto ReadSequence() const -> std::string { return readSequence; }
   [[nodiscard]] auto ReadQuality() const -> std::string { return readQuality; }
 
-  [[nodiscard]] auto StartPosition0() const -> std::int64_t { return startPosition0; }
-  [[nodiscard]] auto EndPosition0() const -> std::int64_t { return endPosition0; }
-  [[nodiscard]] auto MateStartPosition0() const -> std::int64_t { return mateStartPosition0; }
-  [[nodiscard]] auto MappingQuality() const -> std::uint8_t { return mappingQuality; }
+  [[nodiscard]] auto StartPosition0() const -> i64 { return startPosition0; }
+  [[nodiscard]] auto EndPosition0() const -> i64 { return endPosition0; }
+  [[nodiscard]] auto MateStartPosition0() const -> i64 { return mateStartPosition0; }
+  [[nodiscard]] auto MappingQuality() const -> u8 { return mappingQuality; }
 
   [[nodiscard]] auto CigarData() const -> AlignmentCigar { return cigar; }
   [[nodiscard]] auto ReadStrand() const -> Strand;
@@ -54,20 +54,20 @@ class HtsAlignment {
     return (startPosition0 >= (region.StartPosition1() - 1)) && (endPosition0 <= (region.EndPosition1() - 1));
   }
 
-  [[nodiscard]] auto Length() const -> std::size_t { return readSequence.length(); }
+  [[nodiscard]] auto Length() const -> usize { return readSequence.length(); }
 
   // NOTE: Returned tag data only valid until HtsReader's alignment data is valid
   [[nodiscard]] auto HasTag(std::string_view tag) const -> bool { return tagsData.contains(tag); }
-  [[nodiscard]] auto TagData(std::string_view tag) const -> absl::StatusOr<const std::uint8_t*> {
+  [[nodiscard]] auto TagData(std::string_view tag) const -> absl::StatusOr<const u8*> {
     const auto itr = tagsData.find(tag);
     if (itr == tagsData.end()) return absl::NotFoundError("requested tag is not present");
     return itr->second;
   }
 
-  [[nodiscard]] auto BuildReadInfo(SampleLabel label, std::uint8_t min_bq, std::uint8_t max_kmer_size) -> ReadInfo;
+  [[nodiscard]] auto BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) -> ReadInfo;
 
-  [[nodiscard]] auto SoftClips(std::vector<std::uint32_t>* clip_sizes, std::vector<std::uint32_t>* read_positions,
-                               std::vector<std::uint32_t>* genome_positions, bool use_padded = false) -> bool;
+  [[nodiscard]] auto SoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* read_positions,
+                               std::vector<u32>* genome_positions, bool use_padded = false) -> bool;
 
   void SetReadName(std::string rname) { readName = std::move(rname); }
   void SetContig(std::string ctg) { contig = std::move(ctg); }
@@ -75,14 +75,14 @@ class HtsAlignment {
   void SetReadSequence(std::string seq) { readSequence = std::move(seq); }
   void SetReadQuality(std::string qual) { readQuality = std::move(qual); }
 
-  void SetStartPosition0(std::int64_t start) { startPosition0 = start; }
-  void SetEndPosition0(std::int64_t end) { endPosition0 = end; }
-  void SetMateStartPosition0(std::int64_t matestart) { mateStartPosition0 = matestart; }
-  void SetMappingQuality(std::uint8_t mapqual) { mappingQuality = mapqual; }
+  void SetStartPosition0(i64 start) { startPosition0 = start; }
+  void SetEndPosition0(i64 end) { endPosition0 = end; }
+  void SetMateStartPosition0(i64 matestart) { mateStartPosition0 = matestart; }
+  void SetMappingQuality(u8 mapqual) { mappingQuality = mapqual; }
 
-  void SetSamFlags(std::uint16_t flags) { samFlags = flags; }
+  void SetSamFlags(u16 flags) { samFlags = flags; }
   void SetCigar(AlignmentCigar cig) { cigar = std::move(cig); }
-  void SetTagData(std::string_view tag, const std::uint8_t* data) { tagsData[std::string(tag)] = data; }
+  void SetTagData(std::string_view tag, const u8* data) { tagsData[std::string(tag)] = data; }
 
   void Clear() {
     readName.erase(readName.begin(), readName.end());
@@ -106,13 +106,13 @@ class HtsAlignment {
   std::string readSequence;
   std::string readQuality;
 
-  std::int64_t startPosition0 = -1;
-  std::int64_t endPosition0 = -1;
-  std::int64_t mateStartPosition0 = -1;
-  std::uint8_t mappingQuality = 0;
-  std::uint16_t samFlags = 0;
+  i64 startPosition0 = -1;
+  i64 endPosition0 = -1;
+  i64 mateStartPosition0 = -1;
+  u8 mappingQuality = 0;
+  u16 samFlags = 0;
 
   AlignmentCigar cigar;
-  absl::flat_hash_map<std::string, const std::uint8_t*> tagsData;
+  absl::flat_hash_map<std::string, const u8*> tagsData;
 };
 }  // namespace lancet2

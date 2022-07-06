@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <limits>
 
 #include "absl/container/flat_hash_set.h"
@@ -9,12 +7,13 @@
 #include "lancet2/graph.h"
 #include "lancet2/node.h"
 #include "lancet2/path.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class EdmondKarpMaxFlow {
  public:
-  explicit EdmondKarpMaxFlow(const Graph::NodeContainer* nc, std::size_t kmer_size, std::size_t max_path_len,
-                             std::uint32_t bfs_limit, bool is_tenx_mode = false);
+  explicit EdmondKarpMaxFlow(const Graph::NodeContainer* nc, usize kmer_size, usize max_path_len, u32 bfs_limit,
+                             bool is_tenx_mode = false);
 
   EdmondKarpMaxFlow() = delete;
 
@@ -23,9 +22,9 @@ class EdmondKarpMaxFlow {
  private:
   const Graph::NodeContainer* nodesMap = nullptr;
   const Node* sourcePtr = nullptr;
-  std::size_t kmerSize = 0;
-  std::size_t maxPathLen = std::numeric_limits<std::size_t>::max();
-  std::uint32_t bfsLimit = 0;
+  usize kmerSize = 0;
+  usize maxPathLen = std::numeric_limits<usize>::max();
+  u32 bfsLimit = 0;
   bool isTenxMode = false;
 
   // to identify edges already returned in the previous call to `next_path`.

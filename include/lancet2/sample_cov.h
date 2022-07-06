@@ -1,12 +1,11 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
-#include <cstdint>
 
 #include "lancet2/base_hpcov.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/cov_stats.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class SampleCov {
@@ -24,43 +23,43 @@ class SampleCov {
   [[nodiscard]] auto NonZeroMean(Allele al, Strand st, bool bqpass) const -> float;
   [[nodiscard]] auto NonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float;
 
-  [[nodiscard]] auto Minimum(Allele al, Strand st, bool bqpass) const -> std::uint16_t;
-  [[nodiscard]] auto Minimum(Allele al, Haplotype hp, bool bqpass) const -> std::uint16_t;
+  [[nodiscard]] auto Minimum(Allele al, Strand st, bool bqpass) const -> u16;
+  [[nodiscard]] auto Minimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
 
-  [[nodiscard]] auto NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> std::uint16_t;
-  [[nodiscard]] auto NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> std::uint16_t;
+  [[nodiscard]] auto NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16;
+  [[nodiscard]] auto NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
 
  private:
-  static constexpr std::size_t numStats = 20;
+  static constexpr usize numStats = 20;
   std::array<CovStats, numStats> data;
 
   void PushAllele(const BaseHpCov& d, Allele al);
 
-  [[nodiscard]] static auto ToIdx(Allele al, Strand st, bool bqpass) -> std::size_t;
-  [[nodiscard]] static auto ToIdx(Allele al, Haplotype hp, bool bqpass) -> std::size_t;
+  [[nodiscard]] static auto ToIdx(Allele al, Strand st, bool bqpass) -> usize;
+  [[nodiscard]] static auto ToIdx(Allele al, Haplotype hp, bool bqpass) -> usize;
 
-  static constexpr std::size_t refFwdRawPos = 0;
-  static constexpr std::size_t refFwdBqPassPos = 1;
-  static constexpr std::size_t refRevRawPos = 2;
-  static constexpr std::size_t refRevBqPassPos = 3;
+  static constexpr usize refFwdRawPos = 0;
+  static constexpr usize refFwdBqPassPos = 1;
+  static constexpr usize refRevRawPos = 2;
+  static constexpr usize refRevBqPassPos = 3;
 
-  static constexpr std::size_t refRawHp0Pos = 4;
-  static constexpr std::size_t refRawHp1Pos = 5;
-  static constexpr std::size_t refRawHp2Pos = 6;
-  static constexpr std::size_t refBqPassHp0Pos = 7;
-  static constexpr std::size_t refBqPassHp1Pos = 8;
-  static constexpr std::size_t refBqPassHp2Pos = 9;
+  static constexpr usize refRawHp0Pos = 4;
+  static constexpr usize refRawHp1Pos = 5;
+  static constexpr usize refRawHp2Pos = 6;
+  static constexpr usize refBqPassHp0Pos = 7;
+  static constexpr usize refBqPassHp1Pos = 8;
+  static constexpr usize refBqPassHp2Pos = 9;
 
-  static constexpr std::size_t altFwdRawPos = 10;
-  static constexpr std::size_t altFwdBqPassPos = 11;
-  static constexpr std::size_t altRevRawPos = 12;
-  static constexpr std::size_t altRevBqPassPos = 13;
+  static constexpr usize altFwdRawPos = 10;
+  static constexpr usize altFwdBqPassPos = 11;
+  static constexpr usize altRevRawPos = 12;
+  static constexpr usize altRevBqPassPos = 13;
 
-  static constexpr std::size_t altRawHp0Pos = 14;
-  static constexpr std::size_t altRawHp1Pos = 15;
-  static constexpr std::size_t altRawHp2Pos = 16;
-  static constexpr std::size_t altBqPassHp0Pos = 17;
-  static constexpr std::size_t altBqPassHp1Pos = 18;
-  static constexpr std::size_t altBqPassHp2Pos = 19;
+  static constexpr usize altRawHp0Pos = 14;
+  static constexpr usize altRawHp1Pos = 15;
+  static constexpr usize altRawHp2Pos = 16;
+  static constexpr usize altBqPassHp0Pos = 17;
+  static constexpr usize altBqPassHp1Pos = 18;
+  static constexpr usize altBqPassHp2Pos = 19;
 };
 }  // namespace lancet2

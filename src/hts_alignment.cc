@@ -1,7 +1,5 @@
 #include "lancet2/hts_alignment.h"
 
-#include <cstddef>
-
 #include "absl/strings/ascii.h"
 #include "lancet2/assert_macro.h"
 
@@ -22,16 +20,15 @@
 #endif
 
 namespace lancet2 {
-auto HtsAlignment::BuildReadInfo(SampleLabel label, std::uint8_t min_bq, std::uint8_t max_kmer_size) -> ReadInfo {
+auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) -> ReadInfo {
   const auto seqLen = readSequence.length();
   const auto qualLen = readQuality.length();
   LANCET_ASSERT(seqLen == qualLen);  // NOLINT
 
-  std::size_t trim5 = 0;
+  usize trim5 = 0;
   for (trim5 = 0; trim5 < seqLen; ++trim5) {
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(readSequence[trim5]));
-    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') &&
-        static_cast<std::uint8_t>(readQuality[trim5]) >= min_bq) {
+    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<u8>(readQuality[trim5]) >= min_bq) {
       break;
     }
   }
@@ -39,30 +36,29 @@ auto HtsAlignment::BuildReadInfo(SampleLabel label, std::uint8_t min_bq, std::ui
   // return empty read info
   if (trim5 == seqLen) return ReadInfo{};
 
-  std::size_t trim3 = 0;
+  usize trim3 = 0;
   for (auto idx = seqLen - 1; idx == 0; --idx) {
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(readSequence[idx]));
-    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') &&
-        static_cast<std::uint8_t>(readQuality[idx]) >= min_bq) {
+    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<u8>(readQuality[idx]) >= min_bq) {
       break;
     }
     trim3++;
   }
 
-  if ((seqLen - trim5 - trim3) < static_cast<std::size_t>(max_kmer_size)) return ReadInfo{};
+  if ((seqLen - trim5 - trim3) < static_cast<usize>(max_kmer_size)) return ReadInfo{};
 
   ReadInfo ri;
   ri.readName = readName;
   ri.chromName = contig;
   ri.sequence = readSequence.substr(trim5, seqLen - trim5 - trim3);
   ri.quality = readQuality.substr(trim5, qualLen - trim5 - trim3);
-  ri.startPos0 = startPosition0 + static_cast<std::int64_t>(trim5);
+  ri.startPos0 = startPosition0 + static_cast<i64>(trim5);
   ri.strand = ReadStrand();
   ri.label = label;
 
   const auto hpItr = tagsData.find("HP");
   if (hpItr != tagsData.end()) {
-    ri.haplotypeID = static_cast<std::int8_t>(bam_aux2i(hpItr->second));
+    ri.haplotypeID = static_cast<i8>(bam_aux2i(hpItr->second));
   }
 
   const auto bxItr = tagsData.find("BX");
@@ -88,11 +84,11 @@ auto HtsAlignment::IsProperPair() const -> bool { return (samFlags & BAM_FPROPER
 auto HtsAlignment::IsRead1() const -> bool { return (samFlags & BAM_FREAD1) != 0; }                  // NOLINT
 auto HtsAlignment::IsRead2() const -> bool { return (samFlags & BAM_FREAD2) != 0; }                  // NOLINT
 
-auto HtsAlignment::SoftClips(std::vector<std::uint32_t> *clip_sizes, std::vector<std::uint32_t> *read_positions,
-                             std::vector<std::uint32_t> *genome_positions, bool use_padded) -> bool {
+auto HtsAlignment::SoftClips(std::vector<u32> *clip_sizes, std::vector<u32> *read_positions,
+                             std::vector<u32> *genome_positions, bool use_padded) -> bool {
   // initialize positions & flags
-  auto refPosition = static_cast<std::uint32_t>(startPosition0);
-  std::uint32_t readPosition = 0;
+  auto refPosition = static_cast<u32>(startPosition0);
+  u32 readPosition = 0;
   bool softClipFound = false;
   bool firstCigarOp = true;
 

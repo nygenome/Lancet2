@@ -1,20 +1,20 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <string>
+
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 enum class Strand : bool { FWD, REV };
 enum class SampleLabel : bool { NORMAL, TUMOR };
-enum class KmerLabel : std::uint8_t { REFERENCE, NORMAL, TUMOR };
-enum class EdgeKind : std::uint8_t { FF, FR, RF, RR };
+enum class KmerLabel : u8 { REFERENCE, NORMAL, TUMOR };
+enum class EdgeKind : u8 { FF, FR, RF, RR };
 enum class GraphEnd : bool { SOURCE, SINK };
 enum class BuddyPosition : bool { FRONT, BACK };
 enum class Allele : bool { REF, ALT };
-enum class Haplotype : std::uint8_t { UNASSIGNED, FIRST, SECOND };
-enum class TranscriptCode : std::uint8_t { REF_MATCH, SNV, INSERTION, DELETION, COMPLEX };
-enum class VariantState : std::uint8_t { NONE, SOMATIC, NORMAL, SHARED };
+enum class Haplotype : u8 { UNASSIGNED, FIRST, SECOND };
+enum class TranscriptCode : u8 { REF_MATCH, SNV, INSERTION, DELETION, COMPLEX };
+enum class VariantState : u8 { NONE, SOMATIC, NORMAL, SHARED };
 
 [[nodiscard]] auto MakeEdgeKind(Strand first, Strand second) -> EdgeKind;
 [[nodiscard]] auto SourceStrand(EdgeKind ek) -> Strand;
@@ -34,6 +34,6 @@ enum class VariantState : std::uint8_t { NONE, SOMATIC, NORMAL, SHARED };
 [[nodiscard]] auto ToString(TranscriptCode code) -> std::string;
 [[nodiscard]] auto ToString(VariantState state) -> std::string;
 
-extern const std::size_t MOCK_SOURCE_ID;
-extern const std::size_t MOCK_SINK_ID;
+extern const usize MOCK_SOURCE_ID;
+extern const usize MOCK_SINK_ID;
 }  // namespace lancet2

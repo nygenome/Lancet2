@@ -10,8 +10,8 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-EdmondKarpMaxFlow::EdmondKarpMaxFlow(const Graph::NodeContainer *nc, std::size_t kmer_size, std::size_t max_path_len,
-                                     std::uint32_t bfs_limit, bool is_tenx_mode)
+EdmondKarpMaxFlow::EdmondKarpMaxFlow(const Graph::NodeContainer *nc, usize kmer_size, usize max_path_len, u32 bfs_limit,
+                                     bool is_tenx_mode)
     : nodesMap(nc), kmerSize(kmer_size), maxPathLen(max_path_len), bfsLimit(bfs_limit), isTenxMode(is_tenx_mode) {
   LANCET_ASSERT(nodesMap != nullptr);  // NOLINT
 
@@ -29,7 +29,7 @@ EdmondKarpMaxFlow::EdmondKarpMaxFlow(const Graph::NodeContainer *nc, std::size_t
 }
 
 auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
-  std::uint32_t numVisits = 0;
+  u32 numVisits = 0;
   PathBuilder bestBuilder(kmerSize, isTenxMode);
   std::deque<PathBuilder> candidateBuilders;
   candidateBuilders.emplace_back(kmerSize, isTenxMode);

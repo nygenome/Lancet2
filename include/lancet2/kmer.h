@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 
 #include "lancet2/core_enums.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class Kmer {
@@ -13,19 +12,19 @@ class Kmer {
   Kmer(std::string_view sv) noexcept;  // NOLINT
   Kmer() = default;
 
-  [[nodiscard]] auto CanMergeKmers(const Kmer& buddy, BuddyPosition merge_dir, bool reverse_buddy, std::size_t k) const
+  [[nodiscard]] auto CanMergeKmers(const Kmer& buddy, BuddyPosition merge_dir, bool reverse_buddy, usize k) const
       -> bool;
 
-  void MergeBuddy(const Kmer& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k);
+  void MergeBuddy(const Kmer& buddy, BuddyPosition dir, bool reverse_buddy, usize k);
 
   [[nodiscard]] auto FwdSeq() const -> std::string;
   [[nodiscard]] auto SeqView() const -> std::string_view { return seq; }
   [[nodiscard]] auto Orientation() const -> Strand { return strand; }
-  [[nodiscard]] auto Length() const -> std::size_t { return seq.length(); }
-  [[nodiscard]] auto Size() const -> std::size_t { return seq.size(); }
+  [[nodiscard]] auto Length() const -> usize { return seq.length(); }
+  [[nodiscard]] auto Size() const -> usize { return seq.size(); }
   [[nodiscard]] auto IsEmpty() const -> bool { return seq.empty(); }
 
-  [[nodiscard]] auto ID() const -> std::uint64_t;
+  [[nodiscard]] auto ID() const -> u64;
   friend auto operator==(const Kmer& lhs, const Kmer& rhs) -> bool { return lhs.ID() == rhs.ID(); }
   friend auto operator!=(const Kmer& lhs, const Kmer& rhs) -> bool { return !(lhs == rhs); }
 

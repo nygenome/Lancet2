@@ -7,7 +7,7 @@
 #include "lancet2/merge_node_info.h"
 
 namespace lancet2 {
-void NodeCov::MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void NodeCov::MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   const auto c1Ratio = static_cast<float>(tmrBases.size() - k + 1);
   const auto c2Ratio = static_cast<float>(buddy.Size() - k + 1);
   const auto combinedRatio = c1Ratio + c2Ratio;
@@ -21,12 +21,12 @@ void NodeCov::MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_b
   MergeNodeInfo(&nmlBases, absl::MakeConstSpan(buddy.nmlBases), dir, reverse_buddy, k);
 }
 
-auto NodeCov::StrandCov(SampleLabel label, Strand s) const -> std::uint16_t {
+auto NodeCov::StrandCov(SampleLabel label, Strand s) const -> u16 {
   if (label == SampleLabel::TUMOR) return s == Strand::FWD ? cntTumorFwd : cntTumorRev;
   return s == Strand::FWD ? cntNormalFwd : cntNormalRev;
 }
 
-auto NodeCov::TotalCov(SampleLabel label) const -> std::uint16_t {
+auto NodeCov::TotalCov(SampleLabel label) const -> u16 {
   return StrandCov(label, Strand::FWD) + StrandCov(label, Strand::REV);
 }
 
@@ -34,13 +34,13 @@ void NodeCov::Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pa
   if (label == SampleLabel::TUMOR) {
     if (s == Strand::FWD) {
       cntTumorFwd++;
-      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+      for (usize idx = 0; idx < tmrBases.size(); ++idx) {
         tmrBases[idx].fwdRaw++;
         if (bq_pass[idx]) tmrBases[idx].fwdBQPass++;
       }
     } else {
       cntTumorRev++;
-      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+      for (usize idx = 0; idx < tmrBases.size(); ++idx) {
         tmrBases[idx].revRaw++;
         if (bq_pass[idx]) tmrBases[idx].revBQPass++;
       }
@@ -48,13 +48,13 @@ void NodeCov::Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pa
   } else {
     if (s == Strand::FWD) {
       cntNormalFwd++;
-      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+      for (usize idx = 0; idx < nmlBases.size(); ++idx) {
         nmlBases[idx].fwdRaw++;
         if (bq_pass[idx]) nmlBases[idx].fwdBQPass++;
       }
     } else {
       cntNormalRev++;
-      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+      for (usize idx = 0; idx < nmlBases.size(); ++idx) {
         nmlBases[idx].revRaw++;
         if (bq_pass[idx]) nmlBases[idx].revBQPass++;
       }
@@ -62,17 +62,17 @@ void NodeCov::Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pa
   }
 }
 
-void NodeCov::Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass) {
+void NodeCov::Update(u16 val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass) {
   if (label == SampleLabel::TUMOR) {
     if (s == Strand::FWD) {
       cntTumorFwd++;
-      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+      for (usize idx = 0; idx < tmrBases.size(); ++idx) {
         tmrBases[idx].fwdRaw = val;
         if (bq_pass[idx]) tmrBases[idx].fwdBQPass++;
       }
     } else {
       cntTumorRev++;
-      for (std::size_t idx = 0; idx < tmrBases.size(); ++idx) {
+      for (usize idx = 0; idx < tmrBases.size(); ++idx) {
         tmrBases[idx].revRaw = val;
         if (bq_pass[idx]) tmrBases[idx].revBQPass++;
       }
@@ -80,13 +80,13 @@ void NodeCov::Update(std::uint16_t val, SampleLabel label, Strand s, const std::
   } else {
     if (s == Strand::FWD) {
       cntNormalFwd++;
-      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+      for (usize idx = 0; idx < nmlBases.size(); ++idx) {
         nmlBases[idx].fwdRaw = val;
         if (bq_pass[idx]) nmlBases[idx].fwdBQPass++;
       }
     } else {
       cntNormalRev++;
-      for (std::size_t idx = 0; idx < nmlBases.size(); ++idx) {
+      for (usize idx = 0; idx < nmlBases.size(); ++idx) {
         nmlBases[idx].revRaw = val;
         if (bq_pass[idx]) nmlBases[idx].revBQPass++;
       }
@@ -94,7 +94,7 @@ void NodeCov::Update(std::uint16_t val, SampleLabel label, Strand s, const std::
   }
 }
 
-void NodeCov::Update(SampleLabel label, Strand s, std::size_t pos) {
+void NodeCov::Update(SampleLabel label, Strand s, usize pos) {
   if (label == SampleLabel::TUMOR) {
     if (s == Strand::FWD) {
       cntTumorFwd++;

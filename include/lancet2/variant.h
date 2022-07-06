@@ -11,11 +11,11 @@
 #include "lancet2/variant_hpcov.h"
 
 namespace lancet2 {
-using VariantID = std::uint64_t;
+using VariantID = u64;
 
 class Variant {
  public:
-  Variant(const Transcript& transcript, std::size_t kmer_size);
+  Variant(const Transcript& transcript, usize kmer_size);
   Variant() = delete;
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
@@ -23,13 +23,13 @@ class Variant {
   [[nodiscard]] auto ComputeState() const -> VariantState;
 
   std::string ChromName;   // NOLINT
-  std::size_t Position;    // NOLINT
+  usize Position;          // NOLINT
   std::string RefAllele;   // NOLINT
   std::string AltAllele;   // NOLINT
   TranscriptCode Kind;     // NOLINT
   std::string STRResult;   // NOLINT
-  std::size_t Length;      // NOLINT
-  std::size_t KmerSize;    // NOLINT
+  usize Length;            // NOLINT
+  usize KmerSize;          // NOLINT
   VariantHpCov TumorCov;   // NOLINT
   VariantHpCov NormalCov;  // NOLINT
 

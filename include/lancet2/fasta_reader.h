@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -10,6 +9,7 @@
 #include "absl/status/statusor.h"
 #include "lancet2/contig_info.h"
 #include "lancet2/genomic_region.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class FastaReader {
@@ -28,9 +28,9 @@ class FastaReader {
 
   [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
 
-  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t>;
-  [[nodiscard]] auto ContigID(std::string_view contig) const -> absl::StatusOr<std::int64_t>;
-  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<std::int64_t>;
+  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, i64>;
+  [[nodiscard]] auto ContigID(std::string_view contig) const -> absl::StatusOr<i64>;
+  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<i64>;
 
  private:
   class Impl;

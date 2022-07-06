@@ -1,18 +1,18 @@
 #pragma once
 
-#include <cstddef>
 #include <vector>
 
 #include "lancet2/base_label.h"
 #include "lancet2/core_enums.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class NodeLabel {
  public:
-  explicit NodeLabel(std::size_t node_len);
+  explicit NodeLabel(usize node_len);
   NodeLabel() = delete;
 
-  void MergeBuddy(const NodeLabel& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k);
+  void MergeBuddy(const NodeLabel& buddy, BuddyPosition dir, bool reverse_buddy, usize k);
 
   void Push(KmerLabel label);
 
@@ -20,12 +20,12 @@ class NodeLabel {
   [[nodiscard]] auto HasLabel(KmerLabel label) const -> bool;
   [[nodiscard]] auto IsLabelOnly(KmerLabel label) const -> bool;
 
-  [[nodiscard]] auto Length() const noexcept -> std::size_t { return bases.size(); }
+  [[nodiscard]] auto Length() const noexcept -> usize { return bases.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return bases.empty(); }
 
   [[nodiscard]] auto FillColor() const -> std::string;
 
-  void Reserve(const std::size_t count) { bases.reserve(count); }
+  void Reserve(const usize count) { bases.reserve(count); }
 
  private:
   std::vector<BaseLabel> bases;

@@ -1,7 +1,6 @@
 #include "lancet2/micro_assembler.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <exception>
 #include <thread>
 
@@ -28,7 +27,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
   auto window = std::make_shared<RefWindow>();
   moodycamel::ConsumerToken windowConsumerToken(*windowQPtr);
   moodycamel::ProducerToken resultProducerToken(*resultQPtr);
-  std::size_t numProcessed = 0;
+  usize numProcessed = 0;
 
   while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
     TryFlush(store, resultProducerToken);
@@ -102,7 +101,7 @@ auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w)
   const auto refseq = w->SeqView();
   const auto regionStr = w->ToRegionString();
 
-  if (static_cast<std::size_t>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {
+  if (static_cast<usize>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {
     LOG_DEBUG("Skipping {} since it has only N bases in reference", regionStr);
     return true;
   }

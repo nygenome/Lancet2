@@ -10,13 +10,13 @@
 namespace lancet2 {
 Node::Node(const Kmer& k) : mer(k), nodeID(k.ID()), quals(k.Length()), covs(k.Length()), labels(k.Length()) {}
 
-auto Node::CanMerge(const Node& buddy, BuddyPosition merge_dir, std::size_t k) const -> bool {
+auto Node::CanMerge(const Node& buddy, BuddyPosition merge_dir, usize k) const -> bool {
   if (IsMockNode() || buddy.IsMockNode()) return false;
   const auto reverseBuddy = buddy.Orientation() != Orientation();
   return mer.CanMergeKmers(buddy.mer, merge_dir, reverseBuddy, k);
 }
 
-void Node::MergeBuddy(const Node& buddy, BuddyPosition dir, std::size_t k) {
+void Node::MergeBuddy(const Node& buddy, BuddyPosition dir, usize k) {
   // Everything except edges are merged from buddy into the node
   const auto reverseBuddy = buddy.Orientation() != Orientation();
   Reserve(mer.Length() + buddy.Length() - k + 1);
@@ -74,19 +74,19 @@ auto Node::HasConnection(NodeIdentifier dest_id) const -> bool {
                      [&](const EdgeKind& ek) { return edgeSet.find(Edge(dest_id, ek)) != edgeSet.end(); });
 }
 
-auto Node::NumEdges(Strand direction) const -> std::size_t {
+auto Node::NumEdges(Strand direction) const -> usize {
   return std::count_if(edgeSet.cbegin(), edgeSet.cend(), [&direction](const Edge& e) {
     // faux nodes are not supported by real data, they exist only for path travesal, skip them in counts
     return e.SrcDirection() == direction && e.DestinationID() != MOCK_SOURCE_ID && e.DestinationID() != MOCK_SINK_ID;
   });
 }
 
-auto Node::NumEdges() const -> std::size_t { return edgeSet.size() - numMockEdges; }
+auto Node::NumEdges() const -> usize { return edgeSet.size() - numMockEdges; }
 
 void Node::UpdateQual(std::string_view sv) { quals.Push(sv); }
 void Node::UpdateLabel(KmerLabel label) { labels.Push(label); }
 
-void Node::UpdateHPInfo(const ReadInfo& ri, std::uint32_t min_base_qual) {
+void Node::UpdateHPInfo(const ReadInfo& ri, u32 min_base_qual) {
   const auto bqPass = quals.HighQualPositions(static_cast<double>(min_base_qual));
 
   if (hpData.IsEmpty()) hpData = NodeHP(covs);
@@ -96,13 +96,13 @@ void Node::UpdateHPInfo(const ReadInfo& ri, std::uint32_t min_base_qual) {
   }
 }
 
-void Node::UpdateCovInfo(const ReadInfo& ri, std::uint32_t min_base_qual, bool is_tenx_mode) {
+void Node::UpdateCovInfo(const ReadInfo& ri, u32 min_base_qual, bool is_tenx_mode) {
   const auto bqPass = quals.HighQualPositions(static_cast<double>(min_base_qual));
   if (is_tenx_mode) return covs.Update(BXCount(ri.label, ri.strand), ri.label, ri.strand, bqPass);
   return covs.Update(ri.label, ri.strand, bqPass);
 }
 
-void Node::IncrementCov(SampleLabel label, Strand s, std::size_t base_position) {
+void Node::IncrementCov(SampleLabel label, Strand s, usize base_position) {
   covs.Update(label, s, base_position);
   // hp = 0 means Haplotype::Unassigned
   if (HasBXData() && hasHPData()) hpData.Update(0, label, base_position);
@@ -114,29 +114,29 @@ auto Node::LabelRatio(KmerLabel label) const -> double { return labels.LabelRati
 auto Node::HasLabel(KmerLabel label) const -> bool { return labels.HasLabel(label); }
 auto Node::IsLabelOnly(KmerLabel label) const -> bool { return labels.IsLabelOnly(label); }
 
-auto Node::TotalSampleCount() const -> std::uint16_t {
+auto Node::TotalSampleCount() const -> u16 {
   return SampleCount(SampleLabel::TUMOR) + SampleCount(SampleLabel::NORMAL);
 }
-auto Node::SampleCount(SampleLabel label) const -> std::uint16_t { return covs.TotalCov(label); }
-auto Node::SampleCount(SampleLabel label, Strand s) const -> std::uint16_t { return covs.StrandCov(label, s); }
-auto Node::BXCount(SampleLabel label, Strand s) const -> std::uint16_t { return bxData.BXCount(label, s); }
+auto Node::SampleCount(SampleLabel label) const -> u16 { return covs.TotalCov(label); }
+auto Node::SampleCount(SampleLabel label, Strand s) const -> u16 { return covs.StrandCov(label, s); }
+auto Node::BXCount(SampleLabel label, Strand s) const -> u16 { return bxData.BXCount(label, s); }
 
-auto Node::MinSampleBaseCov(bool bq_pass) const -> std::uint16_t {
-  auto result = std::numeric_limits<std::uint16_t>::max();
+auto Node::MinSampleBaseCov(bool bq_pass) const -> u16 {
+  auto result = std::numeric_limits<u16>::max();
   const auto tmrCovs = covs.BaseCovs(SampleLabel::TUMOR);
   const auto nmlCovs = covs.BaseCovs(SampleLabel::NORMAL);
   LANCET_ASSERT(tmrCovs.size() == nmlCovs.size());  // NOLINT
 
-  for (std::size_t idx = 0; idx < tmrCovs.size(); idx++) {
+  for (usize idx = 0; idx < tmrCovs.size(); idx++) {
     const auto totalCov = bq_pass ? tmrCovs[idx].BQPassTotalCov() + nmlCovs[idx].BQPassTotalCov()
                                   : tmrCovs[idx].RawTotalCov() + nmlCovs[idx].RawTotalCov();
-    result = std::min<std::uint16_t>(result, totalCov);
+    result = std::min<u16>(result, totalCov);
   }
 
   return result;
 }
 
-auto Node::LowQualPositions(std::uint32_t min_bq) const -> std::vector<bool> {
+auto Node::LowQualPositions(u32 min_bq) const -> std::vector<bool> {
   return quals.LowQualPositions(static_cast<double>(min_bq));
 }
 

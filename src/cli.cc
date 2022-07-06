@@ -18,6 +18,7 @@
 #include "lancet2/cli_params.h"
 #include "lancet2/log_macros.h"
 #include "lancet2/run_pipeline.h"
+#include "lancet2/sized_ints.h"
 #include "spdlog/sinks/stdout_color_sinks-inl.h"
 #include "spdlog/spdlog.h"
 
@@ -42,13 +43,13 @@ auto RunCli(int argc, char** argv) noexcept -> int {
   const auto pipelineParams = std::make_shared<CliParams>();
   PipelineSubcmd(&app, pipelineParams);
 
-  static const auto printVersion = [](std::size_t count) -> void {
+  static const auto printVersion = [](usize count) -> void {
     if (count <= 0) return;
     std::cout << absl::StreamFormat("Lancet %s\n", lancet2::LONG_VERSION);
     std::exit(EXIT_SUCCESS);
   };
 
-  static const auto printHelp = [&app](std::size_t count) -> void {
+  static const auto printHelp = [&app](usize count) -> void {
     if (count <= 0) return;
     std::cerr << app.help(app.get_name(), CLI::AppFormatMode::Normal);
     std::exit(EXIT_SUCCESS);
@@ -61,7 +62,7 @@ auto RunCli(int argc, char** argv) noexcept -> int {
 
   app.set_help_flag();
   app.failure_message(CLI::FailureMessage::help);
-  constexpr std::size_t HELP_FORMATTER_WIDTH = 65;
+  constexpr usize HELP_FORMATTER_WIDTH = 65;
   app.get_formatter()->column_width(HELP_FORMATTER_WIDTH);
   app.add_flag_function("-v,--version", printVersion, "Print version information")->group("Flags");
   app.add_flag_function("-h,--help", printHelp, "Print this help message and exit")->group("Flags");
@@ -119,29 +120,29 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
 
   subcmd->add_option("--pct-overlap", params->pctOverlap, "Percent overlap between consecutive windows")
       ->group("Regions")
-      ->check(CLI::Range(static_cast<std::uint32_t>(5), static_cast<std::uint32_t>(95)));
+      ->check(CLI::Range(static_cast<u32>(5), static_cast<u32>(95)));
 
   // Parameters
-  const auto maxNumThreads = static_cast<std::uint32_t>(std::thread::hardware_concurrency());
+  const auto maxNumThreads = static_cast<u32>(std::thread::hardware_concurrency());
   subcmd->add_option("-T,--num-threads", params->numWorkerThreads, "Number of additional worker threads")
       ->group("Parameters")
-      ->check(CLI::Range(static_cast<std::uint32_t>(1), maxNumThreads));
+      ->check(CLI::Range(static_cast<u32>(1), maxNumThreads));
 
   subcmd->add_option("-k,--min-kmer-length", params->minKmerSize, "Min. kmer length for graph nodes")
       ->group("Parameters")
-      ->check(CLI::Range(static_cast<std::uint32_t>(11), static_cast<std::uint32_t>(99)));
+      ->check(CLI::Range(static_cast<u32>(11), static_cast<u32>(99)));
 
   subcmd->add_option("-K,--max-kmer-length", params->maxKmerSize, "Max. kmer length for graph nodes")
       ->group("Parameters")
-      ->check(CLI::Range(static_cast<std::uint32_t>(13), static_cast<std::uint32_t>(101)));
+      ->check(CLI::Range(static_cast<u32>(13), static_cast<u32>(101)));
 
   subcmd->add_option("--min-trim-qual", params->trimBelowQual, "Min. base quality to trim 5' and 3' read bases")
       ->group("Parameters")
-      ->check(CLI::Range(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(30)));
+      ->check(CLI::Range(static_cast<u32>(0), static_cast<u32>(30)));
 
   subcmd->add_option("-q,--min-base-qual", params->minBaseQual, "Min. base quality to consider for SNV calling")
       ->group("Parameters")
-      ->check(CLI::Range(static_cast<std::uint32_t>(0), static_cast<std::uint32_t>(30)));
+      ->check(CLI::Range(static_cast<u32>(0), static_cast<u32>(30)));
 
   subcmd->add_option("-Q,--min-mapping-qual", params->minReadMappingQual, "Min. mapping quality to use a read")
       ->group("Parameters");

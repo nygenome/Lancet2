@@ -6,9 +6,9 @@
 #include "lancet2/merge_node_info.h"
 
 namespace lancet2 {
-NodeLabel::NodeLabel(std::size_t node_len) { bases.resize(node_len); }
+NodeLabel::NodeLabel(usize node_len) { bases.resize(node_len); }
 
-void NodeLabel::MergeBuddy(const NodeLabel& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void NodeLabel::MergeBuddy(const NodeLabel& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   MergeNodeInfo(&bases, absl::MakeConstSpan(buddy.bases), dir, reverse_buddy, k);
 }
 

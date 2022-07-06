@@ -1,11 +1,11 @@
 #pragma once
 
 #include <bitset>
-#include <cstddef>
 #include <initializer_list>
 #include <string>
 
 #include "lancet2/core_enums.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class BaseLabel {
@@ -14,7 +14,7 @@ class BaseLabel {
   explicit BaseLabel(KmerLabel label);
   BaseLabel(std::initializer_list<KmerLabel> labels);
 
-  [[nodiscard]] auto Count() const noexcept -> std::size_t;
+  [[nodiscard]] auto Count() const noexcept -> usize;
 
   void SetLabel(KmerLabel label, bool value = true);
 
@@ -35,6 +35,6 @@ class BaseLabel {
  private:
   std::bitset<3> bits;
 
-  [[nodiscard]] static auto ToBitPosition(KmerLabel label) -> std::size_t;
+  [[nodiscard]] static auto ToBitPosition(KmerLabel label) -> usize;
 };
 }  // namespace lancet2

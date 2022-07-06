@@ -18,15 +18,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In source builds are not recommended. Please run cmake in a separate build directory")
-endif()
+endif ()
 
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to Release as none was specified.")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
+endif ()
 
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -44,14 +44,18 @@ include(sanitizers)
 
 # Add lancet2 core library target
 add_library(lancet2_core STATIC
-        include/lancet2/assert_macro.h include/lancet2/log_macros.h
-        include/lancet2/timer.h include/lancet2/fractional_sampler.h
-        include/lancet2/spinlock.h include/lancet2/utils.h src/utils.cc
+        include/lancet2/timer.h
+        include/lancet2/sized_ints.h
+        include/lancet2/assert_macro.h
+        include/lancet2/log_macros.h
+        include/lancet2/fractional_sampler.h
+        include/lancet2/spinlock.h
+        include/lancet2/utils.h src/utils.cc
 
         include/lancet2/contig_info.h
         include/lancet2/genomic_region.h
-        include/lancet2/fasta_reader.h src/fasta_reader.cc
         include/lancet2/cigar.h src/cigar.cc
+        include/lancet2/fasta_reader.h src/fasta_reader.cc
         include/lancet2/hts_alignment.h src/hts_alignment.cc
         include/lancet2/hts_reader.h src/hts_reader.cc
 
@@ -98,9 +102,9 @@ add_library(lancet2_core STATIC
 add_dependencies(lancet2_core htslib)
 target_include_directories(lancet2_core PUBLIC include PRIVATE ${CMAKE_BINARY_DIR} ${HTSLIB_INCLUDE_DIR})
 target_link_libraries(lancet2_core
-        PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set absl::str_format
-               absl::status absl::statusor absl::fixed_array absl::inlined_vector absl::span absl::time
-               absl::random_random absl::strings spdlog::spdlog
+        PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set
+        absl::str_format absl::status absl::statusor absl::fixed_array absl::inlined_vector
+        absl::span absl::time absl::random_random absl::strings spdlog::spdlog
         PRIVATE CLI11 absl::failure_signal_handler ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES} ${LIBDEFLATE})
 set_target_properties(lancet2_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
@@ -112,15 +116,15 @@ add_executable(lancet2 ${LANCET_MAIN_CPP})
 target_link_libraries(lancet2 PRIVATE mimalloc lancet2_core)
 set_target_properties(lancet2 PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)
 
-if(LANCET2_PROFILER)
+if (LANCET2_PROFILER)
     add_dependencies(lancet2 gperftools)
     target_link_libraries(lancet2 PRIVATE ${LIBPROFILER})
-endif()
+endif ()
 
-if(LANCET2_TESTS)
+if (LANCET2_TESTS)
     add_subdirectory(tests)
-endif()
+endif ()
 
-if(LANCET2_BENCHMARKS)
+if (LANCET2_BENCHMARKS)
     add_subdirectory(benchmarks)
-endif()
+endif ()

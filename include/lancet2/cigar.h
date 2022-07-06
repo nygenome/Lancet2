@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 #include <vector>
+
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 enum class CigarOp : char {
@@ -49,12 +50,12 @@ enum class CigarOp : char {
 
 class CigarUnit {
  public:
-  CigarOp Operation;     // NOLINT
-  std::uint32_t Length;  // NOLINT
+  CigarOp Operation;  // NOLINT
+  u32 Length;         // NOLINT
 
   CigarUnit() = delete;
-  explicit CigarUnit(CigarOp op, std::uint32_t len) : Operation(op), Length(len) {}
-  explicit CigarUnit(const char& op_char, std::uint32_t len) {
+  explicit CigarUnit(CigarOp op, u32 len) : Operation(op), Length(len) {}
+  explicit CigarUnit(const char& op_char, u32 len) {
     switch (op_char) {
       case 'M':
       case 'I':

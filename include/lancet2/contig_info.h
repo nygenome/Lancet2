@@ -1,19 +1,19 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 struct ContigInfo {
   std::string contigName;
-  std::int64_t contigLen;
+  i64 contigLen;
 };
 
 inline auto CheckContigsMatch(absl::Span<const ContigInfo> hdr_ctgs, absl::Span<const ContigInfo> ref_ctgs) -> bool {
-  absl::flat_hash_map<std::string, std::int64_t> refContigsMap;
+  absl::flat_hash_map<std::string, i64> refContigsMap;
   for (const auto& item : ref_ctgs) {
     refContigsMap[item.contigName] = item.contigLen;
   }

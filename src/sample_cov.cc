@@ -23,17 +23,17 @@ auto SampleCov::NonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float
   return data.at(ToIdx(al, hp, bqpass)).NonZeroMean();
 }
 
-auto SampleCov::Minimum(Allele al, Strand st, bool bqpass) const -> std::uint16_t {
+auto SampleCov::Minimum(Allele al, Strand st, bool bqpass) const -> u16 {
   return data.at(ToIdx(al, st, bqpass)).Minimum();
 }
-auto SampleCov::Minimum(Allele al, Haplotype hp, bool bqpass) const -> std::uint16_t {
+auto SampleCov::Minimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
   return data.at(ToIdx(al, hp, bqpass)).Minimum();
 }
 
-auto SampleCov::NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> std::uint16_t {
+auto SampleCov::NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16 {
   return data.at(ToIdx(al, st, bqpass)).NonZeroMinimum();
 }
-auto SampleCov::NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> std::uint16_t {
+auto SampleCov::NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
   return data.at(ToIdx(al, hp, bqpass)).NonZeroMinimum();
 }
 
@@ -53,7 +53,7 @@ void SampleCov::PushAllele(const BaseHpCov& d, Allele al) {
   data.at(ToIdx(al, Haplotype::SECOND, true)).Push(d.bqPass.HP2);
 }
 
-auto SampleCov::ToIdx(Allele al, Strand st, bool bqpass) -> std::size_t {
+auto SampleCov::ToIdx(Allele al, Strand st, bool bqpass) -> usize {
   if (al == Allele::REF) {
     if (st == Strand::FWD) return bqpass ? refFwdBqPassPos : refFwdRawPos;
     return bqpass ? refRevBqPassPos : refRevRawPos;
@@ -63,7 +63,7 @@ auto SampleCov::ToIdx(Allele al, Strand st, bool bqpass) -> std::size_t {
   return bqpass ? altRevBqPassPos : altRevRawPos;
 }
 
-auto SampleCov::ToIdx(Allele al, Haplotype hp, bool bqpass) -> std::size_t {
+auto SampleCov::ToIdx(Allele al, Haplotype hp, bool bqpass) -> usize {
   if (al == Allele::REF) {
     if (bqpass) {
       return hp == Haplotype::UNASSIGNED ? refBqPassHp0Pos : hp == Haplotype::FIRST ? refBqPassHp1Pos : refBqPassHp2Pos;

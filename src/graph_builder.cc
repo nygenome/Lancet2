@@ -21,7 +21,7 @@ GraphBuilder::GraphBuilder(std::shared_ptr<const RefWindow> w, absl::Span<const 
                            std::shared_ptr<const CliParams> p)
     : avgCov(avg_cov), window(std::move(w)), params(std::move(p)), sampleReads(reads) {}
 
-auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::unique_ptr<Graph> {
+auto GraphBuilder::BuildGraph(usize min_k, usize max_k) -> std::unique_ptr<Graph> {
 #ifndef NDEBUG
   Timer timer;
 #endif
@@ -51,7 +51,7 @@ auto GraphBuilder::BuildGraph(std::size_t min_k, std::size_t max_k) -> std::uniq
 
 void GraphBuilder::BuildSampleNodes() {
   // mateMer -> readName, kmerHash
-  using MateMer = std::pair<std::string, std::uint64_t>;
+  using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
   LANCET_ASSERT(!sampleReads.empty());  // NOLINT
 
@@ -60,7 +60,7 @@ void GraphBuilder::BuildSampleNodes() {
     const auto qualMers = KMovingSubstrs(rd.quality, currentK);
     LANCET_ASSERT(result.nodeIDs.size() == qualMers.size());  // NOLINT
 
-    for (std::size_t idx = 0; idx < result.nodeIDs.size() - 1; idx++) {
+    for (usize idx = 0; idx < result.nodeIDs.size() - 1; idx++) {
       const auto firstId = result.nodeIDs[idx];
       const auto secondId = result.nodeIDs[idx + 1];
 
@@ -105,9 +105,9 @@ void GraphBuilder::BuildRefNodes() {
   const auto refMerHashes = CanonicalKmerHashes(window->SeqView(), currentK);
 
   if (!refDataBuilt) BuildRefData(absl::MakeConstSpan(refMerHashes));
-  std::size_t numMarked = 0;
+  usize numMarked = 0;
 
-  for (std::size_t idx = 0; idx < refMerHashes.size() - 1; idx++) {
+  for (usize idx = 0; idx < refMerHashes.size() - 1; idx++) {
     auto itr1 = nodesMap.find(refMerHashes[idx]);
     const auto foundNode1 = itr1 != nodesMap.end();
 
@@ -163,8 +163,8 @@ auto GraphBuilder::BuildNode(NodeIdentifier node_id) -> GraphBuilder::BuildNodeR
 }
 
 void GraphBuilder::RecoverKmers() {
-  constexpr std::uint16_t minReadSupport = 2;
-  std::size_t numRecovered = 0;
+  constexpr u16 minReadSupport = 2;
+  usize numRecovered = 0;
 
   for (Graph::NodeContainer::const_reference p : nodesMap) {
     // recover only tumor singletons
@@ -172,7 +172,7 @@ void GraphBuilder::RecoverKmers() {
 
     // identify positions with low quality bases
     const auto lowQualBits = p.second->LowQualPositions(params->minBaseQual);
-    for (std::size_t basePos = 0; basePos < lowQualBits.size(); ++basePos) {
+    for (usize basePos = 0; basePos < lowQualBits.size(); ++basePos) {
       if (!lowQualBits[basePos]) continue;
 
       // get 6 alternative kmers within 1 edit distance to original kmer
@@ -203,7 +203,7 @@ void GraphBuilder::RecoverKmers() {
   }
 }
 
-void GraphBuilder::BuildRefData(absl::Span<const std::size_t> ref_mer_hashes) {
+void GraphBuilder::BuildRefData(absl::Span<const usize> ref_mer_hashes) {
   NodeCov refCovs;
   NodeHP refHPs;
 
@@ -244,9 +244,9 @@ void GraphBuilder::BuildRefData(absl::Span<const std::size_t> ref_mer_hashes) {
   LANCET_ASSERT(refTmrData.size() == params->windowLength);  // NOLINT
 }
 
-auto GraphBuilder::MutateSeq(absl::string_view seq, std::size_t base_pos) -> std::vector<std::string> {
+auto GraphBuilder::MutateSeq(absl::string_view seq, usize base_pos) -> std::vector<std::string> {
   std::vector<std::string> result;
-  constexpr std::size_t numMutatedSeqs = 6;
+  constexpr usize numMutatedSeqs = 6;
   result.reserve(numMutatedSeqs);  // 3 alt-kmers + 3 reverse complements
   static constexpr std::array<char, 4> dnaBases = {'A', 'C', 'G', 'T'};
 

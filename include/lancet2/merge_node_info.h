@@ -2,23 +2,22 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "absl/types/span.h"
 #include "lancet2/core_enums.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 [[nodiscard]] auto CanMergeSeqs(std::string_view source, std::string_view buddy, BuddyPosition merge_dir,
-                                bool reverse_buddy, std::size_t k) -> bool;
+                                bool reverse_buddy, usize k) -> bool;
 
-void MergeKmerSeqs(std::string* source, std::string_view buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k);
+void MergeKmerSeqs(std::string* source, std::string_view buddy, BuddyPosition dir, bool reverse_buddy, usize k);
 
 template <typename T>
-void MergeNodeInfo(std::vector<T>* source, absl::Span<const T> buddy, BuddyPosition dir, bool reverse_buddy,
-                   std::size_t k) {
+void MergeNodeInfo(std::vector<T>* source, absl::Span<const T> buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   assert(source != nullptr);
 
   if (source->empty()) {

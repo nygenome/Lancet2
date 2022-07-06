@@ -7,11 +7,11 @@
 namespace lancet2 {
 Kmer::Kmer(std::string_view sv) noexcept { Canonicalize(sv); }
 
-auto Kmer::CanMergeKmers(const Kmer& buddy, BuddyPosition merge_dir, bool reverse_buddy, std::size_t k) const -> bool {
+auto Kmer::CanMergeKmers(const Kmer& buddy, BuddyPosition merge_dir, bool reverse_buddy, usize k) const -> bool {
   return CanMergeSeqs(seq, buddy.SeqView(), merge_dir, reverse_buddy, k);
 }
 
-void Kmer::MergeBuddy(const Kmer& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void Kmer::MergeBuddy(const Kmer& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   seq.reserve(seq.length() + buddy.Length() - k + 1);
   MergeKmerSeqs(&seq, buddy.seq, dir, reverse_buddy, k);
 }
@@ -32,7 +32,7 @@ void Kmer::Canonicalize(std::string_view sv) {
   strand = Strand::REV;
 }
 
-auto Kmer::ID() const -> std::uint64_t {
+auto Kmer::ID() const -> u64 {
   return absl::hash_internal::CityHash64WithSeeds(seq.c_str(), seq.length(), utils::PRIME_0, utils::PRIME_1);  // NOLINT
 }
 }  // namespace lancet2

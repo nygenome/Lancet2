@@ -32,14 +32,14 @@ class FastaReader::Impl {
     const auto regionString = region.ToRegionString();
     char* rawSeqData = fai_fetch(idx.get(), regionString.c_str(), &parsedSeqLen);
 
-    if (rawSeqData == nullptr || static_cast<std::size_t>(parsedSeqLen) != expectedSeqLen) {
+    if (rawSeqData == nullptr || static_cast<usize>(parsedSeqLen) != expectedSeqLen) {
       const auto errMsg = absl::StrFormat("could not fetch sequence for %s from %s", regionString, srcPath);
       return rawSeqData == nullptr ? absl::InternalError(errMsg) : absl::FailedPreconditionError(errMsg);
     }
 
-    const auto rawSeqLen = static_cast<std::size_t>(parsedSeqLen);
+    const auto rawSeqLen = static_cast<usize>(parsedSeqLen);
     std::string resultSeq(rawSeqLen, 'N');
-    for (std::size_t baseIdx = 0; baseIdx < rawSeqLen; ++baseIdx) {
+    for (usize baseIdx = 0; baseIdx < rawSeqLen; ++baseIdx) {
       const auto base = absl::ascii_toupper(static_cast<unsigned char>(rawSeqData[baseIdx]));  // NOLINT
       switch (base) {
         case 'A':
@@ -66,15 +66,15 @@ class FastaReader::Impl {
     return result;
   }
 
-  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t> { return contigIds; }
+  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, i64> { return contigIds; }
 
-  [[nodiscard]] auto ContigId(std::string_view contig) const -> absl::StatusOr<std::int64_t> {
+  [[nodiscard]] auto ContigId(std::string_view contig) const -> absl::StatusOr<i64> {
     const auto itr = contigIds.find(contig);
     if (itr != contigIds.end()) return itr->second;
     return absl::NotFoundError(absl::StrFormat("contig %s not found", contig));
   }
 
-  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<std::int64_t> {
+  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
     const auto itr = contigLengths.find(contig);
     if (itr != contigLengths.end()) return itr->second;
     return absl::NotFoundError(absl::StrFormat("contig %s not found", contig));
@@ -82,10 +82,10 @@ class FastaReader::Impl {
 
  private:
   std::filesystem::path srcPath;
-  std::int64_t numContigs = 0;
+  i64 numContigs = 0;
   std::unique_ptr<faidx_t, FaidxDeleter> idx = nullptr;
-  absl::flat_hash_map<std::string, std::int64_t> contigIds;
-  absl::flat_hash_map<std::string, std::int64_t> contigLengths;
+  absl::flat_hash_map<std::string, i64> contigIds;
+  absl::flat_hash_map<std::string, i64> contigLengths;
 
   void LoadIndex() {
     idx = std::unique_ptr<faidx_t, FaidxDeleter>(fai_load(srcPath.c_str()));
@@ -95,7 +95,7 @@ class FastaReader::Impl {
     }
 
     numContigs = faidx_nseq(idx.get());
-    for (std::int64_t i = 0; i < numContigs; ++i) {
+    for (i64 i = 0; i < numContigs; ++i) {
       const auto ctgName = std::string(faidx_iseq(idx.get(), i));
       const auto ctgLen = faidx_seq_len(idx.get(), ctgName.c_str());
 
@@ -120,12 +120,10 @@ auto FastaReader::RegionSequence(const GenomicRegion& region) const -> absl::Sta
 
 auto FastaReader::ContigsInfo() const -> std::vector<ContigInfo> { return pimpl->ContigsInfo(); }
 
-auto FastaReader::ContigIDs() const -> absl::flat_hash_map<std::string, std::int64_t> { return pimpl->ContigIDs(); }
-auto FastaReader::ContigID(std::string_view contig) const -> absl::StatusOr<std::int64_t> {
-  return pimpl->ContigId(contig);
-}
+auto FastaReader::ContigIDs() const -> absl::flat_hash_map<std::string, i64> { return pimpl->ContigIDs(); }
+auto FastaReader::ContigID(std::string_view contig) const -> absl::StatusOr<i64> { return pimpl->ContigId(contig); }
 
-auto FastaReader::ContigLength(std::string_view contig) const -> absl::StatusOr<std::int64_t> {
+auto FastaReader::ContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
   return pimpl->ContigLength(contig);
 }
 }  // namespace lancet2

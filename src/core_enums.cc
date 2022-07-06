@@ -114,9 +114,9 @@ auto ToString(VariantState state) -> std::string {
   }
 }
 
-const std::size_t MOCK_SOURCE_ID =
+const usize MOCK_SOURCE_ID =
     absl::hash_internal::CityHash64WithSeeds("MOCK_SOURCE", 11, utils::PRIME_0, utils::PRIME_1);  // NOLINT
 
-const std::size_t MOCK_SINK_ID =
+const usize MOCK_SINK_ID =
     absl::hash_internal::CityHash64WithSeeds("MOCK_SINK", 9, utils::PRIME_0, utils::PRIME_1);  // NOLINT
 }  // namespace lancet2

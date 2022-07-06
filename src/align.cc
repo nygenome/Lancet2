@@ -10,25 +10,25 @@ namespace {
 template <typename T>
 class TwoDimVector {
  public:
-  TwoDimVector(std::size_t nrows, std::size_t ncols) : numRows(nrows), numCols(ncols), data(nrows * ncols) {}
+  TwoDimVector(usize nrows, usize ncols) : numRows(nrows), numCols(ncols), data(nrows * ncols) {}
   TwoDimVector() = delete;
 
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) -> T& {
+  [[nodiscard]] auto at(usize row, usize col) -> T& {
     check(row, col);
     return data.at(row * numCols + col);
   }
 
-  [[nodiscard]] auto at(std::size_t row, std::size_t col) const -> const T& {
+  [[nodiscard]] auto at(usize row, usize col) const -> const T& {
     check(row, col);
     return data.at(row * numCols + col);
   }
 
  private:
-  std::size_t numRows;
-  std::size_t numCols;
+  usize numRows;
+  usize numCols;
   std::vector<T> data;  // NOLINT
 
-  auto check(std::size_t row, std::size_t col) -> void {
+  auto check(usize row, usize col) -> void {
     if ((row >= numRows) or (col >= numCols)) {
       throw std::out_of_range(
           absl::StrFormat("requestedRow=%d, numRows=%d, requestedCol=%d, numCols=%d", row, numRows, col, numCols));
@@ -83,13 +83,13 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   TwoDimVector<Cell> y(refLen + 2, qryLen + 2);
   TwoDimVector<Cell> m(refLen + 2, qryLen + 2);
 
-  for (std::size_t j = 0; j <= qryLen; ++j) {
+  for (usize j = 0; j <= qryLen; ++j) {
     x.at(0, j).score = GAP_OPEN_SCORE + (static_cast<int>(j) * GAP_EXTEND_SCORE);
     x.at(0, j).trace_back = '^';
     m.at(0, j) = x.at(0, j);
   }
 
-  for (std::size_t i = 0; i <= refLen; ++i) {
+  for (usize i = 0; i <= refLen; ++i) {
     y.at(i, 0).score = GAP_OPEN_SCORE + (static_cast<int>(i) * GAP_EXTEND_SCORE);
     y.at(i, 0).trace_back = '<';
     m.at(i, 0) = y.at(i, 0);
@@ -97,8 +97,8 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
 
   // qi -> query sequence index
   // ri -> reference sequence index
-  for (std::size_t qi = 1; qi <= qryLen; qi++) {
-    for (std::size_t ri = 1; ri <= refLen; ri++) {
+  for (usize qi = 1; qi <= qryLen; qi++) {
+    for (usize ri = 1; ri <= refLen; ri++) {
       const auto cmpScore = Compare(ref[ri - 1], qry[qi - 1]);
       x.at(ri, qi) = MaxScoreX(x.at(ri - 1, qi).score + GAP_EXTEND_SCORE, m.at(ri - 1, qi).score + GAP_OPEN_SCORE);
       y.at(ri, qi) = MaxScoreY(y.at(ri, qi - 1).score + GAP_EXTEND_SCORE, m.at(ri, qi - 1).score + GAP_OPEN_SCORE);
@@ -159,11 +159,11 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
   return AlignedSequences{refAln, qryAln};
 }
 
-auto TrimEndGaps(AlignedSequencesView* aln) -> std::size_t {
+auto TrimEndGaps(AlignedSequencesView* aln) -> usize {
   // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
-  std::size_t refStartTrim = 0;
-  std::size_t start = 0;
-  std::size_t end = aln->ref.length() - 1;
+  usize refStartTrim = 0;
+  usize start = 0;
+  usize end = aln->ref.length() - 1;
 
   const auto startGap = aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP;
   const auto endGap = aln->ref[end] == ALIGN_GAP || aln->qry[end] == ALIGN_GAP;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -9,6 +8,7 @@
 #include "lancet2/base_hpcov.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/node.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 struct EdgeNodeIds {
@@ -25,13 +25,13 @@ class Path {
   Path() = delete;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return pathSeq.empty(); }
-  [[nodiscard]] auto Length() const noexcept -> std::size_t { return pathSeq.length(); }
-  [[nodiscard]] auto NumNodes() const noexcept -> std::size_t { return nodesList.size(); }
+  [[nodiscard]] auto Length() const noexcept -> usize { return pathSeq.length(); }
+  [[nodiscard]] auto NumNodes() const noexcept -> usize { return nodesList.size(); }
   [[nodiscard]] auto SeqView() const noexcept -> std::string_view { return pathSeq; }
 
-  [[nodiscard]] auto FindSpanningNode(std::size_t path_pos, std::size_t curr_k) const -> const Node*;
+  [[nodiscard]] auto FindSpanningNode(usize path_pos, usize curr_k) const -> const Node*;
 
-  [[nodiscard]] auto HpCovAt(SampleLabel label, std::size_t pos) const -> BaseHpCov {
+  [[nodiscard]] auto HpCovAt(SampleLabel label, usize pos) const -> BaseHpCov {
     if (pathHPs.IsEmpty()) return BaseHpCov{pathCovs.At(label, pos)};
     return BaseHpCov{pathCovs.At(label, pos), pathHPs.At(label, pos)};
   }

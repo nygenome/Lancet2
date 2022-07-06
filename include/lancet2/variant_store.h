@@ -19,7 +19,7 @@ namespace lancet2 {
 class VariantStore {
  public:
   // ChromosomeName -> ChromosomeIndex in reference FASTA
-  using ContigIDs = absl::flat_hash_map<std::string, std::int64_t>;
+  using ContigIDs = absl::flat_hash_map<std::string, i64>;
 
   explicit VariantStore(std::shared_ptr<const CliParams> p);
   VariantStore() = delete;

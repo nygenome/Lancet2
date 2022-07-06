@@ -1,21 +1,21 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <string>
 
 #include "lancet2/core_enums.h"
 #include "lancet2/sample_cov.h"
+#include "lancet2/sized_ints.h"
 #include "lancet2/tandem_repeat.h"
 #include "lancet2/variant_hpcov.h"
 
 namespace lancet2 {
 /// 0-based offsets within reference and path sequences of the transcript
 struct TranscriptOffsets {
-  std::size_t refStart = 0;
-  std::size_t altStart = 0;
-  std::size_t refEnd = 0;
-  std::size_t altEnd = 0;
+  usize refStart = 0;
+  usize altStart = 0;
+  usize refEnd = 0;
+  usize altEnd = 0;
 };
 
 struct TranscriptBases {
@@ -27,23 +27,23 @@ struct TranscriptBases {
 
 class Transcript {
  public:
-  Transcript(std::string chrom, std::size_t genome_ref_pos, TranscriptCode k, TranscriptOffsets offs,
-             TranscriptBases bases, std::array<SampleCov, 2> covs, bool somatic_status);
+  Transcript(std::string chrom, usize genome_ref_pos, TranscriptCode k, TranscriptOffsets offs, TranscriptBases bases,
+             std::array<SampleCov, 2> covs, bool somatic_status);
 
   Transcript() = delete;
 
   [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
-  [[nodiscard]] auto Position() const noexcept -> std::size_t { return genomeRefPos; }
-  [[nodiscard]] auto RefStartOffset() const noexcept -> std::size_t { return idxs.refStart; }
-  [[nodiscard]] auto AltStartOffset() const noexcept -> std::size_t { return idxs.altStart; }
+  [[nodiscard]] auto Position() const noexcept -> usize { return genomeRefPos; }
+  [[nodiscard]] auto RefStartOffset() const noexcept -> usize { return idxs.refStart; }
+  [[nodiscard]] auto AltStartOffset() const noexcept -> usize { return idxs.altStart; }
 
   [[nodiscard]] auto HasAltCov() const -> bool;
 
-  [[nodiscard]] auto RefEndOffset() const noexcept -> std::size_t { return idxs.refEnd; }
-  auto SetRefEndOffset(std::size_t val) -> Transcript&;
+  [[nodiscard]] auto RefEndOffset() const noexcept -> usize { return idxs.refEnd; }
+  auto SetRefEndOffset(usize val) -> Transcript&;
 
-  [[nodiscard]] auto AltEndOffset() const noexcept -> std::size_t { return idxs.altEnd; }
-  auto SetAltEndOffset(std::size_t val) -> Transcript&;
+  [[nodiscard]] auto AltEndOffset() const noexcept -> usize { return idxs.altEnd; }
+  auto SetAltEndOffset(usize val) -> Transcript&;
 
   [[nodiscard]] auto Code() const noexcept -> TranscriptCode { return kind; }
   auto SetCode(TranscriptCode val) -> Transcript&;
@@ -70,7 +70,7 @@ class Transcript {
 
  private:
   std::string chromName;
-  std::size_t genomeRefPos = 0;  // 1-based genome position for VCF
+  usize genomeRefPos = 0;  // 1-based genome position for VCF
   TranscriptCode kind = TranscriptCode::REF_MATCH;
   TranscriptOffsets idxs;
   std::array<SampleCov, 2> sampleCovs;

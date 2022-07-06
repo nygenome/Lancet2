@@ -3,7 +3,7 @@
 #include <algorithm>
 
 namespace lancet2 {
-void CovStats::Push(std::uint16_t val) {
+void CovStats::Push(u16 val) {
   allMin = std::min(val, allMin);
   stats.Add(val);
 

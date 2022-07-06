@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -13,6 +12,7 @@
 #include "lancet2/node.h"
 #include "lancet2/read_info.h"
 #include "lancet2/ref_window.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class GraphBuilder {
@@ -21,18 +21,18 @@ class GraphBuilder {
                std::shared_ptr<const CliParams> p);
   GraphBuilder() = delete;
 
-  [[nodiscard]] auto BuildGraph(std::size_t min_k, std::size_t max_k) -> std::unique_ptr<Graph>;
+  [[nodiscard]] auto BuildGraph(usize min_k, usize max_k) -> std::unique_ptr<Graph>;
 
   using ReferenceData = std::vector<BaseHpCov>;
   [[nodiscard]] auto RefData(SampleLabel label) const noexcept -> ReferenceData {
     return label == SampleLabel::NORMAL ? refNmlData : refTmrData;
   }
 
-  [[nodiscard]] auto CurrentKmerSize() const noexcept -> std::size_t { return currentK; }
+  [[nodiscard]] auto CurrentKmerSize() const noexcept -> usize { return currentK; }
 
  private:
   double avgCov = 0.0;
-  std::size_t currentK = 0;
+  usize currentK = 0;
   std::shared_ptr<const RefWindow> window;
   std::shared_ptr<const CliParams> params;
   absl::Span<const ReadInfo> sampleReads;
@@ -47,8 +47,8 @@ class GraphBuilder {
 
   struct BuildNodesResult {
     std::vector<NodeIdentifier> nodeIDs;
-    std::size_t numNodesBuilt = 0;
-    std::size_t numKmersGiven = 0;
+    usize numNodesBuilt = 0;
+    usize numKmersGiven = 0;
   };
   [[nodiscard]] auto BuildNodes(absl::string_view seq) -> BuildNodesResult;
 
@@ -58,8 +58,8 @@ class GraphBuilder {
   };
   auto BuildNode(NodeIdentifier node_id) -> BuildNodeResult;
 
-  void BuildRefData(absl::Span<const std::size_t> ref_mer_hashes);
+  void BuildRefData(absl::Span<const usize> ref_mer_hashes);
 
-  [[nodiscard]] static auto MutateSeq(absl::string_view seq, std::size_t base_pos) -> std::vector<std::string>;
+  [[nodiscard]] static auto MutateSeq(absl::string_view seq, usize base_pos) -> std::vector<std::string>;
 };
 }  // namespace lancet2

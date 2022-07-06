@@ -62,8 +62,8 @@ struct Bam1Deleter {
   }
 };
 
-static inline auto GetAuxPtr(bam1_t* b, const char* tag) -> absl::StatusOr<const std::uint8_t*> {
-  const std::uint8_t* auxData = bam_aux_get(b, tag);
+static inline auto GetAuxPtr(bam1_t* b, const char* tag) -> absl::StatusOr<const u8*> {
+  const u8* auxData = bam_aux_get(b, tag);
   if (auxData == nullptr && errno == ENOENT) {
     return absl::NotFoundError(absl::StrFormat("could not find tag %s in alignment", tag));
   }
@@ -132,17 +132,17 @@ class HtsReader::Impl {
     if (aln->core.tid != -1) result->SetContig(sam_hdr_tid2name(hdr.get(), aln->core.tid));
     if (aln->core.mtid != -1) result->SetMateContig(sam_hdr_tid2name(hdr.get(), aln->core.mtid));
 
-    const auto queryLength = static_cast<std::size_t>(aln->core.l_qseq);
+    const auto queryLength = static_cast<usize>(aln->core.l_qseq);
     std::string sequence(queryLength, 'N');
     std::string quality(queryLength, static_cast<char>(0));
 
     const auto* seqBases = bam_get_seq(aln.get());  // NOLINT
-    for (std::size_t i = 0; i < queryLength; ++i) {
+    for (usize i = 0; i < queryLength; ++i) {
       sequence[i] = seq_nt16_str[bam_seqi(seqBases, i)];  // NOLINT
     }
 
     const auto* seqQuals = bam_get_qual(aln.get());  // NOLINT
-    for (std::size_t i = 0; i < queryLength; ++i) {
+    for (usize i = 0; i < queryLength; ++i) {
       quality[i] = static_cast<char>(seqQuals[i]);  // NOLINT
     }
 
@@ -160,10 +160,10 @@ class HtsReader::Impl {
 #pragma clang diagnostic pop
 #endif
 
-    const auto cigarLength = static_cast<std::size_t>(aln->core.n_cigar);
+    const auto cigarLength = static_cast<usize>(aln->core.n_cigar);
     AlignmentCigar cigar;
     cigar.reserve(cigarLength);
-    for (std::size_t i = 0; i < cigarLength; ++i) {
+    for (usize i = 0; i < cigarLength; ++i) {
       const auto op = bam_cigar_opchr(rawCigarData[i]);                     // NOLINT
       cigar.emplace_back(CigarUnit(op, bam_cigar_oplen(rawCigarData[i])));  // NOLINT
     }
@@ -198,10 +198,10 @@ class HtsReader::Impl {
   [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo> {
     std::vector<ContigInfo> result;
 
-    const auto numContigs = static_cast<std::size_t>(hdr->n_targets);
+    const auto numContigs = static_cast<usize>(hdr->n_targets);
     result.reserve(numContigs);
 
-    for (std::size_t i = 0; i < numContigs; ++i) {
+    for (usize i = 0; i < numContigs; ++i) {
       const auto contigName = std::string(hdr->target_name[i]);         // NOLINT
       result.emplace_back(ContigInfo{contigName, hdr->target_len[i]});  // NOLINT
     }

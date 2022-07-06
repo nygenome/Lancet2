@@ -23,7 +23,7 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, double avg_cov, std::size_t k,
+Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, double avg_cov, usize k,
              std::shared_ptr<const CliParams> p)
     : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
 
@@ -62,9 +62,9 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
       return;
     }
 
-    std::size_t numPaths = 0;
+    usize numPaths = 0;
     const auto clampedRefInfos = ClampToSourceSink(ref_infos, markResult);
-    const auto maxPathLength = RefAnchorLen(markResult) + static_cast<std::size_t>(params->maxIndelLength);
+    const auto maxPathLength = RefAnchorLen(markResult) + static_cast<usize>(params->maxIndelLength);
 
     EdmondKarpMaxFlow flow(&nodesMap, kmerSize, maxPathLength, params->graphTraversalLimit, params->tenxMode);
     std::vector<PathNodeIds> perPathTouches;
@@ -98,13 +98,13 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
 }
 
 auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
-  std::size_t currentComponent = 0;
+  usize currentComponent = 0;
   std::vector<ComponentInfo> componentsInfo;
 
 #ifndef NDEBUG
   static const auto isUnassigned = [](NodeContainer::const_reference p) { return p.second->ComponentID == 0; };
 #endif
-  LANCET_ASSERT(static_cast<std::size_t>(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned)) ==
+  LANCET_ASSERT(static_cast<usize>(std::count_if(nodesMap.cbegin(), nodesMap.cend(), isUnassigned)) ==
                 nodesMap.size());  // NOLINT
 
   for (NodeContainer::reference p : nodesMap) {
@@ -144,7 +144,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   return componentsInfo;
 }
 
-auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::SrcSnkResult {
+auto Graph::MarkSourceSink(usize comp_id) -> Graph::SrcSnkResult {
   const auto refseq = window->SeqView();
   auto refMerIDs = CanonicalKmerHashes(refseq, kmerSize);
   const auto srcResult = FindRefEnd(GraphEnd::SOURCE, comp_id, absl::MakeConstSpan(refMerIDs));
@@ -193,11 +193,11 @@ auto Graph::MarkSourceSink(std::size_t comp_id) -> Graph::SrcSnkResult {
   return SrcSnkResult{true, startBaseIdx, endBaseIdx};
 }
 
-auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
+auto Graph::RemoveLowCovNodes(usize comp_id) -> bool {
   // minNodeCov -> minimum coverage required for each node.
   // minWindowCov -> avg window coverage * MIN_NODE_COV_RATIO for each node
-  const auto minWindowCov = static_cast<std::uint16_t>(std::ceil(params->minCovRatio * avgSampleCov));
-  const auto minReqCov = std::max(static_cast<std::uint16_t>(params->minNodeCov), minWindowCov);
+  const auto minWindowCov = static_cast<u16>(std::ceil(params->minCovRatio * avgSampleCov));
+  const auto minReqCov = std::max(static_cast<u16>(params->minNodeCov), minWindowCov);
 
   std::vector<NodeIdentifier> nodesToRemove{};
   std::for_each(nodesMap.cbegin(), nodesMap.cend(),
@@ -222,7 +222,7 @@ auto Graph::RemoveLowCovNodes(std::size_t comp_id) -> bool {
   return !nodesToRemove.empty();
 }
 
-auto Graph::CompressGraph(std::size_t comp_id) -> bool {
+auto Graph::CompressGraph(usize comp_id) -> bool {
   absl::flat_hash_set<NodeIdentifier> nodesToRemove;
   for (NodeContainer::const_reference p : nodesMap) {
     if (p.second->ComponentID != comp_id || p.second->IsMockNode()) continue;
@@ -238,11 +238,11 @@ auto Graph::CompressGraph(std::size_t comp_id) -> bool {
   return !nodesToRemove.empty();
 }
 
-auto Graph::RemoveTips(std::size_t comp_id) -> bool {
-  std::size_t totalTips = 0;
-  std::size_t numTips = 0;
+auto Graph::RemoveTips(usize comp_id) -> bool {
+  usize totalTips = 0;
+  usize numTips = 0;
   const auto currK = kmerSize;
-  const auto minTipLen = static_cast<std::size_t>(params->minGraphTipLength);
+  const auto minTipLen = static_cast<usize>(params->minGraphTipLength);
   const auto windowId = window->ToRegionString();
 
   // remove tips and compress at least once. compression after tip removal
@@ -269,9 +269,9 @@ auto Graph::RemoveTips(std::size_t comp_id) -> bool {
   return totalTips > 0;
 }
 
-auto Graph::RemoveShortLinks(std::size_t comp_id) -> bool {
+auto Graph::RemoveShortLinks(usize comp_id) -> bool {
   const auto currK = kmerSize;
-  const auto minLinkLen = static_cast<std::size_t>(std::floor(static_cast<double>(kmerSize) / 2.0));
+  const auto minLinkLen = static_cast<usize>(std::floor(static_cast<double>(kmerSize) / 2.0));
   const auto minReqCov = std::floor(std::sqrt(avgSampleCov));
   const TandemRepeatParams tandemParams{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen,
                                         params->maxSTRDist};
@@ -336,10 +336,10 @@ SkipLocalAlignment:
   const auto refStartTrim = TrimEndGaps(&aligned);
 
   // 0-based reference anchor position in absolute chromosome coordinates
-  const auto anchorGenomeStart = static_cast<std::size_t>(window->StartPosition0()) + einfo.startOffset + refStartTrim;
-  std::size_t refIdx = 0;   // 0-based coordinate
-  std::size_t refPos = 0;   // 1-based coordinate
-  std::size_t pathPos = 0;  // 1-based coordinate
+  const auto anchorGenomeStart = static_cast<usize>(window->StartPosition0()) + einfo.startOffset + refStartTrim;
+  usize refIdx = 0;   // 0-based coordinate
+  usize refPos = 0;   // 1-based coordinate
+  usize pathPos = 0;  // 1-based coordinate
 
   auto code = TranscriptCode::REF_MATCH;
   TranscriptCode prevCode = TranscriptCode::REF_MATCH;
@@ -347,7 +347,7 @@ SkipLocalAlignment:
   TranscriptBases tmpBases;
 
   std::vector<Transcript> transcripts;
-  for (std::size_t idx = 0; idx < aligned.ref.length(); ++idx) {
+  for (usize idx = 0; idx < aligned.ref.length(); ++idx) {
     prevCode = code;
 
     if (aligned.ref[idx] == ALIGN_GAP) {
@@ -463,7 +463,7 @@ SkipLocalAlignment:
                     return;
                   }
 
-                  for (std::size_t pos = 0; pos <= k; pos++) {
+                  for (usize pos = 0; pos <= k; pos++) {
                     const auto currPathIdx = transcript.AltEndOffset() + pos;
                     const auto currRefIdx = transcript.RefEndOffset() + pos;
 
@@ -489,7 +489,7 @@ SkipLocalAlignment:
   }
 }
 
-void Graph::WritePathFasta(std::string_view path_seq, std::size_t comp_id, std::size_t path_num) const {
+void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const {
   const auto outDir =
       params->outGraphsDir.empty() ? std::filesystem::current_path() : std::filesystem::path(params->outGraphsDir);
   const auto windowID = window->ToRegionString();
@@ -502,12 +502,12 @@ void Graph::WritePathFasta(std::string_view path_seq, std::size_t comp_id, std::
   outStream.close();
 }
 
-void Graph::WriteDot(std::size_t comp_id, const std::string& suffix) const {
+void Graph::WriteDot(usize comp_id, const std::string& suffix) const {
   const DotSerializer ds(this);
   ds.write_component(comp_id, suffix);
 }
 
-void Graph::WriteDot(std::size_t comp_id, absl::Span<const PathNodeIds> flow_paths) const {
+void Graph::WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const {
   const DotSerializer ds(this);
   ds.write_component(comp_id, flow_paths);
 }
@@ -527,14 +527,14 @@ void Graph::EraseNode(NodeIterator itr) {
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
-auto Graph::FindRefEnd(GraphEnd k, std::size_t comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
+auto Graph::FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
     -> Graph::RefEndResult {
   // find node in component for the first/last occurring ref kmer id.
-  const auto minEndCov = static_cast<std::uint16_t>(params->minAnchorCov);
-  const auto numRefMers = static_cast<std::int64_t>(ref_mer_hashes.size());
+  const auto minEndCov = static_cast<u16>(params->minAnchorCov);
+  const auto numRefMers = static_cast<i64>(ref_mer_hashes.size());
 
   for (auto refIdx = 0; refIdx < numRefMers; ++refIdx) {
-    const auto merIndex = static_cast<std::size_t>(refIdx);
+    const auto merIndex = static_cast<usize>(refIdx);
     const auto itr = nodesMap.find(ref_mer_hashes[merIndex]);
     if (itr == nodesMap.end()) continue;
 

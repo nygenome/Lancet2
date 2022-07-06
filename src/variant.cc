@@ -11,16 +11,10 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-Variant::Variant(const Transcript& transcript, std::size_t kmer_size)
-    : ChromName(transcript.ChromName()),
-      Position(transcript.Position()),
-      RefAllele(transcript.RefSeq()),
-      AltAllele(transcript.AltSeq()),
-      Kind(transcript.Code()),
-      STRResult(transcript.STRResult()),
-      KmerSize(kmer_size),
-      TumorCov(transcript.VariantCov(SampleLabel::TUMOR)),
-      NormalCov(transcript.VariantCov(SampleLabel::NORMAL)) {
+Variant::Variant(const Transcript& transcript, usize kmer_size)
+    : ChromName(transcript.ChromName()), Position(transcript.Position()), RefAllele(transcript.RefSeq()),
+      AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()), KmerSize(kmer_size),
+      TumorCov(transcript.VariantCov(SampleLabel::TUMOR)), NormalCov(transcript.VariantCov(SampleLabel::NORMAL)) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH);  // NOLINT
 
   // get rid of alignment skip chars `-` in ref and alt alleles

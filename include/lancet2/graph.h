@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <memory>
 #include <ostream>
 #include <string_view>
@@ -18,6 +17,7 @@
 #include "lancet2/node.h"
 #include "lancet2/path.h"
 #include "lancet2/ref_window.h"
+#include "lancet2/sized_ints.h"
 #include "lancet2/transcript.h"
 #include "lancet2/variant_store.h"
 
@@ -29,7 +29,7 @@ class Graph {
   using NodeIterator = NodeContainer::iterator;
   using ConstNodeIterator = NodeContainer::const_iterator;
 
-  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, double avg_cov, std::size_t k,
+  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, double avg_cov, usize k,
         std::shared_ptr<const CliParams> p);
   Graph() = delete;
 
@@ -40,35 +40,35 @@ class Graph {
   [[nodiscard]] auto ShouldIncrementK() const noexcept -> bool { return shouldIncrementK; }
 
   struct ComponentInfo {
-    std::size_t ID = 0;
-    std::size_t numNodes = 0;
+    usize ID = 0;
+    usize numNodes = 0;
   };
 
   [[nodiscard]] auto MarkConnectedComponents() -> std::vector<ComponentInfo>;
 
   struct SrcSnkResult {
     bool foundSrcAndSnk = false;
-    std::size_t startOffset = 0;
-    std::size_t endOffset = 0;
+    usize startOffset = 0;
+    usize endOffset = 0;
   };
 
-  auto MarkSourceSink(std::size_t comp_id) -> SrcSnkResult;
-  static auto RefAnchorLen(const SrcSnkResult& r) noexcept -> std::size_t { return r.endOffset - r.startOffset; }
+  auto MarkSourceSink(usize comp_id) -> SrcSnkResult;
+  static auto RefAnchorLen(const SrcSnkResult& r) noexcept -> usize { return r.endOffset - r.startOffset; }
 
-  auto RemoveLowCovNodes(std::size_t comp_id) -> bool;
-  auto CompressGraph(std::size_t comp_id) -> bool;
-  auto RemoveTips(std::size_t comp_id) -> bool;
-  auto RemoveShortLinks(std::size_t comp_id) -> bool;
+  auto RemoveLowCovNodes(usize comp_id) -> bool;
+  auto CompressGraph(usize comp_id) -> bool;
+  auto RemoveTips(usize comp_id) -> bool;
+  auto RemoveShortLinks(usize comp_id) -> bool;
 
   [[nodiscard]] auto HasCycle() const -> bool;
 
   void ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
                    std::vector<Variant>* results) const;
 
-  void WritePathFasta(std::string_view path_seq, std::size_t comp_id, std::size_t path_num) const;
+  void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
 
-  void WriteDot(std::size_t comp_id, const std::string& suffix) const;
-  void WriteDot(std::size_t comp_id, absl::Span<const PathNodeIds> flow_paths) const;
+  void WriteDot(usize comp_id, const std::string& suffix) const;
+  void WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const;
 
   void EraseNode(NodeIterator itr);
   void EraseNode(NodeIdentifier node_id);
@@ -80,7 +80,7 @@ class Graph {
 
   void Clear() { return nodesMap.clear(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return nodesMap.empty(); }
-  [[nodiscard]] auto Size() const noexcept -> std::size_t { return nodesMap.size(); }
+  [[nodiscard]] auto Size() const noexcept -> usize { return nodesMap.size(); }
 
   [[nodiscard]] auto Contains(NodeIdentifier node_id) const -> bool { return nodesMap.contains(node_id); }
 
@@ -100,18 +100,18 @@ class Graph {
  private:
   std::shared_ptr<const RefWindow> window;
   double avgSampleCov = 0.0;
-  std::size_t kmerSize = 0;
+  usize kmerSize = 0;
   std::shared_ptr<const CliParams> params = nullptr;
   bool shouldIncrementK = false;
   NodeContainer nodesMap;
 
   struct RefEndResult {
     NodeIdentifier nodeId = 0;
-    std::size_t refMerIdx = 0;
+    usize refMerIdx = 0;
     bool foundEnd = false;
   };
 
-  [[nodiscard]] auto FindRefEnd(GraphEnd k, std::size_t comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
+  [[nodiscard]] auto FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
       -> RefEndResult;
 
   [[nodiscard]] auto FindCompressibleNeighbours(NodeIdentifier src_id) const -> absl::btree_set<NodeNeighbour>;

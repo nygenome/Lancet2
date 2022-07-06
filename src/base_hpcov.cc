@@ -1,6 +1,7 @@
 #include "lancet2/base_hpcov.h"
 
 #include <algorithm>
+
 #include "lancet2/assert_macro.h"
 
 namespace lancet2 {
@@ -21,7 +22,7 @@ auto BuildHPCovs(absl::Span<const BaseCov> covs, absl::Span<const BaseHP> hps) -
   LANCET_ASSERT(covs.size() == hps.size());  // NOLINT
   std::vector<BaseHpCov> result;
   result.reserve(covs.size());
-  for (std::size_t idx = 0; idx < covs.size(); idx++) result.emplace_back(covs[idx], hps[idx]);
+  for (usize idx = 0; idx < covs.size(); idx++) result.emplace_back(covs[idx], hps[idx]);
   return result;
 }
 }  // namespace lancet2

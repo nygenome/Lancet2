@@ -6,13 +6,9 @@
 #include "lancet2/assert_macro.h"
 
 namespace lancet2 {
-Transcript::Transcript(std::string chrom, std::size_t genome_ref_pos, TranscriptCode k, TranscriptOffsets offs,
+Transcript::Transcript(std::string chrom, usize genome_ref_pos, TranscriptCode k, TranscriptOffsets offs,
                        TranscriptBases bases, std::array<SampleCov, 2> covs, bool somatic_status)
-    : chromName(std::move(chrom)),
-      genomeRefPos(genome_ref_pos),
-      kind(k),
-      idxs(offs),
-      sampleCovs(covs),
+    : chromName(std::move(chrom)), genomeRefPos(genome_ref_pos), kind(k), idxs(offs), sampleCovs(covs),
       isSomatic(somatic_status) {
   refSeq.push_back(bases.refBase);
   altSeq.push_back(bases.altBase);
@@ -30,12 +26,12 @@ auto Transcript::HasAltCov() const -> bool {
   return acnf > 0 || acnr > 0 || actf > 0 || actr > 0;
 }
 
-auto Transcript::SetRefEndOffset(std::size_t val) -> Transcript& {
+auto Transcript::SetRefEndOffset(usize val) -> Transcript& {
   idxs.refEnd = val;
   return *this;
 }
 
-auto Transcript::SetAltEndOffset(std::size_t val) -> Transcript& {
+auto Transcript::SetAltEndOffset(usize val) -> Transcript& {
   idxs.altEnd = val;
   return *this;
 }
@@ -47,7 +43,7 @@ auto Transcript::SetCode(TranscriptCode val) -> Transcript& {
 
 auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
   const auto isSnv = kind == TranscriptCode::SNV;
-  using U16 = std::uint16_t;
+  using U16 = u16;
 
   if (label == SampleLabel::TUMOR) {
     const auto refFwd = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].Mean(Allele::REF, Strand::FWD, false)))

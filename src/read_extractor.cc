@@ -149,7 +149,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
   const auto jumpStatus = rdr->SetRegion(region);
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
-  using u32 = std::uint32_t;
+  using u32 = u32;
   std::vector<u32> genomePositions;  // softclip genome positions for single alignment
   std::map<u32, u32> mismatches;     // genome position -> number of mismatches at position
   std::map<u32, u32> insertions;     // genome position -> number of insertions at position
@@ -173,7 +173,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
 
   HtsAlignment aln;
   bool isActiveRegion = false;
-  std::uint64_t numReadBases = 0;
+  u64 numReadBases = 0;
 
   while (rdr->NextAlignment(&aln, {"MD"}) == HtsReader::IteratorState::VALID) {
     if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.Length();
@@ -232,10 +232,10 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
   return EvalResult{avgCoverage, isActiveRegion};
 }
 
-void ReadExtractor::FillMDMismatches(std::string_view md, std::string_view quals, std::int64_t aln_start,
-                                     std::uint32_t min_bq, std::map<std::uint32_t, std::uint32_t>* result) {
+void ReadExtractor::FillMDMismatches(std::string_view md, std::string_view quals, i64 aln_start, u32 min_bq,
+                                     std::map<u32, u32>* result) {
   if (aln_start < 0) return;
-  auto genomePos = static_cast<std::uint32_t>(aln_start);
+  auto genomePos = static_cast<u32>(aln_start);
   std::string token;
 
   for (const auto& c : md) {
@@ -245,10 +245,10 @@ void ReadExtractor::FillMDMismatches(std::string_view md, std::string_view quals
     }
 
     const auto step = token.empty() ? 0 : std::strtol(token.c_str(), nullptr, 10);
-    genomePos += static_cast<std::uint32_t>(step);
+    genomePos += static_cast<u32>(step);
     token.clear();
 
-    const auto basePos = static_cast<std::size_t>(genomePos - aln_start);
+    const auto basePos = static_cast<usize>(genomePos - aln_start);
     if (static_cast<int>(quals[basePos]) < static_cast<int>(min_bq)) continue;
 
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(c));

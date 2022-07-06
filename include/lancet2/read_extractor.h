@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <map>
 #include <memory>
 #include <string_view>
@@ -12,6 +11,7 @@
 #include "lancet2/genomic_region.h"
 #include "lancet2/hts_reader.h"
 #include "lancet2/read_info.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 using ReadInfoList = std::vector<ReadInfo>;
@@ -31,7 +31,7 @@ class ReadExtractor {
  private:
   HtsReader tmrRdr;
   HtsReader nmlRdr;
-  GenomicRegion targetRegion{"\0", -1, -1};
+  GenomicRegion targetRegion{"", 0, 0};
   bool isActiveRegion = false;
   double avgCoverage = 0.0F;
   std::shared_ptr<const CliParams> params;
@@ -53,7 +53,7 @@ class ReadExtractor {
   [[nodiscard]] static auto EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, const CliParams& params)
       -> EvalResult;
 
-  static void FillMDMismatches(std::string_view md, std::string_view quals, std::int64_t aln_start,
-                               std::uint32_t min_bq, std::map<std::uint32_t, std::uint32_t>* result);
+  static void FillMDMismatches(std::string_view md, std::string_view quals, i64 aln_start, u32 min_bq,
+                               std::map<u32, u32>* result);
 };
 }  // namespace lancet2

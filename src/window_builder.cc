@@ -12,8 +12,8 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-WindowBuilder::WindowBuilder(const std::filesystem::path &ref, std::uint32_t region_padding,
-                             std::uint32_t window_length, std::uint32_t pct_window_overlap)
+WindowBuilder::WindowBuilder(const std::filesystem::path &ref, u32 region_padding, u32 window_length,
+                             u32 pct_window_overlap)
     : refRdr(ref), regionPadding(region_padding), windowLength(window_length), pctWindowOverlap(pct_window_overlap) {}
 
 auto WindowBuilder::AddSamtoolsRegion(const std::string &region_str) -> absl::Status {
@@ -42,7 +42,7 @@ void WindowBuilder::AddAllRefRegions() {
   }
 }
 
-auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids) const
+auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids) const
     -> absl::StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
@@ -63,11 +63,11 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
       continue;
     }
 
-    std::int64_t currWindowStart = finalRegion.StartPosition0();
+    i64 currWindowStart = finalRegion.StartPosition0();
     const auto maxWindowPos = finalRegion.EndPosition0();
 
     while (currWindowStart < maxWindowPos) {
-      const std::int64_t currWindowEnd = currWindowStart + windowLength;
+      const i64 currWindowEnd = currWindowStart + windowLength;
       results.emplace_back(std::make_shared<RefWindow>());
       results.back()->SetChromosome(finalRegion.Chromosome());
       results.back()->SetStartPosition0(currWindowStart);
@@ -86,7 +86,7 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
             [](const WindowPtr &r1, const WindowPtr &r2) -> bool { return Comparator(*r1, *r2); });
 
   std::for_each(results.begin(), results.end(), [](WindowPtr &w) -> void {
-    static std::size_t currWindowIdx = 0;
+    static usize currWindowIdx = 0;
     w->SetWindowIndex(currWindowIdx);
     currWindowIdx++;
   });
@@ -94,10 +94,10 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, std::int
   return std::move(results);
 }
 
-auto WindowBuilder::StepSize(std::uint32_t pct_overlap, std::uint32_t window_length) -> std::int64_t {
+auto WindowBuilder::StepSize(u32 pct_overlap, u32 window_length) -> i64 {
   const auto rawVal = (static_cast<double>(100 - pct_overlap) / 100.0) * static_cast<double>(window_length);
   // round to ensure that steps always move in multiples of 100
-  return static_cast<std::int64_t>(std::round(rawVal / 100.0) * 100.0);
+  return static_cast<i64>(std::round(rawVal / 100.0) * 100.0);
 }
 
 auto WindowBuilder::ParseRegion(std::string_view region_str) -> absl::StatusOr<RefWindow> {
@@ -108,19 +108,19 @@ auto WindowBuilder::ParseRegion(std::string_view region_str) -> absl::StatusOr<R
     return absl::InvalidArgumentError(errMsg);
   }
 
-  std::int64_t winStart = 0;
-  std::int64_t winEnd = INT64_MAX;
+  i64 winStart = 0;
+  i64 winEnd = INT64_MAX;
 
   // NOTE: samtools region strings have 1-based start and end
   if (tokens.size() >= 2) {
     const auto tmp = std::strtoull(tokens[1].c_str(), nullptr, 10);
-    winStart = static_cast<std::int64_t>(tmp) - 1;
+    winStart = static_cast<i64>(tmp) - 1;
     if (winStart < 0) winStart = 0;
   }
 
   if (tokens.size() == 3) {
     const auto tmp = std::strtoull(tokens[2].c_str(), nullptr, 10);
-    winEnd = static_cast<std::int64_t>(tmp) - 1;
+    winEnd = static_cast<i64>(tmp) - 1;
   }
 
   RefWindow w;
@@ -135,8 +135,8 @@ auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> absl::StatusOr
   std::string line;
   auto lineNum = 0;
 
-  std::int64_t winStart = -1;
-  std::int64_t winEnd = -1;
+  i64 winStart = -1;
+  i64 winEnd = -1;
   std::vector<RefWindow> results;
 
   while (std::getline(bedFh, line)) {
@@ -168,7 +168,7 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> absl::StatusOr<RefWin
   const auto ctgMaxLen = refRdr.ContigLength(w.Chromosome());
   if (!ctgMaxLen.ok()) return ctgMaxLen.status();
 
-  const auto currMax = static_cast<std::int64_t>(ctgMaxLen.value());
+  const auto currMax = static_cast<i64>(ctgMaxLen.value());
   const auto currStart = w.StartPosition0();
   const auto currEnd = w.EndPosition0();
 
@@ -181,7 +181,7 @@ auto WindowBuilder::PadWindow(const RefWindow &w) const -> absl::StatusOr<RefWin
   return std::move(result);
 }
 
-auto BuildWindows(const absl::flat_hash_map<std::string, std::int64_t> &contig_ids, const CliParams &params)
+auto BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids, const CliParams &params)
     -> std::vector<WindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
   for (const auto &region : params.inRegions) {

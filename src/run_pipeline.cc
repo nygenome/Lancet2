@@ -37,15 +37,15 @@ static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string
   return {resultN[0], resultT[0]};
 }
 
-static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::string, std::int64_t> {
+static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::string, i64> {
   return FastaReader(p.referencePath).ContigIDs();
 }
 
-static inline auto RequiredBufferWindows(const CliParams& p) -> std::size_t {
+static inline auto RequiredBufferWindows(const CliParams& p) -> usize {
   // Number of windows ahead of current window to be done in order to flush current window
   const auto maxFlankLen = static_cast<double>(std::max(p.maxIndelLength, p.windowLength));
   const auto windowStep = static_cast<double>(WindowBuilder::StepSize(p.pctOverlap, p.windowLength));
-  return static_cast<std::size_t>(4.0 * std::ceil(maxFlankLen / windowStep));
+  return static_cast<usize>(4.0 * std::ceil(maxFlankLen / windowStep));
 }
 
 void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
@@ -65,7 +65,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);
-  const auto numThreads = static_cast<std::size_t>(params->numWorkerThreads);
+  const auto numThreads = static_cast<usize>(params->numWorkerThreads);
   const auto paramsPtr = std::make_shared<const CliParams>(*params);
   const auto numBufWindows = RequiredBufferWindows(*paramsPtr);
   const auto vDBPtr = std::make_shared<VariantStore>(paramsPtr);
@@ -87,7 +87,7 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     std::abort();
   });
 
-  for (std::size_t idx = 0; idx < numThreads; ++idx) {
+  for (usize idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
         std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr); },
         std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
@@ -97,15 +97,15 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     return std::any_of(doneWindows.cbegin(), doneWindows.cend(), [](const bool& wdone) { return !wdone; });
   };
 
-  const auto allWindowsUptoDone = [](const std::size_t win_idx) -> bool {
+  const auto allWindowsUptoDone = [](const usize win_idx) -> bool {
     const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
     return std::all_of(doneWindows.cbegin(), lastItr, [](const bool& wdone) { return wdone; });
   };
 
-  std::size_t idxToFlush = 0;
-  std::size_t numDone = 0;
+  usize idxToFlush = 0;
+  usize numDone = 0;
   const auto numTotal = allwindows.size();
-  const auto pctDone = [&numTotal](const std::size_t done) -> double {
+  const auto pctDone = [&numTotal](const usize done) -> double {
     return 100.0 * (static_cast<double>(done) / static_cast<double>(numTotal));
   };
 

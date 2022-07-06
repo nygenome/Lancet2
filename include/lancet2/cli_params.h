@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 #include <vector>
+
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 constexpr double DEFAULT_MIN_NODE_COV_RATIO = 0.01F;
@@ -12,33 +13,33 @@ constexpr double DEFAULT_MAX_NORMAL_VAF = 0.0F;
 constexpr double DEFAULT_MIN_PHRED_FISHER = 5.0F;
 constexpr double DEFAULT_MIN_PHRED_FISHER_STRS = 25.0F;
 
-constexpr std::uint32_t DEFAULT_NUM_WORKER_THREADS = 1;
-constexpr std::uint32_t DEFAULT_REGION_PAD_LENGTH = 250;
-constexpr std::uint32_t DEFAULT_WINDOW_LENGTH = 600;
-constexpr std::uint32_t DEFAULT_PCT_WINDOW_OVERLAP = 50;
-constexpr std::uint32_t DEFAULT_MIN_KMER_SIZE = 11;
-constexpr std::uint32_t DEFAULT_MAX_KMER_SIZE = 101;
-constexpr std::uint32_t DEFAULT_TRIM_BELOW_QUAL = 10;
-constexpr std::uint32_t DEFAULT_MAX_GRAPH_TIP_LENGTH = 11;
-constexpr std::uint32_t DEFAULT_MIN_REF_ANCHOR_COV = 5;
-constexpr std::uint32_t DEFAULT_MIN_NODE_COV = 1;
-constexpr std::uint32_t DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e5;
-constexpr std::uint32_t DEFAULT_MAX_INDEL_LENGTH = 500;
-constexpr std::uint32_t DEFAULT_MAX_REPEAT_MISMATCH = 2;
-constexpr std::uint32_t DEFAULT_MIN_BASE_QUAL = 17;
-constexpr std::uint32_t DEFAULT_MIN_READ_MAPPING_QUAL = 15;
-constexpr std::uint32_t DEFAULT_MIN_STRAND_CONTRIB = 1;
-constexpr std::uint32_t DEFAULT_MIN_TUMOR_ALT_CNT = 3;
-constexpr std::uint32_t DEFAULT_MAX_NORMAL_ALT_CNT = 0;
-constexpr std::uint32_t DEFAULT_MIN_TUMOR_COV = 4;
-constexpr std::uint32_t DEFAULT_MIN_NORMAL_COV = 10;
-constexpr std::uint32_t DEFAULT_MAX_TUMOR_COV = 1000;
-constexpr std::uint32_t DEFAULT_MAX_NORMAL_COV = 1000;
-constexpr std::uint32_t DEFAULT_MAX_STR_UNIT_LENGTH = 4;
-constexpr std::uint32_t DEFAULT_MIN_STR_UNITS_TO_REPORT = 3;
-constexpr std::uint32_t DEFAULT_MIN_STR_LENGTH_TO_REPORT = 7;
-constexpr std::uint32_t DEFAULT_MAX_DIST_FROM_STR = 1;
-constexpr std::uint32_t DEFAULT_MIN_READ_AS_XS_DIFF = 5;
+constexpr u32 DEFAULT_NUM_WORKER_THREADS = 1;
+constexpr u32 DEFAULT_REGION_PAD_LENGTH = 250;
+constexpr u32 DEFAULT_WINDOW_LENGTH = 600;
+constexpr u32 DEFAULT_PCT_WINDOW_OVERLAP = 50;
+constexpr u32 DEFAULT_MIN_KMER_SIZE = 11;
+constexpr u32 DEFAULT_MAX_KMER_SIZE = 101;
+constexpr u32 DEFAULT_TRIM_BELOW_QUAL = 10;
+constexpr u32 DEFAULT_MAX_GRAPH_TIP_LENGTH = 11;
+constexpr u32 DEFAULT_MIN_REF_ANCHOR_COV = 5;
+constexpr u32 DEFAULT_MIN_NODE_COV = 1;
+constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e5;
+constexpr u32 DEFAULT_MAX_INDEL_LENGTH = 500;
+constexpr u32 DEFAULT_MAX_REPEAT_MISMATCH = 2;
+constexpr u32 DEFAULT_MIN_BASE_QUAL = 17;
+constexpr u32 DEFAULT_MIN_READ_MAPPING_QUAL = 15;
+constexpr u32 DEFAULT_MIN_STRAND_CONTRIB = 1;
+constexpr u32 DEFAULT_MIN_TUMOR_ALT_CNT = 3;
+constexpr u32 DEFAULT_MAX_NORMAL_ALT_CNT = 0;
+constexpr u32 DEFAULT_MIN_TUMOR_COV = 4;
+constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
+constexpr u32 DEFAULT_MAX_TUMOR_COV = 1000;
+constexpr u32 DEFAULT_MAX_NORMAL_COV = 1000;
+constexpr u32 DEFAULT_MAX_STR_UNIT_LENGTH = 4;
+constexpr u32 DEFAULT_MIN_STR_UNITS_TO_REPORT = 3;
+constexpr u32 DEFAULT_MIN_STR_LENGTH_TO_REPORT = 7;
+constexpr u32 DEFAULT_MAX_DIST_FROM_STR = 1;
+constexpr u32 DEFAULT_MIN_READ_AS_XS_DIFF = 5;
 
 class CliParams {
  public:
@@ -62,33 +63,33 @@ class CliParams {
   double minFisher = DEFAULT_MIN_PHRED_FISHER;          // NOLINT
   double minSTRFisher = DEFAULT_MIN_PHRED_FISHER_STRS;  // NOLINT
 
-  std::uint32_t numWorkerThreads = DEFAULT_NUM_WORKER_THREADS;        // NOLINT
-  std::uint32_t regionPadLength = DEFAULT_REGION_PAD_LENGTH;          // NOLINT
-  std::uint32_t windowLength = DEFAULT_WINDOW_LENGTH;                 // NOLINT
-  std::uint32_t pctOverlap = DEFAULT_PCT_WINDOW_OVERLAP;              // NOLINT
-  std::uint32_t minKmerSize = DEFAULT_MIN_KMER_SIZE;                  // NOLINT
-  std::uint32_t maxKmerSize = DEFAULT_MAX_KMER_SIZE;                  // NOLINT
-  std::uint32_t trimBelowQual = DEFAULT_TRIM_BELOW_QUAL;              // NOLINT
-  std::uint32_t minGraphTipLength = DEFAULT_MAX_GRAPH_TIP_LENGTH;     // NOLINT
-  std::uint32_t minAnchorCov = DEFAULT_MIN_REF_ANCHOR_COV;            // NOLINT
-  std::uint32_t minNodeCov = DEFAULT_MIN_NODE_COV;                    // NOLINT
-  std::uint32_t graphTraversalLimit = DEFAULT_GRAPH_TRAVERSAL_LIMIT;  // NOLINT
-  std::uint32_t maxIndelLength = DEFAULT_MAX_INDEL_LENGTH;            // NOLINT
-  std::uint32_t maxRptMismatch = DEFAULT_MAX_REPEAT_MISMATCH;         // NOLINT
-  std::uint32_t minBaseQual = DEFAULT_MIN_BASE_QUAL;                  // NOLINT
-  std::uint32_t minReadMappingQual = DEFAULT_MIN_READ_MAPPING_QUAL;   // NOLINT
-  std::uint32_t minStrandCnt = DEFAULT_MIN_STRAND_CONTRIB;            // NOLINT
-  std::uint32_t minTmrAltCnt = DEFAULT_MIN_TUMOR_ALT_CNT;             // NOLINT
-  std::uint32_t maxNmlAltCnt = DEFAULT_MAX_NORMAL_ALT_CNT;            // NOLINT
-  std::uint32_t minTmrCov = DEFAULT_MIN_TUMOR_COV;                    // NOLINT
-  std::uint32_t minNmlCov = DEFAULT_MIN_NORMAL_COV;                   // NOLINT
-  std::uint32_t maxTmrCov = DEFAULT_MAX_TUMOR_COV;                    // NOLINT
-  std::uint32_t maxNmlCov = DEFAULT_MAX_NORMAL_COV;                   // NOLINT
-  std::uint32_t maxSTRUnitLength = DEFAULT_MAX_STR_UNIT_LENGTH;       // NOLINT
-  std::uint32_t minSTRUnits = DEFAULT_MIN_STR_UNITS_TO_REPORT;        // NOLINT
-  std::uint32_t minSTRLen = DEFAULT_MIN_STR_LENGTH_TO_REPORT;         // NOLINT
-  std::uint32_t maxSTRDist = DEFAULT_MAX_DIST_FROM_STR;               // NOLINT
-  std::uint32_t minReadAsXsDiff = DEFAULT_MIN_READ_AS_XS_DIFF;        // NOLINT
+  u32 numWorkerThreads = DEFAULT_NUM_WORKER_THREADS;        // NOLINT
+  u32 regionPadLength = DEFAULT_REGION_PAD_LENGTH;          // NOLINT
+  u32 windowLength = DEFAULT_WINDOW_LENGTH;                 // NOLINT
+  u32 pctOverlap = DEFAULT_PCT_WINDOW_OVERLAP;              // NOLINT
+  u32 minKmerSize = DEFAULT_MIN_KMER_SIZE;                  // NOLINT
+  u32 maxKmerSize = DEFAULT_MAX_KMER_SIZE;                  // NOLINT
+  u32 trimBelowQual = DEFAULT_TRIM_BELOW_QUAL;              // NOLINT
+  u32 minGraphTipLength = DEFAULT_MAX_GRAPH_TIP_LENGTH;     // NOLINT
+  u32 minAnchorCov = DEFAULT_MIN_REF_ANCHOR_COV;            // NOLINT
+  u32 minNodeCov = DEFAULT_MIN_NODE_COV;                    // NOLINT
+  u32 graphTraversalLimit = DEFAULT_GRAPH_TRAVERSAL_LIMIT;  // NOLINT
+  u32 maxIndelLength = DEFAULT_MAX_INDEL_LENGTH;            // NOLINT
+  u32 maxRptMismatch = DEFAULT_MAX_REPEAT_MISMATCH;         // NOLINT
+  u32 minBaseQual = DEFAULT_MIN_BASE_QUAL;                  // NOLINT
+  u32 minReadMappingQual = DEFAULT_MIN_READ_MAPPING_QUAL;   // NOLINT
+  u32 minStrandCnt = DEFAULT_MIN_STRAND_CONTRIB;            // NOLINT
+  u32 minTmrAltCnt = DEFAULT_MIN_TUMOR_ALT_CNT;             // NOLINT
+  u32 maxNmlAltCnt = DEFAULT_MAX_NORMAL_ALT_CNT;            // NOLINT
+  u32 minTmrCov = DEFAULT_MIN_TUMOR_COV;                    // NOLINT
+  u32 minNmlCov = DEFAULT_MIN_NORMAL_COV;                   // NOLINT
+  u32 maxTmrCov = DEFAULT_MAX_TUMOR_COV;                    // NOLINT
+  u32 maxNmlCov = DEFAULT_MAX_NORMAL_COV;                   // NOLINT
+  u32 maxSTRUnitLength = DEFAULT_MAX_STR_UNIT_LENGTH;       // NOLINT
+  u32 minSTRUnits = DEFAULT_MIN_STR_UNITS_TO_REPORT;        // NOLINT
+  u32 minSTRLen = DEFAULT_MIN_STR_LENGTH_TO_REPORT;         // NOLINT
+  u32 maxSTRDist = DEFAULT_MAX_DIST_FROM_STR;               // NOLINT
+  u32 minReadAsXsDiff = DEFAULT_MIN_READ_AS_XS_DIFF;        // NOLINT
 
   bool verboseLogging = false;    // NOLINT
   bool activeRegionOff = false;   // NOLINT

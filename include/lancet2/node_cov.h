@@ -1,55 +1,54 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <vector>
 
 #include "lancet2/base_cov.h"
 #include "lancet2/core_enums.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class NodeCov {
  public:
-  explicit NodeCov(std::size_t count) : tmrBases(count), nmlBases(count) {}
+  explicit NodeCov(usize count) : tmrBases(count), nmlBases(count) {}
   NodeCov() = default;
 
-  void MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k);
+  void MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_buddy, usize k);
 
-  [[nodiscard]] auto StrandCov(SampleLabel label, Strand s) const -> std::uint16_t;
-  [[nodiscard]] auto TotalCov(SampleLabel label) const -> std::uint16_t;
+  [[nodiscard]] auto StrandCov(SampleLabel label, Strand s) const -> u16;
+  [[nodiscard]] auto TotalCov(SampleLabel label) const -> u16;
 
-  void Update(SampleLabel label, Strand s, std::size_t pos);
+  void Update(SampleLabel label, Strand s, usize pos);
   void Update(SampleLabel label, Strand s, const std::vector<bool>& bq_pass);
-  void Update(std::uint16_t val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass);
+  void Update(u16 val, SampleLabel label, Strand s, const std::vector<bool>& bq_pass);
 
   [[nodiscard]] auto BaseCovs(SampleLabel label) const noexcept -> std::vector<BaseCov> {
     return label == SampleLabel::TUMOR ? tmrBases : nmlBases;
   }
 
-  auto At(SampleLabel label, std::size_t pos) -> BaseCov& {
+  auto At(SampleLabel label, usize pos) -> BaseCov& {
     return label == SampleLabel::TUMOR ? tmrBases.at(pos) : nmlBases.at(pos);
   }
 
-  [[nodiscard]] auto At(SampleLabel label, std::size_t pos) const -> const BaseCov& {
+  [[nodiscard]] auto At(SampleLabel label, usize pos) const -> const BaseCov& {
     return label == SampleLabel::TUMOR ? tmrBases.at(pos) : nmlBases.at(pos);
   }
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return tmrBases.empty(); }
-  [[nodiscard]] auto Size() const noexcept -> std::size_t { return tmrBases.size(); }
+  [[nodiscard]] auto Size() const noexcept -> usize { return tmrBases.size(); }
 
   void Clear();
   void Reverse();
 
-  void Reserve(const std::size_t count) {
+  void Reserve(const usize count) {
     tmrBases.reserve(count);
     nmlBases.reserve(count);
   }
 
  private:
-  std::uint16_t cntTumorFwd = 0;
-  std::uint16_t cntTumorRev = 0;
-  std::uint16_t cntNormalFwd = 0;
-  std::uint16_t cntNormalRev = 0;
+  u16 cntTumorFwd = 0;
+  u16 cntTumorRev = 0;
+  u16 cntNormalFwd = 0;
+  u16 cntNormalRev = 0;
 
   std::vector<BaseCov> tmrBases;
   std::vector<BaseCov> nmlBases;

@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cstddef>
 #include <string>
 #include <string_view>
+
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 #if defined(__clang__)
@@ -26,5 +27,5 @@ struct AlignedSequencesView {
 
 [[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences;
 
-[[nodiscard]] auto TrimEndGaps(AlignedSequencesView* aln) -> std::size_t;
+[[nodiscard]] auto TrimEndGaps(AlignedSequencesView* aln) -> usize;
 }  // namespace lancet2

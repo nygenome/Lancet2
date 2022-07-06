@@ -17,26 +17,26 @@ NodeHP::NodeHP(const NodeCov& node_cov) {
   for (const auto& bcov : nmlBases) nmlHPs.emplace_back(MakeDefaultHP(bcov));
 }
 
-void NodeHP::MergeBuddy(const NodeHP& buddy, BuddyPosition dir, bool reverse_buddy, std::size_t k) {
+void NodeHP::MergeBuddy(const NodeHP& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   MergeNodeInfo(&tmrHPs, absl::MakeConstSpan(buddy.tmrHPs), dir, reverse_buddy, k);
   MergeNodeInfo(&nmlHPs, absl::MakeConstSpan(buddy.nmlHPs), dir, reverse_buddy, k);
 }
 
-void NodeHP::Update(std::size_t hp, SampleLabel label, const std::vector<bool>& bq_pass) {
+void NodeHP::Update(usize hp, SampleLabel label, const std::vector<bool>& bq_pass) {
   if (label == SampleLabel::TUMOR) {
-    for (std::size_t idx = 0; idx < tmrHPs.size(); ++idx) {
+    for (usize idx = 0; idx < tmrHPs.size(); ++idx) {
       tmrHPs[idx].at(hp).raw++;
       if (bq_pass[idx]) tmrHPs[idx][hp].bqPass++;
     }
   } else {
-    for (std::size_t idx = 0; idx < nmlHPs.size(); ++idx) {
+    for (usize idx = 0; idx < nmlHPs.size(); ++idx) {
       nmlHPs[idx].at(hp).raw++;
       if (bq_pass[idx]) nmlHPs[idx][hp].bqPass++;
     }
   }
 }
 
-void NodeHP::Update(std::size_t hp, SampleLabel label, std::size_t base_position) {
+void NodeHP::Update(usize hp, SampleLabel label, usize base_position) {
   if (label == SampleLabel::TUMOR) {
     tmrHPs[base_position][hp].bqPass += 1;
     std::for_each(tmrHPs.begin(), tmrHPs.end(), [&hp](auto& base) { base.at(hp).raw++; });

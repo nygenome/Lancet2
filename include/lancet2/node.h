@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -18,28 +16,29 @@
 #include "lancet2/node_neighbour.h"
 #include "lancet2/node_qual.h"
 #include "lancet2/read_info.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
-using NodeIdentifier = std::size_t;
+using NodeIdentifier = usize;
 
 class Node {
  public:
-  std::size_t ComponentID = 0;  // NOLINT
+  usize ComponentID = 0;  // NOLINT
 
   explicit Node(const Kmer& k);
   explicit Node(NodeIdentifier nid) : nodeID(nid), quals(0), covs(0), labels(0) {}
   Node() = delete;
 
-  [[nodiscard]] auto CanMerge(const Node& buddy, BuddyPosition merge_dir, std::size_t k) const -> bool;
+  [[nodiscard]] auto CanMerge(const Node& buddy, BuddyPosition merge_dir, usize k) const -> bool;
 
   // Everything except edges are merged from `buddy` into the node
   // NOTE: nodeID is not updated for merged nodes. Original node ID is maintained so the hash table is still valid
-  void MergeBuddy(const Node& buddy, BuddyPosition dir, std::size_t k);
+  void MergeBuddy(const Node& buddy, BuddyPosition dir, usize k);
 
   [[nodiscard]] auto FwdSeq() const noexcept -> std::string { return mer.FwdSeq(); }
   [[nodiscard]] auto SeqView() const noexcept -> std::string_view { return mer.SeqView(); }
   [[nodiscard]] auto Orientation() const noexcept -> Strand { return mer.Orientation(); }
-  [[nodiscard]] auto Length() const noexcept -> std::size_t { return mer.Length(); }
+  [[nodiscard]] auto Length() const noexcept -> usize { return mer.Length(); }
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool {
     return mer.IsEmpty() && quals.IsEmpty() && covs.IsEmpty() && labels.IsEmpty();
@@ -72,15 +71,15 @@ class Node {
   [[nodiscard]] auto HasSelfLoop() const -> bool;
   [[nodiscard]] auto HasConnection(NodeIdentifier dest) const -> bool;
 
-  [[nodiscard]] auto NumEdges(Strand direction) const -> std::size_t;
-  [[nodiscard]] auto NumEdges() const -> std::size_t;
+  [[nodiscard]] auto NumEdges(Strand direction) const -> usize;
+  [[nodiscard]] auto NumEdges() const -> usize;
 
   void UpdateQual(std::string_view sv);
   void UpdateLabel(KmerLabel label);
 
-  void UpdateHPInfo(const ReadInfo& ri, std::uint32_t min_base_qual);
-  void UpdateCovInfo(const ReadInfo& ri, std::uint32_t min_base_qual, bool is_tenx_mode);
-  void IncrementCov(SampleLabel label, Strand s, std::size_t base_position);
+  void UpdateHPInfo(const ReadInfo& ri, u32 min_base_qual);
+  void UpdateCovInfo(const ReadInfo& ri, u32 min_base_qual, bool is_tenx_mode);
+  void IncrementCov(SampleLabel label, Strand s, usize base_position);
 
   [[nodiscard]] auto FillColor() const -> std::string;
 
@@ -88,16 +87,16 @@ class Node {
   [[nodiscard]] auto HasLabel(KmerLabel label) const -> bool;
   [[nodiscard]] auto IsLabelOnly(KmerLabel label) const -> bool;
 
-  [[nodiscard]] auto TotalSampleCount() const -> std::uint16_t;
-  [[nodiscard]] auto SampleCount(SampleLabel label) const -> std::uint16_t;
-  [[nodiscard]] auto SampleCount(SampleLabel label, Strand s) const -> std::uint16_t;
-  [[nodiscard]] auto BXCount(SampleLabel label, Strand s) const -> std::uint16_t;
+  [[nodiscard]] auto TotalSampleCount() const -> u16;
+  [[nodiscard]] auto SampleCount(SampleLabel label) const -> u16;
+  [[nodiscard]] auto SampleCount(SampleLabel label, Strand s) const -> u16;
+  [[nodiscard]] auto BXCount(SampleLabel label, Strand s) const -> u16;
 
-  [[nodiscard]] auto CovAt(SampleLabel label, std::size_t pos) -> BaseCov& { return covs.At(label, pos); }
-  [[nodiscard]] auto CovAt(SampleLabel label, std::size_t pos) const -> const BaseCov& { return covs.At(label, pos); }
-  [[nodiscard]] auto MinSampleBaseCov(bool bq_pass = false) const -> std::uint16_t;
+  [[nodiscard]] auto CovAt(SampleLabel label, usize pos) -> BaseCov& { return covs.At(label, pos); }
+  [[nodiscard]] auto CovAt(SampleLabel label, usize pos) const -> const BaseCov& { return covs.At(label, pos); }
+  [[nodiscard]] auto MinSampleBaseCov(bool bq_pass = false) const -> u16;
 
-  [[nodiscard]] auto LowQualPositions(std::uint32_t min_bq) const -> std::vector<bool>;
+  [[nodiscard]] auto LowQualPositions(u32 min_bq) const -> std::vector<bool>;
 
   [[nodiscard]] auto CovData() const noexcept -> NodeCov { return covs; }
   [[nodiscard]] auto HasBXData() const noexcept -> bool { return !bxData.IsEmpty(); }
@@ -107,7 +106,7 @@ class Node {
 
   [[nodiscard]] auto FindMergeableNeighbours() const -> std::vector<NodeNeighbour>;
 
-  void Reserve(const std::size_t count) {
+  void Reserve(const usize count) {
     quals.Reserve(count);
     covs.Reserve(count);
     labels.Reserve(count);
@@ -118,8 +117,8 @@ class Node {
   Kmer mer;
   NodeIdentifier nodeID;
 
-  std::size_t numMockEdges = 0;
-  std::size_t numSelfEdges = 0;
+  usize numMockEdges = 0;
+  usize numSelfEdges = 0;
   EdgeContainer orderedEdges;
   absl::flat_hash_set<Edge> edgeSet;
 

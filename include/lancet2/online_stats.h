@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
 #include <cstdlib>
 #include <limits>
+
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 namespace detail {
@@ -46,15 +47,17 @@ class OnlineStats {
     const auto delta1 = other.moment1 - moment1;
     const auto delta2 = delta1 * delta1;
 
-    moment1 = (( static_cast<double>(num) * moment1) + (static_cast<double>(other.num) * other.moment1)) / static_cast<double>(newNum);
-    moment2 = moment2 + other.moment2 + delta2 * static_cast<double>(num) * static_cast<double>(other.num) / static_cast<double>(newNum);
+    moment1 = ((static_cast<double>(num) * moment1) + (static_cast<double>(other.num) * other.moment1)) /
+              static_cast<double>(newNum);
+    moment2 = moment2 + other.moment2 +
+              delta2 * static_cast<double>(num) * static_cast<double>(other.num) / static_cast<double>(newNum);
     num = newNum;
 
     return *this;
   }
 
   [[nodiscard]] auto IsEmpty() const -> bool { return num == 0; }
-  [[nodiscard]] auto Size() const -> std::size_t { return num; }
+  [[nodiscard]] auto Size() const -> usize { return num; }
   [[nodiscard]] auto Mean() const -> double { return moment1; }
   [[nodiscard]] auto Variance() const -> double { return num < 2 ? 0 : moment2 / static_cast<double>(num - 1); }
   [[nodiscard]] auto StandardDeviation() const -> double { return std::sqrt(Variance()); }
@@ -73,7 +76,7 @@ class OnlineStats {
   }
 
  private:
-  std::size_t num = 0;
+  usize num = 0;
   double moment1 = 0.0;
   double moment2 = 0.0;
 };

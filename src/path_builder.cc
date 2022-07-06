@@ -7,7 +7,7 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-PathBuilder::PathBuilder(std::size_t k, bool is_tenx_mode) : kmerSize(k), isTenxMode(is_tenx_mode) {}
+PathBuilder::PathBuilder(usize k, bool is_tenx_mode) : kmerSize(k), isTenxMode(is_tenx_mode) {}
 
 void PathBuilder::Extend(const Edge *link, const Node *destination) {
   LANCET_ASSERT(!destination->IsMockNode());  // NOLINT

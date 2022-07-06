@@ -1,14 +1,14 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
 
 #include "lancet2/base_cov.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 struct HPCount {
-  std::uint16_t raw = 0;
-  std::uint16_t bqPass = 0;
+  u16 raw = 0;
+  u16 bqPass = 0;
 };
 
 // HP0, HP1, HP2 -> HaplptypeCount

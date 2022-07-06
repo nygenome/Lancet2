@@ -1,25 +1,25 @@
 #pragma once
 
-#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/time/time.h" // NOLINT
+#include "absl/time/time.h"  // NOLINT
 #include "absl/types/span.h"
 #include "blockingconcurrentqueue.h"
 #include "concurrentqueue.h"
 #include "lancet2/cli_params.h"
 #include "lancet2/read_extractor.h"
 #include "lancet2/ref_window.h"
+#include "lancet2/sized_ints.h"
 #include "lancet2/variant.h"
 #include "lancet2/variant_store.h"
 
 namespace lancet2 {
 struct WindowResult {
   absl::Duration runtime = absl::ZeroDuration();  // NOLINT
-  std::size_t windowIdx = 0;                      // NOLINT
+  usize windowIdx = 0;                            // NOLINT
 
   [[nodiscard]] auto IsEmpty() const -> bool { return runtime == absl::ZeroDuration() && windowIdx == 0; }
 };

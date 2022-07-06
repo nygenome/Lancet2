@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cstddef>
-
 #include "lancet2/edge.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
-using NodeIdentifier = std::size_t;
+using NodeIdentifier = usize;
 
 struct NodeNeighbour {
   explicit NodeNeighbour(const Edge& e) : buddyId(e.DestinationID()), edgeKind(e.Kind()) {}
@@ -20,12 +19,12 @@ struct NodeNeighbour {
   auto operator!=(const NodeNeighbour& other) const -> bool { return !(*this == other); }
 
   auto operator<(const NodeNeighbour& other) const -> bool {
-    return static_cast<std::uint8_t>(edgeKind) < static_cast<std::uint8_t>(other.edgeKind) || buddyId < other.buddyId;
+    return static_cast<u8>(edgeKind) < static_cast<u8>(other.edgeKind) || buddyId < other.buddyId;
   }
 
   template <typename H>
   friend auto AbslHashValue(H h, const NodeNeighbour& n) -> H {
-    return H::combine(std::move(h), n.buddyId, static_cast<std::uint8_t>(n.edgeKind));
+    return H::combine(std::move(h), n.buddyId, static_cast<u8>(n.edgeKind));
   }
 };
 }  // namespace lancet2

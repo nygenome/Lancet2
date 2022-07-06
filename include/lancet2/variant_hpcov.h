@@ -8,11 +8,11 @@ struct VariantHpCov {
   VariantHpCov(HpCov ref, HpCov alt) : refAl(ref), altAl(alt) {}
   VariantHpCov() = delete;
 
-  [[nodiscard]] auto TotalRefCov() const -> std::uint16_t { return refAl.TotalCov(); }
-  [[nodiscard]] auto TotalAltCov() const -> std::uint16_t { return altAl.TotalCov(); }
-  [[nodiscard]] auto TotalCov() const -> std::uint16_t { return refAl.TotalCov() + altAl.TotalCov(); }
+  [[nodiscard]] auto TotalRefCov() const -> u16 { return refAl.TotalCov(); }
+  [[nodiscard]] auto TotalAltCov() const -> u16 { return altAl.TotalCov(); }
+  [[nodiscard]] auto TotalCov() const -> u16 { return refAl.TotalCov() + altAl.TotalCov(); }
 
-  [[nodiscard]] auto RefHP(Haplotype hp) const -> std::uint16_t {
+  [[nodiscard]] auto RefHP(Haplotype hp) const -> u16 {
     switch (hp) {
       case Haplotype::UNASSIGNED:
         return refAl.HP0;
@@ -24,7 +24,7 @@ struct VariantHpCov {
     __builtin_unreachable();
   }
 
-  [[nodiscard]] auto AltHP(Haplotype hp) const -> std::uint16_t {
+  [[nodiscard]] auto AltHP(Haplotype hp) const -> u16 {
     switch (hp) {
       case Haplotype::UNASSIGNED:
         return altAl.HP0;
@@ -36,7 +36,7 @@ struct VariantHpCov {
     __builtin_unreachable();
   }
 
-  [[nodiscard]] auto TotalHP(Haplotype hp) const -> std::uint16_t { return RefHP(hp) + AltHP(hp); }
+  [[nodiscard]] auto TotalHP(Haplotype hp) const -> u16 { return RefHP(hp) + AltHP(hp); }
 
   HpCov refAl;  // NOLINT
   HpCov altAl;  // NOLINT

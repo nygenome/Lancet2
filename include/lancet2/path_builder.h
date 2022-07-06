@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -10,22 +9,23 @@
 #include "lancet2/edge.h"
 #include "lancet2/node.h"
 #include "lancet2/path.h"
+#include "lancet2/sized_ints.h"
 
 namespace lancet2 {
 class PathBuilder {
  public:
-  explicit PathBuilder(std::size_t k, bool is_tenx_mode);
+  explicit PathBuilder(usize k, bool is_tenx_mode);
   PathBuilder() = delete;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return nodesList.empty(); }
-  [[nodiscard]] auto NumNodes() const noexcept -> std::size_t { return nodesList.size(); }
-  [[nodiscard]] auto PathLength() const noexcept -> std::size_t { return pathLen; }
+  [[nodiscard]] auto NumNodes() const noexcept -> usize { return nodesList.size(); }
+  [[nodiscard]] auto PathLength() const noexcept -> usize { return pathLen; }
   [[nodiscard]] auto Direction() const noexcept -> Strand { return pathDir; }
 
   void MarkSinkTouch() { touchedSink = true; }
   [[nodiscard]] auto TouchedSink() const noexcept -> bool { return touchedSink; }
 
-  [[nodiscard]] auto Score() const noexcept -> std::size_t { return pathScore; }
+  [[nodiscard]] auto Score() const noexcept -> usize { return pathScore; }
   void IncrementScore() { ++pathScore; }
 
   [[nodiscard]] auto LastNode() const noexcept -> const Node* {
@@ -41,9 +41,9 @@ class PathBuilder {
   absl::InlinedVector<const Node*, 64> nodesList;
   absl::InlinedVector<const Edge*, 64> edgesList;
   Strand pathDir = Strand::FWD;
-  std::size_t kmerSize = 0;
-  std::size_t pathLen = 0;
-  std::size_t pathScore = 0;
+  usize kmerSize = 0;
+  usize pathLen = 0;
+  usize pathScore = 0;
   bool isTenxMode = false;
   bool touchedSink = false;
 

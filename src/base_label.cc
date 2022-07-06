@@ -1,7 +1,5 @@
 #include "lancet2/base_label.h"
 
-#include <cstdint>
-
 namespace lancet2 {
 BaseLabel::BaseLabel(KmerLabel label) { SetLabel(label); }
 
@@ -9,11 +7,9 @@ BaseLabel::BaseLabel(std::initializer_list<KmerLabel> labels) {
   for (const auto& label : labels) SetLabel(label);
 }
 
-auto BaseLabel::ToBitPosition(KmerLabel label) -> std::size_t {
-  return static_cast<std::size_t>(static_cast<std::uint8_t>(label));
-}
+auto BaseLabel::ToBitPosition(KmerLabel label) -> usize { return static_cast<usize>(static_cast<u8>(label)); }
 
-auto BaseLabel::Count() const noexcept -> std::size_t { return bits.count(); }
+auto BaseLabel::Count() const noexcept -> usize { return bits.count(); }
 
 void BaseLabel::SetLabel(KmerLabel label, bool value) { bits.set(ToBitPosition(label), value); }
 

@@ -10,7 +10,7 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-void Graph::DotSerializer::write_component(std::size_t comp_id, const std::string& suffix) const {
+void Graph::DotSerializer::write_component(usize comp_id, const std::string& suffix) const {
   const auto outDir = graphPtr->params->outGraphsDir.empty() ? std::filesystem::current_path()
                                                              : std::filesystem::path(graphPtr->params->outGraphsDir);
   const auto windowID = graphPtr->window->ToRegionString();
@@ -23,10 +23,10 @@ void Graph::DotSerializer::write_component(std::size_t comp_id, const std::strin
   outStream.close();
 }
 
-void Graph::DotSerializer::write_component(std::size_t comp_id, absl::Span<const PathNodeIds> flow_paths) const {
+void Graph::DotSerializer::write_component(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const {
   //  https://www.wolframalpha.com/input/?i=Golden+ratio
   static constexpr double goldenRatioConjugate = 0.618033988749894848204586834365638117720309179805762862135;
-  std::size_t pathNum = 0;
+  usize pathNum = 0;
   double currentHue = 0.0;
 
   const auto windowID = graphPtr->window->ToRegionString();
@@ -58,7 +58,7 @@ edge [color=gray,fontsize=8,fontcolor=floralwhite,len=3,fixedsize=false,headclip
   out_stream << header;
 }
 
-void Graph::DotSerializer::dump_component(std::size_t comp_id, std::ostream& out_stream) const {
+void Graph::DotSerializer::dump_component(usize comp_id, std::ostream& out_stream) const {
   out_stream << absl::StreamFormat("subgraph component_%d", comp_id) << " {\n";
 
   std::for_each(graphPtr->nodesMap.cbegin(), graphPtr->nodesMap.cend(), [&](Graph::NodeContainer::const_reference p) {
