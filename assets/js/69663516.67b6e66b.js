@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunklancet_2_website=self.webpackChunklancet_2_website||[]).push([[288],{4611:function(e){e.exports=JSON.parse('{"permalink":"/Lancet2/blog/tags/docusaurus","page":1,"postsPerPage":10,"totalPages":1,"totalCount":4,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

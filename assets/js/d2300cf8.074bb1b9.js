@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunklancet_2_website=self.webpackChunklancet_2_website||[]).push([[26],{4080:function(e){e.exports=JSON.parse('{"label":"facebook","permalink":"/Lancet2/blog/tags/facebook","allTagsPath":"/Lancet2/blog/tags","count":1}')}}]);
