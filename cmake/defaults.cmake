@@ -13,16 +13,10 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 # Use ccache if found to cache previously built object files
 find_program(CCACHE_EXE ccache)
-mark_as_advanced(FORCE CCACHE_EXE)
-
 if(CCACHE_EXE)
     message(STATUS "Found ccache in PATH. Using ccache to speed up recompilation")
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_EXE})
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_EXE})
-endif()
-
-if(APPLE)
-    mark_as_advanced(FORCE CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT)
 endif()
 
 # Add Debug flags

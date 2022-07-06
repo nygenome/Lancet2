@@ -1,13 +1,8 @@
 include(ExternalProject)
 include(FetchContent)
-mark_as_advanced(FORCE FETCHCONTENT_BASE_DIR FETCHCONTENT_QUIET
-        FETCHCONTENT_FULLY_DISCONNECTED FETCHCONTENT_UPDATES_DISCONNECTED)
-
 include(ProcessorCount)
 ProcessorCount(NumCores)
-
 find_program(MAKE_EXE NAMES gmake nmake make)
-mark_as_advanced(FORCE MAKE_EXE)
 
 # Overwrite the message() function to prevent subproject deps to write messages
 function(message)
@@ -16,10 +11,20 @@ function(message)
     endif ()
 endfunction()
 
+set(LIBDEFLATE_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/libdeflate")
+set(LIBDEFLATE "${LIBDEFLATE_ROOT_DIR}/libdeflate.a")
+ExternalProject_Add(libdeflate
+        URL https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.12.tar.gz
+        URL_MD5 038cb9addf76c450115b7de0a6427a84
+        PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${LIBDEFLATE_ROOT_DIR}
+        BUILD_IN_SOURCE 1 INSTALL_COMMAND "" CONFIGURE_COMMAND "" BUILD_BYPRODUCTS ${LIBDEFLATE}
+        BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
+        LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON USES_TERMINAL_DOWNLOAD OFF
+        USER_TERMINAL_CONFIGURE OFF USES_TERMINAL_BUILD OFF)
+
 set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(HTSLIB_INCLUDE_DIR "${HTSLIB_ROOT_DIR}")
 set(LIBHTS "${HTSLIB_ROOT_DIR}/libhts.a")
-
 ExternalProject_Add(htslib
         URL https://github.com/samtools/htslib/releases/download/1.15.1/htslib-1.15.1.tar.bz2
         URL_MD5 9ea5cff8edcebb01f31dd02bd4d2a082
@@ -28,10 +33,10 @@ ExternalProject_Add(htslib
         CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/scripts/configure_htslib.sh ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER}
         BUILD_BYPRODUCTS ${LIBHTS} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON
         USES_TERMINAL_DOWNLOAD OFF USER_TERMINAL_CONFIGURE OFF USES_TERMINAL_BUILD OFF)
+add_dependencies(htslib libdeflate)
 
 set(GPERFTOOLS_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/gperftools")
 set(LIBPROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
 ExternalProject_Add(gperftools
         URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.10/gperftools-2.10.tar.gz
         URL_MD5 62bf6c76ba855ed580de5e139bd2a483
@@ -42,19 +47,6 @@ ExternalProject_Add(gperftools
         USES_TERMINAL_DOWNLOAD OFF USER_TERMINAL_CONFIGURE OFF USES_TERMINAL_BUILD OFF)
 
 set(MESSAGE_QUIET ON)
-
-#FetchContent_Declare(gzipxx GIT_REPOSITORY https://github.com/mapbox/gzip-hpp.git GIT_TAG v0.1.0)
-#FetchContent_GetProperties(gzipxx)
-#if(NOT gzipxx_POPULATED)
-#    FetchContent_Populate(gzipxx)
-#    add_library(gzipxx INTERFACE)
-#    target_include_directories(gzipxx SYSTEM INTERFACE ${gzipxx_SOURCE_DIR}/include)
-#endif()
-
-#set(FLATBUFFERS_BUILD_TESTS OFF)
-#set(FLATBUFFERS_MAX_PARSING_DEPTH 16)
-#FetchContent_Declare(flatbuffers GIT_REPOSITORY https://github.com/google/flatbuffers.git GIT_TAG v2.0.0)
-#FetchContent_MakeAvailable(flatbuffers)
 
 FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.3)
 FetchContent_GetProperties(concurrentqueue)
@@ -77,7 +69,7 @@ FetchContent_MakeAvailable(mimalloc)
 # Add abseil for general utilities. Update as often as possible.
 # See https://abseil.io/about/philosophy#upgrade-support
 FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-        GIT_TAG 76c7ad82415813cc0354647e4b9b73eaf68a9da0)
+        GIT_TAG b35ae3281ac7be49b42dc574403ff5fbcf1788fb)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
     set(BUILD_TESTING OFF)
@@ -87,13 +79,12 @@ if (NOT abseil_POPULATED)
     include(${abseil_SOURCE_DIR}/absl/copts/AbseilConfigureCopts.cmake)
 endif ()
 
-if (LANCET_UNIT_TESTS)
+if (LANCET2_TESTS)
     FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.0.1)
     FetchContent_MakeAvailable(catch)
 endif ()
 
-
-if (LANCET_BENCHMARKS)
+if (LANCET2_BENCHMARKS)
     set(BENCHMARK_ENABLE_TESTING OFF)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
     set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
