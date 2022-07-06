@@ -20,16 +20,16 @@ class FastaReader::Impl {
  public:
   explicit Impl(std::filesystem::path ref) : srcPath(std::move(ref)) { LoadIndex(); }
 
-  [[nodiscard]] auto RegionSequence(const GenomicRegion& region) const -> absl::StatusOr<std::string> {
-    if (!contigLengths.contains(region.Chromosome())) {
-      const auto errMsg = absl::StrFormat("contig %s not found in fasta %s", region.Chromosome(), srcPath);
+  [[nodiscard]] auto GetRegionSeq(const GenomicRegion& region) const -> absl::StatusOr<std::string> {
+    if (!contigLengths.contains(region.GetChromName())) {
+      const auto errMsg = absl::StrFormat("contig %s not found in fasta %s", region.GetChromName(), srcPath);
       return absl::InvalidArgumentError(errMsg);
     }
 
-    const auto chromMaxLen = contigLengths.at(region.Chromosome());
+    const auto chromMaxLen = contigLengths.at(region.GetChromName());
     int parsedSeqLen = 0;
-    const auto expectedSeqLen = region.Length() == 0 ? chromMaxLen : region.Length();
-    const auto regionString = region.ToRegionString();
+    const auto expectedSeqLen = region.GetLength() == 0 ? chromMaxLen : region.GetLength();
+    const auto regionString = region.ToSamtoolsRegion();
     char* rawSeqData = fai_fetch(idx.get(), regionString.c_str(), &parsedSeqLen);
 
     if (rawSeqData == nullptr || static_cast<usize>(parsedSeqLen) != expectedSeqLen) {
@@ -57,7 +57,7 @@ class FastaReader::Impl {
     return std::move(resultSeq);
   }
 
-  [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo> {
+  [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo> {
     std::vector<ContigInfo> result;
     result.reserve(numContigs);
     for (const auto& p : contigLengths) {
@@ -66,15 +66,15 @@ class FastaReader::Impl {
     return result;
   }
 
-  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, i64> { return contigIds; }
+  [[nodiscard]] auto GetContigIndexMap() const -> absl::flat_hash_map<std::string, i64> { return contigIds; }
 
-  [[nodiscard]] auto ContigId(std::string_view contig) const -> absl::StatusOr<i64> {
+  [[nodiscard]] auto GetContigIndex(std::string_view contig) const -> absl::StatusOr<i64> {
     const auto itr = contigIds.find(contig);
     if (itr != contigIds.end()) return itr->second;
     return absl::NotFoundError(absl::StrFormat("contig %s not found", contig));
   }
 
-  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
+  [[nodiscard]] auto GetContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
     const auto itr = contigLengths.find(contig);
     if (itr != contigLengths.end()) return itr->second;
     return absl::NotFoundError(absl::StrFormat("contig %s not found", contig));
@@ -110,20 +110,24 @@ FastaReader::~FastaReader() = default;
 
 void FastaReader::Open(const std::filesystem::path& ref) { pimpl = std::make_unique<Impl>(ref); }
 
-auto FastaReader::ContigSequence(const std::string& contig) const -> absl::StatusOr<std::string> {
-  return pimpl->RegionSequence(GenomicRegion(contig));
+auto FastaReader::GetContigSeq(const std::string& contig) const -> absl::StatusOr<std::string> {
+  return pimpl->GetRegionSeq(GenomicRegion(contig));
 }
 
-auto FastaReader::RegionSequence(const GenomicRegion& region) const -> absl::StatusOr<std::string> {
-  return pimpl->RegionSequence(region);
+auto FastaReader::GetRegionSeq(const GenomicRegion& region) const -> absl::StatusOr<std::string> {
+  return pimpl->GetRegionSeq(region);
 }
 
-auto FastaReader::ContigsInfo() const -> std::vector<ContigInfo> { return pimpl->ContigsInfo(); }
+auto FastaReader::GetContigs() const -> std::vector<ContigInfo> { return pimpl->GetContigs(); }
 
-auto FastaReader::ContigIDs() const -> absl::flat_hash_map<std::string, i64> { return pimpl->ContigIDs(); }
-auto FastaReader::ContigID(std::string_view contig) const -> absl::StatusOr<i64> { return pimpl->ContigId(contig); }
+auto FastaReader::GetContigIndexMap() const -> absl::flat_hash_map<std::string, i64> {
+  return pimpl->GetContigIndexMap();
+}
+auto FastaReader::GetContigIndex(std::string_view contig) const -> absl::StatusOr<i64> {
+  return pimpl->GetContigIndex(contig);
+}
 
-auto FastaReader::ContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
-  return pimpl->ContigLength(contig);
+auto FastaReader::GetContigLength(std::string_view contig) const -> absl::StatusOr<i64> {
+  return pimpl->GetContigLength(contig);
 }
 }  // namespace lancet2

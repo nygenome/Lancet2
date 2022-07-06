@@ -7,7 +7,7 @@ namespace lancet2 {
 using NodeIdentifier = usize;
 
 struct NodeNeighbour {
-  explicit NodeNeighbour(const Edge& e) : buddyId(e.DestinationID()), edgeKind(e.Kind()) {}
+  explicit NodeNeighbour(const Edge& e) : buddyId(e.GetDstID()), edgeKind(e.GetEdgeKind()) {}
   explicit NodeNeighbour(NodeIdentifier nid, EdgeKind ek) : buddyId(nid), edgeKind(ek) {}
 
   NodeIdentifier buddyId = 0;        // NOLINT

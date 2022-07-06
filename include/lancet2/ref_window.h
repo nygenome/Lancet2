@@ -14,20 +14,20 @@ class RefWindow {
  public:
   RefWindow() = default;
 
-  [[nodiscard]] auto WindowIndex() const -> usize { return winIdx; }
-  [[nodiscard]] auto Chromosome() const -> std::string { return chromName; }
-  [[nodiscard]] auto Sequence() const -> std::string { return sequence; }
-  [[nodiscard]] auto SeqView() const -> std::string_view { return sequence; }
-  [[nodiscard]] auto StartPosition0() const -> i64 { return startPos0; }
-  [[nodiscard]] auto EndPosition0() const -> i64 { return endPos0; }
+  [[nodiscard]] auto GetWindowIndex() const -> usize { return winIdx; }
+  [[nodiscard]] auto GetChromName() const -> std::string { return chromName; }
+  [[nodiscard]] auto GetSequence() const -> std::string { return sequence; }
+  [[nodiscard]] auto GetSeqView() const -> std::string_view { return sequence; }
+  [[nodiscard]] auto GetStartPos0() const -> i64 { return startPos0; }
+  [[nodiscard]] auto GetEndPos0() const -> i64 { return endPos0; }
 
   void SetWindowIndex(usize idx) { winIdx = idx; }
-  void SetChromosome(std::string chrom) { chromName = std::move(chrom); }
+  void SetChromName(std::string chrom) { chromName = std::move(chrom); }
   void SetSequence(std::string seq) { sequence = std::move(seq); }
-  void SetStartPosition0(i64 start) { startPos0 = start; }
-  void SetEndPosition0(i64 end) { endPos0 = end; }
+  void SetStartPos0(i64 start) { startPos0 = start; }
+  void SetEndPos0(i64 end) { endPos0 = end; }
 
-  [[nodiscard]] auto Length() const -> usize {
+  [[nodiscard]] auto GetLength() const -> usize {
     if (startPos0 < 0 || endPos0 < 0) return 0;
     return static_cast<usize>(endPos0 - startPos0);
   }
@@ -41,9 +41,9 @@ class RefWindow {
     return absl::StrFormat("%s:%d-%d", chromName, startPos0 + 1, endPos0);
   }
 
-  [[nodiscard]] auto ToGenomicRegion() const -> GenomicRegion {
+  [[nodiscard]] auto ToSamtoolsRegion() const -> GenomicRegion {
     // resulting genomic region is 1-based, includes start and end
-    return GenomicRegion(chromName, startPos0 + 1, endPos0);
+    return {chromName, static_cast<u32>(startPos0 + 1), static_cast<u32>(endPos0 + 1)};
   }
 
   [[nodiscard]] auto IsEmpty() const -> bool {

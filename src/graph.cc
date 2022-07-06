@@ -74,7 +74,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
       numPaths++;
       if (!params->outGraphsDir.empty()) perPathTouches.emplace_back(pathPtr->TouchedEdgeIDs());
 
-      if (utils::HasAlmostRepeatKmer(pathPtr->SeqView(), kmerSize, params->maxRptMismatch)) {
+      if (utils::HasAlmostRepeatKmer(pathPtr->GetSeqView(), kmerSize, params->maxRptMismatch)) {
         LOG_DEBUG("Found repeat {}-mer in path{} of component{} for {}", kmerSize, numPaths, comp.ID, windowId);
         shouldIncrementK = true;
         return;
@@ -82,7 +82,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
 
       ProcessPath(*pathPtr, clampedRefInfos, markResult, results);
       if (!params->outGraphsDir.empty()) {
-        WritePathFasta(pathPtr->SeqView(), comp.ID, numPaths);
+        WritePathFasta(pathPtr->GetSeqView(), comp.ID, numPaths);
       }
 
       pathPtr = flow.NextPath();
@@ -128,7 +128,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
       currNode->ComponentID = currentComponent;
       componentsInfo[currentComponent - 1].numNodes += 1;
       for (const Edge& e : *currNode) {
-        const auto neighbourItr = nodesMap.find(e.DestinationID());
+        const auto neighbourItr = nodesMap.find(e.GetDstID());
         if (neighbourItr == nodesMap.end()) continue;
         LANCET_ASSERT(neighbourItr->second != nullptr);  // NOLINT
         connectedNodes.push_back(neighbourItr->second.get());
@@ -145,7 +145,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
 }
 
 auto Graph::MarkSourceSink(usize comp_id) -> Graph::SrcSnkResult {
-  const auto refseq = window->SeqView();
+  const auto refseq = window->GetSeqView();
   auto refMerIDs = CanonicalKmerHashes(refseq, kmerSize);
   const auto srcResult = FindRefEnd(GraphEnd::SOURCE, comp_id, absl::MakeConstSpan(refMerIDs));
   if (!srcResult.foundEnd) return {false, 0, 0};
@@ -171,24 +171,24 @@ auto Graph::MarkSourceSink(usize comp_id) -> Graph::SrcSnkResult {
   LANCET_ASSERT(dataSrcItr != nodesMap.end());  // NOLINT
   LANCET_ASSERT(dataSnkItr != nodesMap.end());  // NOLINT
 
-  const auto fauxSrcToDataSrcKind = MakeEdgeKind(Strand::FWD, dataSrcItr->second->Orientation());
+  const auto fauxSrcToDataSrcKind = MakeEdgeKind(Strand::FWD, dataSrcItr->second->GetOrientation());
   fauxSrcItr->second->EmplaceEdge(dataSrcItr->first, fauxSrcToDataSrcKind);
   dataSrcItr->second->EmplaceEdge(MOCK_SOURCE_ID, ReverseEdgeKind(fauxSrcToDataSrcKind));
 
-  const auto isDataSnkRev = dataSnkItr->second->Orientation() == Strand::REV;
+  const auto isDataSnkRev = dataSnkItr->second->GetOrientation() == Strand::REV;
   const auto fauxSnkToDataSnkKind = isDataSnkRev ? EdgeKind::FF : EdgeKind::RR;
   fauxSnkItr->second->EmplaceEdge(dataSnkItr->first, fauxSnkToDataSnkKind);
   dataSnkItr->second->EmplaceEdge(MOCK_SINK_ID, ReverseEdgeKind(fauxSnkToDataSnkKind));
 
   const auto startBaseIdx = srcResult.refMerIdx;
-  const auto endBaseIdx = snkResult.refMerIdx + dataSnkItr->second->Length();
+  const auto endBaseIdx = snkResult.refMerIdx + dataSnkItr->second->GetLength();
 
   LANCET_ASSERT(fauxSrcItr->second->NumEdges() == 1);
   LANCET_ASSERT(fauxSnkItr->second->NumEdges() == 1);
-  LANCET_ASSERT((refseq.substr(startBaseIdx, kmerSize) == dataSrcItr->second->SeqView() ||
-                 utils::RevComp(refseq.substr(startBaseIdx, kmerSize)) == dataSrcItr->second->SeqView()) &&
-                (refseq.substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->SeqView() ||
-                 utils::RevComp(refseq.substr(endBaseIdx - kmerSize, kmerSize)) == dataSnkItr->second->SeqView()));
+  LANCET_ASSERT((refseq.substr(startBaseIdx, kmerSize) == dataSrcItr->second->GetSeqView() ||
+                 utils::RevComp(refseq.substr(startBaseIdx, kmerSize)) == dataSrcItr->second->GetSeqView()) &&
+                (refseq.substr(endBaseIdx - kmerSize, kmerSize) == dataSnkItr->second->GetSeqView() ||
+                 utils::RevComp(refseq.substr(endBaseIdx - kmerSize, kmerSize)) == dataSnkItr->second->GetSeqView()));
 
   return SrcSnkResult{true, startBaseIdx, endBaseIdx};
 }
@@ -252,7 +252,7 @@ auto Graph::RemoveTips(usize comp_id) -> bool {
     std::for_each(nodesMap.cbegin(), nodesMap.cend(),
                   [&nodesToRemove, &comp_id, &currK, &minTipLen](NodeContainer::const_reference p) {
                     if (p.second->IsMockNode() || p.second->ComponentID != comp_id) return;
-                    if (p.second->NumEdges() <= 1 && (p.second->Length() - currK + 1) < minTipLen) {
+                    if (p.second->NumEdges() <= 1 && (p.second->GetLength() - currK + 1) < minTipLen) {
                       nodesToRemove.emplace_back(p.first);
                     }
                   });
@@ -283,10 +283,10 @@ auto Graph::RemoveShortLinks(usize comp_id) -> bool {
         if (p.second->IsMockNode() || p.second->ComponentID == comp_id) return;
 
         const auto nodeDegree = p.second->NumEdges();
-        const auto uniqSeqLen = p.second->Length() - currK + 1;
+        const auto uniqSeqLen = p.second->GetLength() - currK + 1;
         const auto minRawCov = static_cast<float>(p.second->MinSampleBaseCov());
         if (nodeDegree >= 2 && uniqSeqLen < minLinkLen && minRawCov <= minReqCov) {
-          const auto trQuery = FindTandemRepeat(p.second->SeqView(), currK - 1, tandemParams);
+          const auto trQuery = FindTandemRepeat(p.second->GetSeqView(), currK - 1, tandemParams);
           // do not remove short-links within STRs: small bubbles are normal in STRs
           if (!trQuery.foundSTR) nodesToRemove.emplace_back(p.first);
         }
@@ -308,16 +308,16 @@ auto Graph::HasCycle() const -> bool {
 
 void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
                         std::vector<Variant>* results) const {
-  const auto pathSeq = path.SeqView();
-  const auto refAnchorSeq = window->SeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
+  const auto pathSeq = path.GetSeqView();
+  const auto refAnchorSeq = window->GetSeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
   if (pathSeq == refAnchorSeq) return;
 
   // check that reference seq length and reference data lengths are same
   LANCET_ASSERT(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
   LANCET_ASSERT(refAnchorSeq.length() == ref_infos[1].length());  // NOLINT
 
-  AlignedSequences rawAlignedSeqs;  // need to create this because `goto`
-  auto aligned = AlignedSequencesView{refAnchorSeq, pathSeq};
+  AlnSeqs rawAlignedSeqs;  // need to create this because `goto`
+  auto aligned = AlnSeqsView{refAnchorSeq, pathSeq};
   if (utils::HammingDistWithin(refAnchorSeq, pathSeq, 5)) goto SkipLocalAlignment;  // NOLINT
 
   try {
@@ -336,7 +336,7 @@ SkipLocalAlignment:
   const auto refStartTrim = TrimEndGaps(&aligned);
 
   // 0-based reference anchor position in absolute chromosome coordinates
-  const auto anchorGenomeStart = static_cast<usize>(window->StartPosition0()) + einfo.startOffset + refStartTrim;
+  const auto anchorGenomeStart = static_cast<usize>(window->GetStartPos0()) + einfo.startOffset + refStartTrim;
   usize refIdx = 0;   // 0-based coordinate
   usize refPos = 0;   // 1-based coordinate
   usize pathPos = 0;  // 1-based coordinate
@@ -390,7 +390,7 @@ SkipLocalAlignment:
       --prevPathIdx;
     }
 
-    LANCET_ASSERT(pathIdx < path.Length());         // NOLINT
+    LANCET_ASSERT(pathIdx < path.GetLength());      // NOLINT
     LANCET_ASSERT(refIdx < ref_infos[0].length());  // NOLINT
     LANCET_ASSERT(refIdx < ref_infos[1].length());  // NOLINT
 
@@ -410,7 +410,7 @@ SkipLocalAlignment:
           SampleCov(ref_infos[0].at(refIdx), path.HpCovAt(SampleLabel::NORMAL, pathIdx)),
           SampleCov(ref_infos[1].at(refIdx), path.HpCovAt(SampleLabel::TUMOR, pathIdx))};
 
-      const auto chromName = window->Chromosome();
+      const auto chromName = window->GetChromName();
       transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases, sampleCovs, withinTumorNode);
       continue;
     }
@@ -477,7 +477,7 @@ SkipLocalAlignment:
                           .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
                     }
 
-                    if (currPathIdx >= path.Length()) continue;
+                    if (currPathIdx >= path.GetLength()) continue;
                     transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
                         .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
                   }
@@ -504,12 +504,12 @@ void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_
 
 void Graph::WriteDot(usize comp_id, const std::string& suffix) const {
   const DotSerializer ds(this);
-  ds.write_component(comp_id, suffix);
+  ds.WriteComponent(comp_id, suffix);
 }
 
 void Graph::WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const {
   const DotSerializer ds(this);
-  ds.write_component(comp_id, flow_paths);
+  ds.WriteComponent(comp_id, flow_paths);
 }
 
 void Graph::EraseNode(NodeIterator itr) {
@@ -517,9 +517,9 @@ void Graph::EraseNode(NodeIterator itr) {
 
   // remove edges associated with the to be removed nodes first, then remove the node
   for (const Edge& e : *itr->second) {
-    auto neighbourItr = nodesMap.find(e.DestinationID());
+    auto neighbourItr = nodesMap.find(e.GetDstID());
     if (neighbourItr == nodesMap.end()) continue;
-    neighbourItr->second->EraseEdge(itr->first, ReverseEdgeKind(e.Kind()));
+    neighbourItr->second->EraseEdge(itr->first, ReverseEdgeKind(e.GetEdgeKind()));
   }
 
   nodesMap.erase(itr);
@@ -604,14 +604,14 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
 
     const auto srcBuddyDiffStrands = SourceStrand(srcToBuddy.edgeKind) != DestStrand(srcToBuddy.edgeKind);
     for (const Edge& buddyE : *buddyItr->second) {
-      const auto buddyNeighbourId = buddyE.DestinationID();
+      const auto buddyNeighbourId = buddyE.GetDstID();
       if (buddyNeighbourId == src_id) continue;
 
       auto buddysNeighbourItr = nodesMap.find(buddyNeighbourId);
       if (buddysNeighbourItr == nodesMap.end()) continue;
 
-      const auto srcLinkStrand = srcBuddyDiffStrands ? ReverseStrand(buddyE.SrcDirection()) : buddyE.SrcDirection();
-      const auto resultKind = MakeEdgeKind(srcLinkStrand, buddyE.DstDirection());
+      const auto srcLinkStrand = srcBuddyDiffStrands ? ReverseStrand(buddyE.GetSrcDir()) : buddyE.GetSrcDir();
+      const auto resultKind = MakeEdgeKind(srcLinkStrand, buddyE.GetDstDir());
 
       if (buddyNeighbourId == srcToBuddy.buddyId) {
         srcItr->second->EmplaceEdge(srcItr->first, resultKind);
@@ -638,9 +638,9 @@ auto Graph::HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_s
 
   touched->insert(node_id);
   for (const Edge& e : *itr->second) {
-    const auto neighbourId = e.DestinationID();
-    if (neighbourId == MOCK_SOURCE_ID || neighbourId == MOCK_SINK_ID || e.SrcDirection() != direction) continue;
-    if (touched->find(neighbourId) == touched->end()) return HasCycle(neighbourId, e.DstDirection(), touched);
+    const auto neighbourId = e.GetDstID();
+    if (neighbourId == MOCK_SOURCE_ID || neighbourId == MOCK_SINK_ID || e.GetSrcDir() != direction) continue;
+    if (touched->find(neighbourId) == touched->end()) return HasCycle(neighbourId, e.GetDstDir(), touched);
     touched->erase(node_id);
     return true;
   }
@@ -659,7 +659,7 @@ void Graph::DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc) {
   LANCET_ASSERT(itr != nc.end());  // NOLINT
 
   for (const Edge& e : *itr->second) {
-    auto neighbourItr = nc.find(e.DestinationID());
+    auto neighbourItr = nc.find(e.GetDstID());
     if (neighbourItr == nc.end()) continue;
     neighbourItr->second->EraseEdge(itr->first);
   }

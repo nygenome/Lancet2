@@ -8,18 +8,19 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-Node::Node(const Kmer& k) : mer(k), nodeID(k.ID()), quals(k.Length()), covs(k.Length()), labels(k.Length()) {}
+Node::Node(const Kmer& k)
+    : mer(k), nodeID(k.GetHash()), quals(k.GetLength()), covs(k.GetLength()), labels(k.GetLength()) {}
 
 auto Node::CanMerge(const Node& buddy, BuddyPosition merge_dir, usize k) const -> bool {
   if (IsMockNode() || buddy.IsMockNode()) return false;
-  const auto reverseBuddy = buddy.Orientation() != Orientation();
+  const auto reverseBuddy = buddy.GetOrientation() != GetOrientation();
   return mer.CanMergeKmers(buddy.mer, merge_dir, reverseBuddy, k);
 }
 
 void Node::MergeBuddy(const Node& buddy, BuddyPosition dir, usize k) {
   // Everything except edges are merged from buddy into the node
-  const auto reverseBuddy = buddy.Orientation() != Orientation();
-  Reserve(mer.Length() + buddy.Length() - k + 1);
+  const auto reverseBuddy = buddy.GetOrientation() != GetOrientation();
+  Reserve(mer.GetLength() + buddy.GetLength() - k + 1);
 
   mer.MergeBuddy(buddy.mer, dir, reverseBuddy, k);
   quals.MergeBuddy(buddy.quals, dir, reverseBuddy, k);
@@ -77,7 +78,7 @@ auto Node::HasConnection(NodeIdentifier dest_id) const -> bool {
 auto Node::NumEdges(Strand direction) const -> usize {
   return std::count_if(edgeSet.cbegin(), edgeSet.cend(), [&direction](const Edge& e) {
     // faux nodes are not supported by real data, they exist only for path travesal, skip them in counts
-    return e.SrcDirection() == direction && e.DestinationID() != MOCK_SOURCE_ID && e.DestinationID() != MOCK_SINK_ID;
+    return e.GetSrcDir() == direction && e.GetDstID() != MOCK_SOURCE_ID && e.GetDstID() != MOCK_SINK_ID;
   });
 }
 
@@ -145,7 +146,7 @@ auto Node::FindMergeableNeighbours() const -> std::vector<NodeNeighbour> {
 
   std::vector<NodeNeighbour> results;
   std::for_each(orderedEdges.cbegin(), orderedEdges.cend(), [&results](const Edge& e) {
-    if (e.DestinationID() == MOCK_SOURCE_ID || e.DestinationID() == MOCK_SINK_ID) return;
+    if (e.GetDstID() == MOCK_SOURCE_ID || e.GetDstID() == MOCK_SINK_ID) return;
     results.emplace_back(e);
   });
 

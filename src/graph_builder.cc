@@ -30,8 +30,8 @@ auto GraphBuilder::BuildGraph(usize min_k, usize max_k) -> std::unique_ptr<Graph
   LOG_DEBUG("Starting to build graph for {} using minK={}", windowId, min_k);
 
   for (currentK = min_k; currentK <= max_k; currentK += 2) {
-    if (utils::HasRepeatKmer(window->SeqView(), currentK)) continue;
-    if (utils::HasAlmostRepeatKmer(window->SeqView(), currentK, params->maxRptMismatch)) continue;
+    if (utils::HasRepeatKmer(window->GetSeqView(), currentK)) continue;
+    if (utils::HasAlmostRepeatKmer(window->GetSeqView(), currentK, params->maxRptMismatch)) continue;
 
     nodesMap.clear();
     BuildSampleNodes();
@@ -69,7 +69,7 @@ void GraphBuilder::BuildSampleNodes() {
       LANCET_ASSERT(itr1 != nodesMap.end());  // NOLINT
       LANCET_ASSERT(itr2 != nodesMap.end());  // NOLINT
 
-      const auto firstEk = MakeEdgeKind(itr1->second->Orientation(), itr2->second->Orientation());
+      const auto firstEk = MakeEdgeKind(itr1->second->GetOrientation(), itr2->second->GetOrientation());
       itr1->second->EmplaceEdge(secondId, firstEk);
       itr2->second->EmplaceEdge(firstId, ReverseEdgeKind(firstEk));
 
@@ -81,7 +81,7 @@ void GraphBuilder::BuildSampleNodes() {
       // since we are moving with consecutive kmers, we know unique nodes by iteration index
       auto currItr = idx == 0 ? itr1 : itr2;
       const auto& currQual = idx == 0 ? qualMers[idx] : qualMers[idx + 1];
-      const auto isCurrFwd = currItr->second->Orientation() == Strand::FWD;
+      const auto isCurrFwd = currItr->second->GetOrientation() == Strand::FWD;
 
       currItr->second->UpdateQual(isCurrFwd ? currQual : std::string(currQual.crbegin(), currQual.crend()));
       if (params->tenxMode) currItr->second->UpdateHPInfo(rd, params->minBaseQual);
@@ -102,7 +102,7 @@ void GraphBuilder::BuildSampleNodes() {
 
 void GraphBuilder::BuildRefNodes() {
   const auto refDataBuilt = refNmlData.size() == params->windowLength && refTmrData.size() == params->windowLength;
-  const auto refMerHashes = CanonicalKmerHashes(window->SeqView(), currentK);
+  const auto refMerHashes = CanonicalKmerHashes(window->GetSeqView(), currentK);
 
   if (!refDataBuilt) BuildRefData(absl::MakeConstSpan(refMerHashes));
   usize numMarked = 0;
@@ -125,7 +125,7 @@ void GraphBuilder::BuildRefNodes() {
     }
 
     if (foundNode1 && foundNode2) {
-      const auto firstEk = MakeEdgeKind(itr1->second->Orientation(), itr2->second->Orientation());
+      const auto firstEk = MakeEdgeKind(itr1->second->GetOrientation(), itr2->second->GetOrientation());
       itr1->second->EmplaceEdge(itr2->first, firstEk);
       itr2->second->EmplaceEdge(itr1->first, ReverseEdgeKind(firstEk));
     }
@@ -141,7 +141,7 @@ auto GraphBuilder::BuildNodes(absl::string_view seq) -> GraphBuilder::BuildNodes
   result.nodeIDs.reserve(mers.size());
 
   for (auto&& mer : mers) {
-    const auto merId = mer.ID();
+    const auto merId = mer.GetHash();
     result.nodeIDs.emplace_back(merId);
 
     if (nodesMap.find(merId) == nodesMap.end()) {
@@ -177,9 +177,9 @@ void GraphBuilder::RecoverKmers() {
 
       // get 6 alternative kmers within 1 edit distance to original kmer
       // TODO(omicsnut): pick alt kmer with highest/lowest support and only increment that?
-      for (const auto& altKmer : MutateSeq(p.second->SeqView(), basePos)) {
+      for (const auto& altKmer : MutateSeq(p.second->GetSeqView(), basePos)) {
         // check if alternative kmer exists in the graph
-        auto altKmerItr = nodesMap.find(Kmer(altKmer).ID());
+        auto altKmerItr = nodesMap.find(Kmer(altKmer).GetHash());
         if (altKmerItr == nodesMap.end()) continue;
         // check if node with alternative kmer has atleast one HQ tumor base at `basePos`
         // and has atleast `minReadSupport` tumor reads supporting it
@@ -213,7 +213,7 @@ void GraphBuilder::BuildRefData(absl::Span<const usize> ref_mer_hashes) {
   for (const auto& merHash : ref_mer_hashes) {
     const auto itr = nodesMap.find(merHash);
     const auto foundNode = itr != nodesMap.end();
-    const auto shouldReverse = foundNode && itr->second->Orientation() == Strand::REV;
+    const auto shouldReverse = foundNode && itr->second->GetOrientation() == Strand::REV;
 
     if (refCovs.IsEmpty()) {
       refCovs.Reserve(params->windowLength);

@@ -7,8 +7,8 @@
 
 namespace lancet2 {
 NodeHP::NodeHP(const NodeCov& node_cov) {
-  tmrHPs.reserve(node_cov.Size());
-  nmlHPs.reserve(node_cov.Size());
+  tmrHPs.reserve(node_cov.GetSize());
+  nmlHPs.reserve(node_cov.GetSize());
 
   const auto tmrBases = node_cov.BaseCovs(SampleLabel::TUMOR);
   const auto nmlBases = node_cov.BaseCovs(SampleLabel::NORMAL);

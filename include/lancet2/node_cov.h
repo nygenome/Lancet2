@@ -34,7 +34,7 @@ class NodeCov {
   }
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return tmrBases.empty(); }
-  [[nodiscard]] auto Size() const noexcept -> usize { return tmrBases.size(); }
+  [[nodiscard]] auto GetSize() const noexcept -> usize { return tmrBases.size(); }
 
   void Clear();
   void Reverse();

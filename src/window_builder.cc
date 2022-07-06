@@ -32,12 +32,12 @@ auto WindowBuilder::AddBedFileRegions(const std::filesystem::path &bed) -> absl:
 }
 
 void WindowBuilder::AddAllRefRegions() {
-  const auto ctgInfos = refRdr.ContigsInfo();
+  const auto ctgInfos = refRdr.GetContigs();
   for (const auto &ctg : ctgInfos) {
     RefWindow w;
-    w.SetChromosome(ctg.contigName);
-    w.SetStartPosition0(0);
-    w.SetEndPosition0(ctg.contigLen);
+    w.SetChromName(ctg.contigName);
+    w.SetStartPos0(0);
+    w.SetEndPos0(ctg.contigLen);
     inputRegions.emplace_back(std::move(w));
   }
 }
@@ -50,36 +50,37 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &co
   const auto stepSize = StepSize(pctWindowOverlap, windowLength);
 
   for (const auto &rawReg : inputRegions) {
-    if (!contig_ids.contains(rawReg.Chromosome())) {
-      throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", rawReg.Chromosome()));
+    if (!contig_ids.contains(rawReg.GetChromName())) {
+      throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", rawReg.GetChromName()));
     }
 
     const auto paddedResult = PadWindow(rawReg);
     if (!paddedResult.ok()) return paddedResult.status();
     const auto &finalRegion = paddedResult.value();
 
-    if (finalRegion.Length() <= windowLength) {
+    if (finalRegion.GetLength() <= windowLength) {
       results.emplace_back(std::make_shared<RefWindow>(finalRegion));
       continue;
     }
 
-    i64 currWindowStart = finalRegion.StartPosition0();
-    const auto maxWindowPos = finalRegion.EndPosition0();
+    i64 currWindowStart = finalRegion.GetStartPos0();
+    const auto maxWindowPos = finalRegion.GetEndPos0();
 
     while (currWindowStart < maxWindowPos) {
       const i64 currWindowEnd = currWindowStart + windowLength;
       results.emplace_back(std::make_shared<RefWindow>());
-      results.back()->SetChromosome(finalRegion.Chromosome());
-      results.back()->SetStartPosition0(currWindowStart);
-      results.back()->SetEndPosition0(currWindowEnd);
+      results.back()->SetChromName(finalRegion.GetChromName());
+      results.back()->SetStartPos0(currWindowStart);
+      results.back()->SetEndPos0(currWindowEnd);
       currWindowStart += stepSize;
     }
   }
 
   static const auto Comparator = [&contig_ids](const RefWindow &r1, const RefWindow &r2) -> bool {
-    if (r1.Chromosome() != r2.Chromosome()) return contig_ids.at(r1.Chromosome()) < contig_ids.at(r2.Chromosome());
-    if (r1.StartPosition0() != r2.StartPosition0()) return r1.StartPosition0() < r2.StartPosition0();
-    return r1.EndPosition0() < r2.EndPosition0();
+    if (r1.GetChromName() != r2.GetChromName())
+      return contig_ids.at(r1.GetChromName()) < contig_ids.at(r2.GetChromName());
+    if (r1.GetStartPos0() != r2.GetStartPos0()) return r1.GetStartPos0() < r2.GetStartPos0();
+    return r1.GetEndPos0() < r2.GetEndPos0();
   };
 
   std::sort(results.begin(), results.end(),
@@ -124,9 +125,9 @@ auto WindowBuilder::ParseRegion(std::string_view region_str) -> absl::StatusOr<R
   }
 
   RefWindow w;
-  w.SetChromosome(tokens[0]);
-  w.SetStartPosition0(winStart);
-  w.SetEndPosition0(winEnd);
+  w.SetChromName(tokens[0]);
+  w.SetStartPos0(winStart);
+  w.SetEndPos0(winEnd);
   return std::move(w);
 }
 
@@ -155,9 +156,9 @@ auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> absl::StatusOr
 
     // NOTE: bed file has 0-based start and end
     RefWindow w;
-    w.SetChromosome(tokens[0]);
-    w.SetStartPosition0(winStart);
-    w.SetEndPosition0(winEnd);
+    w.SetChromName(tokens[0]);
+    w.SetStartPos0(winStart);
+    w.SetEndPos0(winEnd);
     results.emplace_back(std::move(w));
   }
 
@@ -165,19 +166,19 @@ auto WindowBuilder::ParseBed(const std::filesystem::path &bed) -> absl::StatusOr
 }
 
 auto WindowBuilder::PadWindow(const RefWindow &w) const -> absl::StatusOr<RefWindow> {
-  const auto ctgMaxLen = refRdr.ContigLength(w.Chromosome());
+  const auto ctgMaxLen = refRdr.GetContigLength(w.GetChromName());
   if (!ctgMaxLen.ok()) return ctgMaxLen.status();
 
   const auto currMax = static_cast<i64>(ctgMaxLen.value());
-  const auto currStart = w.StartPosition0();
-  const auto currEnd = w.EndPosition0();
+  const auto currStart = w.GetStartPos0();
+  const auto currEnd = w.GetEndPos0();
 
   const auto startUnderflows = currStart < regionPadding;
   const auto endOverflows = (currEnd >= currMax) || ((currMax - currEnd) < regionPadding);
 
   RefWindow result(w);
-  startUnderflows ? result.SetStartPosition0(0) : result.SetStartPosition0(currStart - regionPadding);
-  endOverflows ? result.SetEndPosition0(currMax) : result.SetEndPosition0(currEnd + regionPadding);
+  startUnderflows ? result.SetStartPos0(0) : result.SetStartPos0(currStart - regionPadding);
+  endOverflows ? result.SetEndPos0(currMax) : result.SetEndPos0(currEnd + regionPadding);
   return std::move(result);
 }
 
@@ -205,7 +206,7 @@ auto BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids, const
     wb.AddAllRefRegions();
   }
 
-  LOG_INFO("Building windows using {} input regions", wb.Size());
+  LOG_INFO("Building windows using {} input regions", wb.GetSize());
   const auto windows = wb.BuildWindows(contig_ids);
   if (!windows.ok()) {
     LOG_ERROR(windows.status().message());

@@ -22,7 +22,7 @@ struct HpCov {
   u16 HP1 = 0;     // NOLINT
   u16 HP2 = 0;     // NOLINT
 
-  [[nodiscard]] auto TotalCov() const -> u16 { return fwdCov + revCov; }
+  [[nodiscard]] auto GetTotalCov() const -> u16 { return fwdCov + revCov; }
 };
 
 struct BaseHpCov {

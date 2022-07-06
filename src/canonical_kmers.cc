@@ -37,7 +37,7 @@ auto CanonicalKmerHashes(std::string_view sv, usize k) -> absl::FixedArray<usize
   for (usize offset = 0; offset <= endPos; offset++) {
     const auto subSeq = absl::ClippedSubstr(sv, offset, k);
     LANCET_ASSERT(subSeq.length() == k);  // NOLINT
-    result[offset] = Kmer(subSeq).ID();
+    result[offset] = Kmer(subSeq).GetHash();
   }
 
   return result;

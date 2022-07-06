@@ -75,7 +75,7 @@ static inline auto MaxScoreXY(const Cell& scorex, const Cell& scorey, int scorez
 static constexpr inline auto IsValidBase(const char& b) -> bool { return b == 'A' || b == 'C' || b == 'G' || b == 'T'; }
 
 using AlignedBases = std::pair<char, char>;
-auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
+auto Align(std::string_view ref, std::string_view qry) -> AlnSeqs {
   const auto refLen = ref.length();
   const auto qryLen = qry.length();
 
@@ -156,10 +156,10 @@ auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences {
 
   std::reverse(refAln.begin(), refAln.end());
   std::reverse(qryAln.begin(), qryAln.end());
-  return AlignedSequences{refAln, qryAln};
+  return AlnSeqs{refAln, qryAln};
 }
 
-auto TrimEndGaps(AlignedSequencesView* aln) -> usize {
+auto TrimEndGaps(AlnSeqsView* aln) -> usize {
   // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
   usize refStartTrim = 0;
   usize start = 0;

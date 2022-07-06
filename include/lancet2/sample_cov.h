@@ -17,17 +17,17 @@ class SampleCov {
   void PushRef(const BaseHpCov& ref);
   void PushAlt(const BaseHpCov& alt);
 
-  [[nodiscard]] auto Mean(Allele al, Strand st, bool bqpass) const -> float;
-  [[nodiscard]] auto Mean(Allele al, Haplotype hp, bool bqpass) const -> float;
+  [[nodiscard]] auto GetMean(Allele al, Strand st, bool bqpass) const -> float;
+  [[nodiscard]] auto GetMean(Allele al, Haplotype hp, bool bqpass) const -> float;
 
-  [[nodiscard]] auto NonZeroMean(Allele al, Strand st, bool bqpass) const -> float;
-  [[nodiscard]] auto NonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float;
+  [[nodiscard]] auto GetNonZeroMean(Allele al, Strand st, bool bqpass) const -> float;
+  [[nodiscard]] auto GetNonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float;
 
-  [[nodiscard]] auto Minimum(Allele al, Strand st, bool bqpass) const -> u16;
-  [[nodiscard]] auto Minimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
+  [[nodiscard]] auto GetMinimum(Allele al, Strand st, bool bqpass) const -> u16;
+  [[nodiscard]] auto GetMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
 
-  [[nodiscard]] auto NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16;
-  [[nodiscard]] auto NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
+  [[nodiscard]] auto GetNonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16;
+  [[nodiscard]] auto GetNonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16;
 
  private:
   static constexpr usize numStats = 20;

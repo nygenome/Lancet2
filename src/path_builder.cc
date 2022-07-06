@@ -13,8 +13,8 @@ void PathBuilder::Extend(const Edge *link, const Node *destination) {
   LANCET_ASSERT(!destination->IsMockNode());  // NOLINT
   nodesList.push_back(destination);
   edgesList.push_back(link);
-  pathDir = link->DstDirection();
-  pathLen += pathLen == 0 ? destination->Length() : (destination->Length() - kmerSize + 1);
+  pathDir = link->GetDstDir();
+  pathLen += pathLen == 0 ? destination->GetLength() : (destination->GetLength() - kmerSize + 1);
 }
 
 auto PathBuilder::BuildPath() const -> std::unique_ptr<Path> {
@@ -32,19 +32,19 @@ auto PathBuilder::BuildPathSeq() const -> std::string {
 
   for (const auto &node : nodesList) {
     if (result.empty()) {
-      node->Orientation() == Strand::REV ? utils::PushRevCompSeq(node->SeqView(), &result)
-                                         : utils::PushSeq(node->SeqView(), &result);
+      node->GetOrientation() == Strand::REV ? utils::PushRevCompSeq(node->GetSeqView(), &result)
+                                            : utils::PushSeq(node->GetSeqView(), &result);
       continue;
     }
 
-    const auto shouldRev = node->Orientation() == Strand::REV;
-    if (!CanMergeSeqs(result, node->SeqView(), BuddyPosition::FRONT, shouldRev, kmerSize)) {
+    const auto shouldRev = node->GetOrientation() == Strand::REV;
+    if (!CanMergeSeqs(result, node->GetSeqView(), BuddyPosition::FRONT, shouldRev, kmerSize)) {
       // Found irrecoverable error/cycle in path. break and return empty path
       return {};
     }
 
-    shouldRev ? utils::PushRevCompSeq(&result, result.end(), node->SeqView(), kmerSize - 1, node->Length())
-              : utils::PushSeq(&result, result.end(), node->SeqView(), kmerSize - 1, node->Length());
+    shouldRev ? utils::PushRevCompSeq(&result, result.end(), node->GetSeqView(), kmerSize - 1, node->GetLength())
+              : utils::PushSeq(&result, result.end(), node->GetSeqView(), kmerSize - 1, node->GetLength());
   }
 
   LANCET_ASSERT(result.length() == pathLen);  // NOLINT
@@ -55,9 +55,9 @@ auto PathBuilder::BuildPathCov() const -> NodeCov {
   NodeCov result;
   result.Reserve(pathLen);
   for (const auto &node : nodesList) {
-    result.MergeBuddy(node->CovData(), BuddyPosition::FRONT, node->Orientation() == Strand::REV, kmerSize);
+    result.MergeBuddy(node->CovData(), BuddyPosition::FRONT, node->GetOrientation() == Strand::REV, kmerSize);
   }
-  LANCET_ASSERT(result.Size() == pathLen);  // NOLINT
+  LANCET_ASSERT(result.GetSize() == pathLen);  // NOLINT
   return result;
 }
 
@@ -65,9 +65,9 @@ auto PathBuilder::BuildPathHP() const -> NodeHP {
   NodeHP result;
   result.Reserve(pathLen);
   for (const auto &node : nodesList) {
-    result.MergeBuddy(node->HPData(), BuddyPosition::FRONT, node->Orientation() == Strand::REV, kmerSize);
+    result.MergeBuddy(node->HPData(), BuddyPosition::FRONT, node->GetOrientation() == Strand::REV, kmerSize);
   }
-  LANCET_ASSERT(result.Size() == pathLen);  // NOLINT
+  LANCET_ASSERT(result.GetSize() == pathLen);  // NOLINT
   return result;
 }
 }  // namespace lancet2

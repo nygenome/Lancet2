@@ -54,7 +54,7 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
     }
 
     for (const Edge &e : *lastNode) {
-      if (e.DestinationID() == MOCK_SINK_ID) {
+      if (e.GetDstID() == MOCK_SINK_ID) {
         if (currBuilder.Score() <= bestBuilder.Score()) continue;
         PathBuilder srcToSink(currBuilder);
         srcToSink.MarkSinkTouch();
@@ -62,8 +62,8 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
         continue;
       }
 
-      if (e.DestinationID() == MOCK_SOURCE_ID || e.SrcDirection() != currBuilder.Direction()) continue;
-      const auto neighbourItr = nodesMap->find(e.DestinationID());
+      if (e.GetDstID() == MOCK_SOURCE_ID || e.GetSrcDir() != currBuilder.Direction()) continue;
+      const auto neighbourItr = nodesMap->find(e.GetDstID());
       LANCET_ASSERT(neighbourItr != nodesMap->end());
 
       PathBuilder extensionBuilder(currBuilder);

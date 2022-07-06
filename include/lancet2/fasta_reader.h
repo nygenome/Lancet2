@@ -23,14 +23,14 @@ class FastaReader {
   FastaReader(const FastaReader&) = delete;
   auto operator=(const FastaReader&) -> FastaReader& = delete;
 
-  [[nodiscard]] auto RegionSequence(const GenomicRegion& region) const -> absl::StatusOr<std::string>;
-  [[nodiscard]] auto ContigSequence(const std::string& contig) const -> absl::StatusOr<std::string>;
+  [[nodiscard]] auto GetRegionSeq(const GenomicRegion& region) const -> absl::StatusOr<std::string>;
+  [[nodiscard]] auto GetContigSeq(const std::string& contig) const -> absl::StatusOr<std::string>;
 
-  [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
+  [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo>;
 
-  [[nodiscard]] auto ContigIDs() const -> absl::flat_hash_map<std::string, i64>;
-  [[nodiscard]] auto ContigID(std::string_view contig) const -> absl::StatusOr<i64>;
-  [[nodiscard]] auto ContigLength(std::string_view contig) const -> absl::StatusOr<i64>;
+  [[nodiscard]] auto GetContigIndexMap() const -> absl::flat_hash_map<std::string, i64>;
+  [[nodiscard]] auto GetContigIndex(std::string_view contig) const -> absl::StatusOr<i64>;
+  [[nodiscard]] auto GetContigLength(std::string_view contig) const -> absl::StatusOr<i64>;
 
  private:
   class Impl;

@@ -9,12 +9,12 @@ BaseLabel::BaseLabel(std::initializer_list<KmerLabel> labels) {
 
 auto BaseLabel::ToBitPosition(KmerLabel label) -> usize { return static_cast<usize>(static_cast<u8>(label)); }
 
-auto BaseLabel::Count() const noexcept -> usize { return bits.count(); }
+auto BaseLabel::GetCount() const noexcept -> usize { return bits.count(); }
 
 void BaseLabel::SetLabel(KmerLabel label, bool value) { bits.set(ToBitPosition(label), value); }
 
 auto BaseLabel::HasLabel(KmerLabel label) const -> bool { return bits.test(ToBitPosition(label)); }
-auto BaseLabel::IsLabelOnly(KmerLabel label) const -> bool { return Count() == 1 && HasLabel(label); }
+auto BaseLabel::IsLabelOnly(KmerLabel label) const -> bool { return GetCount() == 1 && HasLabel(label); }
 
 auto BaseLabel::operator&(const BaseLabel& other) const -> BaseLabel {
   BaseLabel result;

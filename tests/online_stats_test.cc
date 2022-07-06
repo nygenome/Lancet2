@@ -30,14 +30,14 @@ static constexpr std::array<double, 100> EXAMPLE_DATA = {
 TEST_CASE("Can compute mean and standard deviation from streaming data", "[lancet2::utils::OnlineStats]") {
   lancet2::OnlineStats stats;
   CHECK(stats.IsEmpty());
-  CHECK(stats.Size() == 0);
+  CHECK(stats.GetSize() == 0);
 
   for (const auto& val : EXAMPLE_DATA) {
     stats.Add(val);
   }
 
-  CHECK_THAT(stats.Mean(), Catch::Matchers::WithinRel(26.037284995218435, 0.01));
-  CHECK_THAT(stats.StandardDeviation(), Catch::Matchers::WithinRel(23.101021872968456, 0.01));
+  CHECK_THAT(stats.GetMean(), Catch::Matchers::WithinRel(26.037284995218435, 0.01));
+  CHECK_THAT(stats.GetStandardDeviation(), Catch::Matchers::WithinRel(23.101021872968456, 0.01));
 }
 
 TEST_CASE("Can combine 2 online stats objects", "[lancet2::OnlineStats]") {
@@ -52,13 +52,13 @@ TEST_CASE("Can combine 2 online stats objects", "[lancet2::OnlineStats]") {
     stats2.Add(EXAMPLE_DATA.at(idx));
   }
 
-  CHECK_THAT(stats1.Mean(), Catch::Matchers::WithinRel(12.533919860664547, 0.01));
-  CHECK_THAT(stats1.StandardDeviation(), Catch::Matchers::WithinRel(9.296253470246267, 0.01));
+  CHECK_THAT(stats1.GetMean(), Catch::Matchers::WithinRel(12.533919860664547, 0.01));
+  CHECK_THAT(stats1.GetStandardDeviation(), Catch::Matchers::WithinRel(9.296253470246267, 0.01));
 
-  CHECK_THAT(stats2.Mean(), Catch::Matchers::WithinRel(39.540650129772324, 0.01));
-  CHECK_THAT(stats2.StandardDeviation(), Catch::Matchers::WithinRel(24.892987640437834, 0.01));
+  CHECK_THAT(stats2.GetMean(), Catch::Matchers::WithinRel(39.540650129772324, 0.01));
+  CHECK_THAT(stats2.GetStandardDeviation(), Catch::Matchers::WithinRel(24.892987640437834, 0.01));
 
   const auto combined = stats1 + stats2;
-  CHECK_THAT(combined.Mean(), Catch::Matchers::WithinRel(26.037284995218435, 0.01));
-  CHECK_THAT(combined.StandardDeviation(), Catch::Matchers::WithinRel(23.101021872968456, 0.01));
+  CHECK_THAT(combined.GetMean(), Catch::Matchers::WithinRel(26.037284995218435, 0.01));
+  CHECK_THAT(combined.GetStandardDeviation(), Catch::Matchers::WithinRel(23.101021872968456, 0.01));
 }

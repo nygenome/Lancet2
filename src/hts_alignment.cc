@@ -53,7 +53,7 @@ auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size)
   ri.sequence = readSequence.substr(trim5, seqLen - trim5 - trim3);
   ri.quality = readQuality.substr(trim5, qualLen - trim5 - trim3);
   ri.startPos0 = startPosition0 + static_cast<i64>(trim5);
-  ri.strand = ReadStrand();
+  ri.strand = GetReadStrand();
   ri.label = label;
 
   const auto hpItr = tagsData.find("HP");
@@ -69,7 +69,7 @@ auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size)
   return ri;
 }
 
-auto HtsAlignment::ReadStrand() const -> Strand { return IsReverseStrand() ? Strand::REV : Strand::FWD; }
+auto HtsAlignment::GetReadStrand() const -> Strand { return IsReverseStrand() ? Strand::REV : Strand::FWD; }
 auto HtsAlignment::IsDuplicate() const -> bool { return (samFlags & BAM_FDUP) != 0; }                // NOLINT
 auto HtsAlignment::IsSupplementary() const -> bool { return (samFlags & BAM_FSUPPLEMENTARY) != 0; }  // NOLINT
 auto HtsAlignment::IsPrimary() const -> bool { return (samFlags & BAM_FSECONDARY) == 0; }            // NOLINT
@@ -84,8 +84,8 @@ auto HtsAlignment::IsProperPair() const -> bool { return (samFlags & BAM_FPROPER
 auto HtsAlignment::IsRead1() const -> bool { return (samFlags & BAM_FREAD1) != 0; }                  // NOLINT
 auto HtsAlignment::IsRead2() const -> bool { return (samFlags & BAM_FREAD2) != 0; }                  // NOLINT
 
-auto HtsAlignment::SoftClips(std::vector<u32> *clip_sizes, std::vector<u32> *read_positions,
-                             std::vector<u32> *genome_positions, bool use_padded) -> bool {
+auto HtsAlignment::GetSoftClips(std::vector<u32> *clip_sizes, std::vector<u32> *read_positions,
+                                std::vector<u32> *genome_positions, bool use_padded) -> bool {
   // initialize positions & flags
   auto refPosition = static_cast<u32>(startPosition0);
   u32 readPosition = 0;

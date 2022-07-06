@@ -17,18 +17,18 @@ class GenomicRegion {
 
   GenomicRegion() = delete;
 
-  [[nodiscard]] auto Chromosome() const -> std::string { return chromName; }
-  [[nodiscard]] auto StartPosition1() const -> i64 { return startPos1; }
-  [[nodiscard]] auto EndPosition1() const -> i64 { return endPos1; }
+  [[nodiscard]] auto GetChromName() const -> std::string { return chromName; }
+  [[nodiscard]] auto GetStartPos1() const -> i64 { return startPos1; }
+  [[nodiscard]] auto GetEndPos1() const -> i64 { return endPos1; }
 
-  [[nodiscard]] auto Length() const -> usize {
+  [[nodiscard]] auto GetLength() const -> usize {
     if (startPos1 <= 0 || endPos1 <= 0) return 0;
     return static_cast<usize>(endPos1 - startPos1 + 1);
   }
 
   /// Convert region to samtools region string specification
   /// NOTE: samtools regions: 1-based positions, including start and end
-  [[nodiscard]] auto ToRegionString() const -> std::string {
+  [[nodiscard]] auto ToSamtoolsRegion() const -> std::string {
     if (startPos1 <= 0 && endPos1 <= 0) return chromName;
     if (startPos1 > 0 && endPos1 <= 0) return absl::StrFormat("%s:%d", chromName, startPos1);
     if (startPos1 <= 0 && endPos1 > 0) return absl::StrFormat("%s:-%d", chromName, endPos1);

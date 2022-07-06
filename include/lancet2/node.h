@@ -35,21 +35,21 @@ class Node {
   // NOTE: nodeID is not updated for merged nodes. Original node ID is maintained so the hash table is still valid
   void MergeBuddy(const Node& buddy, BuddyPosition dir, usize k);
 
-  [[nodiscard]] auto FwdSeq() const noexcept -> std::string { return mer.FwdSeq(); }
-  [[nodiscard]] auto SeqView() const noexcept -> std::string_view { return mer.SeqView(); }
-  [[nodiscard]] auto Orientation() const noexcept -> Strand { return mer.Orientation(); }
-  [[nodiscard]] auto Length() const noexcept -> usize { return mer.Length(); }
+  [[nodiscard]] auto GetFwdSeq() const noexcept -> std::string { return mer.GetFwdSeq(); }
+  [[nodiscard]] auto GetSeqView() const noexcept -> std::string_view { return mer.GetSeqView(); }
+  [[nodiscard]] auto GetOrientation() const noexcept -> Strand { return mer.GetOrientation(); }
+  [[nodiscard]] auto GetLength() const noexcept -> usize { return mer.GetLength(); }
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool {
     return mer.IsEmpty() && quals.IsEmpty() && covs.IsEmpty() && labels.IsEmpty();
   }
 
-  [[nodiscard]] auto ID() const -> NodeIdentifier { return nodeID; }
+  [[nodiscard]] auto GetID() const -> NodeIdentifier { return nodeID; }
   [[nodiscard]] auto IsSource() const -> bool { return nodeID == MOCK_SOURCE_ID; }
   [[nodiscard]] auto IsSink() const -> bool { return nodeID == MOCK_SINK_ID; }
   [[nodiscard]] auto IsMockNode() const -> bool { return IsSource() || IsSink(); }
 
-  friend auto operator==(const Node& lhs, const Node& rhs) -> bool { return lhs.mer.ID() == rhs.mer.ID(); }
+  friend auto operator==(const Node& lhs, const Node& rhs) -> bool { return lhs.mer.GetHash() == rhs.mer.GetHash(); }
   friend auto operator!=(const Node& lhs, const Node& rhs) -> bool { return !(lhs == rhs); }
 
   using EdgeContainer = std::vector<Edge>;

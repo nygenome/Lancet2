@@ -11,30 +11,32 @@ void SampleCov::PushRefAlt(const BaseHpCov& ref, const BaseHpCov& alt) {
 void SampleCov::PushRef(const BaseHpCov& ref) { return PushAllele(ref, Allele::REF); }
 void SampleCov::PushAlt(const BaseHpCov& alt) { return PushAllele(alt, Allele::ALT); }
 
-auto SampleCov::Mean(Allele al, Strand st, bool bqpass) const -> float { return data.at(ToIdx(al, st, bqpass)).Mean(); }
-auto SampleCov::Mean(Allele al, Haplotype hp, bool bqpass) const -> float {
-  return data.at(ToIdx(al, hp, bqpass)).Mean();
+auto SampleCov::GetMean(Allele al, Strand st, bool bqpass) const -> float {
+  return data.at(ToIdx(al, st, bqpass)).GetMean();
+}
+auto SampleCov::GetMean(Allele al, Haplotype hp, bool bqpass) const -> float {
+  return data.at(ToIdx(al, hp, bqpass)).GetMean();
 }
 
-auto SampleCov::NonZeroMean(Allele al, Strand st, bool bqpass) const -> float {
-  return data.at(ToIdx(al, st, bqpass)).NonZeroMean();
+auto SampleCov::GetNonZeroMean(Allele al, Strand st, bool bqpass) const -> float {
+  return data.at(ToIdx(al, st, bqpass)).GetNonZeroMean();
 }
-auto SampleCov::NonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float {
-  return data.at(ToIdx(al, hp, bqpass)).NonZeroMean();
-}
-
-auto SampleCov::Minimum(Allele al, Strand st, bool bqpass) const -> u16 {
-  return data.at(ToIdx(al, st, bqpass)).Minimum();
-}
-auto SampleCov::Minimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
-  return data.at(ToIdx(al, hp, bqpass)).Minimum();
+auto SampleCov::GetNonZeroMean(Allele al, Haplotype hp, bool bqpass) const -> float {
+  return data.at(ToIdx(al, hp, bqpass)).GetNonZeroMean();
 }
 
-auto SampleCov::NonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16 {
-  return data.at(ToIdx(al, st, bqpass)).NonZeroMinimum();
+auto SampleCov::GetMinimum(Allele al, Strand st, bool bqpass) const -> u16 {
+  return data.at(ToIdx(al, st, bqpass)).GetMinimum();
 }
-auto SampleCov::NonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
-  return data.at(ToIdx(al, hp, bqpass)).NonZeroMinimum();
+auto SampleCov::GetMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
+  return data.at(ToIdx(al, hp, bqpass)).GetMinimum();
+}
+
+auto SampleCov::GetNonZeroMinimum(Allele al, Strand st, bool bqpass) const -> u16 {
+  return data.at(ToIdx(al, st, bqpass)).GetNonZeroMinimum();
+}
+auto SampleCov::GetNonZeroMinimum(Allele al, Haplotype hp, bool bqpass) const -> u16 {
+  return data.at(ToIdx(al, hp, bqpass)).GetNonZeroMinimum();
 }
 
 void SampleCov::PushAllele(const BaseHpCov& d, Allele al) {

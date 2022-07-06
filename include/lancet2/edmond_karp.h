@@ -27,7 +27,7 @@ class EdmondKarpMaxFlow {
   u32 bfsLimit = 0;
   bool isTenxMode = false;
 
-  // to identify edges already returned in the previous call to `next_path`.
+  // to identify edges already returned to the previous call to `next_path`.
   absl::flat_hash_set<const Edge*> markedEdges;
 };
 }  // namespace lancet2

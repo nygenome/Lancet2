@@ -25,7 +25,7 @@ class WindowBuilder {
 
   void AddAllRefRegions();
 
-  [[nodiscard]] auto Size() const noexcept { return inputRegions.size(); }
+  [[nodiscard]] auto GetSize() const noexcept { return inputRegions.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept { return inputRegions.empty(); }
 
   /// 1. Combine the input regions from bed file & samtools-style regions.

@@ -16,7 +16,7 @@ class BarcodeSet {
   void Merge(const BarcodeSet& other);
 
   [[nodiscard]] auto IsEmpty() const -> bool;
-  [[nodiscard]] auto Size() const -> usize;
+  [[nodiscard]] auto GetSize() const -> usize;
 
   auto AddBX(SampleLabel label, Strand s, std::string_view bx) -> bool;  // NOLINT
   [[nodiscard]] auto IsBXMissing(SampleLabel label, Strand s, std::string_view bx) const -> bool;

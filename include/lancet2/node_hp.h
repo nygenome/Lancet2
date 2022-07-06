@@ -31,7 +31,7 @@ class NodeHP {
   }
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return tmrHPs.empty(); }
-  [[nodiscard]] auto Size() const noexcept -> usize { return tmrHPs.size(); }
+  [[nodiscard]] auto GetSize() const noexcept -> usize { return tmrHPs.size(); }
 
   void Clear();
   void Reverse();

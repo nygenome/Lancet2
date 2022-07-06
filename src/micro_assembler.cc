@@ -33,20 +33,20 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     TryFlush(store, resultProducerToken);
     T.Reset();
 
-    const auto winIdx = window->WindowIndex();
+    const auto winIdx = window->GetWindowIndex();
     const auto regStr = window->ToRegionString();
-    const auto regResult = refRdr.RegionSequence(window->ToGenomicRegion());
+    const auto regResult = refRdr.GetRegionSeq(window->ToSamtoolsRegion());
     numProcessed++;
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       LOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
-      results.emplace_back(WindowResult{T.Runtime(), winIdx});
+      results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
       continue;
     }
 
     if (!regResult.ok()) {
       LOG_ERROR("Error processing window {}: {}", regStr, regResult.status().message());
-      results.emplace_back(WindowResult{T.Runtime(), winIdx});
+      results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
       continue;
     }
 
@@ -60,7 +60,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
       LOG_ERROR("Error processing window {}: unknown exception caught", regStr);
     }
 
-    results.emplace_back(WindowResult{T.Runtime(), winIdx});
+    results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
   }
 
   ForceFlush(store, resultProducerToken);
@@ -73,7 +73,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
   LOG_DEBUG("Starting to process {} in MicroAssembler", regionStr);
   if (ShouldSkipWindow(w)) return absl::OkStatus();
 
-  re->SetTargetRegion(w->ToGenomicRegion());
+  re->SetTargetRegion(w->ToSamtoolsRegion());
   if (!params->activeRegionOff && !re->IsActiveRegion()) {
     LOG_DEBUG("Skipping {} since no evidence of mutation is found", regionStr);
     return absl::OkStatus();
@@ -98,7 +98,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
 }
 
 auto MicroAssembler::ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool {
-  const auto refseq = w->SeqView();
+  const auto refseq = w->GetSeqView();
   const auto regionStr = w->ToRegionString();
 
   if (static_cast<usize>(std::count(refseq.begin(), refseq.end(), 'N')) == refseq.length()) {

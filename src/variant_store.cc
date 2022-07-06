@@ -139,8 +139,8 @@ auto VariantStore::IsVariant1LessThan2(const Variant& v1, const Variant& v2,
 }
 
 auto VariantStore::IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool {
-  if (v.ChromName != w.Chromosome()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.Chromosome());
-  return v.Position <= (static_cast<usize>(w.EndPosition0()) + 1);
+  if (v.ChromName != w.GetChromName()) return ctg_ids.at(v.ChromName) < ctg_ids.at(w.GetChromName());
+  return v.Position <= (static_cast<usize>(w.GetEndPos0()) + 1);
 }
 
 void VariantStore::UnsafeAddVariantBatch(absl::Span<const Variant> variants) {

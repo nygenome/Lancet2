@@ -57,10 +57,10 @@ class OnlineStats {
   }
 
   [[nodiscard]] auto IsEmpty() const -> bool { return num == 0; }
-  [[nodiscard]] auto Size() const -> usize { return num; }
-  [[nodiscard]] auto Mean() const -> double { return moment1; }
-  [[nodiscard]] auto Variance() const -> double { return num < 2 ? 0 : moment2 / static_cast<double>(num - 1); }
-  [[nodiscard]] auto StandardDeviation() const -> double { return std::sqrt(Variance()); }
+  [[nodiscard]] auto GetSize() const -> usize { return num; }
+  [[nodiscard]] auto GetMean() const -> double { return moment1; }
+  [[nodiscard]] auto GetVariance() const -> double { return num < 2 ? 0 : moment2 / static_cast<double>(num - 1); }
+  [[nodiscard]] auto GetStandardDeviation() const -> double { return std::sqrt(GetVariance()); }
 
   auto operator==(const OnlineStats& rhs) const -> bool {
     return num == rhs.num && detail::AlmostEqual(moment1, rhs.moment1) && detail::AlmostEqual(moment2, rhs.moment2);

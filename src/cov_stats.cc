@@ -13,6 +13,6 @@ void CovStats::Push(u16 val) {
   }
 }
 
-auto CovStats::Mean() const -> float { return static_cast<float>(stats.Mean()); }
-auto CovStats::NonZeroMean() const -> float { return static_cast<float>(non0Stats.Mean()); }
+auto CovStats::GetMean() const -> float { return static_cast<float>(stats.GetMean()); }
+auto CovStats::GetNonZeroMean() const -> float { return static_cast<float>(non0Stats.GetMean()); }
 }  // namespace lancet2

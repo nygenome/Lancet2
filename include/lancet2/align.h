@@ -15,17 +15,17 @@ static constexpr char ALIGN_GAP = '-';
 #pragma clang diagnostic pop
 #endif
 
-struct AlignedSequences {
+struct AlnSeqs {
   std::string ref;
   std::string qry;
 };
 
-struct AlignedSequencesView {
+struct AlnSeqsView {
   std::string_view ref{};
   std::string_view qry{};
 };
 
-[[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlignedSequences;
+[[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlnSeqs;
 
-[[nodiscard]] auto TrimEndGaps(AlignedSequencesView* aln) -> usize;
+[[nodiscard]] auto TrimEndGaps(AlnSeqsView* aln) -> usize;
 }  // namespace lancet2

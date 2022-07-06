@@ -9,7 +9,7 @@
 namespace lancet2 {
 void NodeCov::MergeBuddy(const NodeCov& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
   const auto c1Ratio = static_cast<float>(tmrBases.size() - k + 1);
-  const auto c2Ratio = static_cast<float>(buddy.Size() - k + 1);
+  const auto c2Ratio = static_cast<float>(buddy.GetSize() - k + 1);
   const auto combinedRatio = c1Ratio + c2Ratio;
 
   cntTumorFwd = std::ceil(((cntTumorFwd * c1Ratio) + (buddy.cntTumorFwd * c2Ratio)) / combinedRatio);     // NOLINT

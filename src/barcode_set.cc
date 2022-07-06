@@ -14,7 +14,7 @@ auto BarcodeSet::IsEmpty() const -> bool {
   return std::all_of(data.cbegin(), data.cend(), [](const auto &c) { return c.empty(); });
 }
 
-auto BarcodeSet::Size() const -> usize {
+auto BarcodeSet::GetSize() const -> usize {
   usize result = 0;
   std::for_each(data.cbegin(), data.cend(), [&result](const auto &c) { result += c.size(); });
   return result;

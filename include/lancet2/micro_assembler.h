@@ -37,6 +37,8 @@ class MicroAssembler {
 
   void Process(const std::shared_ptr<VariantStore>& store);
 
+  [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
+
  private:
   std::shared_ptr<InWindowQueue> windowQPtr;
   std::shared_ptr<OutResultQueue> resultQPtr;
@@ -45,7 +47,6 @@ class MicroAssembler {
   std::vector<Variant> variants;
   std::vector<WindowResult> results;
 
-  [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
   [[nodiscard]] auto ShouldSkipWindow(const std::shared_ptr<const RefWindow>& w) const -> bool;
 
   // Try to flush variants to store if it is possible to write to store without waiting for other threads

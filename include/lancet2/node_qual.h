@@ -20,7 +20,7 @@ class NodeQual {
   [[nodiscard]] auto LowQualPositions(double max_bq) const -> std::vector<bool>;
   [[nodiscard]] auto HighQualPositions(double min_bq) const -> std::vector<bool>;
 
-  [[nodiscard]] auto Length() const noexcept -> usize { return data.size(); }
+  [[nodiscard]] auto GetLength() const noexcept -> usize { return data.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return data.empty(); }
 
   void Reserve(const usize count) { data.reserve(count); }

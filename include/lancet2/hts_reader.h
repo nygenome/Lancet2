@@ -23,25 +23,25 @@ class HtsReader {
   HtsReader(const HtsReader&) = delete;
   auto operator=(const HtsReader&) -> HtsReader& = delete;
 
-  auto SetRegion(const std::string& contig) -> absl::Status;
-  auto SetRegion(const GenomicRegion& region) -> absl::Status;
-  auto SetRegions(absl::Span<const GenomicRegion> regions) -> absl::Status;
+  auto JumpToContig(const std::string& contig) -> absl::Status;
+  auto JumpToRegion(const GenomicRegion& region) -> absl::Status;
+  auto SetBatchRegions(absl::Span<const GenomicRegion> regions) -> absl::Status;
 
   void ResetIterator();
 
   enum class IteratorState : int { INVALID = -2, DONE = -1, VALID = 0 };
-  [[nodiscard]] auto NextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState;
+  [[nodiscard]] auto GetNextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState;
 
-  [[nodiscard]] auto SampleNames() const -> std::vector<std::string>;
-  [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo>;
+  [[nodiscard]] auto GetSampleNames() const -> std::vector<std::string>;
+  [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo>;
 
-  [[nodiscard]] auto ContigID(const std::string& contig) const -> int;
+  [[nodiscard]] auto GetContigIndex(const std::string& contig) const -> int;
 
  private:
   class Impl;
   std::unique_ptr<Impl> pimpl;
 };
 
-[[nodiscard]] auto HasTag(const std::filesystem::path& inpath, const std::filesystem::path& ref, const char* tag,
-                          int max_alignments_to_read = 1000) -> bool;
+[[nodiscard]] auto TagPeekCheck(const std::filesystem::path& inpath, const std::filesystem::path& ref, const char* tag,
+                                int max_alignments_to_read = 1000) -> bool;
 }  // namespace lancet2

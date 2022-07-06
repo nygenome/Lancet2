@@ -20,7 +20,7 @@ class NodeLabel {
   [[nodiscard]] auto HasLabel(KmerLabel label) const -> bool;
   [[nodiscard]] auto IsLabelOnly(KmerLabel label) const -> bool;
 
-  [[nodiscard]] auto Length() const noexcept -> usize { return bases.size(); }
+  [[nodiscard]] auto GetLength() const noexcept -> usize { return bases.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return bases.empty(); }
 
   [[nodiscard]] auto FillColor() const -> std::string;

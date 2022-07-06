@@ -59,7 +59,7 @@ auto ReadExtractor::Extract() -> ReadInfoList {
 
 auto ReadExtractor::ExtractReads(HtsReader* rdr, ReadInfoList* result, SampleLabel label)
     -> absl::flat_hash_map<std::string, GenomicRegion> {
-  const auto jumpStatus = rdr->SetRegion(targetRegion);
+  const auto jumpStatus = rdr->JumpToRegion(targetRegion);
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
   const auto fractionToSample = avgCoverage > params->maxWindowCov ? (params->maxWindowCov / avgCoverage) : 1.0;
@@ -69,7 +69,7 @@ auto ReadExtractor::ExtractReads(HtsReader* rdr, ReadInfoList* result, SampleLab
   absl::flat_hash_map<std::string, GenomicRegion> mateName2Region;
   HtsAlignment aln;
 
-  while (rdr->NextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
+  while (rdr->GetNextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
     if (!sampler.ShouldSample() || !PassesFilters(aln, *params)) continue;
     if (!params->useOverlapReads && !aln.IsWithinRegion(targetRegion)) continue;
     if (label == SampleLabel::TUMOR && !PassesTmrFilters(aln, *params)) continue;
@@ -78,9 +78,9 @@ auto ReadExtractor::ExtractReads(HtsReader* rdr, ReadInfoList* result, SampleLab
     if (rdInfo.IsEmpty()) continue;
 
     if (params->extractReadPairs && !aln.IsMateUnmapped()) {
-      const auto itr = mateName2Region.find(aln.ReadName());
+      const auto itr = mateName2Region.find(aln.GetReadName());
       if (itr == mateName2Region.end()) {
-        mateName2Region.emplace(aln.ReadName(), aln.MateRegion());
+        mateName2Region.emplace(aln.GetReadName(), aln.GetMateRegion());
       } else {
         mateName2Region.erase(itr);
       }
@@ -100,17 +100,18 @@ void ReadExtractor::ExtractPairs(HtsReader* rdr, const absl::flat_hash_map<std::
   std::for_each(mate_info.cbegin(), mate_info.cend(),
                 [&mateRegions](const auto& kv) { mateRegions.emplace_back(kv.second); });
   std::sort(mateRegions.begin(), mateRegions.end(), [&rdr](const GenomicRegion& gr1, const GenomicRegion& gr2) -> bool {
-    if (gr1.Chromosome() != gr2.Chromosome()) return rdr->ContigID(gr1.Chromosome()) < rdr->ContigID(gr2.Chromosome());
-    if (gr1.StartPosition1() != gr2.StartPosition1()) return gr1.StartPosition1() < gr2.StartPosition1();
-    return gr1.EndPosition1() < gr2.EndPosition1();
+    if (gr1.GetChromName() != gr2.GetChromName())
+      return rdr->GetContigIndex(gr1.GetChromName()) < rdr->GetContigIndex(gr2.GetChromName());
+    if (gr1.GetStartPos1() != gr2.GetStartPos1()) return gr1.GetStartPos1() < gr2.GetStartPos1();
+    return gr1.GetEndPos1() < gr2.GetEndPos1();
   });
 
-  const auto jumpStatus = rdr->SetRegions(absl::MakeConstSpan(mateRegions));
+  const auto jumpStatus = rdr->SetBatchRegions(absl::MakeConstSpan(mateRegions));
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
   HtsAlignment aln;
-  while (rdr->NextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
-    if (!PassesFilters(aln, *params) || !mate_info.contains(aln.ReadName())) continue;
+  while (rdr->GetNextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
+    if (!PassesFilters(aln, *params) || !mate_info.contains(aln.GetReadName())) continue;
     result->emplace_back(aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize));
   }
 }
@@ -132,13 +133,13 @@ auto ReadExtractor::PassesTmrFilters(const HtsAlignment& aln, const CliParams& p
   // XA -- BWA (Illumina): alternative hits; format: (chr,pos,CIGAR,NM;)
   if (aln.HasTag("XA")) return false;
 
-  if (aln.MappingQuality() < params.minReadMappingQual) return false;
+  if (aln.GetMappingQual() < params.minReadMappingQual) return false;
 
   // AS: Alignment score
   // XS: Suboptimal alignment score
   if (aln.HasTag("AS") && aln.HasTag("XS")) {
-    const auto AS = bam_aux2i(aln.TagData("AS").value());
-    const auto XS = bam_aux2i(aln.TagData("XS").value());
+    const auto AS = bam_aux2i(aln.GetTagData("AS").value());
+    const auto XS = bam_aux2i(aln.GetTagData("XS").value());
     return std::abs(AS - XS) >= params.minReadAsXsDiff;
   }
 
@@ -146,7 +147,7 @@ auto ReadExtractor::PassesTmrFilters(const HtsAlignment& aln, const CliParams& p
 }
 
 auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, const CliParams& params) -> EvalResult {
-  const auto jumpStatus = rdr->SetRegion(region);
+  const auto jumpStatus = rdr->JumpToRegion(region);
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
   using u32 = u32;
@@ -175,20 +176,20 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
   bool isActiveRegion = false;
   u64 numReadBases = 0;
 
-  while (rdr->NextAlignment(&aln, {"MD"}) == HtsReader::IteratorState::VALID) {
-    if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.Length();
+  while (rdr->GetNextAlignment(&aln, {"MD"}) == HtsReader::IteratorState::VALID) {
+    if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.GetLength();
 
     // skip processing further if already an active region or if doesn't pass filters
     if (isActiveRegion || !PassesFilters(aln, params)) continue;
     if (!params.useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     if (aln.HasTag("MD")) {
-      FillMDMismatches(bam_aux2Z(aln.TagData("MD").value()), aln.ReadQuality(), aln.StartPosition0(),
+      FillMDMismatches(bam_aux2Z(aln.GetTagData("MD").value()), aln.GetReadQuality(), aln.GetStartPos0(),
                        params.minBaseQual, &mismatches);
     }
 
-    const auto cigarUnits = aln.CigarData();
-    auto currGPos = static_cast<u32>(aln.StartPosition0());
+    const auto cigarUnits = aln.GetCigarData();
+    auto currGPos = static_cast<u32>(aln.GetStartPos0());
     bool hasSoftClip = false;
 
     for (const auto& cigUnit : cigarUnits) {
@@ -215,7 +216,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
     }
 
     genomePositions.clear();
-    if (hasSoftClip && aln.SoftClips(nullptr, nullptr, &genomePositions, false)) {
+    if (hasSoftClip && aln.GetSoftClips(nullptr, nullptr, &genomePositions, false)) {
       for (const auto gpos : genomePositions) incrementGPos(softclips, gpos);
       LANCET_ASSERT(!softclips.empty());  // NOLINT
     }
@@ -225,7 +226,7 @@ auto ReadExtractor::EvaluateRegion(HtsReader* rdr, const GenomicRegion& region, 
                      hasEvidence(deletions, params.minTmrAltCnt) || hasEvidence(softclips, params.minTmrAltCnt);
   }
 
-  auto avgCoverage = static_cast<double>(numReadBases) / static_cast<double>(region.Length());
+  auto avgCoverage = static_cast<double>(numReadBases) / static_cast<double>(region.GetLength());
   isActiveRegion = hasEvidence(mismatches, params.minTmrAltCnt) || hasEvidence(insertions, params.minTmrAltCnt) ||
                    hasEvidence(deletions, params.minTmrAltCnt) || hasEvidence(softclips, params.minTmrAltCnt);
 

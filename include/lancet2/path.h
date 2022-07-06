@@ -25,9 +25,9 @@ class Path {
   Path() = delete;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return pathSeq.empty(); }
-  [[nodiscard]] auto Length() const noexcept -> usize { return pathSeq.length(); }
-  [[nodiscard]] auto NumNodes() const noexcept -> usize { return nodesList.size(); }
-  [[nodiscard]] auto SeqView() const noexcept -> std::string_view { return pathSeq; }
+  [[nodiscard]] auto GetLength() const noexcept -> usize { return pathSeq.length(); }
+  [[nodiscard]] auto GetNumNodes() const noexcept -> usize { return nodesList.size(); }
+  [[nodiscard]] auto GetSeqView() const noexcept -> std::string_view { return pathSeq; }
 
   [[nodiscard]] auto FindSpanningNode(usize path_pos, usize curr_k) const -> const Node*;
 

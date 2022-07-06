@@ -21,13 +21,13 @@ void NodeQual::Push(absl::string_view sv) {
 
 auto NodeQual::LowQualPositions(double max_bq) const -> std::vector<bool> {
   std::vector<bool> result;
-  for (const auto& baseQual : data) result.emplace_back(baseQual.Mean() < max_bq);
+  for (const auto& baseQual : data) result.emplace_back(baseQual.GetMean() < max_bq);
   return result;
 }
 
 auto NodeQual::HighQualPositions(double min_bq) const -> std::vector<bool> {
   std::vector<bool> result;
-  for (const auto& baseQual : data) result.emplace_back(baseQual.Mean() >= min_bq);
+  for (const auto& baseQual : data) result.emplace_back(baseQual.GetMean() >= min_bq);
   return result;
 }
 }  // namespace lancet2

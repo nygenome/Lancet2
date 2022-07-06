@@ -14,7 +14,7 @@ class BaseLabel {
   explicit BaseLabel(KmerLabel label);
   BaseLabel(std::initializer_list<KmerLabel> labels);
 
-  [[nodiscard]] auto Count() const noexcept -> usize;
+  [[nodiscard]] auto GetCount() const noexcept -> usize;
 
   void SetLabel(KmerLabel label, bool value = true);
 

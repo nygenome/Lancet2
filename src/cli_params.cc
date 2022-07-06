@@ -8,7 +8,7 @@
 
 namespace lancet2 {
 static const auto TagPresent = [](const CliParams& p, const char* tag) -> bool {
-  return HasTag(p.tumorPath, p.referencePath, tag) || HasTag(p.normalPath, p.referencePath, tag);
+  return TagPeekCheck(p.tumorPath, p.referencePath, tag) || TagPeekCheck(p.normalPath, p.referencePath, tag);
 };
 
 static const auto RefContigsMatch = [](const CliParams& p) -> bool {
@@ -16,8 +16,8 @@ static const auto RefContigsMatch = [](const CliParams& p) -> bool {
   HtsReader rdrT(p.tumorPath, p.referencePath);
   HtsReader rdrN(p.normalPath, p.referencePath);
 
-  return CheckContigsMatch(rdrT.ContigsInfo(), refFa.ContigsInfo()) &&
-         CheckContigsMatch(rdrN.ContigsInfo(), refFa.ContigsInfo());
+  return CheckContigsMatch(rdrT.GetContigs(), refFa.GetContigs()) &&
+         CheckContigsMatch(rdrN.GetContigs(), refFa.GetContigs());
 };
 
 auto CliParams::ValidateParams() -> bool {

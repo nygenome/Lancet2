@@ -23,11 +23,11 @@
 namespace lancet2 {
 static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string> {
   HtsReader rdrN(p.normalPath, p.referencePath);
-  const auto resultN = rdrN.SampleNames();
+  const auto resultN = rdrN.GetSampleNames();
   LANCET_ASSERT(resultN.size() == 1);  // NOLINT
 
   HtsReader rdrT(p.tumorPath, p.referencePath);
-  const auto resultT = rdrT.SampleNames();
+  const auto resultT = rdrT.GetSampleNames();
   LANCET_ASSERT(resultT.size() == 1);  // NOLINT
 
   if (resultN.size() != 1 || resultT.size() != 1) {
@@ -38,7 +38,7 @@ static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string
 }
 
 static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::string, i64> {
-  return FastaReader(p.referencePath).ContigIDs();
+  return FastaReader(p.referencePath).GetContigIndexMap();
 }
 
 static inline auto RequiredBufferWindows(const CliParams& p) -> usize {

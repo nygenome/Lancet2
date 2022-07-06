@@ -92,7 +92,7 @@ class HtsReader::Impl {
   Impl(const Impl&) = delete;
   auto operator=(const Impl&) -> Impl& = delete;
 
-  auto SetRegionSpec(const char* region_spec) -> absl::Status {
+  auto JumpToRegion(const char* region_spec) -> absl::Status {
     itr.reset(sam_itr_querys(idx.get(), hdr.get(), region_spec));
     if (itr == nullptr) {
       const auto errMsg = absl::StrFormat("could not create iterator to %s for %s", region_spec, filePath);
@@ -101,10 +101,10 @@ class HtsReader::Impl {
     return absl::OkStatus();
   }
 
-  auto SetRegions(absl::Span<const GenomicRegion> regions) -> absl::Status {
+  auto SetBatchRegions(absl::Span<const GenomicRegion> regions) -> absl::Status {
     std::vector<std::string> regionStrings;
     for (const auto& region : regions) {
-      regionStrings.emplace_back(region.ToRegionString());
+      regionStrings.emplace_back(region.ToSamtoolsRegion());
     }
 
     auto regarray = BuildRegionsArray(absl::MakeSpan(regionStrings));
@@ -116,21 +116,21 @@ class HtsReader::Impl {
     return absl::OkStatus();
   }
 
-  [[nodiscard]] auto NextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState {
+  [[nodiscard]] auto GetNextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState {
     const auto qryResult = sam_itr_next(fp.get(), itr.get(), aln.get());
     if (qryResult == -1) return IteratorState::DONE;
     if (qryResult < -1) return IteratorState::INVALID;
-    if (ShouldSkipAlignment(aln.get())) return NextAlignment(result, fill_tags);
+    if (ShouldSkipAlignment(aln.get())) return GetNextAlignment(result, fill_tags);
 
     result->Clear();
     result->SetReadName(bam_get_qname(aln.get()));  // NOLINT
-    result->SetStartPosition0(aln->core.pos);
-    result->SetMateStartPosition0(aln->core.mpos);
-    result->SetEndPosition0(bam_endpos(aln.get()));
-    result->SetMappingQuality(aln->core.qual);
+    result->SetStartPos0(aln->core.pos);
+    result->SetMateStartPos0(aln->core.mpos);
+    result->SetEndPos0(bam_endpos(aln.get()));
+    result->SetMappingQual(aln->core.qual);
 
-    if (aln->core.tid != -1) result->SetContig(sam_hdr_tid2name(hdr.get(), aln->core.tid));
-    if (aln->core.mtid != -1) result->SetMateContig(sam_hdr_tid2name(hdr.get(), aln->core.mtid));
+    if (aln->core.tid != -1) result->SetContigName(sam_hdr_tid2name(hdr.get(), aln->core.tid));
+    if (aln->core.mtid != -1) result->SetMateContigName(sam_hdr_tid2name(hdr.get(), aln->core.mtid));
 
     const auto queryLength = static_cast<usize>(aln->core.l_qseq);
     std::string sequence(queryLength, 'N');
@@ -167,7 +167,7 @@ class HtsReader::Impl {
       const auto op = bam_cigar_opchr(rawCigarData[i]);                     // NOLINT
       cigar.emplace_back(CigarUnit(op, bam_cigar_oplen(rawCigarData[i])));  // NOLINT
     }
-    result->SetCigar(std::move(cigar));
+    result->SetCigarData(std::move(cigar));
 
     for (const auto& tag : fill_tags) {
       auto auxResult = GetAuxPtr(aln.get(), tag.c_str());
@@ -178,7 +178,7 @@ class HtsReader::Impl {
     return IteratorState::VALID;
   }
 
-  [[nodiscard]] auto SampleNames() const -> std::vector<std::string> {
+  [[nodiscard]] auto GetSampleNames() const -> std::vector<std::string> {
     absl::flat_hash_set<std::string> samples;
     absl::flat_hash_map<std::string, std::string> rgTags;
 
@@ -192,10 +192,10 @@ class HtsReader::Impl {
       samples.insert(rgTags.at("SM"));
     }
 
-    return std::vector<std::string>(samples.cbegin(), samples.cend());
+    return {samples.cbegin(), samples.cend()};
   }
 
-  [[nodiscard]] auto ContigsInfo() const -> std::vector<ContigInfo> {
+  [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo> {
     std::vector<ContigInfo> result;
 
     const auto numContigs = static_cast<usize>(hdr->n_targets);
@@ -209,7 +209,7 @@ class HtsReader::Impl {
     return result;
   }
 
-  [[nodiscard]] auto ContigID(const std::string& contig) const -> int {
+  [[nodiscard]] auto GetContigIndex(const std::string& contig) const -> int {
     return sam_hdr_name2tid(hdr.get(), contig.c_str());
   }
 
@@ -296,32 +296,32 @@ HtsReader::HtsReader(const std::filesystem::path& inpath, const std::filesystem:
 
 HtsReader::~HtsReader() = default;
 
-auto HtsReader::SetRegion(const std::string& contig) -> absl::Status { return pimpl->SetRegionSpec(contig.c_str()); }
-auto HtsReader::SetRegion(const GenomicRegion& region) -> absl::Status {
-  const auto regionSpec = region.ToRegionString();
-  return pimpl->SetRegionSpec(regionSpec.c_str());
+auto HtsReader::JumpToContig(const std::string& contig) -> absl::Status { return pimpl->JumpToRegion(contig.c_str()); }
+auto HtsReader::JumpToRegion(const GenomicRegion& region) -> absl::Status {
+  const auto regionSpec = region.ToSamtoolsRegion();
+  return pimpl->JumpToRegion(regionSpec.c_str());
 }
 
-auto HtsReader::SetRegions(absl::Span<const GenomicRegion> regions) -> absl::Status {
-  return pimpl->SetRegions(regions);
+auto HtsReader::SetBatchRegions(absl::Span<const GenomicRegion> regions) -> absl::Status {
+  return pimpl->SetBatchRegions(regions);
 }
 
-auto HtsReader::NextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState {
-  return pimpl->NextAlignment(result, fill_tags);
+auto HtsReader::GetNextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState {
+  return pimpl->GetNextAlignment(result, fill_tags);
 }
 
-auto HtsReader::SampleNames() const -> std::vector<std::string> { return pimpl->SampleNames(); }
-auto HtsReader::ContigsInfo() const -> std::vector<ContigInfo> { return pimpl->ContigsInfo(); }
-auto HtsReader::ContigID(const std::string& contig) const -> int { return pimpl->ContigID(contig); }
+auto HtsReader::GetSampleNames() const -> std::vector<std::string> { return pimpl->GetSampleNames(); }
+auto HtsReader::GetContigs() const -> std::vector<ContigInfo> { return pimpl->GetContigs(); }
+auto HtsReader::GetContigIndex(const std::string& contig) const -> int { return pimpl->GetContigIndex(contig); }
 void HtsReader::ResetIterator() { return pimpl->ResetIterator(); }
 
-auto HasTag(const std::filesystem::path& inpath, const std::filesystem::path& ref, const char* tag,
-            int max_alignments_to_read) -> bool {
+auto TagPeekCheck(const std::filesystem::path& inpath, const std::filesystem::path& ref, const char* tag,
+                  int max_alignments_to_read) -> bool {
   HtsReader rdr(inpath, ref);
   int currentAlnCnt = 0;
 
   HtsAlignment aln;
-  while (rdr.NextAlignment(&aln, {tag}) == HtsReader::IteratorState::VALID) {
+  while (rdr.GetNextAlignment(&aln, {tag}) == HtsReader::IteratorState::VALID) {
     if (currentAlnCnt == max_alignments_to_read) break;
 
     currentAlnCnt++;

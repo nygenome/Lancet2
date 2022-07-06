@@ -16,7 +16,7 @@ struct TandemRepeatParams {
 struct TandemRepeatResult {
   bool foundSTR = false;
   usize strLength = 0;
-  std::string strMotif = "";
+  std::string strMotif;
 };
 
 auto FindTandemRepeat(std::string_view seq, usize pos, const TandemRepeatParams& params) -> TandemRepeatResult;

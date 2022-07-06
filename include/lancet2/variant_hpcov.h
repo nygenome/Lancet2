@@ -8,9 +8,9 @@ struct VariantHpCov {
   VariantHpCov(HpCov ref, HpCov alt) : refAl(ref), altAl(alt) {}
   VariantHpCov() = delete;
 
-  [[nodiscard]] auto TotalRefCov() const -> u16 { return refAl.TotalCov(); }
-  [[nodiscard]] auto TotalAltCov() const -> u16 { return altAl.TotalCov(); }
-  [[nodiscard]] auto TotalCov() const -> u16 { return refAl.TotalCov() + altAl.TotalCov(); }
+  [[nodiscard]] auto TotalRefCov() const -> u16 { return refAl.GetTotalCov(); }
+  [[nodiscard]] auto TotalAltCov() const -> u16 { return altAl.GetTotalCov(); }
+  [[nodiscard]] auto TotalCov() const -> u16 { return refAl.GetTotalCov() + altAl.GetTotalCov(); }
 
   [[nodiscard]] auto RefHP(Haplotype hp) const -> u16 {
     switch (hp) {
@@ -42,9 +42,9 @@ struct VariantHpCov {
   HpCov altAl;  // NOLINT
 
   [[nodiscard]] auto VAF() const -> double {
-    const auto altTotal = altAl.TotalCov();
+    const auto altTotal = altAl.GetTotalCov();
     if (altTotal == 0) return 0.0;
-    return static_cast<double>(altTotal) / static_cast<double>(refAl.TotalCov() + altTotal);
+    return static_cast<double>(altTotal) / static_cast<double>(refAl.GetTotalCov() + altTotal);
   }
 };
 }  // namespace lancet2
