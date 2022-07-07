@@ -18,7 +18,7 @@ TEST_CASE("Can extract reads from region in a bam file", "[lancet2::ReadExtracto
   CHECK_FALSE(scanResult.HasMutationEvidence);
   CHECK_THAT(scanResult.AverageCoverage, Catch::Matchers::WithinRel(200, 0.01));
   const auto reads = re.ExtractReads(lancet2::GenomicRegion{"1", 82960000, 82970000});
-  CHECK(reads.size() == 12830);
+  CHECK(reads.size() == 12899);
 }
 
 TEST_CASE("Can extract reads from region in a cram file", "[lancet2::ReadExtractor]") {
@@ -36,5 +36,5 @@ TEST_CASE("Can extract reads from region in a cram file", "[lancet2::ReadExtract
   CHECK(scanResult.HasMutationEvidence);
   CHECK_THAT(scanResult.AverageCoverage, Catch::Matchers::WithinRel(151, 0.01));
   const auto reads = re.ExtractReads(lancet2::GenomicRegion{"1", 82960000, 82970000});
-  CHECK(reads.size() == 9529);
+  CHECK(reads.size() == 9943);
 }
