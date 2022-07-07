@@ -43,7 +43,7 @@ class ReadExtractor {
 
   [[nodiscard]] auto ScanSampleRegion(usize sampleIdx, const GenomicRegion& region) -> ScanRegionResult;
 
-  [[nodiscard]] static auto PassesFilters(const HtsAlignment& aln, const CliParams& params) -> bool;
+  [[nodiscard]] static auto PassesFilters(const HtsAlignment& aln, const CliParams& params, SampleLabel label) -> bool;
 
   static void FillMD(std::string_view md, std::string_view quals, i64 aln_start, u32 min_bq,
                      std::map<u32, u32>* result);

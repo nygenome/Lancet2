@@ -74,7 +74,7 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
   HtsAlignment aln;
 
   while (rdr->GetNextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
-    if (!sampler.ShouldSample() || !PassesFilters(aln, *params)) continue;
+    if (!sampler.ShouldSample() || !PassesFilters(aln, *params, label)) continue;
     if (!params->useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
@@ -117,12 +117,14 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, Re
 
   HtsAlignment aln;
   while (rdr->GetNextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
-    if (!PassesFilters(aln, *params) || !mate_info.contains(aln.GetReadName())) continue;
+    if (!PassesFilters(aln, *params, label) || !mate_info.contains(aln.GetReadName())) continue;
     result->emplace_back(aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize));
   }
 }
 
-auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& params) -> bool {
+auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& params, SampleLabel label) -> bool {
+  if (label == SampleLabel::NORMAL) return true;
+
   if (aln.IsQcFailed() || aln.IsDuplicate()) return false;
   if (params.skipSecondary && aln.IsSecondary()) return false;
 
@@ -152,6 +154,7 @@ auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& para
 
 auto ReadExtractor::ScanSampleRegion(usize sampleIdx, const GenomicRegion& region) -> ScanRegionResult {
   HtsReader* rdr = readers.at(sampleIdx).get();
+  const auto label = labels.at(sampleIdx);
   const auto jumpStatus = rdr->JumpToRegion(region);
   if (!jumpStatus.ok()) throw std::runtime_error(jumpStatus.ToString());
 
@@ -185,7 +188,7 @@ auto ReadExtractor::ScanSampleRegion(usize sampleIdx, const GenomicRegion& regio
     if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.GetLength();
 
     // skip processing further if already an active region or if it doesn't pass filters
-    if (isActiveRegion || !PassesFilters(aln, *params)) continue;
+    if (isActiveRegion || !PassesFilters(aln, *params, label)) continue;
     if (!params->useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     if (aln.HasTag("MD")) {
