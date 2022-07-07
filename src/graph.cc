@@ -420,7 +420,7 @@ SkipLocalAlignment:
     const auto sameTranscriptCode = tr.Code() == code;
 
     if (withinTumorNode && !tr.IsSomatic()) tr.SetSomaticStatus(true);
-    tr.AddRefBase(aligned.ref[idx]).AddRefBase(aligned.qry[idx]);
+    tr.AddRefBase(aligned.ref[idx]).AddAltBase(aligned.qry[idx]);
     if (code == TranscriptCode::INSERTION || code == TranscriptCode::SNV) tr.SetAltEndOffset(pathIdx + 1);
     if (code == TranscriptCode::DELETION || code == TranscriptCode::SNV) tr.SetRefEndOffset(refIdx + 1);
 
