@@ -104,7 +104,7 @@ target_include_directories(lancet2_core PUBLIC include PRIVATE ${CMAKE_BINARY_DI
 target_link_libraries(lancet2_core
         PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set
         absl::str_format absl::status absl::statusor absl::fixed_array absl::inlined_vector
-        absl::span absl::time absl::random_random absl::strings spdlog::spdlog
+        absl::span absl::time absl::random_random absl::strings spdlog::spdlog edlib
         PRIVATE CLI11 absl::failure_signal_handler ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES} ${LIBDEFLATE})
 set_target_properties(lancet2_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "absl/strings/str_format.h"
+#include "edlib.h"
 
 namespace {
 template <typename T>
@@ -185,5 +186,38 @@ auto TrimEndGaps(AlnSeqsView* aln) -> usize {
   }
 
   return refStartTrim;
+}
+
+auto EdlibAlign(std::string_view ref, std::string_view qry) -> AlnSeqs {
+  static const auto cfg = edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_PATH, nullptr, 0);
+  const auto refLen = static_cast<int>(ref.length());
+  const auto qryLen = static_cast<int>(qry.length());
+  const auto edResult = edlibAlign(qry.data(), qryLen, ref.data(), refLen, cfg);
+
+  lancet2::AlnSeqs aligned;
+  aligned.ref.reserve(edResult.alignmentLength);
+  aligned.qry.reserve(edResult.alignmentLength);
+
+  usize refLoc = 0;
+  usize qryLoc = 0;
+  for (usize idx = 0; idx < edResult.alignmentLength; ++idx) {
+    // NOLINTNEXTLINE
+    if ((edResult.alignment[idx] == EDLIB_EDOP_MATCH) || (edResult.alignment[idx] == EDLIB_EDOP_MISMATCH)) {
+      aligned.ref.push_back(ref.at(refLoc));
+      aligned.qry.push_back(qry.at(qryLoc));
+      refLoc++;
+      qryLoc++;
+    } else if (edResult.alignment[idx] == EDLIB_EDOP_INSERT) {  // NOLINT
+      aligned.ref.push_back(ALIGN_GAP);
+      aligned.qry.push_back(qry.at(qryLoc));
+      qryLoc++;
+    } else if (edResult.alignment[idx] == EDLIB_EDOP_DELETE) {  // NOLINT
+      aligned.ref.push_back(ref.at(refLoc));
+      aligned.qry.push_back(ALIGN_GAP);
+      refLoc++;
+    }
+  }
+
+  return aligned;
 }
 }  // namespace lancet2

@@ -321,7 +321,11 @@ void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSn
   if (utils::HammingDistWithin(refAnchorSeq, pathSeq, 5)) goto SkipLocalAlignment;  // NOLINT
 
   try {
-    rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
+    if (params->useEdlibAlign) {
+      rawAlignedSeqs = EdlibAlign(refAnchorSeq, pathSeq);
+    } else {
+      rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
+    }
   } catch (...) {
     const auto errMsg = absl::StrFormat("error aligning ref: %s, qry: %s in window: %s", refAnchorSeq, pathSeq,
                                         window->ToRegionString());

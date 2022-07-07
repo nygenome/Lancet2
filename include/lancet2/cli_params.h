@@ -100,5 +100,6 @@ class CliParams {
   bool extractReadPairs = false;  // NOLINT
   bool noCtgCheck = false;        // NOLINT
   bool useOverlapReads = false;   // NOLINT
+  bool useEdlibAlign = false;     // NOLINT
 };
 }  // namespace lancet2
