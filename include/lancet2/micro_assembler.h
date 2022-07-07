@@ -33,6 +33,8 @@ class MicroAssembler {
                           std::shared_ptr<const CliParams> p)
       : windowQPtr(std::move(winq)), resultQPtr(std::move(resq)), params(std::move(p)) {}
 
+  explicit MicroAssembler(std::shared_ptr<const CliParams> p) : params(std::move(p)) {}
+
   MicroAssembler() = default;
 
   void Process(const std::shared_ptr<VariantStore>& store);
