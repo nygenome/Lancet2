@@ -20,7 +20,7 @@
 #endif
 
 namespace lancet2 {
-auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) -> ReadInfo {
+auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) const -> ReadInfo {
   const auto seqLen = readSequence.length();
   const auto qualLen = readQuality.length();
   LANCET_ASSERT(seqLen == qualLen);  // NOLINT
@@ -28,7 +28,7 @@ auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size)
   usize trim5 = 0;
   for (trim5 = 0; trim5 < seqLen; ++trim5) {
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(readSequence[trim5]));
-    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<u8>(readQuality[trim5]) >= min_bq) {
+    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<int>(readQuality[trim5]) >= min_bq) {
       break;
     }
   }
@@ -37,9 +37,9 @@ auto HtsAlignment::BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size)
   if (trim5 == seqLen) return ReadInfo{};
 
   usize trim3 = 0;
-  for (auto idx = seqLen - 1; idx == 0; --idx) {
+  for (auto idx = seqLen - 1; idx >= 0; --idx) {
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(readSequence[idx]));
-    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<u8>(readQuality[idx]) >= min_bq) {
+    if ((base == 'A' || base == 'C' || base == 'G' || base == 'T') && static_cast<int>(readQuality[idx]) >= min_bq) {
       break;
     }
     trim3++;
@@ -85,7 +85,7 @@ auto HtsAlignment::IsRead1() const -> bool { return (samFlags & BAM_FREAD1) != 0
 auto HtsAlignment::IsRead2() const -> bool { return (samFlags & BAM_FREAD2) != 0; }                  // NOLINT
 
 auto HtsAlignment::GetSoftClips(std::vector<u32> *clip_sizes, std::vector<u32> *read_positions,
-                                std::vector<u32> *genome_positions, bool use_padded) -> bool {
+                                std::vector<u32> *genome_positions, bool use_padded) const -> bool {
   // initialize positions & flags
   auto refPosition = static_cast<u32>(startPosition0);
   u32 readPosition = 0;

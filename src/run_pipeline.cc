@@ -23,18 +23,9 @@
 namespace lancet2 {
 static inline auto GetSampleNames(const CliParams& p) -> std::vector<std::string> {
   HtsReader rdrN(p.normalPath, p.referencePath);
-  const auto resultN = rdrN.GetSampleNames();
-  LANCET_ASSERT(resultN.size() == 1);  // NOLINT
-
   HtsReader rdrT(p.tumorPath, p.referencePath);
-  const auto resultT = rdrT.GetSampleNames();
-  LANCET_ASSERT(resultT.size() == 1);  // NOLINT
 
-  if (resultN.size() != 1 || resultT.size() != 1) {
-    throw std::runtime_error("expected both tumor and normal BAM/CRAMs to have one sample name");
-  }
-
-  return {resultN[0], resultT[0]};
+  return {rdrN.GetSampleName(), rdrT.GetSampleName()};
 }
 
 static inline auto GetContigIDs(const CliParams& p) -> absl::flat_hash_map<std::string, i64> {

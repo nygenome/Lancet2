@@ -83,4 +83,5 @@ class CigarUnit {
 };
 
 using AlignmentCigar = std::vector<CigarUnit>;
+[[nodiscard]] auto ToString(const AlignmentCigar& cigar) -> std::string;
 }  // namespace lancet2

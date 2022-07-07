@@ -73,14 +73,18 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
   LOG_DEBUG("Starting to process {} in MicroAssembler", regionStr);
   if (ShouldSkipWindow(w)) return absl::OkStatus();
 
-  re->SetTargetRegion(w->ToSamtoolsRegion());
-  if (!params->activeRegionOff && !re->IsActiveRegion()) {
+  const auto scanResult = re->ScanRegion(w->ToSamtoolsRegion());
+  if (!params->activeRegionOff && !scanResult.HasMutationEvidence) {
     LOG_DEBUG("Skipping {} since no evidence of mutation is found", regionStr);
     return absl::OkStatus();
   }
 
-  const auto reads = re->Extract();
-  GraphBuilder gb(w, absl::MakeConstSpan(reads), re->AverageCoverage(), params);
+  const auto needToDownsample = scanResult.AverageCoverage <= params->maxWindowCov;
+  const auto fraction = needToDownsample ? 1.0 : params->maxWindowCov / scanResult.AverageCoverage;
+  const auto extractedCov = needToDownsample ? params->maxWindowCov : scanResult.AverageCoverage;
+  const auto reads = re->ExtractReads(w->ToSamtoolsRegion(), fraction);
+
+  GraphBuilder gb(w, absl::MakeConstSpan(reads), extractedCov, params);
   auto graph = gb.BuildGraph(params->minKmerSize, params->maxKmerSize);
   graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, &variants);
 

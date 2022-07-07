@@ -3,7 +3,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/types/span.h"
@@ -32,7 +31,7 @@ class HtsReader {
   enum class IteratorState : int { INVALID = -2, DONE = -1, VALID = 0 };
   [[nodiscard]] auto GetNextAlignment(HtsAlignment* result, absl::Span<const std::string> fill_tags) -> IteratorState;
 
-  [[nodiscard]] auto GetSampleNames() const -> std::vector<std::string>;
+  [[nodiscard]] auto GetSampleName() const -> std::string;
   [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo>;
 
   [[nodiscard]] auto GetContigIndex(const std::string& contig) const -> int;

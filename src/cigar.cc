@@ -44,4 +44,12 @@ auto CigarUnit::ConsumesQuery() const -> bool {
 auto CigarUnit::ToString() const -> std::string {
   return absl::StrFormat("%d%c", Length, static_cast<char>(Operation));
 }
+
+auto ToString(const AlignmentCigar& cigar) -> std::string {
+  std::string result;
+  for (const auto& cigUnit : cigar) {
+    result += cigUnit.ToString();
+  }
+  return result;
+}
 }  // namespace lancet2

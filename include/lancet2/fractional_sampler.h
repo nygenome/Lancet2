@@ -8,11 +8,14 @@ namespace lancet2 {
 class FractionalSampler {
  public:
   explicit FractionalSampler(double needed_fraction) : fractionToKeep(needed_fraction) {}
+  FractionalSampler() = default;
 
   [[nodiscard]] auto ShouldSample() -> bool { return (fractionToKeep == 1.0) || distGen(ubrg) <= fractionToKeep; }
 
+  void SetFraction(double fraction) { fractionToKeep = fraction; }
+
  private:
-  double fractionToKeep;
+  double fractionToKeep = 1.0;
   absl::BitGen ubrg{absl::MakeSeedSeq()};
   absl::uniform_real_distribution<double> distGen{0.0, 1.0};
 };

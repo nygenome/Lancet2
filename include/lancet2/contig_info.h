@@ -8,8 +8,14 @@
 
 namespace lancet2 {
 struct ContigInfo {
-  std::string contigName;
-  i64 contigLen;
+  std::string contigName;  // NOLINT
+  i64 contigLen;           // NOLINT
+
+  auto operator==(const ContigInfo& rhs) const -> bool {
+    return contigName == rhs.contigName && contigLen == rhs.contigLen;
+  }
+
+  auto operator!=(const ContigInfo& rhs) const -> bool { return !(rhs == *this); }
 };
 
 inline auto CheckContigsMatch(absl::Span<const ContigInfo> hdr_ctgs, absl::Span<const ContigInfo> ref_ctgs) -> bool {

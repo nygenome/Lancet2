@@ -23,6 +23,7 @@
 #endif
 
 #include "htslib/hts.h"
+#include "htslib/hts_log.h"
 #include "htslib/sam.h"
 
 #if defined(__clang__)
@@ -74,11 +75,6 @@ static inline auto GetAuxPtr(bam1_t* b, const char* tag) -> absl::StatusOr<const
   return auxData;
 }
 
-static const inline auto ShouldSkipAlignment = [](bam1_t* b) -> bool {
-  return b == nullptr || (b->core.flag & BAM_FSECONDARY) != 0 || (b->core.flag & BAM_FQCFAIL) != 0 ||  // NOLINT
-         (b->core.flag & BAM_FDUP) != 0;                                                               // NOLINT
-};
-
 class HtsReader::Impl {
  public:
   Impl(const std::filesystem::path& inpath, const std::filesystem::path& ref) : filePath(inpath) {
@@ -120,7 +116,6 @@ class HtsReader::Impl {
     const auto qryResult = sam_itr_next(fp.get(), itr.get(), aln.get());
     if (qryResult == -1) return IteratorState::DONE;
     if (qryResult < -1) return IteratorState::INVALID;
-    if (ShouldSkipAlignment(aln.get())) return GetNextAlignment(result, fill_tags);
 
     result->Clear();
     result->SetReadName(bam_get_qname(aln.get()));  // NOLINT
@@ -178,7 +173,7 @@ class HtsReader::Impl {
     return IteratorState::VALID;
   }
 
-  [[nodiscard]] auto GetSampleNames() const -> std::vector<std::string> {
+  [[nodiscard]] auto GetSampleName() const -> std::string {
     absl::flat_hash_set<std::string> samples;
     absl::flat_hash_map<std::string, std::string> rgTags;
 
@@ -192,7 +187,7 @@ class HtsReader::Impl {
       samples.insert(rgTags.at("SM"));
     }
 
-    return {samples.cbegin(), samples.cend()};
+    return *(samples.begin());
   }
 
   [[nodiscard]] auto GetContigs() const -> std::vector<ContigInfo> {
@@ -230,6 +225,7 @@ class HtsReader::Impl {
   std::unique_ptr<bam1_t, Bam1Deleter> aln{bam_init1()};
 
   void Initialize(const std::filesystem::path& inpath, const std::filesystem::path& ref) {
+    hts_set_log_level(HTS_LOG_ERROR);
     fp = std::unique_ptr<htsFile, HtsfileDeleter>(hts_open(inpath.c_str(), "r"));
     if (fp == nullptr) {
       const auto errMsg = absl::StrFormat("cannot open hts file %s", inpath);
@@ -310,7 +306,7 @@ auto HtsReader::GetNextAlignment(HtsAlignment* result, absl::Span<const std::str
   return pimpl->GetNextAlignment(result, fill_tags);
 }
 
-auto HtsReader::GetSampleNames() const -> std::vector<std::string> { return pimpl->GetSampleNames(); }
+auto HtsReader::GetSampleName() const -> std::string { return pimpl->GetSampleName(); }
 auto HtsReader::GetContigs() const -> std::vector<ContigInfo> { return pimpl->GetContigs(); }
 auto HtsReader::GetContigIndex(const std::string& contig) const -> int { return pimpl->GetContigIndex(contig); }
 void HtsReader::ResetIterator() { return pimpl->ResetIterator(); }

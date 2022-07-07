@@ -7,7 +7,9 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "lancet2/cli_params.h"
 #include "lancet2/fasta_reader.h"
 #include "lancet2/ref_window.h"
@@ -20,8 +22,9 @@ class WindowBuilder {
   WindowBuilder(const std::filesystem::path& ref, u32 region_padding, u32 window_length, u32 pct_window_overlap);
   WindowBuilder() = delete;
 
-  [[nodiscard]] auto AddSamtoolsRegion(const std::string& region_str) -> absl::Status;
-  [[nodiscard]] auto AddBedFileRegions(const std::filesystem::path& bed) -> absl::Status;
+  [[nodiscard]] auto AddRegion(const std::string& region_str) -> absl::Status;
+  [[nodiscard]] auto AddRegionsBatch(absl::Span<const std::string> region_strs) -> absl::Status;
+  [[nodiscard]] auto AddRegionsFromBedFile(const std::filesystem::path& bed) -> absl::Status;
 
   void AddAllRefRegions();
 
@@ -33,8 +36,7 @@ class WindowBuilder {
   /// 2. Add `regionPadding` to each input region from the previous step
   /// 3. Build result windows each `windowLength` in length and
   ///    overlap of `pctWindowOverlap`% between consecutive windows
-  [[nodiscard]] auto BuildWindows(const absl::flat_hash_map<std::string, i64>& contig_ids) const
-      -> absl::StatusOr<std::vector<WindowPtr>>;
+  [[nodiscard]] auto BuildWindows() const -> absl::StatusOr<std::vector<WindowPtr>>;
 
   [[nodiscard]] static auto StepSize(u32 pct_overlap, u32 window_length) -> i64;
 
@@ -43,7 +45,7 @@ class WindowBuilder {
   u32 regionPadding = DEFAULT_REGION_PAD_LENGTH;
   u32 windowLength = DEFAULT_WINDOW_LENGTH;
   u32 pctWindowOverlap = DEFAULT_PCT_WINDOW_OVERLAP;
-  std::vector<RefWindow> inputRegions;  // sequence only added in `BuildWindows`
+  absl::flat_hash_set<std::string> inputRegions;
 
   // Parse samtools region string, padding is not added yet
   [[nodiscard]] static auto ParseRegion(std::string_view region_str) -> absl::StatusOr<RefWindow>;

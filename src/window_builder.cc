@@ -16,41 +16,52 @@ WindowBuilder::WindowBuilder(const std::filesystem::path &ref, u32 region_paddin
                              u32 pct_window_overlap)
     : refRdr(ref), regionPadding(region_padding), windowLength(window_length), pctWindowOverlap(pct_window_overlap) {}
 
-auto WindowBuilder::AddSamtoolsRegion(const std::string &region_str) -> absl::Status {
+auto WindowBuilder::AddRegion(const std::string &region_str) -> absl::Status {
   const auto result = ParseRegion(region_str);
   if (!result.ok()) return result.status();
-  inputRegions.emplace_back(result.value());
+  inputRegions.emplace(result.value().ToRegionString());
   return absl::OkStatus();
 }
 
-auto WindowBuilder::AddBedFileRegions(const std::filesystem::path &bed) -> absl::Status {
+auto WindowBuilder::AddRegionsBatch(absl::Span<const std::string> region_strs) -> absl::Status {
+  for (const auto &regStr : region_strs) {
+    auto result = AddRegion(regStr);
+    if (!result.ok()) return result;
+  }
+  return absl::OkStatus();
+}
+
+auto WindowBuilder::AddRegionsFromBedFile(const std::filesystem::path &bed) -> absl::Status {
   const auto results = ParseBed(bed);
   if (!results.ok()) return results.status();
-  const auto &parsedRegions = results.value();
-  inputRegions.insert(inputRegions.end(), parsedRegions.begin(), parsedRegions.end());
+  for (const auto &reg : results.value()) {
+    inputRegions.insert(reg.ToRegionString());
+  }
   return absl::OkStatus();
 }
 
 void WindowBuilder::AddAllRefRegions() {
   const auto ctgInfos = refRdr.GetContigs();
+  inputRegions.clear();  // Need to clear to ensure we don't end up with duplicate windows at the end
   for (const auto &ctg : ctgInfos) {
-    RefWindow w;
-    w.SetChromName(ctg.contigName);
-    w.SetStartPos0(0);
-    w.SetEndPos0(ctg.contigLen);
-    inputRegions.emplace_back(std::move(w));
+    inputRegions.emplace(absl::StrFormat("%s:%d-%d", ctg.contigName, 0, ctg.contigLen));
   }
 }
 
-auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids) const
-    -> absl::StatusOr<std::vector<WindowPtr>> {
+auto WindowBuilder::BuildWindows() const -> absl::StatusOr<std::vector<WindowPtr>> {
   if (IsEmpty()) return absl::FailedPreconditionError("no input regions provided to build windows");
 
-  std::vector<WindowPtr> results;
+  const auto contigIndexMap = refRdr.GetContigIndexMap();
+  absl::flat_hash_set<WindowPtr> uniqPaddedWindowPtrs;
   const auto stepSize = StepSize(pctWindowOverlap, windowLength);
+  const auto contigIdxMap = refRdr.GetContigIndexMap();
 
-  for (const auto &rawReg : inputRegions) {
-    if (!contig_ids.contains(rawReg.GetChromName())) {
+  for (const auto &regStr : inputRegions) {
+    const auto parseResult = ParseRegion(regStr);
+    if (!parseResult.ok()) return parseResult.status();
+
+    const auto &rawReg = parseResult.value();
+    if (!contigIdxMap.contains(rawReg.GetChromName())) {
       throw std::invalid_argument(absl::StrFormat("contig %s is not present in reference", rawReg.GetChromName()));
     }
 
@@ -59,7 +70,7 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &co
     const auto &finalRegion = paddedResult.value();
 
     if (finalRegion.GetLength() <= windowLength) {
-      results.emplace_back(std::make_shared<RefWindow>(finalRegion));
+      uniqPaddedWindowPtrs.emplace(std::make_shared<RefWindow>(finalRegion));
       continue;
     }
 
@@ -68,21 +79,24 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &co
 
     while (currWindowStart < maxWindowPos) {
       const i64 currWindowEnd = currWindowStart + windowLength;
-      results.emplace_back(std::make_shared<RefWindow>());
-      results.back()->SetChromName(finalRegion.GetChromName());
-      results.back()->SetStartPos0(currWindowStart);
-      results.back()->SetEndPos0(currWindowEnd);
+      auto wPtr = std::make_shared<RefWindow>();
+      wPtr->SetChromName(finalRegion.GetChromName());
+      wPtr->SetStartPos0(currWindowStart);
+      wPtr->SetEndPos0(currWindowEnd);
+      uniqPaddedWindowPtrs.emplace(std::move(wPtr));
       currWindowStart += stepSize;
     }
   }
 
-  static const auto Comparator = [&contig_ids](const RefWindow &r1, const RefWindow &r2) -> bool {
-    if (r1.GetChromName() != r2.GetChromName())
-      return contig_ids.at(r1.GetChromName()) < contig_ids.at(r2.GetChromName());
+  static const auto Comparator = [&contigIdxMap](const RefWindow &r1, const RefWindow &r2) -> bool {
+    if (r1.GetChromName() != r2.GetChromName()) {
+      return contigIdxMap.at(r1.GetChromName()) < contigIdxMap.at(r2.GetChromName());
+    }
     if (r1.GetStartPos0() != r2.GetStartPos0()) return r1.GetStartPos0() < r2.GetStartPos0();
     return r1.GetEndPos0() < r2.GetEndPos0();
   };
 
+  std::vector<WindowPtr> results(uniqPaddedWindowPtrs.cbegin(), uniqPaddedWindowPtrs.cend());
   std::sort(results.begin(), results.end(),
             [](const WindowPtr &r1, const WindowPtr &r2) -> bool { return Comparator(*r1, *r2); });
 
@@ -92,7 +106,7 @@ auto WindowBuilder::BuildWindows(const absl::flat_hash_map<std::string, i64> &co
     currWindowIdx++;
   });
 
-  return std::move(results);
+  return results;
 }
 
 auto WindowBuilder::StepSize(u32 pct_overlap, u32 window_length) -> i64 {
@@ -186,7 +200,7 @@ auto BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids, const
     -> std::vector<WindowPtr> {
   WindowBuilder wb(params.referencePath, params.regionPadLength, params.windowLength, params.pctOverlap);
   for (const auto &region : params.inRegions) {
-    const auto result = wb.AddSamtoolsRegion(region);
+    const auto result = wb.AddRegion(region);
     if (!result.ok()) {
       LOG_ERROR(result.message());
       std::exit(EXIT_FAILURE);
@@ -194,7 +208,7 @@ auto BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids, const
   }
 
   if (!params.bedFilePath.empty()) {
-    const auto result = wb.AddBedFileRegions(params.bedFilePath);
+    const auto result = wb.AddRegionsFromBedFile(params.bedFilePath);
     if (!result.ok()) {
       LOG_ERROR(result.message());
       std::exit(EXIT_FAILURE);
@@ -207,7 +221,7 @@ auto BuildWindows(const absl::flat_hash_map<std::string, i64> &contig_ids, const
   }
 
   LOG_INFO("Building windows using {} input regions", wb.GetSize());
-  const auto windows = wb.BuildWindows(contig_ids);
+  const auto windows = wb.BuildWindows();
   if (!windows.ok()) {
     LOG_ERROR(windows.status().message());
     std::exit(EXIT_FAILURE);

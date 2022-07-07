@@ -64,10 +64,10 @@ class HtsAlignment {
     return itr->second;
   }
 
-  [[nodiscard]] auto BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) -> ReadInfo;
+  [[nodiscard]] auto BuildReadInfo(SampleLabel label, u8 min_bq, u8 max_kmer_size) const -> ReadInfo;
 
   [[nodiscard]] auto GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* read_positions,
-                                  std::vector<u32>* genome_positions, bool use_padded = false) -> bool;
+                                  std::vector<u32>* genome_positions, bool use_padded = false) const -> bool;
 
   void SetReadName(std::string rname) { readName = std::move(rname); }
   void SetContigName(std::string ctg) { contig = std::move(ctg); }
