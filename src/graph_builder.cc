@@ -50,7 +50,7 @@ auto GraphBuilder::BuildGraph(usize min_k, usize max_k) -> std::unique_ptr<Graph
 }
 
 void GraphBuilder::BuildSampleNodes() {
-  // mateMer -> readName, kmerHash
+  // mateMer -> readName + sampleLabel, kmerHash
   using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
   LANCET_ASSERT(!sampleReads.empty());  // NOLINT
@@ -86,7 +86,8 @@ void GraphBuilder::BuildSampleNodes() {
       currItr->second->UpdateQual(isCurrFwd ? currQual : std::string(currQual.crbegin(), currQual.crend()));
       if (params->tenxMode) currItr->second->UpdateHPInfo(rd, params->minBaseQual);
 
-      const auto mmId = std::make_pair(rd.readName, currItr->first);
+      // Add label to key, so that keys are unique for tumor and normal samples
+      const auto mmId = std::make_pair(rd.readName + ToString(rd.label), currItr->first);
       const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
       if (isUniqMateMer) {
         currItr->second->UpdateCovInfo(rd, params->minBaseQual, params->tenxMode);
@@ -240,8 +241,8 @@ void GraphBuilder::BuildRefData(absl::Span<const usize> ref_mer_hashes) {
   refTmrData = params->tenxMode ? BuildHPCovs(refCovs.BaseCovs(SampleLabel::TUMOR), refHPs.BaseHPs(SampleLabel::TUMOR))
                                 : BuildHPCovs(refCovs.BaseCovs(SampleLabel::TUMOR));
 
-  LANCET_ASSERT(refNmlData.size() == params->windowLength);  // NOLINT
-  LANCET_ASSERT(refTmrData.size() == params->windowLength);  // NOLINT
+  LANCET_ASSERT(refNmlData.size() == params->windowLength + 1);  // NOLINT
+  LANCET_ASSERT(refTmrData.size() == params->windowLength + 1);  // NOLINT
 }
 
 auto GraphBuilder::MutateSeq(absl::string_view seq, usize base_pos) -> std::vector<std::string> {
