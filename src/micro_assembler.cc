@@ -79,8 +79,8 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
     return absl::OkStatus();
   }
 
-  const auto needToDownsample = scanResult.AverageCoverage <= params->maxWindowCov;
-  const auto fraction = needToDownsample ? 1.0 : params->maxWindowCov / scanResult.AverageCoverage;
+  const auto needToDownsample = scanResult.AverageCoverage >= params->maxWindowCov;
+  const auto fraction = needToDownsample ? params->maxWindowCov / scanResult.AverageCoverage : 1.0;
   const auto extractedCov = needToDownsample ? params->maxWindowCov : scanResult.AverageCoverage;
   const auto reads = re->ExtractReads(w->ToSamtoolsRegion(), fraction);
 
