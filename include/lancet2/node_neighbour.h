@@ -19,7 +19,7 @@ struct NodeNeighbour {
   auto operator!=(const NodeNeighbour& other) const -> bool { return !(*this == other); }
 
   auto operator<(const NodeNeighbour& other) const -> bool {
-    return static_cast<u8>(edgeKind) < static_cast<u8>(other.edgeKind) || buddyId < other.buddyId;
+    return static_cast<u8>(edgeKind) < static_cast<u8>(other.edgeKind) && buddyId < other.buddyId;
   }
 
   template <typename H>
