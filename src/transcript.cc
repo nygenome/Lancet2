@@ -77,8 +77,8 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
   const auto refRev = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Strand::REV, false)))
                                 : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Strand::REV, false));
 
-  const U16 altFwd = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::FWD, isSnv));
-  const U16 altRev = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::REV, isSnv));
+  const U16 altFwd = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::FWD, false));
+  const U16 altRev = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::REV, false));
 
   const auto refHp0 =
       isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Haplotype::UNASSIGNED, false)))
