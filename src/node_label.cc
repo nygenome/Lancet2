@@ -9,7 +9,55 @@ namespace lancet2 {
 NodeLabel::NodeLabel(usize node_len) { bases.resize(node_len); }
 
 void NodeLabel::MergeBuddy(const NodeLabel& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
-  MergeNodeInfo(&bases, absl::MakeConstSpan(buddy.bases), dir, reverse_buddy, k);
+  if (bases.empty()) {
+    reverse_buddy ? bases.insert(bases.end(), buddy.bases.crbegin(), buddy.bases.crend())
+                  : bases.insert(bases.end(), buddy.bases.cbegin(), buddy.bases.cend());
+    return;
+  }
+
+  // add unique bases first and then merge labels for k-1 overlapping bases
+  usize buddyIdx = 0;
+  if (dir == BuddyPosition::FRONT) {
+    if (reverse_buddy) {
+      bases.insert(bases.end(), buddy.bases.crbegin() + k - 1, buddy.bases.crend());
+
+      // merge overlapping base labels
+      buddyIdx = buddy.bases.size() - 1;
+      for (usize idx = bases.size() - k; idx < bases.size(); ++idx) {
+        bases.at(idx) = (bases.at(idx) | buddy.bases.at(buddyIdx));
+        buddyIdx--;
+      }
+    } else {
+      bases.insert(bases.end(), buddy.bases.cbegin() + k - 1, buddy.bases.cend());
+
+      // merge overlapping base labels
+      buddyIdx = 0;
+      for (usize idx = bases.size() - k; idx < bases.size(); ++idx) {
+        bases.at(idx) = (bases.at(idx) | buddy.bases.at(buddyIdx));
+        buddyIdx++;
+      }
+    }
+  } else {
+    if (reverse_buddy) {
+      bases.insert(bases.begin(), buddy.bases.crbegin(), buddy.bases.crend() - k + 1);
+
+      // merge overlapping base labels
+      buddyIdx = k - 1;
+      for (usize idx = buddy.bases.size() - k; idx < buddy.bases.size() - 1; ++idx) {
+        bases.at(idx) = (bases.at(idx) | buddy.bases.at(buddyIdx));
+        buddyIdx--;
+      }
+    } else {
+      bases.insert(bases.begin(), buddy.bases.cbegin(), buddy.bases.cend() - k + 1);
+
+      // merge overlapping base labels
+      buddyIdx = buddy.bases.size() - k;
+      for (usize idx = buddy.bases.size() - k; idx < buddy.bases.size() - 1; ++idx) {
+        bases.at(idx) = (bases.at(idx) | buddy.bases.at(buddyIdx));
+        buddyIdx++;
+      }
+    }
+  }
 }
 
 void NodeLabel::Push(KmerLabel label) {
