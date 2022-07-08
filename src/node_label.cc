@@ -65,9 +65,9 @@ void NodeLabel::Push(KmerLabel label) {
   std::for_each(bases.begin(), bases.end(), setLabel);
 }
 
-auto NodeLabel::UniqueLabelRatio(KmerLabel label) const -> double {
-  const auto hasUniqLabel = [&label](const BaseLabel& base) { return base.IsLabelOnly(label); };
-  const auto count = std::count_if(bases.cbegin(), bases.cend(), hasUniqLabel);
+auto NodeLabel::LabelRatio(KmerLabel label) const -> double {
+  const auto hasLabel = [&label](const BaseLabel& base) { return base.HasLabel(label); };
+  const auto count = std::count_if(bases.cbegin(), bases.cend(), hasLabel);
   return static_cast<double>(count) / static_cast<double>(bases.size());
 }
 

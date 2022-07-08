@@ -111,7 +111,7 @@ void Node::IncrementCov(SampleLabel label, Strand s, usize base_position) {
 
 auto Node::FillColor() const -> std::string { return IsSource() ? "cyan3" : IsSink() ? "yellow2" : labels.FillColor(); }
 
-auto Node::TumorOnlyLabelRatio(KmerLabel label) const -> double { return labels.UniqueLabelRatio(label); }
+auto Node::LabelRatio(KmerLabel label) const -> double { return labels.LabelRatio(label); }
 auto Node::HasLabel(KmerLabel label) const -> bool { return labels.HasLabel(label); }
 auto Node::IsLabelOnly(KmerLabel label) const -> bool { return labels.IsLabelOnly(label); }
 

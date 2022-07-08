@@ -83,7 +83,7 @@ class Node {
 
   [[nodiscard]] auto FillColor() const -> std::string;
 
-  [[nodiscard]] auto TumorOnlyLabelRatio(KmerLabel label) const -> double;
+  [[nodiscard]] auto LabelRatio(KmerLabel label) const -> double;
   [[nodiscard]] auto HasLabel(KmerLabel label) const -> bool;
   [[nodiscard]] auto IsLabelOnly(KmerLabel label) const -> bool;
 
