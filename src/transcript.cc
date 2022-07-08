@@ -9,11 +9,9 @@ namespace lancet2 {
 Transcript::Transcript(std::string chrom, usize genome_ref_pos, TranscriptCode k, TranscriptOffsets offs,
                        TranscriptBases bases, std::array<SampleCov, 2> covs, bool somatic_status)
     : chromName(std::move(chrom)), genomeRefPos(genome_ref_pos), kind(k), idxs(offs), sampleCovs(covs),
-      isSomatic(somatic_status) {
+      prevRefBase(bases.prevRefBase), prevAltBase(bases.prevAltBase), isSomatic(somatic_status) {
   refSeq.push_back(bases.refBase);
   altSeq.push_back(bases.altBase);
-  prevRefBase = bases.prevRefBase;
-  prevAltBase = bases.prevAltBase;
 }
 
 auto Transcript::HasAltCov() const -> bool {
@@ -46,23 +44,25 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
   using U16 = u16;
 
   if (label == SampleLabel::TUMOR) {
-    const auto refFwd = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetMean(Allele::REF, Strand::FWD, false)))
-                                  : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Strand::FWD, false));
-    const auto refRev = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetMean(Allele::REF, Strand::REV, false)))
-                                  : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Strand::REV, false));
+    const auto refFwd = isSomatic
+                            ? static_cast<U16>(std::ceil(sampleCovs[1].GetNonZeroMean(Allele::REF, Strand::FWD, false)))
+                            : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Strand::FWD, false));
+    const auto refRev = isSomatic
+                            ? static_cast<U16>(std::ceil(sampleCovs[1].GetNonZeroMean(Allele::REF, Strand::REV, false)))
+                            : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Strand::REV, false));
 
     const auto altFwd = static_cast<U16>(sampleCovs[1].GetMinimum(Allele::ALT, Strand::FWD, isSnv));
     const auto altRev = static_cast<U16>(sampleCovs[1].GetMinimum(Allele::ALT, Strand::REV, isSnv));
 
     const auto refHp0 =
-        isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetMean(Allele::REF, Haplotype::UNASSIGNED, false)))
+        isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetNonZeroMean(Allele::REF, Haplotype::UNASSIGNED, false)))
                   : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Haplotype::UNASSIGNED, false));
-    const auto refHp1 = isSomatic
-                            ? static_cast<U16>(std::ceil(sampleCovs[1].GetMean(Allele::REF, Haplotype::FIRST, false)))
-                            : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Haplotype::FIRST, false));
-    const auto refHp2 = isSomatic
-                            ? static_cast<U16>(std::ceil(sampleCovs[1].GetMean(Allele::REF, Haplotype::SECOND, false)))
-                            : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Haplotype::SECOND, false));
+    const auto refHp1 =
+        isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetNonZeroMean(Allele::REF, Haplotype::FIRST, false)))
+                  : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Haplotype::FIRST, false));
+    const auto refHp2 =
+        isSomatic ? static_cast<U16>(std::ceil(sampleCovs[1].GetNonZeroMean(Allele::REF, Haplotype::SECOND, false)))
+                  : static_cast<U16>(sampleCovs[1].GetMinimum(Allele::REF, Haplotype::SECOND, false));
 
     const auto altHp0 = static_cast<U16>(sampleCovs[1].GetMinimum(Allele::ALT, Haplotype::UNASSIGNED, isSnv));
     const auto altHp1 = static_cast<U16>(sampleCovs[1].GetMinimum(Allele::ALT, Haplotype::FIRST, isSnv));
@@ -72,23 +72,25 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
                         HpCov(std::make_pair(altFwd, altRev), {altHp0, altHp1, altHp2}));
   }
 
-  const auto refFwd = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Strand::FWD, false)))
-                                : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Strand::FWD, false));
-  const auto refRev = isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Strand::REV, false)))
-                                : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Strand::REV, false));
+  const auto refFwd = isSomatic
+                          ? static_cast<U16>(std::ceil(sampleCovs[0].GetNonZeroMean(Allele::REF, Strand::FWD, false)))
+                          : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Strand::FWD, false));
+  const auto refRev = isSomatic
+                          ? static_cast<U16>(std::ceil(sampleCovs[0].GetNonZeroMean(Allele::REF, Strand::REV, false)))
+                          : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Strand::REV, false));
 
   const U16 altFwd = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::FWD, false));
   const U16 altRev = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Strand::REV, false));
 
   const auto refHp0 =
-      isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Haplotype::UNASSIGNED, false)))
+      isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetNonZeroMean(Allele::REF, Haplotype::UNASSIGNED, false)))
                 : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Haplotype::UNASSIGNED, false));
-  const auto refHp1 = isSomatic
-                          ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Haplotype::FIRST, false)))
-                          : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Haplotype::FIRST, false));
-  const auto refHp2 = isSomatic
-                          ? static_cast<U16>(std::ceil(sampleCovs[0].GetMean(Allele::REF, Haplotype::SECOND, false)))
-                          : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Haplotype::SECOND, false));
+  const auto refHp1 =
+      isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetNonZeroMean(Allele::REF, Haplotype::FIRST, false)))
+                : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Haplotype::FIRST, false));
+  const auto refHp2 =
+      isSomatic ? static_cast<U16>(std::ceil(sampleCovs[0].GetNonZeroMean(Allele::REF, Haplotype::SECOND, false)))
+                : static_cast<U16>(sampleCovs[0].GetMinimum(Allele::REF, Haplotype::SECOND, false));
 
   const U16 altHp0 = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::UNASSIGNED, isSnv));
   const U16 altHp1 = static_cast<U16>(sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::FIRST, isSnv));
