@@ -15,8 +15,13 @@ class CovStats {
   [[nodiscard]] auto GetMean() const -> float;
   [[nodiscard]] auto GetNonZeroMean() const -> float;
 
-  [[nodiscard]] auto GetMinimum() const noexcept -> u16 { return stats.IsEmpty() ? 0 : allMin; }
-  [[nodiscard]] auto GetNonZeroMinimum() const noexcept -> u16 { return non0Stats.IsEmpty() ? 0 : non0Min; }
+  [[nodiscard]] auto GetMinimum() const noexcept -> u16 {
+    return (stats.IsEmpty() || allMin == std::numeric_limits<u16>::max()) ? 0 : allMin;
+  }
+
+  [[nodiscard]] auto GetNonZeroMinimum() const noexcept -> u16 {
+    return (non0Stats.IsEmpty() || non0Min == std::numeric_limits<u16>::max()) ? 0 : non0Min;
+  }
 
  private:
   u16 allMin = std::numeric_limits<u16>::max();
