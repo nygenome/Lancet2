@@ -16,7 +16,7 @@ class NodeLabel {
 
   void Push(KmerLabel label);
 
-  [[nodiscard]] auto LabelRatio(KmerLabel label) const -> double;
+  [[nodiscard]] auto UniqueLabelRatio(KmerLabel label) const -> double;
   [[nodiscard]] auto HasLabel(KmerLabel label) const -> bool;
   [[nodiscard]] auto IsLabelOnly(KmerLabel label) const -> bool;
 

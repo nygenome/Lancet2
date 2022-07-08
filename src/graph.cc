@@ -375,7 +375,7 @@ SkipLocalAlignment:
 
     const auto* spanner = path.FindSpanningNode(pathIdx, kmerSize);
     LANCET_ASSERT(spanner != nullptr);  // NOLINT
-    const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
+    const auto withinTumorNode = spanner->TumorOnlyLabelRatio(KmerLabel::TUMOR) >= 0.8;
 
     // compute previous base to the current event for both
     // ref and path sequence. [required for VCF output format]
@@ -473,7 +473,8 @@ SkipLocalAlignment:
                     const auto* spanner = path.FindSpanningNode(currPathIdx, k);
                     LANCET_ASSERT(spanner != nullptr);  // NOLINT
                     constexpr double minRatioForSomatic = 0.8;
-                    if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
+                    if (spanner->TumorOnlyLabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic)
+                      transcript.SetSomaticStatus(true);
 
                     if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
                       transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
