@@ -375,8 +375,7 @@ SkipLocalAlignment:
 
     const auto* spanner = path.FindSpanningNode(pathIdx, kmerSize);
     LANCET_ASSERT(spanner != nullptr);  // NOLINT
-    const auto withinTumorNode =
-        (spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8) && (spanner->LabelRatio(KmerLabel::NORMAL) < 0.2);
+    const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
 
     // compute previous base to the current event for both
     // ref and path sequence. [required for VCF output format]
