@@ -74,10 +74,10 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
   const auto refRev = isSomatic ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::REF, Strand::FWD, false)))
                                 : sampleCovs[0].GetMinimum(Allele::REF, Strand::FWD, false);
 
-  const auto altFwd = isSomatic ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::ALT, Strand::FWD, false)))
+  const auto altFwd = isSomatic ? static_cast<u16>(0)
                       : isSNV   ? sampleCovs[0].GetMinimum(Allele::ALT, Strand::FWD, true)
                                 : sampleCovs[0].GetNonZeroMinimum(Allele::ALT, Strand::FWD, false);
-  const auto altRev = isSomatic ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::ALT, Strand::REV, false)))
+  const auto altRev = isSomatic ? static_cast<u16>(0)
                       : isSNV   ? sampleCovs[0].GetMinimum(Allele::ALT, Strand::REV, true)
                                 : sampleCovs[0].GetNonZeroMinimum(Allele::ALT, Strand::REV, false);
 
@@ -92,14 +92,9 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
                           : sampleCovs[0].GetMinimum(Allele::REF, Haplotype::SECOND, false);
 
   const auto altHp0 =
-      isSomatic ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::ALT, Haplotype::UNASSIGNED, false)))
-                : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::UNASSIGNED, isSNV);
-  const auto altHp1 = isSomatic
-                          ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::ALT, Haplotype::FIRST, false)))
-                          : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::FIRST, isSNV);
-  const auto altHp2 = isSomatic
-                          ? static_cast<u16>(std::round(sampleCovs[0].GetMean(Allele::ALT, Haplotype::SECOND, false)))
-                          : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::SECOND, isSNV);
+      isSomatic ? static_cast<u16>(0) : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::UNASSIGNED, isSNV);
+  const auto altHp1 = isSomatic ? static_cast<u16>(0) : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::FIRST, isSNV);
+  const auto altHp2 = isSomatic ? static_cast<u16>(0) : sampleCovs[0].GetMinimum(Allele::ALT, Haplotype::SECOND, isSNV);
 
   return VariantHpCov(HpCov(std::make_pair(refFwd, refRev), {refHp0, refHp1, refHp2}),
                       HpCov(std::make_pair(altFwd, altRev), {altHp0, altHp1, altHp2}));
