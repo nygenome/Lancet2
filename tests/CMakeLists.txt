@@ -6,6 +6,6 @@ add_executable(lancet2_tests "${CMAKE_BINARY_DIR}/generated/test_config.h" lance
         fasta_reader_test.cc cigar_unit_test.cc hts_alignment_test.cc
         hts_reader_test.cc read_extractor_test.cc window_builder_test.cc align_test.cc)
 target_include_directories(lancet2_tests PRIVATE ${CMAKE_BINARY_DIR})
-target_link_libraries(lancet2_tests PRIVATE lancet2_core Catch2 spdlog::spdlog)
+target_link_libraries(lancet2_tests PRIVATE lancet2_core Catch2)
 set_target_properties(lancet2_tests PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
         INTERPROCEDURAL_OPTIMIZATION TRUE POSITION_INDEPENDENT_CODE 1)

@@ -1,9 +1,6 @@
 #include "lancet2/align.h"
 
-#include <string_view>
-
 #include "catch2/catch_test_macros.hpp"
-//#include "spdlog/spdlog.h"
 
 static constexpr std::string_view ref =
     "CTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTGAAACAGTCTCACTCTGTCACCAGGCTGGAGTGCAGTGGTGCGATCTCAACTCACTGCAACCTCCACTTCCCGGGTTCAAGCG"
@@ -42,12 +39,4 @@ TEST_CASE("Can align ref and qry sequences", "[lancet2::align]") {
   const auto aln = lancet2::Align(ref, qry);
   CHECK(aln.ref == refAln);
   CHECK(aln.qry == qryAln);
-
-  const auto edAln = lancet2::EdlibAlign(ref, qry);
-  CHECK(edAln.ref.length() == aln.ref.length());
-
-  //  for (usize idx = 0; idx < aln.ref.length(); ++idx) {
-  //    spdlog::info("{}  =>  {}  {}  |  {}  {}", idx, aln.ref.at(idx), aln.qry.at(idx), edAln.ref.at(idx),
-  //                 edAln.qry.at(idx));
-  //  }
 }

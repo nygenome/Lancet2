@@ -28,6 +28,4 @@ struct AlnSeqsView {
 [[nodiscard]] auto Align(std::string_view ref, std::string_view qry) -> AlnSeqs;
 
 [[nodiscard]] auto TrimEndGaps(AlnSeqsView* aln) -> usize;
-
-[[nodiscard]] auto EdlibAlign(std::string_view ref, std::string_view qry) -> AlnSeqs;
 }  // namespace lancet2

@@ -231,8 +231,6 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Flags");
   subcmd->add_flag("--use-overlap-reads", params->useOverlapReads, "Use reads overlapping windows to build graph")
       ->group("Flags");
-  subcmd->add_flag("--use-edlib-align", params->useEdlibAlign, "Use Edlib for aligning assembled contigs to referencee")
-      ->group("Flags");
 
   // Optional
   subcmd->add_option("--graphs-dir", params->outGraphsDir, "Output path to dump serialized graphs for the run")

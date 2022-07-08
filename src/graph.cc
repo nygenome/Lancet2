@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -321,14 +322,12 @@ void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSn
   if (utils::HammingDistWithin(refAnchorSeq, pathSeq, 5)) goto SkipLocalAlignment;  // NOLINT
 
   try {
-    if (params->useEdlibAlign) {
-      rawAlignedSeqs = EdlibAlign(refAnchorSeq, pathSeq);
-    } else {
-      rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
-    }
+    rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
   } catch (...) {
-    const auto errMsg = absl::StrFormat("error aligning ref: %s, qry: %s in window: %s", refAnchorSeq, pathSeq,
-                                        window->ToRegionString());
+    std::exception_ptr p = std::current_exception();
+    const auto errMsg =
+        absl::StrFormat("error aligning ref: %s, qry: %s in window: %s | exception – %s", refAnchorSeq, pathSeq,
+                        window->ToRegionString(), p ? p.__cxa_exception_type()->name() : "null");
     throw std::runtime_error(errMsg);
   }
 

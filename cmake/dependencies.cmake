@@ -48,9 +48,6 @@ ExternalProject_Add(gperftools
 
 set(MESSAGE_QUIET ON)
 
-FetchContent_Declare(edlib GIT_REPOSITORY https://github.com/Martinsos/edlib.git GIT_TAG v1.2.7)
-FetchContent_MakeAvailable(edlib)
-
 FetchContent_Declare(concurrentqueue GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git GIT_TAG v1.0.3)
 FetchContent_GetProperties(concurrentqueue)
 if (NOT concurrentqueue_POPULATED)
