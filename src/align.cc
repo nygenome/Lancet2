@@ -218,6 +218,7 @@ auto EdlibAlign(std::string_view ref, std::string_view qry) -> AlnSeqs {
     }
   }
 
+  edlibFreeAlignResult(edResult);
   return aligned;
 }
 }  // namespace lancet2
