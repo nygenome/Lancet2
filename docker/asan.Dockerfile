@@ -1,6 +1,6 @@
 FROM clangbuiltlinux/ubuntu:llvm12-latest
 
-MAINTAINER Rajeeva Musunuri <rmusunuri@nygenome.org>
+LABEL org.opencontainers.image.authors="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 
 RUN apt-get update && apt-get -y --no-install-recommends upgrade && \
     apt-get install -y --no-install-recommends zlib1g-dev libbz2-dev liblzma-dev libcurl3-dev libssl-dev && \

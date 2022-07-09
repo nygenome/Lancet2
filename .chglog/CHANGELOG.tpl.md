@@ -7,10 +7,10 @@
 ### {{ .Title }}
 {{ range .Commits -}}
 - {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Subject }}
-{{ end }}
-{{ end -}}
-{{ end -}}
-{{ end -}}
+  {{ end }}
+  {{ end -}}
+  {{ end -}}
+  {{ end -}}
 
 {{ range .Versions }}
 <a name="{{ .Tag.Name }}"></a>
@@ -19,22 +19,15 @@
 ### {{ .Title }}
 {{ range .Commits -}}
 - {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Subject }}
-{{ end }}
-{{ end -}}
-
-{{- if .RevertCommits -}}
-### Reverts
-{{ range .RevertCommits -}}
-- {{ .Revert.Header }}
-{{ end }}
-{{ end -}}
+  {{ end }}
+  {{ end -}}
 
 {{- if .MergeCommits -}}
-### Merge Requests
+### Pull Requests
 {{ range .MergeCommits -}}
 - {{ .Header }}
-{{ end }}
-{{ end -}}
+  {{ end }}
+  {{ end -}}
 
 {{- if .NoteGroups -}}
 {{ range .NoteGroups -}}

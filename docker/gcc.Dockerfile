@@ -1,6 +1,6 @@
 FROM alpine:edge
 
-MAINTAINER Rajeeva Musunuri <rmusunuri@nygenome.org>
+LABEL org.opencontainers.image.authors="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 
 RUN apk update && apk upgrade && apk add --no-cache ca-certificates && rm -rf /var/cache/apk/* && \
     apk add --no-cache bash make cmake ninja git linux-headers libc-dev gcc g++ \
