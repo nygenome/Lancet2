@@ -3,6 +3,7 @@
 
 FROM ubuntu:20.04
 
+LABEL org.opencontainers.image.authors="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get -y install tzdata
 
 RUN apt-get update \
