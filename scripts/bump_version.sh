@@ -3,8 +3,8 @@
 set -e
 
 function ensure_deps() {
-  go get -u github.com/jfinken/sembump
-  go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
+  go install github.com/threecommaio/sembump@latest
+  go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
 }
 
 function main() {
@@ -18,10 +18,10 @@ function main() {
   echo "MOST_RECENT_TAG: ${MOST_RECENT_TAG}"
 
   echo "BUMP_KIND: ${BUMP_KIND}"
-  echo "sembump --kind ${BUMP_KIND} ${MOST_RECENT_TAG}"
+  echo "sembump ${MOST_RECENT_TAG} ${BUMP_KIND}"
   # shellcheck disable=SC2155
   # shellcheck disable=SC2034
-  local readonly NEW_VERSION=$(sembump --kind "${BUMP_KIND}" "${MOST_RECENT_TAG}")
+  local readonly NEW_VERSION=$(sembump "${MOST_RECENT_TAG}"  "${BUMP_KIND}")
 
   if [[ -z ${NEW_VERSION} ]]; then
       exit 1

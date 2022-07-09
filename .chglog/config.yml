@@ -1,29 +1,29 @@
 style: github
 template: CHANGELOG.tpl.md
 info:
-  title: CHANGELOG
-  repository_url: https://github.com/omicsnut/v2_lancet
+    title: CHANGELOG
+    repository_url: https://github.com/nygenome/Lancet2
 options:
-  commits:
-     filters:
-       Type:
-         - feat
-         - fix
-         - perf
-         - chore
-         - refactor
-  commit_groups:
-     title_maps:
-       feat: New Features
-       fix: Bug Fixes
-       perf: Performance Improvements
-       chore: Project Maintenance
-       refactor: Code Refactoring
-  header:
-    pattern: "^(\\w*)\\:\\s(.*)$"
-    pattern_maps:
-      - Type
-      - Subject
-  notes:
-    keywords:
-      - BREAKING CHANGE
+    commits:
+        filters:
+            Type:
+                - feat
+                - fix
+                - perf
+                - chore
+                - refactor
+    commit_groups:
+        title_maps:
+            feat: New Features
+            fix: Bug Fixes
+            perf: Performance Improvements
+            chore: General Maintainance
+            refactor: Code Refactoring
+    header:
+        pattern: "^(\\w*)\\:\\s(.*)$"
+        pattern_maps:
+            - Type
+            - Subject
+    notes:
+        keywords:
+            - BREAKING CHANGE
