@@ -48,8 +48,12 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
     const auto refRev = isSomatic ? static_cast<u16>(std::round(sampleCovs[1].GetMean(Allele::REF, Strand::REV, false)))
                                   : sampleCovs[1].GetMinimum(Allele::REF, Strand::REV, false);
 
-    const auto altFwd = sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::FWD, isSomatic);
-    const auto altRev = sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::REV, isSomatic);
+    const auto altFwd = isSNV
+                            ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::FWD, true)))
+                            : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::FWD, false);
+    const auto altRev = isSNV
+                            ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::REV, true)))
+                            : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::REV, false);
 
     const auto refHp0 =
         isSomatic ? static_cast<u16>(std::round(sampleCovs[1].GetMean(Allele::REF, Haplotype::UNASSIGNED, false)))
@@ -61,9 +65,12 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
                             ? static_cast<u16>(std::round(sampleCovs[1].GetMean(Allele::REF, Haplotype::SECOND, false)))
                             : sampleCovs[1].GetMinimum(Allele::REF, Haplotype::SECOND, false);
 
-    const auto altHp0 = sampleCovs[1].GetMinimum(Allele::ALT, Haplotype::UNASSIGNED, isSNV);
-    const auto altHp1 = sampleCovs[1].GetMinimum(Allele::ALT, Haplotype::FIRST, isSNV);
-    const auto altHp2 = sampleCovs[1].GetMinimum(Allele::ALT, Haplotype::SECOND, isSNV);
+    const auto altHp0 =
+        static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Haplotype::UNASSIGNED, isSNV)));
+    const auto altHp1 =
+        static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Haplotype::FIRST, isSNV)));
+    const auto altHp2 =
+        static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Haplotype::SECOND, isSNV)));
 
     return VariantHpCov(HpCov(std::make_pair(refFwd, refRev), {refHp0, refHp1, refHp2}),
                         HpCov(std::make_pair(altFwd, altRev), {altHp0, altHp1, altHp2}));
