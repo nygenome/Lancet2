@@ -48,12 +48,12 @@ auto Transcript::VariantCov(SampleLabel label) const -> VariantHpCov {
     const auto refRev = isSomatic ? static_cast<u16>(std::round(sampleCovs[1].GetMean(Allele::REF, Strand::REV, false)))
                                   : sampleCovs[1].GetMinimum(Allele::REF, Strand::REV, false);
 
-    const auto altFwd = isSNV
-                            ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::FWD, true)))
-                            : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::FWD, isSomatic);
-    const auto altRev = isSNV
-                            ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::REV, true)))
-                            : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::REV, isSomatic);
+    const auto altFwd =
+        isSNV ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::FWD, false)))
+              : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::FWD, false);
+    const auto altRev =
+        isSNV ? static_cast<u16>(std::round(sampleCovs[1].GetNonZeroMean(Allele::ALT, Strand::REV, false)))
+              : sampleCovs[1].GetNonZeroMinimum(Allele::ALT, Strand::REV, false);
 
     const auto refHp0 =
         isSomatic ? static_cast<u16>(std::round(sampleCovs[1].GetMean(Allele::REF, Haplotype::UNASSIGNED, false)))
