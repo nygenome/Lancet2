@@ -22,7 +22,7 @@ auto PathBuilder::BuildPath() const -> std::unique_ptr<Path> {
   if (pathSeq.empty()) return nullptr;
   return std::make_unique<Path>(absl::FixedArray<const Node *>(nodesList.cbegin(), nodesList.cend()),
                                 absl::FixedArray<const Edge *>(edgesList.cbegin(), edgesList.cend()),
-                                std::move(pathSeq), BuildPathCov(), isTenxMode ? BuildPathHP() : NodeHP{});
+                                std::move(pathSeq));
 }
 
 auto PathBuilder::BuildPathSeq() const -> std::string {
@@ -48,26 +48,6 @@ auto PathBuilder::BuildPathSeq() const -> std::string {
   }
 
   LANCET_ASSERT(result.length() == pathLen);  // NOLINT
-  return result;
-}
-
-auto PathBuilder::BuildPathCov() const -> NodeCov {
-  NodeCov result;
-  result.Reserve(pathLen);
-  for (const auto &node : nodesList) {
-    result.MergeBuddy(node->CovData(), BuddyPosition::FRONT, node->GetOrientation() == Strand::REV, kmerSize);
-  }
-  LANCET_ASSERT(result.GetSize() == pathLen);  // NOLINT
-  return result;
-}
-
-auto PathBuilder::BuildPathHP() const -> NodeHP {
-  NodeHP result;
-  result.Reserve(pathLen);
-  for (const auto &node : nodesList) {
-    result.MergeBuddy(node->HPData(), BuddyPosition::FRONT, node->GetOrientation() == Strand::REV, kmerSize);
-  }
-  LANCET_ASSERT(result.GetSize() == pathLen);  // NOLINT
   return result;
 }
 }  // namespace lancet2

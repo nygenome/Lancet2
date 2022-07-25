@@ -84,7 +84,6 @@ add_library(lancet2_core STATIC
         include/lancet2/base_hpcov.h src/base_hpcov.cc
         include/lancet2/barcode_set.h src/barcode_set.cc
         include/lancet2/node_cov.h src/node_cov.cc
-        include/lancet2/node_hp.h src/node_hp.cc
         include/lancet2/base_label.h src/base_label.cc
         include/lancet2/node_label.h src/node_label.cc
         include/lancet2/cov_stats.h src/cov_stats.cc

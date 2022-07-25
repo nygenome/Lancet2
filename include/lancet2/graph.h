@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <memory>
 #include <ostream>
 #include <string_view>
@@ -16,6 +15,7 @@
 #include "lancet2/core_enums.h"
 #include "lancet2/node.h"
 #include "lancet2/path.h"
+#include "lancet2/read_info.h"
 #include "lancet2/ref_window.h"
 #include "lancet2/sized_ints.h"
 #include "lancet2/transcript.h"
@@ -33,9 +33,7 @@ class Graph {
         std::shared_ptr<const CliParams> p);
   Graph() = delete;
 
-  // 0 = NORMAL, 1 = TUMOR
-  using RefInfos = std::array<absl::Span<const BaseHpCov>, 2>;
-  void ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results);
+  void ProcessGraph(absl::Span<const ReadInfo> reads, std::vector<Variant>* results);
 
   [[nodiscard]] auto ShouldIncrementK() const noexcept -> bool { return shouldIncrementK; }
 
@@ -62,7 +60,7 @@ class Graph {
 
   [[nodiscard]] auto HasCycle() const -> bool;
 
-  void ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
+  void ProcessPath(const Path& path, absl::Span<const ReadInfo> reads, const SrcSnkResult& einfo,
                    std::vector<Variant>* results) const;
 
   void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
@@ -121,7 +119,6 @@ class Graph {
 
   auto HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_set<NodeIdentifier>* touched) const -> bool;
 
-  static auto ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> RefInfos;
   static void DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc);
 };
 }  // namespace lancet2

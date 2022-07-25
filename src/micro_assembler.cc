@@ -86,7 +86,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
 
   GraphBuilder gb(w, absl::MakeConstSpan(reads), extractedCov, params);
   auto graph = gb.BuildGraph(params->minKmerSize, params->maxKmerSize);
-  graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, &variants);
+  graph->ProcessGraph(reads, &variants);
 
   while (graph->ShouldIncrementK()) {
     if (gb.CurrentKmerSize() == params->maxKmerSize) {
@@ -95,7 +95,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
     }
 
     graph = gb.BuildGraph(gb.CurrentKmerSize() + 2, params->maxKmerSize);
-    graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, &variants);
+    graph->ProcessGraph(reads, &variants);
   }
 
   return absl::OkStatus();

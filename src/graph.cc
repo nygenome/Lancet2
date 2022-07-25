@@ -28,7 +28,7 @@ Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, do
              std::shared_ptr<const CliParams> p)
     : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
 
-void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
+void Graph::ProcessGraph(absl::Span<const ReadInfo> reads, std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
@@ -64,7 +64,6 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
     }
 
     usize numPaths = 0;
-    const auto clampedRefInfos = ClampToSourceSink(ref_infos, markResult);
     const auto maxPathLength = RefAnchorLen(markResult) + static_cast<usize>(params->maxIndelLength);
 
     EdmondKarpMaxFlow flow(&nodesMap, kmerSize, maxPathLength, params->graphTraversalLimit, params->tenxMode);
@@ -81,7 +80,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
         return;
       }
 
-      ProcessPath(*pathPtr, clampedRefInfos, markResult, results);
+      ProcessPath(*pathPtr, reads, markResult, results);
       if (!params->outGraphsDir.empty()) {
         WritePathFasta(pathPtr->GetSeqView(), comp.ID, numPaths);
       }
@@ -207,7 +206,8 @@ auto Graph::RemoveLowCovNodes(usize comp_id) -> bool {
 
                   const auto isNormalSingleton = p.second->SampleCount(SampleLabel::NORMAL) == 1;
                   const auto isTumorSingleton = p.second->SampleCount(SampleLabel::TUMOR) == 1;
-                  if ((isNormalSingleton && isTumorSingleton) || p.second->MinSampleBaseCov() <= minReqCov) {
+                  const auto totalSampleCov = p.second->TotalSampleCount();
+                  if ((isNormalSingleton && isTumorSingleton) || totalSampleCov <= minReqCov) {
                     nodesToRemove.emplace_back(p.first);
                   }
                 });
@@ -285,7 +285,7 @@ auto Graph::RemoveShortLinks(usize comp_id) -> bool {
 
         const auto nodeDegree = p.second->NumEdges();
         const auto uniqSeqLen = p.second->GetLength() - currK + 1;
-        const auto minRawCov = static_cast<float>(p.second->MinSampleBaseCov());
+        const auto minRawCov = static_cast<float>(p.second->TotalSampleCount());
         if (nodeDegree >= 2 && uniqSeqLen < minLinkLen && minRawCov <= minReqCov) {
           const auto trQuery = FindTandemRepeat(p.second->GetSeqView(), currK - 1, tandemParams);
           // do not remove short-links within STRs: small bubbles are normal in STRs
@@ -307,7 +307,7 @@ auto Graph::HasCycle() const -> bool {
   return HasCycle(MOCK_SOURCE_ID, Strand::FWD, &touchedIDs) || HasCycle(MOCK_SOURCE_ID, Strand::REV, &touchedIDs);
 }
 
-void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
+void Graph::ProcessPath(const Path& path, absl::Span<const ReadInfo> reads, const SrcSnkResult& einfo,
                         std::vector<Variant>* results) const {
   const auto pathSeq = path.GetSeqView();
   const auto refAnchorSeq = window->GetSeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
@@ -650,12 +650,6 @@ auto Graph::HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_s
 
   touched->erase(node_id);
   return false;
-}
-
-auto Graph::ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> Graph::RefInfos {
-  const auto length = ends.endOffset - ends.startOffset;
-  return std::array<absl::Span<const BaseHpCov>, 2>{refs[0].subspan(ends.startOffset, length),
-                                                    refs[1].subspan(ends.startOffset, length)};
 }
 
 void Graph::DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc) {
