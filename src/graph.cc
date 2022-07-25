@@ -417,7 +417,7 @@ SkipLocalAlignment:
     }
 
     // extend existing deletion, if possible
-    const auto deletedRefLen = tr.AltSeq().length();
+    const auto deletedRefLen = tr.RefSeq().length();
     if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen) == genomeRefPos) {
       continue;
     }
