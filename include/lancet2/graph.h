@@ -3,6 +3,7 @@
 #include <memory>
 #include <ostream>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/btree_set.h"
@@ -10,7 +11,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "lancet2/base_hpcov.h"
 #include "lancet2/cli_params.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/node.h"
@@ -29,11 +29,11 @@ class Graph {
   using NodeIterator = NodeContainer::iterator;
   using ConstNodeIterator = NodeContainer::const_iterator;
 
-  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, double avg_cov, usize k,
-        std::shared_ptr<const CliParams> p);
+  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, absl::Span<const ReadInfo> reads, double avg_cov,
+        usize k, std::shared_ptr<const CliParams> p);
   Graph() = delete;
 
-  void ProcessGraph(absl::Span<const ReadInfo> reads, std::vector<Variant>* results);
+  void ProcessGraph(std::vector<Variant>* results);
 
   [[nodiscard]] auto ShouldIncrementK() const noexcept -> bool { return shouldIncrementK; }
 
@@ -60,8 +60,7 @@ class Graph {
 
   [[nodiscard]] auto HasCycle() const -> bool;
 
-  void ProcessPath(const Path& path, absl::Span<const ReadInfo> reads, const SrcSnkResult& einfo,
-                   std::vector<Variant>* results) const;
+  void ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector<Variant>* variants) const;
 
   void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
 
@@ -96,11 +95,12 @@ class Graph {
   class DotSerializer;
 
  private:
-  std::shared_ptr<const RefWindow> window;
-  double avgSampleCov = 0.0;
   usize kmerSize = 0;
-  std::shared_ptr<const CliParams> params = nullptr;
   bool shouldIncrementK = false;
+  double avgSampleCov = 0.0;
+  std::shared_ptr<const CliParams> params = nullptr;
+  std::shared_ptr<const RefWindow> window;
+  absl::Span<const ReadInfo> sampleReads;
   NodeContainer nodesMap;
 
   struct RefEndResult {
@@ -108,6 +108,13 @@ class Graph {
     usize refMerIdx = 0;
     bool foundEnd = false;
   };
+
+  struct HaplotypeCoverageResult {
+    HpCov TmrCov;
+    HpCov NmlCov;
+  };
+
+  [[nodiscard]] auto BuildCoverage(std::string_view haplotype) const -> HaplotypeCoverageResult;
 
   [[nodiscard]] auto FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
       -> RefEndResult;

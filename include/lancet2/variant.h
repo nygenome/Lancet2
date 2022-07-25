@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "lancet2/cli_params.h"
+#include "lancet2/core_enums.h"
 #include "lancet2/transcript.h"
 #include "lancet2/variant_hpcov.h"
 
@@ -21,6 +22,10 @@ class Variant {
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
   [[nodiscard]] auto ID() const -> VariantID;
   [[nodiscard]] auto ComputeState() const -> VariantState;
+
+  void SetVariantCov(SampleLabel label, VariantHpCov cov) {
+    label == SampleLabel::TUMOR ? TumorCov = cov : NormalCov = cov;
+  }
 
   std::string ChromName;   // NOLINT
   usize Position;          // NOLINT

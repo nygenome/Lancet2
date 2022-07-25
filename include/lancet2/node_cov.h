@@ -1,6 +1,5 @@
 #pragma once
 
-#include "lancet2/base_cov.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/sized_ints.h"
 

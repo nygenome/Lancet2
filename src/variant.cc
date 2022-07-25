@@ -13,8 +13,7 @@
 namespace lancet2 {
 Variant::Variant(const Transcript& transcript, usize kmer_size)
     : ChromName(transcript.ChromName()), Position(transcript.Position()), RefAllele(transcript.RefSeq()),
-      AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()), KmerSize(kmer_size),
-      TumorCov(transcript.VariantCov(SampleLabel::TUMOR)), NormalCov(transcript.VariantCov(SampleLabel::NORMAL)) {
+      AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()), KmerSize(kmer_size) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH);  // NOLINT
 
   // get rid of alignment skip chars `-` in ref and alt alleles
@@ -52,8 +51,8 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto somaticScore = PhredFisherScore(NormalCov.TotalRefCov(), TumorCov.TotalRefCov(), NormalCov.TotalAltCov(),
                                              TumorCov.TotalAltCov());
 
-  const auto strandBiasScore =
-      PhredFisherScore(TumorCov.refAl.fwdCov, TumorCov.refAl.revCov, TumorCov.altAl.fwdCov, TumorCov.altAl.revCov);
+  const auto strandBiasScore = PhredFisherScore(TumorCov.RefAllele.FwdCov, TumorCov.RefAllele.RevCov,
+                                                TumorCov.AltAllele.FwdCov, TumorCov.AltAllele.RevCov);
 
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
@@ -79,7 +78,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto lowSomaticScore =
       !STRResult.empty() ? somaticScore < params.minSTRFisher : somaticScore < params.minFisher;
 
-  std::vector<std::string> filters;
+  std::vector<std::string> filters{};
   if (lowSomaticScore && !STRResult.empty()) filters.emplace_back("LowFisherSTR");
   if (lowSomaticScore && STRResult.empty()) filters.emplace_back("LowFisherScore");
   if (NormalCov.TotalCov() < params.minNmlCov) filters.emplace_back("LowCovNormal");
@@ -95,7 +94,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   if (TumorCov.TotalAltCov() < params.minTmrAltCnt) filters.emplace_back("LowAltCntTumor");
   if (NormalCov.TotalAltCov() > params.maxNmlAltCnt) filters.emplace_back("HighAltCntNormal");
 
-  if (TumorCov.altAl.fwdCov < params.minStrandCnt || TumorCov.altAl.revCov < params.minStrandCnt) {
+  if (TumorCov.AltAllele.FwdCov < params.minStrandCnt || TumorCov.AltAllele.RevCov < params.minStrandCnt) {
     filters.emplace_back("StrandBias");
   }
 
@@ -137,9 +136,9 @@ auto Variant::Genotype(int ref, int alt) -> std::string {
 
 auto Variant::BuildSampleFormat(const VariantHpCov& v, bool is_tenx_mode) -> std::string {
   //  const auto FORMAT = params.tenxModeOn ? "GT:AD:SR:SA:DP:HPR:HPA" : "GT:AD:SR:SA:DP";
-  auto result =
-      absl::StrFormat("%s:%d,%d:%d,%d:%d,%d:%d", Genotype(v.TotalRefCov(), v.TotalAltCov()), v.TotalRefCov(),
-                      v.TotalAltCov(), v.refAl.fwdCov, v.refAl.revCov, v.altAl.fwdCov, v.altAl.revCov, v.TotalCov());
+  auto result = absl::StrFormat("%s:%d,%d:%d,%d:%d,%d:%d", Genotype(v.TotalRefCov(), v.TotalAltCov()), v.TotalRefCov(),
+                                v.TotalAltCov(), v.RefAllele.FwdCov, v.RefAllele.RevCov, v.AltAllele.FwdCov,
+                                v.AltAllele.RevCov, v.TotalCov());
 
   if (is_tenx_mode) {
     result += absl::StrFormat(":%d,%d,%d:%d,%d,%d", v.RefHP(Haplotype::FIRST), v.RefHP(Haplotype::SECOND),

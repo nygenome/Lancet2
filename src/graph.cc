@@ -24,11 +24,11 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, double avg_cov, usize k,
-             std::shared_ptr<const CliParams> p)
-    : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
+Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, absl::Span<const ReadInfo> reads,
+             double avg_cov, usize k, std::shared_ptr<const CliParams> p)
+    : kmerSize(k), params(std::move(p)), window(std::move(w)), sampleReads(reads), nodesMap(std::move(data)) {}
 
-void Graph::ProcessGraph(absl::Span<const ReadInfo> reads, std::vector<Variant>* results) {
+void Graph::ProcessGraph(std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
@@ -80,7 +80,7 @@ void Graph::ProcessGraph(absl::Span<const ReadInfo> reads, std::vector<Variant>*
         return;
       }
 
-      ProcessPath(*pathPtr, reads, markResult, results);
+      ProcessPath(*pathPtr, markResult, results);
       if (!params->outGraphsDir.empty()) {
         WritePathFasta(pathPtr->GetSeqView(), comp.ID, numPaths);
       }
@@ -307,15 +307,10 @@ auto Graph::HasCycle() const -> bool {
   return HasCycle(MOCK_SOURCE_ID, Strand::FWD, &touchedIDs) || HasCycle(MOCK_SOURCE_ID, Strand::REV, &touchedIDs);
 }
 
-void Graph::ProcessPath(const Path& path, absl::Span<const ReadInfo> reads, const SrcSnkResult& einfo,
-                        std::vector<Variant>* results) const {
+void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector<Variant>* variants) const {
   const auto pathSeq = path.GetSeqView();
   const auto refAnchorSeq = window->GetSeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
   if (pathSeq == refAnchorSeq) return;
-
-  // check that reference seq length and reference data lengths are same
-  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
-  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[1].length());  // NOLINT
 
   AlnSeqs rawAlignedSeqs;  // need to create this because `goto`
   auto aligned = AlnSeqsView{refAnchorSeq, pathSeq};
@@ -346,8 +341,8 @@ SkipLocalAlignment:
 
   auto code = TranscriptCode::REF_MATCH;
   TranscriptCode prevCode = TranscriptCode::REF_MATCH;
-  TranscriptOffsets tmpOffsets;
-  TranscriptBases tmpBases;
+  Transcript::Offsets tmpOffsets;
+  Transcript::Bases tmpBases;
 
   std::vector<Transcript> transcripts;
   for (usize idx = 0; idx < aligned.ref.length(); ++idx) {
@@ -373,10 +368,6 @@ SkipLocalAlignment:
     const auto pathIdx = pathPos - 1;                          // 0-based index into the path sequence
     const auto genomeRefPos = anchorGenomeStart + refIdx + 1;  // 1-based genome position
 
-    const auto* spanner = path.FindSpanningNode(pathIdx, kmerSize);
-    LANCET_ASSERT(spanner != nullptr);  // NOLINT
-    const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
-
     // compute previous base to the current event for both
     // ref and path sequence. [required for VCF output format]
     auto prevRefIdx = idx - 1;
@@ -393,9 +384,7 @@ SkipLocalAlignment:
       --prevPathIdx;
     }
 
-    LANCET_ASSERT(pathIdx < path.GetLength());      // NOLINT
-    LANCET_ASSERT(refIdx < ref_infos[0].length());  // NOLINT
-    LANCET_ASSERT(refIdx < ref_infos[1].length());  // NOLINT
+    LANCET_ASSERT(pathIdx < path.GetLength());  // NOLINT
 
     // create new transcript if we are sure that we can't extend a previous event
     if (transcripts.empty() || prevCode == TranscriptCode::REF_MATCH) {
@@ -409,86 +398,71 @@ SkipLocalAlignment:
       tmpBases.prevRefBase = aligned.ref[prevRefIdx];
       tmpBases.prevAltBase = aligned.qry[prevPathIdx];
 
-      std::array<SampleCov, 2> sampleCovs{
-          SampleCov(ref_infos[0].at(refIdx), path.HpCovAt(SampleLabel::NORMAL, pathIdx)),
-          SampleCov(ref_infos[1].at(refIdx), path.HpCovAt(SampleLabel::TUMOR, pathIdx))};
-
       const auto chromName = window->GetChromName();
-      transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases, sampleCovs, withinTumorNode);
+      transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases);
       continue;
     }
 
     // extend transcript from previous event
-    Transcript& tr = transcripts[transcripts.size() - 1];
+    Transcript& tr = transcripts.back();
     const auto sameTranscriptCode = tr.Code() == code;
 
-    if (withinTumorNode && !tr.IsSomatic()) tr.SetSomaticStatus(true);
     tr.AddRefBase(aligned.ref[idx]).AddAltBase(aligned.qry[idx]);
     if (code == TranscriptCode::INSERTION || code == TranscriptCode::SNV) tr.SetAltEndOffset(pathIdx + 1);
     if (code == TranscriptCode::DELETION || code == TranscriptCode::SNV) tr.SetRefEndOffset(refIdx + 1);
 
     // extend existing insertion, if possible
     if (sameTranscriptCode && code == TranscriptCode::INSERTION && tr.Position() == genomeRefPos) {
-      tr.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-          .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
       continue;
     }
 
     // extend existing deletion, if possible
     const auto deletedRefLen = tr.AltSeq().length();
     if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen) == genomeRefPos) {
-      tr.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx));
       continue;
     }
 
     // extend into MNP or complex event
     // If current code is SNV & previous code is SNV, extend into MNP (also complex event for now)
     // If current code is SNV & previous code is not SNV, extend into complex event
-    tr.SetCode(TranscriptCode::COMPLEX)
-        .AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-        .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx))
-        .AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
+    tr.SetCode(TranscriptCode::COMPLEX);
   }
 
-  // If alignment left shifts the InDel, reference and path coverages can get out of sync.
-  // Add coverage for k-1 bases after reference and path ends to fix this.
-  const auto k = kmerSize;  // tmp for lambda
-  const TandemRepeatParams tandemParams{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen,
-                                        params->maxSTRDist};
+  const TandemRepeatParams trP{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen, params->maxSTRDist};
+  for (Transcript& T : transcripts) {
+    T.AddSTRResult(FindTandemRepeat(pathSeq, T.AltStartOffset(), trP));
 
-  std::for_each(transcripts.begin(), transcripts.end(),
-                [&path, &ref_infos, &k, &tandemParams, &pathSeq](Transcript& transcript) {
-                  transcript.AddSTRResult(FindTandemRepeat(pathSeq, transcript.AltStartOffset(), tandemParams));
+    // Populate ref and alt haplotype spanning the ref and alt alleles with
+    // length atleast kmer size or ref/alt allele length whichever is larger
+    Variant V(T, kmerSize);
+    const auto refAlleleLen = V.RefAllele.length();
+    const auto altAlleleLen = V.AltAllele.length();
 
-                  if (transcript.Code() == TranscriptCode::REF_MATCH || transcript.Code() == TranscriptCode::SNV) {
-                    return;
-                  }
+    const auto refHapLen = std::max(refAlleleLen, kmerSize);
+    const auto altHapLen = std::max(altAlleleLen, kmerSize);
 
-                  for (usize pos = 0; pos <= k; pos++) {
-                    const auto currPathIdx = transcript.AltEndOffset() + pos;
-                    const auto currRefIdx = transcript.RefEndOffset() + pos;
+    const i64 refLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(refHapLen) - static_cast<double>(refAlleleLen)) / 2.0));
 
-                    const auto* spanner = path.FindSpanningNode(currPathIdx, k);
-                    LANCET_ASSERT(spanner != nullptr);  // NOLINT
-                    constexpr double minRatioForSomatic = 0.8;
-                    if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
+    const i64 altLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(altHapLen) - static_cast<double>(altAlleleLen)) / 2.0));
 
-                    if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
-                      transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
-                          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
-                    }
+    i64 refHapStart = static_cast<i64>(T.RefStartOffset()) - refLeftFlankLen;
+    i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
 
-                    if (currPathIdx >= path.GetLength()) continue;
-                    transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
-                        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
-                  }
-                });
+    if (refHapStart < 0 || altHapStart < 0) continue;
 
-  for (const Transcript& T : transcripts) {
-    if (!T.HasAltCov() || T.ComputeState() == VariantState::NONE) continue;
-    results->emplace_back(T, kmerSize);
+    T.SetRefHaplotype(refAnchorSeq.substr(refHapStart, refHapLen));
+    T.SetAltHaplotype(pathSeq.substr(altHapStart, altHapLen));
+
+    const auto refCovs = BuildCoverage(T.ReferenceHaplotype());
+    const auto altCovs = BuildCoverage(T.AlternateHaplotype());
+    V.SetVariantCov(SampleLabel::TUMOR, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov));
+    V.SetVariantCov(SampleLabel::NORMAL, VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
+
+    // Skip adding variants with no alt kmer coverage
+    if (V.ComputeState() == VariantState::NONE) continue;
+    variants->emplace_back(std::move(V));
   }
 }
 
@@ -529,6 +503,44 @@ void Graph::EraseNode(NodeIterator itr) {
 }
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
+
+auto Graph::BuildCoverage(std::string_view haplotype) const -> HaplotypeCoverageResult {
+  HaplotypeCoverageResult result;
+
+  const auto haplotypeLength = haplotype.length();
+  // mateMer -> readName + sampleLabel, kmerHash
+  using MateMer = std::pair<std::string, u64>;
+  absl::flat_hash_set<MateMer> seenMateMers;
+
+  for (const auto& rd : sampleReads) {
+    const auto seqMers = CanonicalKmers(rd.sequence, haplotypeLength);
+    HpCov& currCov = rd.label == SampleLabel::TUMOR ? result.TmrCov : result.NmlCov;
+
+    for (const auto& mer : seqMers) {
+      // GetSeqView returns the canonicalized string_view of the kmer
+      const auto merView = mer.GetSeqView();
+      if (merView != haplotype) continue;
+
+      // Add label to key, so that keys are unique for tumor and normal samples
+      const auto mmId = std::make_pair(rd.readName + ToString(rd.label), mer.GetHash());
+      const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
+      if (!isUniqMateMer) continue;
+
+      rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
+      if (rd.haplotypeID == 1) {
+        currCov.HP1++;
+      } else if (rd.haplotypeID == 2) {
+        currCov.HP2++;
+      } else {
+        currCov.HP0++;
+      }
+
+      seenMateMers.insert(mmId);
+    }
+  }
+
+  return result;
+}
 
 auto Graph::FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
     -> Graph::RefEndResult {

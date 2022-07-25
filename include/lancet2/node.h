@@ -85,7 +85,6 @@ class Node {
   [[nodiscard]] auto BXCount(SampleLabel label, Strand s) const -> u16;
 
   [[nodiscard]] auto LowQualPositions(u32 min_bq) const -> std::vector<bool>;
-
   [[nodiscard]] auto FindMergeableNeighbours() const -> std::vector<NodeNeighbour>;
 
   void Reserve(const usize count) {

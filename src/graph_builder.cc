@@ -46,7 +46,7 @@ auto GraphBuilder::BuildGraph(usize min_k, usize max_k) -> std::unique_ptr<Graph
 #ifndef NDEBUG
   LOG_DEBUG("Built graph for {} with K={} | Runtime={}", windowId, currentK, timer.HumanRuntime());
 #endif
-  return std::make_unique<Graph>(window, std::move(nodesMap), avgCov, currentK, params);
+  return std::make_unique<Graph>(window, std::move(nodesMap), sampleReads, avgCov, currentK, params);
 }
 
 void GraphBuilder::BuildSampleNodes() {

@@ -86,7 +86,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
 
   GraphBuilder gb(w, absl::MakeConstSpan(reads), extractedCov, params);
   auto graph = gb.BuildGraph(params->minKmerSize, params->maxKmerSize);
-  graph->ProcessGraph(reads, &variants);
+  graph->ProcessGraph(&variants);
 
   while (graph->ShouldIncrementK()) {
     if (gb.CurrentKmerSize() == params->maxKmerSize) {
@@ -95,7 +95,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
     }
 
     graph = gb.BuildGraph(gb.CurrentKmerSize() + 2, params->maxKmerSize);
-    graph->ProcessGraph(reads, &variants);
+    graph->ProcessGraph(&variants);
   }
 
   return absl::OkStatus();
