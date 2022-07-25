@@ -4,7 +4,6 @@
 
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "lancet2/base_hpcov.h"
 #include "lancet2/cli_params.h"
 #include "lancet2/graph.h"
 #include "lancet2/node.h"

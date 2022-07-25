@@ -5,7 +5,6 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/types/span.h"
-#include "lancet2/base_hpcov.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/node.h"
 #include "lancet2/sized_ints.h"
