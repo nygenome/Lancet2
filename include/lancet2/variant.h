@@ -34,9 +34,6 @@ class Variant {
   VariantHpCov TumorCov;   // NOLINT
   VariantHpCov NormalCov;  // NOLINT
 
-  usize RefKmerLen = 0;  // NOLINT
-  usize AltKmerLen = 0;  // NOLINT
-
   auto operator==(const Variant& other) const -> bool { return this->ID() == other.ID(); }
   auto operator!=(const Variant& other) const -> bool { return this->ID() != other.ID(); }
 

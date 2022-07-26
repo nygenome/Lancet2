@@ -15,9 +15,6 @@ Variant::Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmr
       AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()),
       Length(transcript.GetVariantLength()), KmerSize(kmer_size), TumorCov(tmrCov), NormalCov(nmlCov) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH && transcript.IsFinalized());  // NOLINT
-
-  RefKmerLen = transcript.RefKmerLen;
-  AltKmerLen = transcript.AltKmerLen;
 }
 
 auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
@@ -30,9 +27,8 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
-  auto info =
-      absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;REFHAPSIZE=%d;ALTHAPSIZE=%d;SB=%f", ToString(varState),
-                      somaticScore, ToString(Kind), Length, KmerSize, RefKmerLen, AltKmerLen, strandBiasScore);
+  auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
+                              ToString(Kind), Length, KmerSize, strandBiasScore);
 
   if (!STRResult.empty()) info += absl::StrFormat(";MS=%s", STRResult);
 
