@@ -15,6 +15,9 @@ Variant::Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmr
       AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()),
       Length(transcript.GetVariantLength()), KmerSize(kmer_size), TumorCov(tmrCov), NormalCov(nmlCov) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH && transcript.IsFinalized());  // NOLINT
+
+  RefKmerLen = transcript.RefKmerLen;
+  AltKmerLen = transcript.AltKmerLen;
 }
 
 auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
