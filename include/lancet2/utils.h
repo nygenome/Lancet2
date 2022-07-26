@@ -32,6 +32,8 @@ static constexpr u64 PRIME_1 = 14480561146010017169LLU;
 
 [[nodiscard]] auto RevStr(std::string_view sv) -> std::string;
 
+[[nodiscard]] auto GetHash(std::string_view sv) -> u64;
+
 void PushSeq(std::string_view sequence, std::string* result);
 
 void PushRevCompSeq(std::string_view sequence, std::string* result);
