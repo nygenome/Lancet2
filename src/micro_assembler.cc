@@ -14,7 +14,7 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, const std::atomic<u64>& doneCounter,
+void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::atomic<u64>& doneCounter,
                              const u64 totalCount) {
   static thread_local const auto tid = std::this_thread::get_id();
   LOG_INFO("Started MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
@@ -62,6 +62,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, const s
       LOG_ERROR("Error processing window {}: unknown exception caught", regStr);
     }
 
+    doneCounter.fetch_add(1);
     results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
   }
 

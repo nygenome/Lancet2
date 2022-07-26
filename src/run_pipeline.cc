@@ -111,7 +111,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   while (anyWindowsRunning()) {
     resultQueuePtr->wait_dequeue(resultConsumerToken, result);
 
-    doneWindowsCount.fetch_add(1);
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
     LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(doneWindowsCount.load()), windowID,
