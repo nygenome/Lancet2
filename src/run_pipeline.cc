@@ -86,10 +86,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
         std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
-  const auto anyWindowsRunning = []() -> bool {
-    return std::any_of(doneWindows.cbegin(), doneWindows.cend(), [](const bool& wdone) { return !wdone; });
-  };
-
   const auto allWindowsUptoDone = [](const usize win_idx) -> bool {
     const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
     return std::all_of(doneWindows.cbegin(), lastItr, [](const bool& wdone) { return wdone; });
@@ -103,8 +99,10 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   WindowResult result;
   moodycamel::ConsumerToken resultConsumerToken(*resultQueuePtr);
-  while (anyWindowsRunning()) {
-    resultQueuePtr->wait_dequeue(resultConsumerToken, result);
+  while (pendingTasks.load(std::memory_order_acquire) != 0) {
+    if (!resultQueuePtr->try_dequeue(resultConsumerToken, result)) {
+      continue;
+    }
 
     numDone++;
     doneWindows[result.windowIdx] = true;

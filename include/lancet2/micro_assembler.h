@@ -25,7 +25,7 @@ struct WindowResult {
 };
 
 using InWindowQueue = moodycamel::ConcurrentQueue<std::shared_ptr<RefWindow>>;
-using OutResultQueue = moodycamel::BlockingConcurrentQueue<WindowResult>;
+using OutResultQueue = moodycamel::ConcurrentQueue<WindowResult>;
 
 class MicroAssembler {
  public:

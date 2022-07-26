@@ -599,6 +599,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     }
   }
 
+  usize numVariants = 0;
   for (const Transcript& T : transcripts) {
     const auto refCovs = sampleHaplotypeCovs.at(T.RefKmerHash);
     const auto altCovs = sampleHaplotypeCovs.at(T.AltKmerHash);
@@ -606,7 +607,11 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
     if (V.ComputeState() == VariantState::NONE) continue;
     variants->emplace_back(std::move(V));
+    numVariants++;
   }
+
+  const auto windowId = window->ToRegionString();
+  LOG_DEBUG("Built {} variants from graph for {}", numVariants, windowId);
 }
 
 auto Graph::FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
