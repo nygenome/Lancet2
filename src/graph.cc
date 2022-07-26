@@ -527,10 +527,6 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
   }
 
-  const auto windowId = window->ToRegionString();
-  LOG_DEBUG("Building variant coverages using {} unique lengths and {} haplotypes for {}", haplotypeLengths.size(),
-            sampleHaplotypeCovs.size(), windowId);
-
   // mateMer -> readName + sampleLabel, kmerHash
   using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
@@ -543,7 +539,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
       const auto readSeq = rd.SeqView();
       const auto readQual = rd.QualView();
-      
+
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
         const auto minMerQual = GetMinBaseQual(absl::ClippedSubstr(readQual, offset, haplotypeLength));
         if (minMerQual < params->minBaseQual) continue;
