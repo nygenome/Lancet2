@@ -92,7 +92,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   };
 
   usize idxToFlush = 0;
-  usize numDone = 0;
   const auto pctDone = [&totalWindowsCount](const usize done) -> double {
     return 100.0 * (static_cast<double>(done) / static_cast<double>(totalWindowsCount));
   };
@@ -104,10 +103,10 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
       continue;
     }
 
-    numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
+    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(pendingTasks.load(std::memory_order_acquire)),
+             windowID, Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
       const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], outVcf, contigIDs);
