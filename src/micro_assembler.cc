@@ -71,8 +71,8 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::at
   }
 
   ForceFlush(store, resultProducerToken);
-  LOG_INFO("Done processing {} windows in MicroAssembler thread {:#x}", numProcessed,
-           absl::Hash<std::thread::id>()(tid));
+  LOG_INFO("Done processing {} windows in MicroAssembler thread {:#x}. PendingTasks={}", numProcessed,
+           absl::Hash<std::thread::id>()(tid), pendingTasks->load(std::memory_order_acquire));
 }
 
 auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status {
