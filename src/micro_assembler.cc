@@ -14,8 +14,7 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::atomic<u64>& doneCounter,
-                             const u64 totalCount) {
+void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
   static thread_local const auto tid = std::this_thread::get_id();
   LOG_INFO("Started MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 
@@ -30,15 +29,13 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::at
   moodycamel::ProducerToken resultProducerToken(*resultQPtr);
   usize numProcessed = 0;
 
-  while (doneCounter.load() < totalCount) {
-    windowQPtr->wait_dequeue(windowConsumerToken, window);
+  while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
     TryFlush(store, resultProducerToken);
     T.Reset();
 
     const auto winIdx = window->GetWindowIndex();
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.GetRegionSeq(window->ToSamtoolsRegion());
-    doneCounter.fetch_add(1);
     numProcessed++;
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {

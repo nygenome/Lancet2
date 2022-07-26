@@ -1,6 +1,5 @@
 #pragma once
 
-#include <atomic>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -25,7 +24,7 @@ struct WindowResult {
   [[nodiscard]] auto IsEmpty() const -> bool { return runtime == absl::ZeroDuration() && windowIdx == 0; }
 };
 
-using InWindowQueue = moodycamel::BlockingConcurrentQueue<std::shared_ptr<RefWindow>>;
+using InWindowQueue = moodycamel::ConcurrentQueue<std::shared_ptr<RefWindow>>;
 using OutResultQueue = moodycamel::BlockingConcurrentQueue<WindowResult>;
 
 class MicroAssembler {
@@ -38,7 +37,7 @@ class MicroAssembler {
 
   MicroAssembler() = default;
 
-  void Process(const std::shared_ptr<VariantStore>& store, std::atomic<u64>& doneCounter, u64 totalCount);
+  void Process(const std::shared_ptr<VariantStore>& store);
 
   [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
 
