@@ -1,9 +1,9 @@
 #pragma once
 
-#include <array>
 #include <memory>
 #include <ostream>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/btree_set.h"
@@ -11,11 +11,11 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "lancet2/base_hpcov.h"
 #include "lancet2/cli_params.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/node.h"
 #include "lancet2/path.h"
+#include "lancet2/read_info.h"
 #include "lancet2/ref_window.h"
 #include "lancet2/sized_ints.h"
 #include "lancet2/transcript.h"
@@ -29,13 +29,11 @@ class Graph {
   using NodeIterator = NodeContainer::iterator;
   using ConstNodeIterator = NodeContainer::const_iterator;
 
-  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, double avg_cov, usize k,
-        std::shared_ptr<const CliParams> p);
+  Graph(std::shared_ptr<const RefWindow> w, NodeContainer&& data, absl::Span<const ReadInfo> reads, double avg_cov,
+        usize k, std::shared_ptr<const CliParams> p);
   Graph() = delete;
 
-  // 0 = NORMAL, 1 = TUMOR
-  using RefInfos = std::array<absl::Span<const BaseHpCov>, 2>;
-  void ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results);
+  void ProcessGraph(std::vector<Variant>* results);
 
   [[nodiscard]] auto ShouldIncrementK() const noexcept -> bool { return shouldIncrementK; }
 
@@ -62,8 +60,7 @@ class Graph {
 
   [[nodiscard]] auto HasCycle() const -> bool;
 
-  void ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
-                   std::vector<Variant>* results) const;
+  void ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector<Variant>* variants) const;
 
   void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
 
@@ -98,11 +95,12 @@ class Graph {
   class DotSerializer;
 
  private:
-  std::shared_ptr<const RefWindow> window;
-  double avgSampleCov = 0.0;
   usize kmerSize = 0;
-  std::shared_ptr<const CliParams> params = nullptr;
   bool shouldIncrementK = false;
+  double avgSampleCov = 0.0;
+  std::shared_ptr<const CliParams> params = nullptr;
+  std::shared_ptr<const RefWindow> window;
+  absl::Span<const ReadInfo> sampleReads;
   NodeContainer nodesMap;
 
   struct RefEndResult {
@@ -110,6 +108,12 @@ class Graph {
     usize refMerIdx = 0;
     bool foundEnd = false;
   };
+
+  struct SampleHpCovs {
+    HpCov TmrCov;
+    HpCov NmlCov;
+  };
+  void BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const;
 
   [[nodiscard]] auto FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
       -> RefEndResult;
@@ -121,7 +125,6 @@ class Graph {
 
   auto HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_set<NodeIdentifier>* touched) const -> bool;
 
-  static auto ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> RefInfos;
   static void DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc);
 };
 }  // namespace lancet2

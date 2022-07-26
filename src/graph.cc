@@ -10,11 +10,13 @@
 
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "lancet2/align.h"
 #include "lancet2/assert_macro.h"
 #include "lancet2/canonical_kmers.h"
 #include "lancet2/dot_serializer.h"
 #include "lancet2/edmond_karp.h"
+#include "lancet2/kmer.h"
 #include "lancet2/log_macros.h"
 #include "lancet2/node_neighbour.h"
 #include "lancet2/tandem_repeat.h"
@@ -24,11 +26,12 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, double avg_cov, usize k,
-             std::shared_ptr<const CliParams> p)
-    : window(std::move(w)), avgSampleCov(avg_cov), kmerSize(k), params(std::move(p)), nodesMap(std::move(data)) {}
+Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, absl::Span<const ReadInfo> reads,
+             double avg_cov, usize k, std::shared_ptr<const CliParams> p)
+    : kmerSize(k), avgSampleCov(avg_cov), params(std::move(p)), window(std::move(w)), sampleReads(reads),
+      nodesMap(std::move(data)) {}
 
-void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
+void Graph::ProcessGraph(std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
@@ -64,7 +67,6 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
     }
 
     usize numPaths = 0;
-    const auto clampedRefInfos = ClampToSourceSink(ref_infos, markResult);
     const auto maxPathLength = RefAnchorLen(markResult) + static_cast<usize>(params->maxIndelLength);
 
     EdmondKarpMaxFlow flow(&nodesMap, kmerSize, maxPathLength, params->graphTraversalLimit, params->tenxMode);
@@ -81,7 +83,7 @@ void Graph::ProcessGraph(RefInfos&& ref_infos, std::vector<Variant>* results) {
         return;
       }
 
-      ProcessPath(*pathPtr, clampedRefInfos, markResult, results);
+      ProcessPath(*pathPtr, markResult, results);
       if (!params->outGraphsDir.empty()) {
         WritePathFasta(pathPtr->GetSeqView(), comp.ID, numPaths);
       }
@@ -207,7 +209,8 @@ auto Graph::RemoveLowCovNodes(usize comp_id) -> bool {
 
                   const auto isNormalSingleton = p.second->SampleCount(SampleLabel::NORMAL) == 1;
                   const auto isTumorSingleton = p.second->SampleCount(SampleLabel::TUMOR) == 1;
-                  if ((isNormalSingleton && isTumorSingleton) || p.second->MinSampleBaseCov() <= minReqCov) {
+                  const auto totalSampleCov = p.second->TotalSampleCount();
+                  if ((isNormalSingleton && isTumorSingleton) || totalSampleCov <= minReqCov) {
                     nodesToRemove.emplace_back(p.first);
                   }
                 });
@@ -285,7 +288,7 @@ auto Graph::RemoveShortLinks(usize comp_id) -> bool {
 
         const auto nodeDegree = p.second->NumEdges();
         const auto uniqSeqLen = p.second->GetLength() - currK + 1;
-        const auto minRawCov = static_cast<float>(p.second->MinSampleBaseCov());
+        const auto minRawCov = static_cast<float>(p.second->TotalSampleCount());
         if (nodeDegree >= 2 && uniqSeqLen < minLinkLen && minRawCov <= minReqCov) {
           const auto trQuery = FindTandemRepeat(p.second->GetSeqView(), currK - 1, tandemParams);
           // do not remove short-links within STRs: small bubbles are normal in STRs
@@ -307,15 +310,10 @@ auto Graph::HasCycle() const -> bool {
   return HasCycle(MOCK_SOURCE_ID, Strand::FWD, &touchedIDs) || HasCycle(MOCK_SOURCE_ID, Strand::REV, &touchedIDs);
 }
 
-void Graph::ProcessPath(const Path& path, const RefInfos& ref_infos, const SrcSnkResult& einfo,
-                        std::vector<Variant>* results) const {
+void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector<Variant>* variants) const {
   const auto pathSeq = path.GetSeqView();
   const auto refAnchorSeq = window->GetSeqView().substr(einfo.startOffset, RefAnchorLen(einfo));
   if (pathSeq == refAnchorSeq) return;
-
-  // check that reference seq length and reference data lengths are same
-  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[0].length());  // NOLINT
-  LANCET_ASSERT(refAnchorSeq.length() == ref_infos[1].length());  // NOLINT
 
   AlnSeqs rawAlignedSeqs;  // need to create this because `goto`
   auto aligned = AlnSeqsView{refAnchorSeq, pathSeq};
@@ -346,8 +344,8 @@ SkipLocalAlignment:
 
   auto code = TranscriptCode::REF_MATCH;
   TranscriptCode prevCode = TranscriptCode::REF_MATCH;
-  TranscriptOffsets tmpOffsets;
-  TranscriptBases tmpBases;
+  Transcript::Offsets tmpOffsets;
+  Transcript::Bases tmpBases;
 
   std::vector<Transcript> transcripts;
   for (usize idx = 0; idx < aligned.ref.length(); ++idx) {
@@ -373,10 +371,6 @@ SkipLocalAlignment:
     const auto pathIdx = pathPos - 1;                          // 0-based index into the path sequence
     const auto genomeRefPos = anchorGenomeStart + refIdx + 1;  // 1-based genome position
 
-    const auto* spanner = path.FindSpanningNode(pathIdx, kmerSize);
-    LANCET_ASSERT(spanner != nullptr);  // NOLINT
-    const auto withinTumorNode = spanner->LabelRatio(KmerLabel::TUMOR) >= 0.8;
-
     // compute previous base to the current event for both
     // ref and path sequence. [required for VCF output format]
     auto prevRefIdx = idx - 1;
@@ -393,9 +387,7 @@ SkipLocalAlignment:
       --prevPathIdx;
     }
 
-    LANCET_ASSERT(pathIdx < path.GetLength());      // NOLINT
-    LANCET_ASSERT(refIdx < ref_infos[0].length());  // NOLINT
-    LANCET_ASSERT(refIdx < ref_infos[1].length());  // NOLINT
+    LANCET_ASSERT(pathIdx < path.GetLength());  // NOLINT
 
     // create new transcript if we are sure that we can't extend a previous event
     if (transcripts.empty() || prevCode == TranscriptCode::REF_MATCH) {
@@ -409,87 +401,69 @@ SkipLocalAlignment:
       tmpBases.prevRefBase = aligned.ref[prevRefIdx];
       tmpBases.prevAltBase = aligned.qry[prevPathIdx];
 
-      std::array<SampleCov, 2> sampleCovs{
-          SampleCov(ref_infos[0].at(refIdx), path.HpCovAt(SampleLabel::NORMAL, pathIdx)),
-          SampleCov(ref_infos[1].at(refIdx), path.HpCovAt(SampleLabel::TUMOR, pathIdx))};
-
       const auto chromName = window->GetChromName();
-      transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases, sampleCovs, withinTumorNode);
+      transcripts.emplace_back(chromName, genomeRefPos, code, tmpOffsets, tmpBases);
       continue;
     }
 
     // extend transcript from previous event
-    Transcript& tr = transcripts[transcripts.size() - 1];
+    Transcript& tr = transcripts.back();
     const auto sameTranscriptCode = tr.Code() == code;
 
-    if (withinTumorNode && !tr.IsSomatic()) tr.SetSomaticStatus(true);
     tr.AddRefBase(aligned.ref[idx]).AddAltBase(aligned.qry[idx]);
     if (code == TranscriptCode::INSERTION || code == TranscriptCode::SNV) tr.SetAltEndOffset(pathIdx + 1);
     if (code == TranscriptCode::DELETION || code == TranscriptCode::SNV) tr.SetRefEndOffset(refIdx + 1);
 
     // extend existing insertion, if possible
     if (sameTranscriptCode && code == TranscriptCode::INSERTION && tr.Position() == genomeRefPos) {
-      tr.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-          .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
       continue;
     }
 
     // extend existing deletion, if possible
-    const auto deletedRefLen = tr.AltSeq().length();
+    const auto deletedRefLen = tr.RefSeq().length();
     if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen) == genomeRefPos) {
-      tr.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx));
       continue;
     }
 
     // extend into MNP or complex event
     // If current code is SNV & previous code is SNV, extend into MNP (also complex event for now)
     // If current code is SNV & previous code is not SNV, extend into complex event
-    tr.SetCode(TranscriptCode::COMPLEX)
-        .AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(refIdx))
-        .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(refIdx))
-        .AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, pathIdx))
-        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, pathIdx));
+    tr.SetCode(TranscriptCode::COMPLEX);
   }
 
-  // If alignment left shifts the InDel, reference and path coverages can get out of sync.
-  // Add coverage for k-1 bases after reference and path ends to fix this.
-  const auto k = kmerSize;  // tmp for lambda
-  const TandemRepeatParams tandemParams{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen,
-                                        params->maxSTRDist};
+  const TandemRepeatParams trP{params->maxSTRUnitLength, params->minSTRUnits, params->minSTRLen, params->maxSTRDist};
+  for (Transcript& T : transcripts) {
+    T.AddSTRResult(FindTandemRepeat(pathSeq, T.AltStartOffset(), trP));
 
-  std::for_each(transcripts.begin(), transcripts.end(),
-                [&path, &ref_infos, &k, &tandemParams, &pathSeq](Transcript& transcript) {
-                  transcript.AddSTRResult(FindTandemRepeat(pathSeq, transcript.AltStartOffset(), tandemParams));
+    // Populate ref and alt haplotype spanning the ref and alt alleles with
+    // length atleast kmer size or ref/alt allele length whichever is larger
+    T.Finalize();
+    const auto refAlleleLen = T.GetRefLength();
+    const auto altAlleleLen = T.GetAltLength();
 
-                  if (transcript.Code() == TranscriptCode::REF_MATCH || transcript.Code() == TranscriptCode::SNV) {
-                    return;
-                  }
+    const auto refHapLen = std::max(refAlleleLen, kmerSize);
+    const auto altHapLen = std::max(altAlleleLen, kmerSize);
 
-                  for (usize pos = 0; pos <= k; pos++) {
-                    const auto currPathIdx = transcript.AltEndOffset() + pos;
-                    const auto currRefIdx = transcript.RefEndOffset() + pos;
+    const i64 refLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(refHapLen) - static_cast<double>(refAlleleLen)) / 2.0));
 
-                    const auto* spanner = path.FindSpanningNode(currPathIdx, k);
-                    LANCET_ASSERT(spanner != nullptr);  // NOLINT
-                    constexpr double minRatioForSomatic = 0.8;
-                    if (spanner->LabelRatio(KmerLabel::TUMOR) >= minRatioForSomatic) transcript.SetSomaticStatus(true);
+    const i64 altLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(altHapLen) - static_cast<double>(altAlleleLen)) / 2.0));
 
-                    if (currRefIdx < ref_infos[0].length() && currRefIdx < ref_infos[1].length()) {
-                      transcript.AddCov(SampleLabel::NORMAL, Allele::REF, ref_infos[0].at(currRefIdx))
-                          .AddCov(SampleLabel::TUMOR, Allele::REF, ref_infos[1].at(currRefIdx));
-                    }
+    i64 refHapStart = static_cast<i64>(T.RefStartOffset()) - refLeftFlankLen;
+    i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
 
-                    if (currPathIdx >= path.GetLength()) continue;
-                    transcript.AddCov(SampleLabel::TUMOR, Allele::ALT, path.HpCovAt(SampleLabel::TUMOR, currPathIdx))
-                        .AddCov(SampleLabel::NORMAL, Allele::ALT, path.HpCovAt(SampleLabel::NORMAL, currPathIdx));
-                  }
-                });
+    if (refHapStart < 0 || altHapStart < 0) continue;
 
-  for (const Transcript& T : transcripts) {
-    if (!T.HasAltCov() || T.ComputeState() == VariantState::NONE) continue;
-    results->emplace_back(T, kmerSize);
+    T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
+    T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
+    T.RefKmerLen = static_cast<usize>(refHapLen);
+    T.AltKmerLen = static_cast<usize>(altHapLen);
+    T.RefLeftFlankLen = refLeftFlankLen;
+    T.AltLeftFlankLen = altLeftFlankLen;
   }
+
+  BuildVariants(absl::MakeConstSpan(transcripts), variants);
 }
 
 void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const {
@@ -529,6 +503,116 @@ void Graph::EraseNode(NodeIterator itr) {
 }
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
+
+struct AlleleSpan {
+  usize StartPosition = 0;
+  usize AlleleLength = 1;
+
+  [[nodiscard]] auto GetEndPos() const noexcept -> usize { return StartPosition + AlleleLength; }
+};
+
+struct BaseQualStats {
+  u32 Minimum = 0;
+  u32 Average = 0;
+};
+
+static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan& loc) -> BaseQualStats {
+  BaseQualStats result;
+  const auto alleleEndPos = loc.GetEndPos();
+  if (baseQuals.empty() || (alleleEndPos > baseQuals.length())) return result;
+
+  result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);
+  u32 currSum = static_cast<u32>(baseQuals[loc.StartPosition]);
+  if (loc.AlleleLength == 1) {
+    result.Average = currSum;
+    return result;
+  }
+
+  for (usize idx = loc.StartPosition + 1; idx < alleleEndPos; ++idx) {
+    currSum += static_cast<u32>(baseQuals[idx]);
+  }
+
+  result.Average = static_cast<u32>(std::floor(static_cast<float>(currSum) / static_cast<float>(baseQuals.length())));
+  return result;
+}
+
+void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
+  absl::flat_hash_set<usize> haplotypeLengths;                 // Set with Lengths of all haplotypes
+  absl::flat_hash_map<u64, SampleHpCovs> sampleHaplotypeCovs;  // Maps haplotype hash to sample coverages
+  absl::flat_hash_map<u64, AlleleSpan> haplotypeAlleleSpans;   // Maps haplotype hash to allele span
+
+  for (const Transcript& T : transcripts) {
+    const auto isSNV = T.Code() == TranscriptCode::SNV;
+    const auto refAlleleSpan = isSNV ? AlleleSpan{T.RefLeftFlankLen, 1} : AlleleSpan{0, T.RefKmerLen};
+    const auto altAlleleSpan = isSNV ? AlleleSpan{T.AltLeftFlankLen, 1} : AlleleSpan{0, T.AltKmerLen};
+
+    haplotypeLengths.insert(T.RefKmerLen);
+    sampleHaplotypeCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
+    haplotypeAlleleSpans.try_emplace(T.RefKmerHash, refAlleleSpan);
+
+    haplotypeLengths.insert(T.AltKmerLen);
+    sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
+    haplotypeAlleleSpans.try_emplace(T.AltKmerHash, altAlleleSpan);
+  }
+
+  // mateMer -> readName + sampleLabel, kmerHash
+  using MateMer = std::pair<std::string, u64>;
+  absl::flat_hash_set<MateMer> seenMateMers;
+
+  for (const usize& haplotypeLength : haplotypeLengths) {
+    seenMateMers.clear();
+
+    for (const auto& rd : sampleReads) {
+      if (rd.Length() < haplotypeLength) continue;
+
+      const auto readSeq = rd.SeqView();
+      const auto readQual = rd.QualView();
+
+      for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
+        const auto merHash = Kmer(absl::ClippedSubstr(readSeq, offset, haplotypeLength)).GetHash();
+        if (!sampleHaplotypeCovs.contains(merHash)) continue;
+
+        const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
+        const auto alleleLoc = haplotypeAlleleSpans.at(merHash);
+        const auto merQualStats = GetBaseQualStats(merQuals, alleleLoc);
+        if (merQualStats.Average < params->minBaseQual) continue;
+
+        // Add label to key, so that keys are unique for tumor and normal samples
+        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
+        const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
+        if (!isUniqMateMer) continue;
+
+        auto& curr = sampleHaplotypeCovs.at(merHash);
+        HpCov& currCov = rd.label == SampleLabel::TUMOR ? curr.TmrCov : curr.NmlCov;
+
+        rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
+        if (rd.haplotypeID == 1) {
+          currCov.HP1++;
+        } else if (rd.haplotypeID == 2) {
+          currCov.HP2++;
+        } else {
+          currCov.HP0++;
+        }
+
+        seenMateMers.insert(mmId);
+      }
+    }
+  }
+
+  usize numVariants = 0;
+  for (const Transcript& T : transcripts) {
+    const auto refCovs = sampleHaplotypeCovs.at(T.RefKmerHash);
+    const auto altCovs = sampleHaplotypeCovs.at(T.AltKmerHash);
+    Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
+
+    if (V.ComputeState() == VariantState::NONE) continue;
+    variants->emplace_back(std::move(V));
+    numVariants++;
+  }
+
+  const auto windowId = window->ToRegionString();
+  LOG_DEBUG("Built {} variants from graph for {}", numVariants, windowId);
+}
 
 auto Graph::FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
     -> Graph::RefEndResult {
@@ -650,12 +734,6 @@ auto Graph::HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_s
 
   touched->erase(node_id);
   return false;
-}
-
-auto Graph::ClampToSourceSink(const RefInfos& refs, const SrcSnkResult& ends) -> Graph::RefInfos {
-  const auto length = ends.endOffset - ends.startOffset;
-  return std::array<absl::Span<const BaseHpCov>, 2>{refs[0].subspan(ends.startOffset, length),
-                                                    refs[1].subspan(ends.startOffset, length)};
 }
 
 void Graph::DisconnectEdgesTo(NodeIterator itr, const NodeContainer& nc) {

@@ -35,4 +35,13 @@ void Kmer::Canonicalize(std::string_view sv) {
 auto Kmer::GetHash() const -> u64 {
   return absl::hash_internal::CityHash64WithSeeds(seq.c_str(), seq.length(), utils::PRIME_0, utils::PRIME_1);  // NOLINT
 }
+
+auto Kmer::CanonicalSequence(std::string_view sv) -> std::string {
+  auto revComp = utils::RevComp(sv);
+  if (sv < revComp) {
+    return std::string(sv);
+  }
+
+  return revComp;
+}
 }  // namespace lancet2

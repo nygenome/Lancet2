@@ -74,20 +74,15 @@ add_library(lancet2_core STATIC
         include/lancet2/align.h src/align.cc
         include/lancet2/edmond_karp.h src/edmond_karp.cc
         include/lancet2/transcript.h src/transcript.cc
-        include/lancet2/sample_cov.h src/sample_cov.cc
         include/lancet2/variant_hpcov.h
         include/lancet2/path.h src/path.cc
         include/lancet2/path_builder.h src/path_builder.cc
         include/lancet2/edge.h src/edge.cc
         include/lancet2/merge_node_info.h src/merge_node_info.cc
-        include/lancet2/base_cov.h include/lancet2/base_hp.h
-        include/lancet2/base_hpcov.h src/base_hpcov.cc
         include/lancet2/barcode_set.h src/barcode_set.cc
         include/lancet2/node_cov.h src/node_cov.cc
-        include/lancet2/node_hp.h src/node_hp.cc
         include/lancet2/base_label.h src/base_label.cc
         include/lancet2/node_label.h src/node_label.cc
-        include/lancet2/cov_stats.h src/cov_stats.cc
         include/lancet2/online_stats.h
         include/lancet2/node_qual.h src/node_qual.cc
         include/lancet2/node_neighbour.h
@@ -104,7 +99,7 @@ target_include_directories(lancet2_core PUBLIC include PRIVATE ${CMAKE_BINARY_DI
 target_link_libraries(lancet2_core
         PUBLIC concurrentqueue absl::status absl::flat_hash_map absl::flat_hash_set
         absl::str_format absl::status absl::statusor absl::fixed_array absl::inlined_vector
-        absl::span absl::time absl::random_random absl::strings spdlog::spdlog
+        absl::span absl::time absl::random_random absl::strings absl::synchronization spdlog::spdlog
         PRIVATE CLI11 absl::failure_signal_handler ${LIBHTS}
         INTERFACE ZLIB::ZLIB BZip2::BZip2 CURL::libcurl OpenSSL::Crypto ${LIBLZMA_LIBRARIES} ${LIBDEFLATE})
 set_target_properties(lancet2_core PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON POSITION_INDEPENDENT_CODE 1)

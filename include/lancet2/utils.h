@@ -32,22 +32,6 @@ static constexpr u64 PRIME_1 = 14480561146010017169LLU;
 
 [[nodiscard]] auto RevStr(std::string_view sv) -> std::string;
 
-template <typename T>
-[[nodiscard]] auto MakeVector(absl::Span<const T> s) -> std::vector<T> {
-  std::vector<T> result;
-  result.reserve(s.size());
-  result.insert(result.begin(), s.cbegin(), s.cend());
-  return result;
-}
-
-template <typename T>
-[[nodiscard]] auto ReverseVector(absl::Span<const T> s) -> std::vector<T> {
-  std::vector<T> result;
-  result.reserve(s.size());
-  result.insert(result.begin(), s.crbegin(), s.crend());
-  return result;
-}
-
 void PushSeq(std::string_view sequence, std::string* result);
 
 void PushRevCompSeq(std::string_view sequence, std::string* result);
