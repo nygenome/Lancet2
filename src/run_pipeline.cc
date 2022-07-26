@@ -1,6 +1,7 @@
 #include "lancet2/run_pipeline.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -15,6 +16,7 @@
 #include "lancet2/hts_reader.h"
 #include "lancet2/log_macros.h"
 #include "lancet2/micro_assembler.h"
+#include "lancet2/sized_ints.h"
 #include "lancet2/timer.h"
 #include "lancet2/variant_store.h"
 #include "lancet2/window_builder.h"
@@ -70,6 +72,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   moodycamel::ProducerToken windowProducerToken(*windowQueuePtr);
   windowQueuePtr->enqueue_bulk(windowProducerToken, allwindows.begin(), allwindows.size());
 
+  std::atomic<u64> doneWindowsCount = 0;
+  const auto totalWindowsCount = static_cast<u64>(allwindows.size());
   static absl::FixedArray<bool> doneWindows(allwindows.size());
   doneWindows.fill(false);
   std::set_terminate([]() -> void {
@@ -80,7 +84,10 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
 
   for (usize idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
-        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr); },
+        std::launch::async,
+        [&vDBPtr, &doneWindowsCount, &totalWindowsCount](std::unique_ptr<MicroAssembler> m) -> void {
+          m->Process(vDBPtr, doneWindowsCount, totalWindowsCount);
+        },
         std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 
@@ -94,7 +101,6 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   };
 
   usize idxToFlush = 0;
-  usize numDone = 0;
   const auto numTotal = allwindows.size();
   const auto pctDone = [&numTotal](const usize done) -> double {
     return 100.0 * (static_cast<double>(done) / static_cast<double>(numTotal));
@@ -105,10 +111,11 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   while (anyWindowsRunning()) {
     resultQueuePtr->wait_dequeue(resultConsumerToken, result);
 
-    numDone++;
+    doneWindowsCount.fetch_add(1);
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
+    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(doneWindowsCount.load()), windowID,
+             Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
       const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], outVcf, contigIDs);
