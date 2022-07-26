@@ -519,7 +519,7 @@ struct BaseQualStats {
 static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan& loc) -> BaseQualStats {
   BaseQualStats result;
   const auto alleleEndPos = loc.GetEndPos();
-  if (baseQuals.empty() || (alleleEndPos <= baseQuals.length())) return result;
+  if (baseQuals.empty() || (alleleEndPos > baseQuals.length())) return result;
 
   result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);
   u32 currSum = static_cast<u32>(baseQuals[loc.StartPosition]);
