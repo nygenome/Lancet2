@@ -17,7 +17,7 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
   // clang-format off
   const auto stdResult = absl::StrFormat(R"raw(##fileformat=VCFv4.3
 ##fileDate=%s
-##source=lancet2%s
+##source=lancet2_%s
 ##commandLine="%s"
 ##reference="%s"
 ##FILTER=<ID=LowFisherSTR,Description="Fisher exact test score for tumor/normal STR allele counts less than %f">

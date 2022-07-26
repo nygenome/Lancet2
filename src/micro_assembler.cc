@@ -14,7 +14,7 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
+void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::atomic<usize>* pendingTasks) {
   static thread_local const auto tid = std::this_thread::get_id();
   LOG_INFO("Started MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 
@@ -29,8 +29,13 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
   moodycamel::ProducerToken resultProducerToken(*resultQPtr);
   usize numProcessed = 0;
 
-  while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
-    TryFlush(store, resultProducerToken);
+  while (pendingTasks->load(std::memory_order_acquire) != 0) {
+    if (!windowQPtr->try_dequeue(windowConsumerToken, window)) {
+      continue;
+    }
+
+    ((numProcessed % 10 == 0) && !(variants.empty())) ? ForceFlush(store, resultProducerToken)
+                                                      : TryFlush(store, resultProducerToken);
     T.Reset();
 
     const auto winIdx = window->GetWindowIndex();
@@ -41,12 +46,14 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       LOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
       results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+      pendingTasks->fetch_add(-1, std::memory_order_release);
       continue;
     }
 
     if (!regResult.ok()) {
       LOG_ERROR("Error processing window {}: {}", regStr, regResult.status().message());
       results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+      pendingTasks->fetch_add(-1, std::memory_order_release);
       continue;
     }
 
@@ -61,6 +68,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     }
 
     results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+    pendingTasks->fetch_add(-1, std::memory_order_release);
   }
 
   ForceFlush(store, resultProducerToken);
@@ -86,7 +94,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
 
   GraphBuilder gb(w, absl::MakeConstSpan(reads), extractedCov, params);
   auto graph = gb.BuildGraph(params->minKmerSize, params->maxKmerSize);
-  graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, &variants);
+  graph->ProcessGraph(&variants);
 
   while (graph->ShouldIncrementK()) {
     if (gb.CurrentKmerSize() == params->maxKmerSize) {
@@ -95,7 +103,7 @@ auto MicroAssembler::ProcessWindow(ReadExtractor* re, const std::shared_ptr<cons
     }
 
     graph = gb.BuildGraph(gb.CurrentKmerSize() + 2, params->maxKmerSize);
-    graph->ProcessGraph({gb.RefData(SampleLabel::NORMAL), gb.RefData(SampleLabel::TUMOR)}, &variants);
+    graph->ProcessGraph(&variants);
   }
 
   return absl::OkStatus();

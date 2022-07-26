@@ -1,20 +1,19 @@
 #include "lancet2/run_pipeline.h"
 
 #include <algorithm>
-#include <cstddef>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <utility>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
-#include "lancet2/assert_macro.h"
 #include "lancet2/fasta_reader.h"
 #include "lancet2/hts_reader.h"
 #include "lancet2/log_macros.h"
 #include "lancet2/micro_assembler.h"
+#include "lancet2/sized_ints.h"
 #include "lancet2/timer.h"
 #include "lancet2/variant_store.h"
 #include "lancet2/window_builder.h"
@@ -70,7 +69,8 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   moodycamel::ProducerToken windowProducerToken(*windowQueuePtr);
   windowQueuePtr->enqueue_bulk(windowProducerToken, allwindows.begin(), allwindows.size());
 
-  static absl::FixedArray<bool> doneWindows(allwindows.size());
+  const auto totalWindowsCount = allwindows.size();
+  static absl::FixedArray<bool> doneWindows(totalWindowsCount);
   doneWindows.fill(false);
   std::set_terminate([]() -> void {
     LOG_CRITICAL("Caught unexpected program termination call! Exiting abnormally...");
@@ -78,15 +78,13 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     std::abort();
   });
 
+  std::atomic<usize> pendingTasks(totalWindowsCount);
   for (usize idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
-        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr); },
+        std::launch::async,
+        [&vDBPtr, &pendingTasks](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr, &pendingTasks); },
         std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
-
-  const auto anyWindowsRunning = []() -> bool {
-    return std::any_of(doneWindows.cbegin(), doneWindows.cend(), [](const bool& wdone) { return !wdone; });
-  };
 
   const auto allWindowsUptoDone = [](const usize win_idx) -> bool {
     const auto* lastItr = win_idx >= doneWindows.size() ? doneWindows.cend() : doneWindows.cbegin() + win_idx;
@@ -94,21 +92,22 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
   };
 
   usize idxToFlush = 0;
-  usize numDone = 0;
-  const auto numTotal = allwindows.size();
-  const auto pctDone = [&numTotal](const usize done) -> double {
-    return 100.0 * (static_cast<double>(done) / static_cast<double>(numTotal));
+  const auto pctDone = [&totalWindowsCount](const usize done) -> double {
+    return 100.0 * (static_cast<double>(done) / static_cast<double>(totalWindowsCount));
   };
 
   WindowResult result;
   moodycamel::ConsumerToken resultConsumerToken(*resultQueuePtr);
-  while (anyWindowsRunning()) {
-    resultQueuePtr->wait_dequeue(resultConsumerToken, result);
+  while (pendingTasks.load(std::memory_order_acquire) != 0) {
+    if (!resultQueuePtr->try_dequeue(resultConsumerToken, result)) {
+      continue;
+    }
 
-    numDone++;
     doneWindows[result.windowIdx] = true;
     const auto windowID = allwindows[result.windowIdx]->ToRegionString();
-    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}", pctDone(numDone), windowID, Humanized(result.runtime));
+    LOG_INFO("Progress: {:>7.3f}% | {} processed in {}",
+             pctDone(totalWindowsCount - pendingTasks.load(std::memory_order_acquire)), windowID,
+             Humanized(result.runtime));
 
     if (allWindowsUptoDone(idxToFlush + numBufWindows)) {
       const auto flushed = vDBPtr->FlushWindow(*allwindows[idxToFlush], outVcf, contigIDs);

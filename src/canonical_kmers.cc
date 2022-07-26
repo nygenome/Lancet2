@@ -5,6 +5,8 @@
 
 namespace lancet2 {
 auto KMovingSubstrs(std::string_view sv, usize k) -> absl::FixedArray<std::string> {
+  if (sv.length() < k) return absl::FixedArray<std::string>(0);
+
   const auto endPos = sv.length() - k;
   absl::FixedArray<std::string> result(endPos + 1);
 
@@ -18,6 +20,8 @@ auto KMovingSubstrs(std::string_view sv, usize k) -> absl::FixedArray<std::strin
 }
 
 auto CanonicalKmers(std::string_view sv, usize k) -> absl::FixedArray<Kmer> {
+  if (sv.length() < k) return absl::FixedArray<Kmer>(0);
+
   const auto endPos = sv.length() - k;
   absl::FixedArray<Kmer> result(endPos + 1);
 
@@ -31,6 +35,8 @@ auto CanonicalKmers(std::string_view sv, usize k) -> absl::FixedArray<Kmer> {
 }
 
 auto CanonicalKmerHashes(std::string_view sv, usize k) -> absl::FixedArray<usize> {
+  if (sv.length() < k) return absl::FixedArray<usize>(0);
+
   const auto endPos = sv.length() - k;
   absl::FixedArray<usize> result(endPos + 1);
 

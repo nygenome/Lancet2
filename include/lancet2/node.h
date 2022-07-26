@@ -11,7 +11,6 @@
 #include "lancet2/edge.h"
 #include "lancet2/kmer.h"
 #include "lancet2/node_cov.h"
-#include "lancet2/node_hp.h"
 #include "lancet2/node_label.h"
 #include "lancet2/node_neighbour.h"
 #include "lancet2/node_qual.h"
@@ -26,7 +25,7 @@ class Node {
   usize ComponentID = 0;  // NOLINT
 
   explicit Node(const Kmer& k);
-  explicit Node(NodeIdentifier nid) : nodeID(nid), quals(0), covs(0), labels(0) {}
+  explicit Node(NodeIdentifier nid) : nodeID(nid), quals(0), labels(0) {}
   Node() = delete;
 
   [[nodiscard]] auto CanMerge(const Node& buddy, BuddyPosition merge_dir, usize k) const -> bool;
@@ -39,12 +38,9 @@ class Node {
   [[nodiscard]] auto GetSeqView() const noexcept -> std::string_view { return mer.GetSeqView(); }
   [[nodiscard]] auto GetOrientation() const noexcept -> Strand { return mer.GetOrientation(); }
   [[nodiscard]] auto GetLength() const noexcept -> usize { return mer.GetLength(); }
+  [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mer.IsEmpty() && quals.IsEmpty() && labels.IsEmpty(); }
 
-  [[nodiscard]] auto IsEmpty() const noexcept -> bool {
-    return mer.IsEmpty() && quals.IsEmpty() && covs.IsEmpty() && labels.IsEmpty();
-  }
-
-  [[nodiscard]] auto GetID() const -> NodeIdentifier { return nodeID; }
+  [[nodiscard]] auto GetNodeID() const -> NodeIdentifier { return nodeID; }
   [[nodiscard]] auto IsSource() const -> bool { return nodeID == MOCK_SOURCE_ID; }
   [[nodiscard]] auto IsSink() const -> bool { return nodeID == MOCK_SINK_ID; }
   [[nodiscard]] auto IsMockNode() const -> bool { return IsSource() || IsSink(); }
@@ -68,18 +64,14 @@ class Node {
   void EraseEdge(NodeIdentifier dest_id);
 
   void ClearEdges();
-  [[nodiscard]] auto HasSelfLoop() const -> bool;
-  [[nodiscard]] auto HasConnection(NodeIdentifier dest) const -> bool;
-
   [[nodiscard]] auto NumEdges(Strand direction) const -> usize;
   [[nodiscard]] auto NumEdges() const -> usize;
 
   void UpdateQual(std::string_view sv);
   void UpdateLabel(KmerLabel label);
 
-  void UpdateHPInfo(const ReadInfo& ri, u32 min_base_qual);
-  void UpdateCovInfo(const ReadInfo& ri, u32 min_base_qual, bool is_tenx_mode);
-  void IncrementCov(SampleLabel label, Strand s, usize base_position);
+  void UpdateCovInfo(const ReadInfo& ri, bool is_tenx_mode);
+  void IncrementCov(SampleLabel label, Strand s);
 
   [[nodiscard]] auto FillColor() const -> std::string;
 
@@ -92,25 +84,12 @@ class Node {
   [[nodiscard]] auto SampleCount(SampleLabel label, Strand s) const -> u16;
   [[nodiscard]] auto BXCount(SampleLabel label, Strand s) const -> u16;
 
-  [[nodiscard]] auto CovAt(SampleLabel label, usize pos) -> BaseCov& { return covs.At(label, pos); }
-  [[nodiscard]] auto CovAt(SampleLabel label, usize pos) const -> const BaseCov& { return covs.At(label, pos); }
-  [[nodiscard]] auto MinSampleBaseCov(bool bq_pass = false) const -> u16;
-
   [[nodiscard]] auto LowQualPositions(u32 min_bq) const -> std::vector<bool>;
-
-  [[nodiscard]] auto CovData() const noexcept -> NodeCov { return covs; }
-  [[nodiscard]] auto HasBXData() const noexcept -> bool { return !bxData.IsEmpty(); }
-  [[nodiscard]] auto hasHPData() const noexcept -> bool { return !hpData.IsEmpty(); }
-
-  [[nodiscard]] auto HPData() const noexcept -> NodeHP { return hpData.IsEmpty() ? NodeHP(covs) : hpData; }
-
   [[nodiscard]] auto FindMergeableNeighbours() const -> std::vector<NodeNeighbour>;
 
   void Reserve(const usize count) {
     quals.Reserve(count);
-    covs.Reserve(count);
     labels.Reserve(count);
-    hpData.Reserve(count);
   }
 
  private:
@@ -127,6 +106,5 @@ class Node {
   NodeLabel labels;
 
   BarcodeSet bxData;
-  NodeHP hpData;
-};  // namespace lancet2
+};
 }  // namespace lancet2
