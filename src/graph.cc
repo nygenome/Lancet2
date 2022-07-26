@@ -502,17 +502,28 @@ void Graph::EraseNode(NodeIterator itr) {
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
-static inline auto GetMinBaseQual(std::string_view baseQuals) -> u32 {
-  if (baseQuals.empty()) return 0;
+struct BaseQualStats {
+  u32 Minimum = 0;
+  u32 Average = 0;
+};
 
-  u32 currMin = static_cast<u32>(baseQuals[0]);
-  if (baseQuals.length() == 1) return currMin;
+static inline auto GetBaseQualStats(std::string_view baseQuals) -> BaseQualStats {
+  BaseQualStats result;
+  if (baseQuals.empty()) return result;
 
-  for (usize idx = 1; idx < baseQuals.length(); ++idx) {
-    currMin = std::min(currMin, static_cast<u32>(baseQuals[idx]));
+  result.Minimum = static_cast<u32>(baseQuals[0]);
+  u32 currSum = static_cast<u32>(baseQuals[0]);
+  if (baseQuals.length() == 1) {
+    result.Average = currSum;
+    return result;
   }
 
-  return currMin;
+  for (usize idx = 1; idx < baseQuals.length(); ++idx) {
+    currSum += static_cast<u32>(baseQuals[idx]);
+  }
+
+  result.Average = static_cast<u32>(std::floor(static_cast<float>(currSum) / static_cast<float>(baseQuals.length())));
+  return result;
 }
 
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
@@ -541,8 +552,8 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
       const auto readQual = rd.QualView();
 
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
-        const auto minMerQual = GetMinBaseQual(absl::ClippedSubstr(readQual, offset, haplotypeLength));
-        if (minMerQual < params->minBaseQual) continue;
+        const auto merQualStats = GetBaseQualStats(absl::ClippedSubstr(readQual, offset, haplotypeLength));
+        if (merQualStats.Average < params->minBaseQual) continue;
 
         const auto merHash = Kmer(absl::ClippedSubstr(readSeq, offset, haplotypeLength)).GetHash();
         if (!sampleHaplotypeCovs.contains(merHash)) continue;
