@@ -34,7 +34,8 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::at
       continue;
     }
 
-    TryFlush(store, resultProducerToken);
+    ((numProcessed % 10 == 0) && !(variants.empty())) ? ForceFlush(store, resultProducerToken)
+                                                      : TryFlush(store, resultProducerToken);
     T.Reset();
 
     const auto winIdx = window->GetWindowIndex();
