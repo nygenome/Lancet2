@@ -39,6 +39,8 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are snv, ins, del and complex">
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
+##INFO=<ID=REFHAPSIZE,Number=1,Type=Integer,Description="Reference haplotype sequence length after assembly">
+##INFO=<ID=ALTHAPSIZE,Number=1,Type=Integer,Description="Alternate haplotype sequence length after assembly">
 ##INFO=<ID=SB,Number=1,Type=Float,Description="Phred-scaled probability of Fisher exact test of fwd and rev tumor read counts in ref and alt alleles. i.e. Strand Bias">
 ##INFO=<ID=MS,Number=1,Type=String,Description="Description of the microsatellite length and motif, if found (format: LENGTH:MOTIF)">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">

@@ -16,16 +16,12 @@ using VariantID = u64;
 
 class Variant {
  public:
-  Variant(const Transcript& transcript, usize kmer_size);
+  Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmrCov, VariantHpCov nmlCov);
   Variant() = delete;
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
   [[nodiscard]] auto ID() const -> VariantID;
   [[nodiscard]] auto ComputeState() const -> VariantState;
-
-  void SetVariantCov(SampleLabel label, VariantHpCov cov) {
-    label == SampleLabel::TUMOR ? TumorCov = cov : NormalCov = cov;
-  }
 
   std::string ChromName;   // NOLINT
   usize Position;          // NOLINT
@@ -37,6 +33,9 @@ class Variant {
   usize KmerSize;          // NOLINT
   VariantHpCov TumorCov;   // NOLINT
   VariantHpCov NormalCov;  // NOLINT
+
+  usize RefKmerLen = 0;  // NOLINT
+  usize AltKmerLen = 0;  // NOLINT
 
   auto operator==(const Variant& other) const -> bool { return this->ID() == other.ID(); }
   auto operator!=(const Variant& other) const -> bool { return this->ID() != other.ID(); }

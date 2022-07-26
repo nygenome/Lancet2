@@ -10,11 +10,13 @@
 
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "lancet2/align.h"
 #include "lancet2/assert_macro.h"
 #include "lancet2/canonical_kmers.h"
 #include "lancet2/dot_serializer.h"
 #include "lancet2/edmond_karp.h"
+#include "lancet2/kmer.h"
 #include "lancet2/log_macros.h"
 #include "lancet2/node_neighbour.h"
 #include "lancet2/tandem_repeat.h"
@@ -26,7 +28,8 @@
 namespace lancet2 {
 Graph::Graph(std::shared_ptr<const RefWindow> w, Graph::NodeContainer&& data, absl::Span<const ReadInfo> reads,
              double avg_cov, usize k, std::shared_ptr<const CliParams> p)
-    : kmerSize(k), params(std::move(p)), window(std::move(w)), sampleReads(reads), nodesMap(std::move(data)) {}
+    : kmerSize(k), avgSampleCov(avg_cov), params(std::move(p)), window(std::move(w)), sampleReads(reads),
+      nodesMap(std::move(data)) {}
 
 void Graph::ProcessGraph(std::vector<Variant>* results) {
   Timer timer;
@@ -434,9 +437,9 @@ SkipLocalAlignment:
 
     // Populate ref and alt haplotype spanning the ref and alt alleles with
     // length atleast kmer size or ref/alt allele length whichever is larger
-    Variant V(T, kmerSize);
-    const auto refAlleleLen = V.RefAllele.length();
-    const auto altAlleleLen = V.AltAllele.length();
+    T.Finalize();
+    const auto refAlleleLen = T.GetRefLength();
+    const auto altAlleleLen = T.GetAltLength();
 
     const auto refHapLen = std::max(refAlleleLen, kmerSize);
     const auto altHapLen = std::max(altAlleleLen, kmerSize);
@@ -452,18 +455,13 @@ SkipLocalAlignment:
 
     if (refHapStart < 0 || altHapStart < 0) continue;
 
-    T.SetRefHaplotype(refAnchorSeq.substr(refHapStart, refHapLen));
-    T.SetAltHaplotype(pathSeq.substr(altHapStart, altHapLen));
-
-    const auto refCovs = BuildCoverage(T.ReferenceHaplotype());
-    const auto altCovs = BuildCoverage(T.AlternateHaplotype());
-    V.SetVariantCov(SampleLabel::TUMOR, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov));
-    V.SetVariantCov(SampleLabel::NORMAL, VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
-
-    // Skip adding variants with no alt kmer coverage
-    if (V.ComputeState() == VariantState::NONE) continue;
-    variants->emplace_back(std::move(V));
+    T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
+    T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
+    T.RefKmerLen = static_cast<usize>(refHapLen);
+    T.AltKmerLen = static_cast<usize>(altHapLen);
   }
+
+  BuildVariants(absl::MakeConstSpan(transcripts), variants);
 }
 
 void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const {
@@ -504,42 +502,85 @@ void Graph::EraseNode(NodeIterator itr) {
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
-auto Graph::BuildCoverage(std::string_view haplotype) const -> HaplotypeCoverageResult {
-  HaplotypeCoverageResult result;
+static inline auto GetMinBaseQual(std::string_view baseQuals) -> u32 {
+  if (baseQuals.empty()) return 0;
 
-  const auto haplotypeLength = haplotype.length();
+  u32 currMin = static_cast<u32>(baseQuals[0]);
+  if (baseQuals.length() == 1) return currMin;
+
+  for (usize idx = 1; idx < baseQuals.length(); ++idx) {
+    currMin = std::min(currMin, static_cast<u32>(baseQuals[idx]));
+  }
+
+  return currMin;
+}
+
+void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
+  absl::flat_hash_set<usize> haplotypeLengths;                 // Set with Lengths of all haplotypes
+  absl::flat_hash_map<u64, SampleHpCovs> sampleHaplotypeCovs;  // Maps haplotype hash to sample coverages
+
+  for (const Transcript& T : transcripts) {
+    haplotypeLengths.insert(T.RefKmerLen);
+    sampleHaplotypeCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
+
+    haplotypeLengths.insert(T.AltKmerLen);
+    sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
+  }
+
+  const auto windowId = window->ToRegionString();
+  LOG_DEBUG("Building variant coverages using {} unique lengths and {} haplotypes for {}", haplotypeLengths.size(),
+            sampleHaplotypeCovs.size(), windowId);
+
   // mateMer -> readName + sampleLabel, kmerHash
   using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
 
-  for (const auto& rd : sampleReads) {
-    const auto seqMers = CanonicalKmers(rd.sequence, haplotypeLength);
-    HpCov& currCov = rd.label == SampleLabel::TUMOR ? result.TmrCov : result.NmlCov;
+  for (const usize& haplotypeLength : haplotypeLengths) {
+    seenMateMers.clear();
 
-    for (const auto& mer : seqMers) {
-      // GetSeqView returns the canonicalized string_view of the kmer
-      const auto merView = mer.GetSeqView();
-      if (merView != haplotype) continue;
+    for (const auto& rd : sampleReads) {
+      if (rd.Length() < haplotypeLength) continue;
 
-      // Add label to key, so that keys are unique for tumor and normal samples
-      const auto mmId = std::make_pair(rd.readName + ToString(rd.label), mer.GetHash());
-      const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
-      if (!isUniqMateMer) continue;
+      const auto readSeq = rd.SeqView();
+      const auto readQual = rd.QualView();
+      
+      for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
+        const auto minMerQual = GetMinBaseQual(absl::ClippedSubstr(readQual, offset, haplotypeLength));
+        if (minMerQual < params->minBaseQual) continue;
 
-      rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
-      if (rd.haplotypeID == 1) {
-        currCov.HP1++;
-      } else if (rd.haplotypeID == 2) {
-        currCov.HP2++;
-      } else {
-        currCov.HP0++;
+        const auto merHash = Kmer(absl::ClippedSubstr(readSeq, offset, haplotypeLength)).GetHash();
+        if (!sampleHaplotypeCovs.contains(merHash)) continue;
+
+        // Add label to key, so that keys are unique for tumor and normal samples
+        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
+        const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
+        if (!isUniqMateMer) continue;
+
+        auto& curr = sampleHaplotypeCovs.at(merHash);
+        HpCov& currCov = rd.label == SampleLabel::TUMOR ? curr.TmrCov : curr.NmlCov;
+
+        rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
+        if (rd.haplotypeID == 1) {
+          currCov.HP1++;
+        } else if (rd.haplotypeID == 2) {
+          currCov.HP2++;
+        } else {
+          currCov.HP0++;
+        }
+
+        seenMateMers.insert(mmId);
       }
-
-      seenMateMers.insert(mmId);
     }
   }
 
-  return result;
+  for (const Transcript& T : transcripts) {
+    const auto refCovs = sampleHaplotypeCovs.at(T.RefKmerHash);
+    const auto altCovs = sampleHaplotypeCovs.at(T.AltKmerHash);
+    Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
+
+    if (V.ComputeState() == VariantState::NONE) continue;
+    variants->emplace_back(std::move(V));
+  }
 }
 
 auto Graph::FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const

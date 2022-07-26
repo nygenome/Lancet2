@@ -1,5 +1,7 @@
 #include "lancet2/transcript.h"
 
+#include <algorithm>
+
 #include "absl/strings/str_format.h"
 
 namespace lancet2 {
@@ -43,5 +45,44 @@ auto Transcript::AddRefBase(const char& b) -> Transcript& {
 auto Transcript::AddAltBase(const char& b) -> Transcript& {
   altAllele.push_back(b);
   return *this;
+}
+
+void Transcript::Finalize() {
+  if (kind == TranscriptCode::REF_MATCH) {
+    isFinalized = true;
+    return;
+  }
+
+  // get rid of alignment skip chars `-` in ref and alt alleles
+  refAllele.erase(std::remove(refAllele.begin(), refAllele.end(), '-'), refAllele.end());
+  altAllele.erase(std::remove(altAllele.begin(), altAllele.end(), '-'), altAllele.end());
+
+  const auto refLen = refAllele.length();
+  const auto altLen = altAllele.length();
+  switch (kind) {
+    case TranscriptCode::SNV:
+      varLen = 1;
+      break;
+    case TranscriptCode::INSERTION:
+      varLen = altLen;
+      break;
+    case TranscriptCode::DELETION:
+      varLen = refLen;
+      break;
+    case TranscriptCode::COMPLEX:
+      varLen = refLen == altLen ? altLen : refLen > altLen ? (refLen - altLen) : (altLen - refLen);
+      break;
+    default:
+      break;
+  }
+
+  // Add previous base for InDels and complex events
+  if (kind != TranscriptCode::SNV) {
+    refAllele.insert(refAllele.begin(), 1, prevRefBase);
+    altAllele.insert(altAllele.begin(), 1, prevAltBase);
+    genomeRefPos--;
+  }
+
+  isFinalized = true;
 }
 }  // namespace lancet2

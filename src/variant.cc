@@ -1,6 +1,5 @@
 #include "lancet2/variant.h"
 
-#include <algorithm>
 #include <vector>
 
 #include "absl/hash/internal/city.h"
@@ -11,40 +10,11 @@
 #include "lancet2/utils.h"
 
 namespace lancet2 {
-Variant::Variant(const Transcript& transcript, usize kmer_size)
+Variant::Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmrCov, VariantHpCov nmlCov)
     : ChromName(transcript.ChromName()), Position(transcript.Position()), RefAllele(transcript.RefSeq()),
-      AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()), KmerSize(kmer_size) {
-  LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH);  // NOLINT
-
-  // get rid of alignment skip chars `-` in ref and alt alleles
-  RefAllele.erase(std::remove(RefAllele.begin(), RefAllele.end(), '-'), RefAllele.end());
-  AltAllele.erase(std::remove(AltAllele.begin(), AltAllele.end(), '-'), AltAllele.end());
-
-  const auto refLen = RefAllele.length();
-  const auto altLen = AltAllele.length();
-  switch (Kind) {
-    case TranscriptCode::SNV:
-      Length = 1;
-      break;
-    case TranscriptCode::INSERTION:
-      Length = AltAllele.length();
-      break;
-    case TranscriptCode::DELETION:
-      Length = RefAllele.length();
-      break;
-    case TranscriptCode::COMPLEX:
-      Length = refLen == altLen ? altLen : refLen > altLen ? (refLen - altLen) : (altLen - refLen);
-      break;
-    default:
-      break;
-  }
-
-  // Add previous base for InDels and complex events
-  if (Kind != TranscriptCode::SNV) {
-    RefAllele.insert(RefAllele.begin(), 1, transcript.PrevRefBase());
-    AltAllele.insert(AltAllele.begin(), 1, transcript.PrevAltBase());
-    Position--;
-  }
+      AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()),
+      Length(transcript.GetVariantLength()), KmerSize(kmer_size), TumorCov(tmrCov), NormalCov(nmlCov) {
+  LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH && transcript.IsFinalized());  // NOLINT
 }
 
 auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
@@ -57,8 +27,9 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
-  auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
-                              ToString(Kind), Length, KmerSize, strandBiasScore);
+  auto info =
+      absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;REFHAPSIZE=%d;ALTHAPSIZE=%d;SB=%f", ToString(varState),
+                      somaticScore, ToString(Kind), Length, KmerSize, RefKmerLen, AltKmerLen, strandBiasScore);
 
   if (!STRResult.empty()) info += absl::StrFormat(";MS=%s", STRResult);
 

@@ -1,7 +1,6 @@
 #include "lancet2/utils.h"
 
 #include "absl/container/flat_hash_set.h"
-#include "absl/hash/internal/city.h"
 
 namespace lancet2::utils {
 
@@ -80,10 +79,6 @@ auto RevStr(std::string_view sv) -> std::string {
   result.reserve(sv.length());
   result.insert(result.begin(), sv.crbegin(), sv.crend());
   return result;
-}
-
-auto GetHash(std::string_view sv) -> u64 {
-  return absl::hash_internal::CityHash64WithSeeds(sv.data(), sv.length(), utils::PRIME_0, utils::PRIME_1);  // NOLINT
 }
 
 void PushSeq(std::string_view sequence, std::string* result) {

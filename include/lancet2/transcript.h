@@ -32,6 +32,11 @@ class Transcript {
              Transcript::Bases bases);
   Transcript() = delete;
 
+  u64 RefKmerHash = 0;   // NOLINT
+  u64 AltKmerHash = 0;   // NOLINT
+  usize RefKmerLen = 0;  // NOLINT
+  usize AltKmerLen = 0;  // NOLINT
+
   [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
   [[nodiscard]] auto Position() const noexcept -> usize { return genomeRefPos; }
   [[nodiscard]] auto RefStartOffset() const noexcept -> usize { return idxs.refStart; }
@@ -50,19 +55,21 @@ class Transcript {
   auto AddSTRResult(const TandemRepeatResult& val) -> Transcript&;
 
   [[nodiscard]] auto RefSeq() const noexcept -> std::string { return refAllele; }
+  [[nodiscard]] auto GetRefLength() const noexcept -> usize { return refAllele.length(); }
   auto AddRefBase(const char& b) -> Transcript&;
 
   [[nodiscard]] auto AltSeq() const noexcept -> std::string { return altAllele; }
+  [[nodiscard]] auto GetAltLength() const noexcept -> usize { return altAllele.length(); }
   auto AddAltBase(const char& b) -> Transcript&;
 
-  [[nodiscard]] auto PrevRefBase() const noexcept -> char { return prevRefBase; }
-  [[nodiscard]] auto PrevAltBase() const noexcept -> char { return prevAltBase; }
+  [[nodiscard]] auto IsFinalized() const noexcept -> bool { return isFinalized; }
+  [[nodiscard]] auto GetVariantLength() const noexcept -> usize { return varLen; }
+  void Finalize();
 
-  void SetRefHaplotype(std::string_view haplotype) { refHaplotype = Kmer::CanonicalSequence(haplotype); }
-  void SetAltHaplotype(std::string_view haplotype) { altHaplotype = Kmer::CanonicalSequence(haplotype); }
-
-  [[nodiscard]] auto ReferenceHaplotype() const -> std::string_view { return refHaplotype; }
-  [[nodiscard]] auto AlternateHaplotype() const -> std::string_view { return altHaplotype; }
+  template <typename H>
+  friend auto AbslHashValue(H h, const Transcript& T) -> H {
+    return H::combine(std::move(h), T.chromName, T.genomeRefPos, T.refAllele, T.altAllele, T.isFinalized, T.varLen);
+  }
 
  private:
   std::string chromName;
@@ -75,9 +82,7 @@ class Transcript {
   char prevRefBase = 'N';
   char prevAltBase = 'N';
 
-  // Canonical versions of the Reference and Alternate
-  // haplotypes of atleast `k` length with Left & Right flank
-  std::string refHaplotype;
-  std::string altHaplotype;
+  bool isFinalized = false;
+  usize varLen = 0;
 };
 }  // namespace lancet2

@@ -17,6 +17,9 @@ struct ReadInfo {
   i8 haplotypeID = -1;                      // NOLINT
   std::string tenxBarcode;                  // NOLINT
 
+  [[nodiscard]] auto SeqView() const noexcept -> std::string_view { return sequence; }
+  [[nodiscard]] auto QualView() const noexcept -> std::string_view { return quality; }
+
   [[nodiscard]] auto Length() const noexcept -> usize { return sequence.length(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool {
     return sequence.empty() && quality.empty() && chromName.empty() && startPos0 == -1;

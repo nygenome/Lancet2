@@ -109,12 +109,11 @@ class Graph {
     bool foundEnd = false;
   };
 
-  struct HaplotypeCoverageResult {
+  struct SampleHpCovs {
     HpCov TmrCov;
     HpCov NmlCov;
   };
-
-  [[nodiscard]] auto BuildCoverage(std::string_view haplotype) const -> HaplotypeCoverageResult;
+  void BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const;
 
   [[nodiscard]] auto FindRefEnd(GraphEnd k, usize comp_id, absl::Span<const NodeIdentifier> ref_mer_hashes) const
       -> RefEndResult;
