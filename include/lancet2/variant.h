@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "lancet2/cli_params.h"
+#include "lancet2/core_enums.h"
 #include "lancet2/transcript.h"
 #include "lancet2/variant_hpcov.h"
 
@@ -15,7 +16,7 @@ using VariantID = u64;
 
 class Variant {
  public:
-  Variant(const Transcript& transcript, usize kmer_size);
+  Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmrCov, VariantHpCov nmlCov);
   Variant() = delete;
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;

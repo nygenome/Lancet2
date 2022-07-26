@@ -1,15 +1,9 @@
 #include "lancet2/node_qual.h"
 
-#include "absl/types/span.h"
 #include "lancet2/assert_macro.h"
-#include "lancet2/merge_node_info.h"
 
 namespace lancet2 {
 NodeQual::NodeQual(usize count) { data.resize(count); }
-
-void NodeQual::MergeBuddy(const NodeQual& buddy, BuddyPosition dir, bool reverse_buddy, usize k) {
-  MergeNodeInfo(&data, absl::MakeConstSpan(buddy.data), dir, reverse_buddy, k);
-}
 
 void NodeQual::Push(absl::string_view sv) {
   LANCET_ASSERT(data.size() == sv.size());  // NOLINT

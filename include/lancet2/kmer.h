@@ -29,6 +29,7 @@ class Kmer {
   friend auto operator!=(const Kmer& lhs, const Kmer& rhs) -> bool { return !(lhs == rhs); }
 
   [[nodiscard]] static auto IsCanonical(std::string_view sv) -> bool;
+  [[nodiscard]] static auto CanonicalSequence(std::string_view sv) -> std::string;
 
  private:
   std::string seq;

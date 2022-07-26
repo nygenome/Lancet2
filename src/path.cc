@@ -6,10 +6,8 @@
 #include "lancet2/assert_macro.h"
 
 namespace lancet2 {
-Path::Path(absl::FixedArray<const Node *> path_nodes, absl::FixedArray<const Edge *> path_edges, std::string path_seq,
-           NodeCov path_covs, NodeHP path_hps)
-    : nodesList(std::move(path_nodes)), edgesList(std::move(path_edges)), pathSeq(std::move(path_seq)),
-      pathCovs(std::move(path_covs)), pathHPs(std::move(path_hps)) {}
+Path::Path(absl::FixedArray<const Node *> path_nodes, absl::FixedArray<const Edge *> path_edges, std::string path_seq)
+    : nodesList(std::move(path_nodes)), edgesList(std::move(path_edges)), pathSeq(std::move(path_seq)) {}
 
 auto Path::FindSpanningNode(usize path_pos, usize curr_k) const -> const Node * {
   const auto *result = std::find_if(nodesList.cbegin(), nodesList.cend(), [&path_pos, &curr_k](const auto &node) {

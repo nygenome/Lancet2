@@ -48,7 +48,5 @@ class PathBuilder {
   bool touchedSink = false;
 
   [[nodiscard]] auto BuildPathSeq() const -> std::string;
-  [[nodiscard]] auto BuildPathCov() const -> NodeCov;
-  [[nodiscard]] auto BuildPathHP() const -> NodeHP;
 };
 }  // namespace lancet2

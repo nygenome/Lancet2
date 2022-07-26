@@ -13,8 +13,6 @@ class NodeQual {
   explicit NodeQual(usize count);
   NodeQual() = delete;
 
-  void MergeBuddy(const NodeQual &buddy, BuddyPosition dir, bool reverse_buddy, usize k);
-
   void Push(absl::string_view sv);
 
   [[nodiscard]] auto LowQualPositions(double max_bq) const -> std::vector<bool>;
