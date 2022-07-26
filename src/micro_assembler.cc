@@ -38,6 +38,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::at
     const auto winIdx = window->GetWindowIndex();
     const auto regStr = window->ToRegionString();
     const auto regResult = refRdr.GetRegionSeq(window->ToSamtoolsRegion());
+    doneCounter.fetch_add(1);
     numProcessed++;
 
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
@@ -62,7 +63,6 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::at
       LOG_ERROR("Error processing window {}: unknown exception caught", regStr);
     }
 
-    doneCounter.fetch_add(1);
     results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
   }
 
