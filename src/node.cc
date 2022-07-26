@@ -22,8 +22,6 @@ void Node::MergeBuddy(const Node& buddy, BuddyPosition dir, usize k) {
   Reserve(mer.GetLength() + buddy.GetLength() - k + 1);
 
   mer.MergeBuddy(buddy.mer, dir, reverseBuddy, k);
-  quals.MergeBuddy(buddy.quals, dir, reverseBuddy, k);
-  covs.MergeBuddy(buddy.covs, mer.GetSize(), buddy.GetLength(), k);
   labels.MergeBuddy(buddy.labels, dir, reverseBuddy, k);
 
   if (!bxData.IsEmpty() || !buddy.bxData.IsEmpty()) bxData.Merge(buddy.bxData);
