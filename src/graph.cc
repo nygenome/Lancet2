@@ -519,7 +519,7 @@ struct BaseQualStats {
 static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan& loc) -> BaseQualStats {
   BaseQualStats result;
   const auto alleleEndPos = loc.GetEndPos();
-  if (baseQuals.empty() || (baseQuals.length() <= alleleEndPos)) return result;
+  if (baseQuals.empty() || (alleleEndPos <= baseQuals.length())) return result;
 
   result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);
   u32 currSum = static_cast<u32>(baseQuals[loc.StartPosition]);
@@ -528,7 +528,7 @@ static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan
     return result;
   }
 
-  for (usize idx = loc.StartPosition + 1; idx <= alleleEndPos; ++idx) {
+  for (usize idx = loc.StartPosition + 1; idx < alleleEndPos; ++idx) {
     currSum += static_cast<u32>(baseQuals[idx]);
   }
 
@@ -542,13 +542,17 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   absl::flat_hash_map<u64, AlleleSpan> haplotypeAlleleSpans;   // Maps haplotype hash to allele span
 
   for (const Transcript& T : transcripts) {
+    const auto isSNV = T.Code() == TranscriptCode::SNV;
+    const auto refAlleleSpan = isSNV ? AlleleSpan{T.RefLeftFlankLen, 1} : AlleleSpan{0, T.RefKmerLen};
+    const auto altAlleleSpan = isSNV ? AlleleSpan{T.AltLeftFlankLen, 1} : AlleleSpan{0, T.AltKmerLen};
+
     haplotypeLengths.insert(T.RefKmerLen);
     sampleHaplotypeCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
-    haplotypeAlleleSpans.try_emplace(T.RefKmerHash, AlleleSpan{T.RefLeftFlankLen, T.GetRefLength()});
+    haplotypeAlleleSpans.try_emplace(T.RefKmerHash, refAlleleSpan);
 
     haplotypeLengths.insert(T.AltKmerLen);
     sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
-    haplotypeAlleleSpans.try_emplace(T.AltKmerHash, AlleleSpan{T.AltLeftFlankLen, T.GetAltLength()});
+    haplotypeAlleleSpans.try_emplace(T.AltKmerHash, altAlleleSpan);
   }
 
   // mateMer -> readName + sampleLabel, kmerHash
