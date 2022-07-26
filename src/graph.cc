@@ -459,6 +459,8 @@ SkipLocalAlignment:
     T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
     T.RefKmerLen = static_cast<usize>(refHapLen);
     T.AltKmerLen = static_cast<usize>(altHapLen);
+    T.RefLeftFlankLen = refLeftFlankLen;
+    T.AltLeftFlankLen = altLeftFlankLen;
   }
 
   BuildVariants(absl::MakeConstSpan(transcripts), variants);
@@ -502,23 +504,31 @@ void Graph::EraseNode(NodeIterator itr) {
 
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
+struct AlleleSpan {
+  usize StartPosition = 0;
+  usize AlleleLength = 1;
+
+  [[nodiscard]] auto GetEndPos() const noexcept -> usize { return StartPosition + AlleleLength; }
+};
+
 struct BaseQualStats {
   u32 Minimum = 0;
   u32 Average = 0;
 };
 
-static inline auto GetBaseQualStats(std::string_view baseQuals) -> BaseQualStats {
+static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan& loc) -> BaseQualStats {
   BaseQualStats result;
-  if (baseQuals.empty()) return result;
+  const auto alleleEndPos = loc.GetEndPos();
+  if (baseQuals.empty() || (baseQuals.length() <= alleleEndPos)) return result;
 
-  result.Minimum = static_cast<u32>(baseQuals[0]);
-  u32 currSum = static_cast<u32>(baseQuals[0]);
-  if (baseQuals.length() == 1) {
+  result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);
+  u32 currSum = static_cast<u32>(baseQuals[loc.StartPosition]);
+  if (loc.AlleleLength == 1) {
     result.Average = currSum;
     return result;
   }
 
-  for (usize idx = 1; idx < baseQuals.length(); ++idx) {
+  for (usize idx = loc.StartPosition + 1; idx <= alleleEndPos; ++idx) {
     currSum += static_cast<u32>(baseQuals[idx]);
   }
 
@@ -529,13 +539,16 @@ static inline auto GetBaseQualStats(std::string_view baseQuals) -> BaseQualStats
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
   absl::flat_hash_set<usize> haplotypeLengths;                 // Set with Lengths of all haplotypes
   absl::flat_hash_map<u64, SampleHpCovs> sampleHaplotypeCovs;  // Maps haplotype hash to sample coverages
+  absl::flat_hash_map<u64, AlleleSpan> haplotypeAlleleSpans;   // Maps haplotype hash to allele span
 
   for (const Transcript& T : transcripts) {
     haplotypeLengths.insert(T.RefKmerLen);
     sampleHaplotypeCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
+    haplotypeAlleleSpans.try_emplace(T.RefKmerHash, AlleleSpan{T.RefLeftFlankLen, T.GetRefLength()});
 
     haplotypeLengths.insert(T.AltKmerLen);
     sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
+    haplotypeAlleleSpans.try_emplace(T.AltKmerHash, AlleleSpan{T.AltLeftFlankLen, T.GetAltLength()});
   }
 
   // mateMer -> readName + sampleLabel, kmerHash
@@ -552,11 +565,13 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
       const auto readQual = rd.QualView();
 
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
-        const auto merQualStats = GetBaseQualStats(absl::ClippedSubstr(readQual, offset, haplotypeLength));
-        if (merQualStats.Average < params->minBaseQual) continue;
-
         const auto merHash = Kmer(absl::ClippedSubstr(readSeq, offset, haplotypeLength)).GetHash();
         if (!sampleHaplotypeCovs.contains(merHash)) continue;
+
+        const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
+        const auto alleleLoc = haplotypeAlleleSpans.at(merHash);
+        const auto merQualStats = GetBaseQualStats(merQuals, alleleLoc);
+        if (merQualStats.Average < params->minBaseQual) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);

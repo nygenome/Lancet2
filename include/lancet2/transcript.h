@@ -32,10 +32,12 @@ class Transcript {
              Transcript::Bases bases);
   Transcript() = delete;
 
-  u64 RefKmerHash = 0;   // NOLINT
-  u64 AltKmerHash = 0;   // NOLINT
-  usize RefKmerLen = 0;  // NOLINT
-  usize AltKmerLen = 0;  // NOLINT
+  u64 RefKmerHash = 0;        // NOLINT
+  u64 AltKmerHash = 0;        // NOLINT
+  usize RefKmerLen = 0;       // NOLINT
+  usize AltKmerLen = 0;       // NOLINT
+  usize RefLeftFlankLen = 0;  // NOLINT
+  usize AltLeftFlankLen = 0;  // NOLINT
 
   [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
   [[nodiscard]] auto Position() const noexcept -> usize { return genomeRefPos; }
