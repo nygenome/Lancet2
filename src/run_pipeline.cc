@@ -1,16 +1,14 @@
 #include "lancet2/run_pipeline.h"
 
 #include <algorithm>
-#include <cstddef>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <utility>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
-#include "lancet2/assert_macro.h"
 #include "lancet2/fasta_reader.h"
 #include "lancet2/hts_reader.h"
 #include "lancet2/log_macros.h"
@@ -80,9 +78,11 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     std::abort();
   });
 
+  std::atomic<usize> pendingTasks(totalWindowsCount);
   for (usize idx = 0; idx < numThreads; ++idx) {
     assemblers.emplace_back(std::async(
-        std::launch::async, [&vDBPtr](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr); },
+        std::launch::async,
+        [&vDBPtr, &pendingTasks](std::unique_ptr<MicroAssembler> m) -> void { m->Process(vDBPtr, &pendingTasks); },
         std::make_unique<MicroAssembler>(windowQueuePtr, resultQueuePtr, paramsPtr)));
   }
 

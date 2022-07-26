@@ -37,7 +37,7 @@ class MicroAssembler {
 
   MicroAssembler() = default;
 
-  void Process(const std::shared_ptr<VariantStore>& store);
+  void Process(const std::shared_ptr<VariantStore>& store, std::atomic<usize>* pendingTasks);
 
   [[nodiscard]] auto ProcessWindow(ReadExtractor* re, const std::shared_ptr<const RefWindow>& w) -> absl::Status;
 

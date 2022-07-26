@@ -14,7 +14,7 @@
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
-void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
+void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store, std::atomic<usize>* pendingTasks) {
   static thread_local const auto tid = std::this_thread::get_id();
   LOG_INFO("Started MicroAssembler thread {:#x}", absl::Hash<std::thread::id>()(tid));
 
@@ -29,7 +29,11 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
   moodycamel::ProducerToken resultProducerToken(*resultQPtr);
   usize numProcessed = 0;
 
-  while (windowQPtr->try_dequeue(windowConsumerToken, window)) {
+  while (pendingTasks->load(std::memory_order_acquire) != 0) {
+    if (!windowQPtr->try_dequeue(windowConsumerToken, window)) {
+      continue;
+    }
+
     TryFlush(store, resultProducerToken);
     T.Reset();
 
@@ -41,12 +45,14 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     if (!regResult.ok() && absl::IsFailedPrecondition(regResult.status())) {
       LOG_DEBUG("Skipping window {} with truncated reference sequence in fasta", regStr);
       results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+      pendingTasks->fetch_add(-1, std::memory_order_release);
       continue;
     }
 
     if (!regResult.ok()) {
       LOG_ERROR("Error processing window {}: {}", regStr, regResult.status().message());
       results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+      pendingTasks->fetch_add(-1, std::memory_order_release);
       continue;
     }
 
@@ -61,6 +67,7 @@ void MicroAssembler::Process(const std::shared_ptr<VariantStore>& store) {
     }
 
     results.emplace_back(WindowResult{T.GetRuntime(), winIdx});
+    pendingTasks->fetch_add(-1, std::memory_order_release);
   }
 
   ForceFlush(store, resultProducerToken);
