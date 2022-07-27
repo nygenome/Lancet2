@@ -451,7 +451,7 @@ SkipLocalAlignment:
     i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
 
     if (refHapStart < 0 || altHapStart < 0) continue;
-    ` T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
+    T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
     T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
     T.RefKmerLen = static_cast<usize>(refHapLen);
     T.AltKmerLen = static_cast<usize>(altHapLen);
