@@ -8,6 +8,8 @@ class NodeCov {
  public:
   NodeCov() = default;
 
+  void MergeBuddy(const NodeCov& buddy, usize len, usize buddyLen, usize k);
+
   [[nodiscard]] auto StrandCov(SampleLabel label, Strand s) const -> u16;
   [[nodiscard]] auto TotalCov(SampleLabel label) const -> u16;
 
