@@ -17,6 +17,7 @@ jobs:
                 uses: docker/metadata-action@v4
                 with:
                     images: |
+                        rmusunuri/lancet2
                         ghcr.io/omicsnut/lancet2
                     tags: |
                         type=schedule
@@ -33,26 +34,18 @@ jobs:
             -   name: Set up Docker Buildx
                 uses: docker/setup-buildx-action@v2
 
+            -   name: Login to DockerHub
+                uses: docker/login-action@v2
+                with:
+                    username: ${{ secrets.DOCKERHUB_USERNAME }}
+                    password: ${{ secrets.DOCKERHUB_TOKEN }}
+
             -   name: Login to GitHub Container Registry
                 uses: docker/login-action@v2
                 with:
                     registry: ghcr.io
                     username: ${{ github.repository_owner }}
                     password: ${{ secrets.GITHUB_TOKEN }}
-
-            -   name: Build and push Lancet2 GCC Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/gcc.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        gcc
-                        ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 Clang Docker image
                 uses: docker/build-push-action@v3
@@ -65,7 +58,8 @@ jobs:
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
-                        clang
+                        rmusunuri/lancet2:clang
+                        ghcr.io/omicsnut/lancet2:clang
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 ASan Docker image
@@ -79,7 +73,8 @@ jobs:
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
-                        asan
+                        rmusunuri/lancet2:asan
+                        ghcr.io/omicsnut/lancet2:asan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 UBSan Docker image
@@ -93,7 +88,8 @@ jobs:
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
-                        ubsan
+                        rmusunuri/lancet2:ubsan
+                        ghcr.io/omicsnut/lancet2:ubsan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 MSan Docker image
@@ -107,7 +103,8 @@ jobs:
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
-                        msan
+                        rmusunuri/lancet2:msan
+                        ghcr.io/omicsnut/lancet2:msan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 TSan Docker image
@@ -121,5 +118,21 @@ jobs:
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
-                        tsan
+                        rmusunuri/lancet2:tsan
+                        ghcr.io/omicsnut/lancet2:tsan
+                        ${{ steps.meta.outputs.tags }}
+
+            -   name: Build and push Lancet2 GCC Docker image
+                uses: docker/build-push-action@v3
+                with:
+                    file: docker/gcc.Dockerfile
+                    cache-from: type=gha
+                    cache-to: type=gha,mode=max
+                    platforms: linux/amd64
+                    context: .
+                    push: ${{ github.event_name != 'pull_request' }}
+                    labels: ${{ steps.meta.outputs.labels }}
+                    tags: |
+                        rmusunuri/lancet2:gcc
+                        ghcr.io/omicsnut/lancet2:gcc
                         ${{ steps.meta.outputs.tags }}
