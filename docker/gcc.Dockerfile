@@ -9,7 +9,7 @@ RUN apk update && apk upgrade && apk add --no-cache ca-certificates && rm -rf /v
 ENV CC  gcc
 ENV CXX g++
 
-RUN mkdir -p /usr/src && git clone https://github.com/nygenome/Lancet2.git /usr/src/lancet && \
-    mkdir -p /usr/src/lancet/build && cd /usr/src/lancet/build && \
+RUN mkdir -p /usr/src && git clone https://github.com/nygenome/Lancet2.git /usr/src/lancet2 && \
+    mkdir -p /usr/src/lancet2/build && cd /usr/src/lancet2/build && \
     cmake -GNinja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release .. && \
-    ninja -v && cd / && cp /usr/src/lancet/build/lancet /usr/bin/
+    ninja -v && cd / && cp /usr/src/lancet2/build/lancet2 /usr/bin/
