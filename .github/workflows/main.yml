@@ -51,7 +51,7 @@ jobs:
                     file: docker/gcc.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
@@ -65,7 +65,7 @@ jobs:
                     file: docker/clang.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
@@ -79,7 +79,7 @@ jobs:
                     file: docker/asan.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
@@ -93,7 +93,7 @@ jobs:
                     file: docker/ubsan.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
@@ -107,7 +107,7 @@ jobs:
                     file: docker/msan.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
@@ -121,7 +121,7 @@ jobs:
                     file: docker/tsan.Dockerfile
                     cache-from: type=gha
                     cache-to: type=gha,mode=max
-                    platforms: linux/amd64,linux/arm64
+                    platforms: linux/amd64
                     context: .
                     push: ${{ github.event_name != 'pull_request' }}
                     labels: ${{ steps.meta.outputs.labels }}
