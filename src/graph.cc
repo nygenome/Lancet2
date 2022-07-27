@@ -444,18 +444,14 @@ SkipLocalAlignment:
     const auto refHapLen = std::max(refAlleleLen, kmerSize);
     const auto altHapLen = std::max(altAlleleLen, kmerSize);
 
-    const i64 refLeftFlankLen =
-        static_cast<i64>(std::ceil((static_cast<double>(refHapLen) - static_cast<double>(refAlleleLen)) / 2.0));
-
-    const i64 altLeftFlankLen =
-        static_cast<i64>(std::ceil((static_cast<double>(altHapLen) - static_cast<double>(altAlleleLen)) / 2.0));
+    const auto refLeftFlankLen = static_cast<i64>(1);
+    const auto altLeftFlankLen = static_cast<i64>(1);
 
     i64 refHapStart = static_cast<i64>(T.RefStartOffset()) - refLeftFlankLen;
     i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
 
     if (refHapStart < 0 || altHapStart < 0) continue;
-
-    T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
+    ` T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
     T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
     T.RefKmerLen = static_cast<usize>(refHapLen);
     T.AltKmerLen = static_cast<usize>(altHapLen);
@@ -505,8 +501,8 @@ void Graph::EraseNode(NodeIterator itr) {
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
 struct AlleleSpan {
-  usize StartPosition = 0;
-  usize AlleleLength = 1;
+  usize StartPosition = 0;  // NOLINT
+  usize AlleleLength = 1;   // NOLINT
 
   [[nodiscard]] auto GetEndPos() const noexcept -> usize { return StartPosition + AlleleLength; }
 };
