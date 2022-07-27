@@ -444,8 +444,10 @@ SkipLocalAlignment:
     const auto refHapLen = std::max(refAlleleLen, kmerSize);
     const auto altHapLen = std::max(altAlleleLen, kmerSize);
 
-    const auto refLeftFlankLen = static_cast<i64>(1);
-    const auto altLeftFlankLen = static_cast<i64>(1);
+    const auto refLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(refHapLen) - static_cast<double>(refAlleleLen)) / 2.0));
+    const auto altLeftFlankLen =
+        static_cast<i64>(std::ceil((static_cast<double>(altHapLen) - static_cast<double>(altAlleleLen)) / 2.0));
 
     i64 refHapStart = static_cast<i64>(T.RefStartOffset()) - refLeftFlankLen;
     i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
