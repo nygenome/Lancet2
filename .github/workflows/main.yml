@@ -1,4 +1,4 @@
-name: "CI/CD"
+name: "Docker Build"
 on:
     workflow_dispatch:
     schedule:
