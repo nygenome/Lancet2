@@ -14,7 +14,7 @@ RUN apt-get update && apt-get -y --no-install-recommends upgrade && \
 ENV CC  clang-12
 ENV CXX clang++-12
 
-RUN mkdir -p /usr/src && git clone https://github.com/nygenome/Lancet2.git /usr/src/lancet && \
-    mkdir -p /usr/src/lancet/build && cd /usr/src/lancet/build && \
+RUN mkdir -p /usr/src && git clone https://github.com/nygenome/Lancet2.git /usr/src/lancet2 && \
+    mkdir -p /usr/src/lancet2/build && cd /usr/src/lancet2/build && \
     cmake -GNinja -DCMAKE_C_COMPILER=clang-12 -DCMAKE_CXX_COMPILER=clang++-12 \
-          -DCMAKE_BUILD_TYPE=Debug -DLANCET_SANITIZER=Memory .. && ninja -v && cp lancet /usr/bin/
+          -DCMAKE_BUILD_TYPE=Debug -DLANCET_SANITIZER=Memory .. && ninja -v && cp lancet2 /usr/bin/
