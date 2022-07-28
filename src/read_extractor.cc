@@ -118,7 +118,6 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const GenomicRegion& region, con
 
   HtsAlignment aln;
   while (rdr->GetNextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
-    if (!aln.OverlapsRegion(region)) continue;
     if (!PassesFilters(aln, *params, label) || !mate_info.contains(aln.GetReadName())) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
