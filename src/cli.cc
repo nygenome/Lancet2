@@ -229,8 +229,6 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
   subcmd->add_flag("--extract-pairs", params->extractReadPairs, "Extract read pairs for each window")->group("Flags");
   subcmd->add_flag("--no-contig-check", params->noCtgCheck, "Skip checking for same contigs in BAM/CRAMs and reference")
       ->group("Flags");
-  subcmd->add_flag("--use-overlap-reads", params->useOverlapReads, "Use reads overlapping windows to build graph")
-      ->group("Flags");
 
   // Optional
   subcmd->add_option("--graphs-dir", params->outGraphsDir, "Output path to dump serialized graphs for the run")

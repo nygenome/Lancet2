@@ -75,7 +75,6 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
 
   while (rdr->GetNextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
     if (!sampler.ShouldSample() || !PassesFilters(aln, *params, label)) continue;
-    if (!params->useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
     if (rdInfo.IsEmpty()) continue;
@@ -118,7 +117,11 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, Re
   HtsAlignment aln;
   while (rdr->GetNextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
     if (!PassesFilters(aln, *params, label) || !mate_info.contains(aln.GetReadName())) continue;
-    result->emplace_back(aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize));
+
+    auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
+    if (rdInfo.IsEmpty()) continue;
+
+    result->emplace_back(std::move(rdInfo));
   }
 }
 
@@ -189,7 +192,6 @@ auto ReadExtractor::ScanSampleRegion(usize sampleIdx, const GenomicRegion& regio
 
     // skip processing further if already an active region or if it doesn't pass filters
     if (isActiveRegion || !PassesFilters(aln, *params, label)) continue;
-    if (!params->useOverlapReads && !aln.IsWithinRegion(region)) continue;
 
     if (aln.HasTag("MD")) {
       FillMD(bam_aux2Z(aln.GetTagData("MD").value()), aln.GetReadQuality(), aln.GetStartPos0(), params->minBaseQual,
