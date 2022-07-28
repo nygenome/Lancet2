@@ -95,8 +95,7 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
   return mateName2Region;
 }
 
-void ReadExtractor::FetchPairs(usize sampleIdx, const GenomicRegion& region, const MateInfoMap& mate_info,
-                               ReadInfoList* result) {
+void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, ReadInfoList* result) {
   HtsReader* rdr = readers.at(sampleIdx).get();
   const auto label = labels.at(sampleIdx);
   // sort mate positions map in co-ordinate sorted order
