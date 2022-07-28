@@ -39,7 +39,7 @@ class ReadExtractor {
 
   using MateInfoMap = absl::flat_hash_map<std::string, GenomicRegion>;
   [[nodiscard]] auto FetchReads(usize sampleIdx, const GenomicRegion& region, ReadInfoList* result) -> MateInfoMap;
-  void FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, ReadInfoList* result);
+  void FetchPairs(usize sampleIdx, const GenomicRegion& region, const MateInfoMap& mate_info, ReadInfoList* result);
 
   [[nodiscard]] auto ScanSampleRegion(usize sampleIdx, const GenomicRegion& region) -> ScanRegionResult;
 

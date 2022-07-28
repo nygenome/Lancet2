@@ -54,6 +54,15 @@ class HtsAlignment {
     return (startPosition0 >= (region.GetStartPos1() - 1)) && (endPosition0 <= (region.GetEndPos1() - 1));
   }
 
+  [[nodiscard]] auto OverlapsRegion(const GenomicRegion& region) const -> bool {
+    // GenomicRegion is 1-based, Alignment is 0-based
+    const auto startInRegion =
+        (startPosition0 >= (region.GetStartPos1() - 1)) && (startPosition0 <= (region.GetEndPos1() - 1));
+    const auto endInRegion =
+        (endPosition0 >= (region.GetStartPos1() - 1)) && (endPosition0 <= (region.GetEndPos1() - 1));
+    return startInRegion || endInRegion;
+  }
+
   [[nodiscard]] auto GetLength() const -> usize { return readSequence.length(); }
 
   // NOTE: Returned tag data only valid until HtsReader's alignment data is valid
