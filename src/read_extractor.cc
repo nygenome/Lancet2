@@ -75,6 +75,7 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
 
   while (rdr->GetNextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
     if (!sampler.ShouldSample() || !PassesFilters(aln, *params, label)) continue;
+    if (!aln.OverlapsRegion(region)) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
     if (rdInfo.IsEmpty()) continue;
@@ -94,7 +95,8 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
   return mateName2Region;
 }
 
-void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, ReadInfoList* result) {
+void ReadExtractor::FetchPairs(usize sampleIdx, const GenomicRegion& region, const MateInfoMap& mate_info,
+                               ReadInfoList* result) {
   HtsReader* rdr = readers.at(sampleIdx).get();
   const auto label = labels.at(sampleIdx);
   // sort mate positions map in co-ordinate sorted order
@@ -116,6 +118,7 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, Re
 
   HtsAlignment aln;
   while (rdr->GetNextAlignment(&aln, {}) == HtsReader::IteratorState::VALID) {
+    if (!aln.OverlapsRegion(region)) continue;
     if (!PassesFilters(aln, *params, label) || !mate_info.contains(aln.GetReadName())) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
@@ -189,6 +192,7 @@ auto ReadExtractor::ScanSampleRegion(usize sampleIdx, const GenomicRegion& regio
 
   while (rdr->GetNextAlignment(&aln, {"MD"}) == HtsReader::IteratorState::VALID) {
     if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.GetLength();
+    if (!aln.OverlapsRegion(region)) continue;
 
     // skip processing further if already an active region or if it doesn't pass filters
     if (isActiveRegion || !PassesFilters(aln, *params, label)) continue;
