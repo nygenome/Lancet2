@@ -1,6 +1,7 @@
 #include "lancet2/variant_store.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <mutex>
 #include <utility>
 
@@ -9,9 +10,26 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"  // NOLINT
 #include "generated/lancet2_version.h"
+#include "lancet2/fasta_reader.h"
 
 namespace lancet2 {
 VariantStore::VariantStore(std::shared_ptr<const CliParams> p) : params(std::move(p)) {}
+
+static inline auto GetContigHeaderLines(const std::filesystem::path& faPath) -> std::string {
+  FastaReader refRdr(faPath);
+  auto contigs = refRdr.GetContigs();
+  const auto ctgIds = refRdr.GetContigIndexMap();
+  std::sort(contigs.begin(), contigs.end(), [&ctgIds](const ContigInfo& c1, const ContigInfo& c2) -> bool {
+    return ctgIds.at(c1.contigName) < ctgIds.at(c2.contigName);
+  });
+
+  std::vector<std::string> contigLines;
+  contigLines.reserve(contigs.size());
+  for (const auto& ctgInfo : contigs) {
+    contigLines.emplace_back(absl::StrFormat("##contig=<ID=%s,length=%d>", ctgInfo.contigName, ctgInfo.contigLen));
+  }
+  return absl::StrJoin(contigLines, "\n");
+}
 
 auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const CliParams& p) -> std::string {
   // clang-format off
@@ -20,6 +38,7 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##source=lancet2_%s
 ##commandLine="%s"
 ##reference="%s"
+%s
 ##FILTER=<ID=LowFisherSTR,Description="Fisher exact test score for tumor/normal STR allele counts less than %f">
 ##FILTER=<ID=LowFisherScore,Description="Fisher exact test score for tumor/normal allele counts less than %f">
 ##FILTER=<ID=LowCovNormal,Description="Allele coverage in normal less than %d">
@@ -47,7 +66,7 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##FORMAT=<ID=SA,Number=2,Type=Integer,Description="Number of reads in the forward and reverse strands supporting the alternate allele">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
 )raw", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone()), LONG_VERSION, // NOLINT
-       p.commandLine, p.referencePath, p.minSTRFisher, p.minFisher,
+       p.commandLine, p.referencePath, GetContigHeaderLines(p.referencePath), p.minSTRFisher, p.minFisher,
        p.minNmlCov, p.maxNmlCov, p.minTmrCov, p.maxTmrCov, p.minTmrVAF, p.maxNmlVAF,
        p.minTmrAltCnt, p.maxNmlAltCnt, p.minStrandCnt);
 
