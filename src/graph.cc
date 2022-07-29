@@ -321,12 +321,9 @@ void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector
 
   try {
     rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
-  } catch (...) {
-    std::exception_ptr p = std::current_exception();
-    const auto errMsg =
-        absl::StrFormat("error aligning ref: %s, qry: %s in window: %s | exception – %s", refAnchorSeq, pathSeq,
-                        window->ToRegionString(), p ? p.__cxa_exception_type()->name() : "null");
-    throw std::runtime_error(errMsg);
+  } catch (const std::exception& e) {
+    throw std::runtime_error(absl::StrFormat("error aligning ref: %s, qry: %s in window: %s | exception – %s",
+                                             refAnchorSeq, pathSeq, window->ToRegionString(), e.what()));
   }
 
   aligned.ref = rawAlignedSeqs.ref;
