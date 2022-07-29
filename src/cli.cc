@@ -34,6 +34,7 @@ auto RunCli(int argc, char** argv) noexcept -> int {
   std::cin.tie(nullptr);
 
   auto stderrLogger = spdlog::stderr_color_mt("stderr", spdlog::color_mode::automatic);
+  stderrLogger->flush_on(spdlog::level::err);
   stderrLogger->set_pattern("%^%Y-%m-%dT%H:%M:%S%z | [%L] | %v%$");
   stderrLogger->set_level(spdlog::level::info);
 
@@ -98,7 +99,7 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
       ->group("Required")
       ->check(CLI::ExistingFile);
 
-  subcmd->add_option("-o,--out-vcf", params->outVcfPath, "Path to output VCF file")
+  subcmd->add_option("-o,--out-prefix", params->outPrefix, "Prefix to use for all output files and directories")
       ->required(true)
       ->group("Required")
       ->check(CLI::ExistingFile | CLI::NonexistentPath);
