@@ -12,7 +12,7 @@ set(LANCET2_SANITIZER "OFF" CACHE STRING "Build with an LLVM sanitizer")
 set_property(CACHE LANCET2_SANITIZER PROPERTY STRINGS "OFF" "Address" "Undefined" "Thread" "Memory")
 
 # https://gitlab.kitware.com/cmake/cmake/-/issues/16716
-set(PROJECT_VERSION "2.0.0.alpha1")
+set(PROJECT_VERSION "2.0.0.rc1")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
