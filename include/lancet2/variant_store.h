@@ -33,8 +33,8 @@ class VariantStore {
   /// Blocks if any other thread is writing to store and waits to write variants to store
   void ForceAddVariants(absl::Span<const Variant> variants);
 
-  auto FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool;
-  auto FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool;
+  auto FlushWindow(const RefWindow& w, std::ostream& outStream, const ContigIDs& ctg_ids) -> bool;
+  auto FlushAll(std::ostream& outStream, const ContigIDs& ctg_ids) -> bool;
 
  private:
   // https://nathanpetersen.com/2019/02/17/optimizing-for-workloads-linux-spinlocks-vs-mutexes/
@@ -42,7 +42,7 @@ class VariantStore {
   absl::flat_hash_map<VariantID, Variant> data;
   std::shared_ptr<const CliParams> params = nullptr;
 
-  [[nodiscard]] auto Flush(absl::Span<const VariantID> ids, std::ostream& out, const ContigIDs& ctg_ids) -> bool;
+  [[nodiscard]] auto Flush(absl::Span<const VariantID> ids, std::ostream& outStream, const ContigIDs& ctg_ids) -> bool;
 
   [[nodiscard]] static auto IsVariant1LessThan2(const Variant& v1, const Variant& v2, const ContigIDs& ctg_ids) -> bool;
   [[nodiscard]] static auto IsVariantInOrBefore(const Variant& v, const RefWindow& w, const ContigIDs& ctg_ids) -> bool;

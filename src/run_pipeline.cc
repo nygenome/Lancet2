@@ -4,11 +4,11 @@
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <future>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "lancet2/bgzf_ostream.h"
 #include "lancet2/fasta_reader.h"
 #include "lancet2/hts_reader.h"
 #include "lancet2/log_macros.h"
@@ -49,9 +49,13 @@ void RunPipeline(std::shared_ptr<CliParams> params) {  // NOLINT
     std::filesystem::create_directory(params->outGraphsDir);
   }
 
-  std::ofstream outVcf(params->outVcfPath, std::ios_base::out | std::ios_base::trunc);
-  const auto vcfHdr = VariantStore::GetHeader(GetSampleNames(*params), *params);
-  outVcf.write(vcfHdr.c_str(), vcfHdr.length());
+  BgzfOstream outVcf;
+  const auto vcfPath = absl::StrFormat("%s.vcf.gz", params->outPrefix);
+  if (!outVcf.open(vcfPath, BgzfFormat::VCF)) {
+    LOG_CRITICAL("Could not open output VCF file: {}", vcfPath);
+    std::exit(EXIT_FAILURE);
+  }
+  outVcf << VariantStore::GetHeader(GetSampleNames(*params), *params);
 
   const auto contigIDs = GetContigIDs(*params);
   const auto allwindows = BuildWindows(contigIDs, *params);

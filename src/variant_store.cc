@@ -80,7 +80,7 @@ void VariantStore::ForceAddVariants(absl::Span<const Variant> variants) {
   UnsafeAddVariantBatch(variants);
 }
 
-auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& outStream, const ContigIDs& ctg_ids) -> bool {
   std::lock_guard<utils::SpinLock> guard(spinLock);
 
   using vDBPair = std::pair<u64, Variant>;
@@ -90,20 +90,20 @@ auto VariantStore::FlushWindow(const RefWindow& w, std::ostream& out, const Cont
     if (IsVariantInOrBefore(p.second, w, ctg_ids)) variantIDsToFlush.emplace_back(p.first);
   });
 
-  return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
+  return Flush(absl::MakeConstSpan(variantIDsToFlush), outStream, ctg_ids);
 }
 
-auto VariantStore::FlushAll(std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::FlushAll(std::ostream& outStream, const ContigIDs& ctg_ids) -> bool {
   std::lock_guard<utils::SpinLock> guard(spinLock);
   if (data.empty()) return false;
 
   std::vector<u64> variantIDsToFlush;
   variantIDsToFlush.reserve(data.size());
   for (const auto& p : data) variantIDsToFlush.emplace_back(p.first);
-  return Flush(absl::MakeConstSpan(variantIDsToFlush), out, ctg_ids);
+  return Flush(absl::MakeConstSpan(variantIDsToFlush), outStream, ctg_ids);
 }
 
-auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, const ContigIDs& ctg_ids) -> bool {
+auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& outStream, const ContigIDs& ctg_ids) -> bool {
   std::vector<Variant> variantsToFlush;
   variantsToFlush.reserve(ids.size());
 
@@ -116,10 +116,8 @@ auto VariantStore::Flush(absl::Span<const VariantID> ids, std::ostream& out, con
   std::sort(variantsToFlush.begin(), variantsToFlush.end(),
             [&ctg_ids](const Variant& v1, const Variant& v2) -> bool { return IsVariant1LessThan2(v1, v2, ctg_ids); });
 
-  for (const auto& v : variantsToFlush) {
-    const auto record = v.MakeVcfLine(*params);
-    out.write(record.c_str(), record.length());
-  }
+  std::for_each(variantsToFlush.cbegin(), variantsToFlush.cend(),
+                [&outStream, this](const Variant& v) { outStream << v.MakeVcfLine(*params); });
 
   if (!variantsToFlush.empty() && data.load_factor() < 0.8) {
     // swap data with temp to force releasing hash table memory
