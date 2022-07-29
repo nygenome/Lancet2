@@ -58,6 +58,8 @@ add_library(lancet2_core STATIC
         include/lancet2/fasta_reader.h src/fasta_reader.cc
         include/lancet2/hts_alignment.h src/hts_alignment.cc
         include/lancet2/hts_reader.h src/hts_reader.cc
+        include/lancet2/bgzf_streambuf.h src/bgzf_streambuf.cc
+        include/lancet2/bgzf_ostream.h src/bgzf_ostream.cc
 
         include/lancet2/ref_window.h
         include/lancet2/read_info.h
