@@ -227,6 +227,8 @@ auto PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams> params) -> void { 
   subcmd->add_flag("--xa-filter", params->skipMultipleHits, "Skip reads with XA tag (BWA-mem only)")->group("Flags");
   subcmd->add_flag("--skip-secondary", params->skipSecondary, "Skip secondary read alignments")->group("Flags");
   subcmd->add_flag("--extract-pairs", params->extractReadPairs, "Extract read pairs for each window")->group("Flags");
+  subcmd->add_flag("--use-contained", params->useContainedReads, "Use only reads entirely contained within the window")
+      ->group("Flags");
   subcmd->add_flag("--no-contig-check", params->noCtgCheck, "Skip checking for same contigs in BAM/CRAMs and reference")
       ->group("Flags");
 
