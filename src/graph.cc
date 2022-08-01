@@ -532,16 +532,11 @@ static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan
   return result;
 }
 
-struct TmrNmlBQSum {
-  float TmrSum = 0.0F;
-  float NmlSum = 0.0F;
-};
-
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
   absl::flat_hash_set<usize> haplotypeLengths;                 // Set with Lengths of all haplotypes
   absl::flat_hash_map<u64, SampleHpCovs> sampleHaplotypeCovs;  // Maps haplotype hash to sample coverages
   absl::flat_hash_map<u64, AlleleSpan> haplotypeAlleleSpans;   // Maps haplotype hash to allele span
-  absl::flat_hash_map<u64, TmrNmlBQSum> haplotypeBQSums;  // Maps haplotype hash to sum of average haplotype base quals
+  absl::flat_hash_map<u64, float> tmrAltBQSums;  // Maps haplotype hash to sum of average haplotype base quals
 
   for (const Transcript& T : transcripts) {
     const auto isSNV = T.Code() == TranscriptCode::SNV;
@@ -551,12 +546,11 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     haplotypeLengths.insert(T.RefKmerLen);
     sampleHaplotypeCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
     haplotypeAlleleSpans.try_emplace(T.RefKmerHash, refAlleleSpan);
-    haplotypeBQSums.try_emplace(T.RefKmerHash, TmrNmlBQSum{0.0F, 0.0F});
 
     haplotypeLengths.insert(T.AltKmerLen);
     sampleHaplotypeCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
     haplotypeAlleleSpans.try_emplace(T.AltKmerHash, altAlleleSpan);
-    haplotypeBQSums.try_emplace(T.AltKmerHash, TmrNmlBQSum{0.0F, 0.0F});
+    tmrAltBQSums.try_emplace(T.AltKmerHash, 0.0F);
   }
 
   // mateMer -> readName + sampleLabel, kmerHash
@@ -592,8 +586,9 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
         if (!isUniqMateMer) continue;
 
-        rd.label == SampleLabel::TUMOR ? haplotypeBQSums.at(merHash).TmrSum += merQualStats.Average
-                                       : haplotypeBQSums.at(merHash).NmlSum += merQualStats.Average;
+        if (tmrAltBQSums.contains(merHash) && rd.label == SampleLabel::TUMOR) {
+          tmrAltBQSums.at(merHash) += merQualStats.Average;
+        }
 
         auto& curr = sampleHaplotypeCovs.at(merHash);
         HpCov& currCov = rd.label == SampleLabel::TUMOR ? curr.TmrCov : curr.NmlCov;
@@ -617,10 +612,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto refCovs = sampleHaplotypeCovs.at(T.RefKmerHash);
     const auto altCovs = sampleHaplotypeCovs.at(T.AltKmerHash);
     Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
-    V.TmrRefQual = haplotypeBQSums.at(T.RefKmerHash).TmrSum / static_cast<float>(refCovs.TmrCov.GetTotalCov());
-    V.TmrAltQual = haplotypeBQSums.at(T.AltKmerHash).TmrSum / static_cast<float>(altCovs.TmrCov.GetTotalCov());
-    V.NmlRefQual = haplotypeBQSums.at(T.RefKmerHash).NmlSum / static_cast<float>(refCovs.NmlCov.GetTotalCov());
-    V.NmlAltQual = haplotypeBQSums.at(T.AltKmerHash).NmlSum / static_cast<float>(altCovs.NmlCov.GetTotalCov());
+    V.TmrAltQual = tmrAltBQSums.at(T.AltKmerHash) / static_cast<float>(altCovs.TmrCov.GetTotalCov());
 
     if (V.ComputeState() == VariantState::NONE) continue;
     variants->emplace_back(std::move(V));
