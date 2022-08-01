@@ -27,8 +27,8 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
-  auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f;TMR_ALT_QUAL=%f", ToString(varState),
-                              somaticScore, ToString(Kind), Length, KmerSize, strandBiasScore, TmrAltQual);
+  auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
+                              ToString(Kind), Length, KmerSize, strandBiasScore);
 
   if (!STRResult.empty()) info += absl::StrFormat(";MS=%s", STRResult);
 
@@ -55,7 +55,6 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   if (NormalCov.TotalCov() > params.maxNmlCov) filters.emplace_back("HighCovNormal");
   if (TumorCov.TotalCov() < params.minTmrCov) filters.emplace_back("LowCovTumor");
   if (TumorCov.TotalCov() > params.maxTmrCov) filters.emplace_back("HighCovTumor");
-  if (TmrAltQual < static_cast<float>(params.minBaseQual)) filters.emplace_back("LowTmrAltQual");
 
   const auto tmrVaf = TumorCov.VAF();
   const auto nmlVaf = NormalCov.VAF();
