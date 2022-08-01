@@ -580,6 +580,10 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         const auto alleleLoc = haplotypeAlleleSpans.at(merHash);
         const auto merQualStats = GetBaseQualStats(merQuals, alleleLoc);
 
+        // Skip adding to kmer count if allele length is a single base.
+        // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
+        if (alleleLoc.AlleleLength == 1 && merQualStats.Average < static_cast<float>(params->minBaseQual)) continue;
+
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
         const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
