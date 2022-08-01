@@ -6,12 +6,12 @@
 #include "lancet2/sized_ints.h"
 
 namespace lancet2 {
-constexpr double DEFAULT_MIN_NODE_COV_RATIO = 0.01F;
-constexpr double DEFAULT_MAX_WINDOW_COV = 1000.0F;
-constexpr double DEFAULT_MIN_TUMOR_VAF = 0.04F;
-constexpr double DEFAULT_MAX_NORMAL_VAF = 0.0F;
-constexpr double DEFAULT_MIN_PHRED_FISHER = 5.0F;
-constexpr double DEFAULT_MIN_PHRED_FISHER_STRS = 25.0F;
+constexpr double DEFAULT_MIN_NODE_COV_RATIO = 0.01;
+constexpr double DEFAULT_MAX_WINDOW_COV = 1000.0;
+constexpr double DEFAULT_MIN_TUMOR_VAF = 0.04;
+constexpr double DEFAULT_MAX_NORMAL_VAF = 0.0;
+constexpr double DEFAULT_MIN_PHRED_FISHER = 5.0;
+constexpr double DEFAULT_MIN_PHRED_FISHER_STRS = 25.0;
 
 constexpr u32 DEFAULT_NUM_WORKER_THREADS = 1;
 constexpr u32 DEFAULT_REGION_PAD_LENGTH = 250;
