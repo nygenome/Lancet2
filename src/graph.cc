@@ -322,8 +322,9 @@ void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector
   try {
     rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
   } catch (const std::exception& e) {
-    throw std::runtime_error(absl::StrFormat("error aligning ref: %s, qry: %s in window: %s | exception – %s",
-                                             refAnchorSeq, pathSeq, window->ToRegionString(), e.what()));
+    LOG_TRACE("Error processing window {}: error aligning ref: %s, qry: %s | exception – %s", window->ToRegionString(),
+              refAnchorSeq, pathSeq, e.what());
+    return;
   }
 
   aligned.ref = rawAlignedSeqs.ref;
@@ -516,15 +517,15 @@ static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan
   const auto alleleEndPos = loc.GetEndPos();
   if (baseQuals.empty() || (alleleEndPos > baseQuals.length())) return result;
 
-  result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);
-  u32 currSum = static_cast<u32>(baseQuals[loc.StartPosition]);
+  result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);  // NOLINT
+  auto currSum = static_cast<float>(baseQuals[loc.StartPosition]);
   if (loc.AlleleLength == 1) {
     result.Average = currSum;
     return result;
   }
 
   for (usize idx = loc.StartPosition + 1; idx < alleleEndPos; ++idx) {
-    currSum += static_cast<u32>(baseQuals[idx]);
+    currSum += static_cast<float>(static_cast<int>(baseQuals[idx]));
   }
 
   result.Average = static_cast<float>(currSum) / static_cast<float>(baseQuals.length());
@@ -727,6 +728,7 @@ void Graph::CompressNode(NodeIdentifier src_id, const absl::btree_set<NodeNeighb
   }
 }
 
+// NOLINTNEXTLINE
 auto Graph::HasCycle(NodeIdentifier node_id, Strand direction, absl::flat_hash_set<NodeIdentifier>* touched) const
     -> bool {
   const auto itr = nodesMap.find(node_id);
