@@ -59,6 +59,10 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=SB,Number=1,Type=Float,Description="Phred-scaled probability of Fisher exact test of fwd and rev tumor read counts in ref and alt alleles. i.e. Strand Bias">
+##INFO=<ID=TMR_REF_QUAL,Number=1,Type=Float,Description="Average base qualities for the reference allele in tumor sample">
+##INFO=<ID=TMR_ALT_QUAL,Number=1,Type=Float,Description="Average base qualities for the alternate allele in tumor sample">
+##INFO=<ID=NML_REF_QUAL,Number=1,Type=Float,Description="Average base qualities for the reference allele in normal sample">
+##INFO=<ID=NML_ALT_QUAL,Number=1,Type=Float,Description="Average base qualities for the alternate allele in normal sample">
 ##INFO=<ID=MS,Number=1,Type=String,Description="Description of the microsatellite length and motif, if found (format: LENGTH:MOTIF)">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting ref and alt alleles at the site">
