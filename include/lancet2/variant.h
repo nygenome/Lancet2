@@ -23,17 +23,16 @@ class Variant {
   [[nodiscard]] auto ID() const -> VariantID;
   [[nodiscard]] auto ComputeState() const -> VariantState;
 
-  std::string ChromName;    // NOLINT
-  usize Position;           // NOLINT
-  std::string RefAllele;    // NOLINT
-  std::string AltAllele;    // NOLINT
-  TranscriptCode Kind;      // NOLINT
-  std::string STRResult;    // NOLINT
-  usize Length;             // NOLINT
-  usize KmerSize;           // NOLINT
-  VariantHpCov TumorCov;    // NOLINT
-  VariantHpCov NormalCov;   // NOLINT
-  float TmrAltQual = 0.0F;  // NOLINT
+  std::string ChromName;   // NOLINT
+  usize Position;          // NOLINT
+  std::string RefAllele;   // NOLINT
+  std::string AltAllele;   // NOLINT
+  TranscriptCode Kind;     // NOLINT
+  std::string STRResult;   // NOLINT
+  usize Length;            // NOLINT
+  usize KmerSize;          // NOLINT
+  VariantHpCov TumorCov;   // NOLINT
+  VariantHpCov NormalCov;  // NOLINT
 
   auto operator==(const Variant& other) const -> bool { return this->ID() == other.ID(); }
   auto operator!=(const Variant& other) const -> bool { return this->ID() != other.ID(); }
