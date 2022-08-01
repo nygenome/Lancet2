@@ -45,10 +45,7 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##FILTER=<ID=HighCovNormal,Description="Allele coverage in normal greater than %d">
 ##FILTER=<ID=LowCovTumor,Description="Allele coverage in tumor less than %d">
 ##FILTER=<ID=HighCovTumor,Description="Allele coverage in tumor greater than %d}">
-##FILTER=<ID=LowTmrRefQual,Description="Average base qualities for the reference allele in tumor less than %f">
 ##FILTER=<ID=LowTmrAltQual,Description="Average base qualities for the alternate allele in tumor less than %f">
-##FILTER=<ID=LowNmlRefQual,Description="Average base qualities for the reference allele in normal less than %f">
-##FILTER=<ID=LowNmlAltQual,Description="Average base qualities for the alternate allele in normal less than %f">
 ##FILTER=<ID=LowVafTumor,Description="Variant allele frequency in tumor less than %f">
 ##FILTER=<ID=HighVafNormal,Description="Variant allele frequency in normal greater than %f">
 ##FILTER=<ID=LowAltCntTumor,Description="Alternative allele count in tumor less than %d">
@@ -63,10 +60,7 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=SB,Number=1,Type=Float,Description="Phred-scaled probability of Fisher exact test of fwd and rev tumor read counts in ref and alt alleles. i.e. Strand Bias">
-##INFO=<ID=TMR_REF_QUAL,Number=1,Type=Float,Description="Average base qualities for the reference allele in tumor sample">
 ##INFO=<ID=TMR_ALT_QUAL,Number=1,Type=Float,Description="Average base qualities for the alternate allele in tumor sample">
-##INFO=<ID=NML_REF_QUAL,Number=1,Type=Float,Description="Average base qualities for the reference allele in normal sample">
-##INFO=<ID=NML_ALT_QUAL,Number=1,Type=Float,Description="Average base qualities for the alternate allele in normal sample">
 ##INFO=<ID=MS,Number=1,Type=String,Description="Description of the microsatellite length and motif, if found (format: LENGTH:MOTIF)">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting ref and alt alleles at the site">
@@ -75,8 +69,8 @@ auto VariantStore::GetHeader(const std::vector<std::string>& sample_names, const
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
 )raw", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone()), LONG_VERSION, // NOLINT
        p.commandLine, p.referencePath, GetContigHeaderLines(p.referencePath), p.minSTRFisher, p.minFisher,
-       p.minNmlCov, p.maxNmlCov, p.minTmrCov, p.maxTmrCov, p.minBaseQual, p.minBaseQual, p.minBaseQual, p.minBaseQual,
-       p.minTmrVAF, p.maxNmlVAF, p.minTmrAltCnt, p.maxNmlAltCnt, p.minStrandCnt);
+       p.minNmlCov, p.maxNmlCov, p.minTmrCov, p.maxTmrCov, p.minBaseQual, p.minTmrVAF, p.maxNmlVAF,
+       p.minTmrAltCnt, p.maxNmlAltCnt, p.minStrandCnt);
 
   static constexpr auto tenxTemplate = R"raw(##FILTER=<ID=MultiHP,Description="Reads supporting alternate allele found in multiple haplotypes">
 ##INFO=<ID=HPS,Number=1,Type=Float,Description="Phred-scaled probability of Fisher exact test of total haplotype counts (HP1 + HP2) in normal and tumor">
