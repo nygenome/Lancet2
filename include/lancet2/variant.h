@@ -34,6 +34,9 @@ class Variant {
   VariantHpCov TumorCov;   // NOLINT
   VariantHpCov NormalCov;  // NOLINT
 
+  [[nodiscard]] auto GetSomaticFETScore() const -> double;
+  [[nodiscard]] auto GetStrandBiasScore() const -> double;
+
   auto operator==(const Variant& other) const -> bool { return this->ID() == other.ID(); }
   auto operator!=(const Variant& other) const -> bool { return this->ID() != other.ID(); }
 

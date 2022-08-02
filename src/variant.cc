@@ -18,11 +18,8 @@ Variant::Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmr
 }
 
 auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
-  const auto somaticScore = PhredFisherScore(NormalCov.TotalRefCov(), TumorCov.TotalRefCov(), NormalCov.TotalAltCov(),
-                                             TumorCov.TotalAltCov());
-
-  const auto strandBiasScore = PhredFisherScore(TumorCov.RefAllele.FwdCov, TumorCov.RefAllele.RevCov,
-                                                TumorCov.AltAllele.FwdCov, TumorCov.AltAllele.RevCov);
+  const auto somaticScore = GetSomaticFETScore();
+  const auto strandBiasScore = GetStrandBiasScore();
 
   const auto varState = ComputeState();
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
@@ -117,5 +114,15 @@ auto Variant::BuildSampleFormat(const VariantHpCov& v, bool is_tenx_mode) -> std
   }
 
   return result;
+}
+
+auto Variant::GetSomaticFETScore() const -> double {
+  return PhredFisherScore(NormalCov.TotalRefCov(), TumorCov.TotalRefCov(), NormalCov.TotalAltCov(),
+                          TumorCov.TotalAltCov());
+}
+
+auto Variant::GetStrandBiasScore() const -> double {
+  return PhredFisherScore(TumorCov.RefAllele.FwdCov, TumorCov.RefAllele.RevCov, TumorCov.AltAllele.FwdCov,
+                          TumorCov.AltAllele.RevCov);
 }
 }  // namespace lancet2
