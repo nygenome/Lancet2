@@ -501,35 +501,26 @@ void Graph::EraseNode(NodeIterator itr) {
 void Graph::EraseNode(NodeIdentifier node_id) { return EraseNode(nodesMap.find(node_id)); }
 
 struct AlleleSpan {
-  usize StartPosition = 0;  // NOLINT
-  usize AlleleLength = 1;   // NOLINT
+  usize StartPos = 0;   // NOLINT
+  usize AlleleLen = 1;  // NOLINT
 
-  [[nodiscard]] auto GetEndPos() const noexcept -> usize { return StartPosition + AlleleLength; }
+  [[nodiscard]] auto GetEndPos() const noexcept -> usize { return StartPos + AlleleLen; }
 };
 
-struct BaseQualStats {
-  u32 Minimum = 0;
-  float Average = 0;
-};
-
-static inline auto GetBaseQualStats(std::string_view baseQuals, const AlleleSpan& loc) -> BaseQualStats {
-  BaseQualStats result;
+static inline auto GetAvgBaseQual(std::string_view baseQuals, const AlleleSpan& loc) -> double {
   const auto alleleEndPos = loc.GetEndPos();
-  if (baseQuals.empty() || (alleleEndPos > baseQuals.length())) return result;
+  if (baseQuals.empty() || (alleleEndPos > baseQuals.length())) return 0.0;
 
-  result.Minimum = static_cast<u32>(baseQuals[loc.StartPosition]);  // NOLINT
-  auto currSum = static_cast<float>(baseQuals[loc.StartPosition]);
-  if (loc.AlleleLength == 1) {
-    result.Average = currSum;
-    return result;
+  auto currSum = static_cast<int>(baseQuals[loc.StartPos]);  // NOLINT
+  if (loc.AlleleLen == 1) {
+    return static_cast<double>(currSum);
   }
 
-  for (usize idx = loc.StartPosition + 1; idx < alleleEndPos; ++idx) {
-    currSum += static_cast<float>(static_cast<int>(baseQuals[idx]));
+  for (usize idx = loc.StartPos + 1; idx < alleleEndPos; ++idx) {
+    currSum += static_cast<int>(baseQuals[idx]);
   }
 
-  result.Average = static_cast<float>(currSum) / static_cast<float>(baseQuals.length());
-  return result;
+  return static_cast<double>(currSum) / static_cast<double>(baseQuals.length());
 }
 
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
@@ -554,6 +545,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   // mateMer -> readName + sampleLabel, kmerHash
   using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
+  const auto minBQ = static_cast<double>(params->minBaseQual);
 
   for (const auto& rd : sampleReads) {
     for (const usize& haplotypeLength : hapLens) {
@@ -566,23 +558,20 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         const auto merHash = Kmer::CanonicalSeqHash(absl::ClippedSubstr(readSeq, offset, haplotypeLength));
         if (!sampleHapCovs.contains(merHash)) continue;
 
+        const auto isTmrRd = rd.label == SampleLabel::TUMOR;
         const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
-        const auto alleleLoc = alleleSpans.at(merHash);
-        const auto merQualStats = GetBaseQualStats(merQuals, alleleLoc);
+        const auto avgAlleleQual = GetAvgBaseQual(merQuals, alleleSpans.at(merHash));
 
         // Skip adding to kmer count if allele length is a single base.
         // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
         // Always add to kmer count for normal sample reads, so that we don't call FPs
-        const auto isTmrRead = rd.label == SampleLabel::TUMOR;
-        if (isTmrRead && merQualStats.Average < static_cast<float>(params->minBaseQual)) continue;
+        if (isTmrRd && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
-        const auto isUniqMateMer = seenMateMers.find(mmId) == seenMateMers.end();
-        if (!isUniqMateMer) continue;
+        if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
-        auto& curr = sampleHapCovs.at(merHash);
-        HpCov& currCov = rd.label == SampleLabel::TUMOR ? curr.TmrCov : curr.NmlCov;
+        HpCov& currCov = isTmrRd ? sampleHapCovs.at(merHash).TmrCov : sampleHapCovs.at(merHash).NmlCov;
 
         rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
         if (rd.haplotypeID == 1) {
