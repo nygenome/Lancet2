@@ -19,7 +19,7 @@
 #include "lancet2/log_macros.h"
 #include "lancet2/run_pipeline.h"
 #include "lancet2/sized_ints.h"
-#include "spdlog/sinks/stdout_color_sinks-inl.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
 namespace lancet2 {
