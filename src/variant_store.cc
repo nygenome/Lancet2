@@ -169,12 +169,8 @@ void VariantStore::UnsafeAddVariantBatch(absl::Span<const Variant> variants) {
       continue;
     }
 
-    const auto oldTotalCov = itr->second.TumorCov.TotalCov() + itr->second.NormalCov.TotalCov();
-    const auto newTotalCov = variant.TumorCov.TotalCov() + variant.NormalCov.TotalCov();
-    if (oldTotalCov < newTotalCov) {
-      itr->second.KmerSize = variant.KmerSize;
-      itr->second.TumorCov = variant.TumorCov;
-      itr->second.NormalCov = variant.NormalCov;
+    if (variant.GetSomaticFETScore() > itr->second.GetSomaticFETScore()) {
+      data.at(vID) = variant;
     }
   }
 }
