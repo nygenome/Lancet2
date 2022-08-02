@@ -75,7 +75,6 @@ auto ReadExtractor::FetchReads(usize sampleIdx, const GenomicRegion& region, Rea
 
   while (rdr->GetNextAlignment(&aln, {"XT", "XA", "AS", "XS"}) == HtsReader::IteratorState::VALID) {
     if (!sampler.ShouldSample() || !PassesFilters(aln, *params, label)) continue;
-    if (params->useContainedReads && !aln.IsWithinRegion(region)) continue;
     if (!aln.OverlapsRegion(region)) continue;
 
     auto rdInfo = aln.BuildReadInfo(label, params->trimBelowQual, params->maxKmerSize);
@@ -191,7 +190,6 @@ auto ReadExtractor::ScanSampleRegion(usize sampleIdx, const GenomicRegion& regio
 
   while (rdr->GetNextAlignment(&aln, {"MD"}) == HtsReader::IteratorState::VALID) {
     if (!aln.IsUnmapped() && !aln.IsDuplicate()) numReadBases += aln.GetLength();
-    if (params->useContainedReads && !aln.IsWithinRegion(region)) continue;
     if (!aln.OverlapsRegion(region)) continue;
 
     // skip processing further if already an active region or if it doesn't pass filters

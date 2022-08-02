@@ -91,14 +91,13 @@ class CliParams {
   u32 maxSTRDist = DEFAULT_MAX_DIST_FROM_STR;               // NOLINT
   u32 minReadAsXsDiff = DEFAULT_MIN_READ_AS_XS_DIFF;        // NOLINT
 
-  bool verboseLogging = false;     // NOLINT
-  bool activeRegionOff = false;    // NOLINT
-  bool kmerRecoveryOn = false;     // NOLINT
-  bool skipMultipleHits = false;   // NOLINT
-  bool skipSecondary = false;      // NOLINT
-  bool tenxMode = false;           // NOLINT
-  bool extractReadPairs = false;   // NOLINT
-  bool noCtgCheck = false;         // NOLINT
-  bool useContainedReads = false;  // NOLINT
+  bool verboseLogging = false;    // NOLINT
+  bool activeRegionOff = false;   // NOLINT
+  bool kmerRecoveryOn = false;    // NOLINT
+  bool skipMultipleHits = false;  // NOLINT
+  bool skipSecondary = false;     // NOLINT
+  bool tenxMode = false;          // NOLINT
+  bool extractReadPairs = false;  // NOLINT
+  bool noCtgCheck = false;        // NOLINT
 };
 }  // namespace lancet2
