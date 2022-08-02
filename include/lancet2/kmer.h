@@ -28,8 +28,8 @@ class Kmer {
   friend auto operator==(const Kmer& lhs, const Kmer& rhs) -> bool { return lhs.GetHash() == rhs.GetHash(); }
   friend auto operator!=(const Kmer& lhs, const Kmer& rhs) -> bool { return !(lhs == rhs); }
 
-  [[nodiscard]] static auto IsCanonical(std::string_view sv) -> bool;
   [[nodiscard]] static auto CanonicalSequence(std::string_view sv) -> std::string;
+  [[nodiscard]] static auto CanonicalSeqHash(std::string_view sv) -> u64;
 
  private:
   std::string seq;

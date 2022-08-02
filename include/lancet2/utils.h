@@ -14,8 +14,8 @@ namespace lancet2::utils {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-const-variable"
 #endif
-static constexpr u64 PRIME_0 = 18446744073709551557LLU;
-static constexpr u64 PRIME_1 = 14480561146010017169LLU;
+static constexpr u64 PRIME0 = 18446744073709551557LLU;
+static constexpr u64 PRIME1 = 14480561146010017169LLU;
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif

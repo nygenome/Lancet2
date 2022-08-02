@@ -80,8 +80,8 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
 
 auto Variant::ID() const -> VariantID {
   const auto state = absl::StrFormat("%s|%d|%s|%s", ChromName, Position, RefAllele, AltAllele);
-  return absl::hash_internal::CityHash64WithSeeds(state.c_str(), state.length(), utils::PRIME_0,  // NOLINT
-                                                  utils::PRIME_1);
+  return absl::hash_internal::CityHash64WithSeeds(state.c_str(), state.length(), utils::PRIME0,  // NOLINT
+                                                  utils::PRIME1);
 }
 
 auto Variant::ComputeState() const -> VariantState {
