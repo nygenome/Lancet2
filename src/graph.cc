@@ -563,7 +563,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
       const auto readQual = rd.QualView();
 
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
-        const auto merHash = Kmer(absl::ClippedSubstr(readSeq, offset, haplotypeLength)).GetHash();
+        const auto merHash = Kmer::CanonicalSeqHash(absl::ClippedSubstr(readSeq, offset, haplotypeLength));
         if (!sampleHapCovs.contains(merHash)) continue;
 
         const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
@@ -573,7 +573,6 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         // Skip adding to kmer count if allele length is a single base.
         // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
         // Always add to kmer count for normal sample reads, so that we don't call FPs
-        const auto isSNV = alleleLoc.AlleleLength == 1;
         const auto isTmrRead = rd.label == SampleLabel::TUMOR;
         if (isTmrRead && merQualStats.Average < static_cast<float>(params->minBaseQual)) continue;
 
