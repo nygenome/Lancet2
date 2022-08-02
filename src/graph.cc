@@ -575,7 +575,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         // Always add to kmer count for normal sample reads, so that we don't call FPs
         const auto isSNV = alleleLoc.AlleleLength == 1;
         const auto isTmrRead = rd.label == SampleLabel::TUMOR;
-        if (isTmrRead && isSNV && merQualStats.Average < static_cast<float>(params->minBaseQual)) continue;
+        if (isTmrRead && merQualStats.Average < static_cast<float>(params->minBaseQual)) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
