@@ -1,8 +1,13 @@
 #include "lancet2/transcript.h"
 
 #include <algorithm>
+#include <cmath>
 
+#include "absl/hash/internal/city.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
+#include "lancet2/kmer.h"
+#include "lancet2/utils.h"
 
 namespace lancet2 {
 Transcript::Transcript(std::string chrom, usize genome_ref_pos, TranscriptCode kind, Transcript::Offsets offsets,
@@ -84,5 +89,109 @@ void Transcript::Finalize() {
   }
 
   isFinalized = true;
+}
+
+auto Transcript::GetAlleleHashes() const noexcept -> AlleleHashes {
+  const auto ref = absl::StrFormat("%s_%d_%s_%d", chromName, genomeRefPos, refAllele, varLen);
+  const auto alt = absl::StrFormat("%s_%d_%s_%d", chromName, genomeRefPos, altAllele, varLen);
+
+  return AlleleHashes{
+      absl::hash_internal::CityHash64WithSeeds(ref.c_str(), ref.length(), utils::PRIME0, utils::PRIME1),
+      absl::hash_internal::CityHash64WithSeeds(alt.c_str(), alt.length(), utils::PRIME0, utils::PRIME1)};
+}
+
+void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSeq, usize kmerLen) {
+  const auto refAlleleLen = refAllele.length();
+  const auto altAlleleLen = altAllele.length();
+
+  const auto refHapLen = std::max(refAlleleLen, kmerLen);
+  const auto altHapLen = std::max(altAlleleLen, kmerLen);
+
+  hapData.clear();
+  hapData.reserve(6);
+
+  {
+    // REF ALLELE – HaplotypeCentered
+    // ----------x----------
+    // --------xxxxx--------
+    const auto leftFlank = static_cast<i64>(std::ceil(static_cast<double>(refHapLen - refAlleleLen) / 2.0));
+    auto hapStart0 = static_cast<i64>(idxs.refStart) - leftFlank;
+    hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
+    const auto hapSeq = absl::ClippedSubstr(refSeq, hapStart0, refHapLen);
+    if (hapSeq.length() == refHapLen) {
+      hapData.emplace_back(
+          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), refHapLen, static_cast<usize>(leftFlank), Allele::REF});
+    }
+  }
+
+  {
+    // ALT ALLELE – HaplotypeCentered
+    // ----------x----------
+    // --------xxxxx--------
+    const auto leftFlank = static_cast<i64>(std::ceil(static_cast<double>(altHapLen - altAlleleLen) / 2.0));
+    auto hapStart0 = static_cast<i64>(idxs.altStart) - leftFlank;
+    hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
+    const auto hapSeq = absl::ClippedSubstr(altSeq, hapStart0, altHapLen);
+    if (hapSeq.length() == altHapLen) {
+      hapData.emplace_back(
+          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), altHapLen, static_cast<usize>(leftFlank), Allele::ALT});
+    }
+  }
+
+  //  {
+  //    // REF ALLELE – HaplotypeLeftFlank
+  //    // -------------------x-
+  //    // ---------------xxxxx-
+  //    const auto leftFlank = static_cast<i64>(refHapLen - refAlleleLen) + 2;
+  //    auto hapStart0 = static_cast<i64>(idxs.refStart) - leftFlank;
+  //    hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
+  //    const auto hapSeq = absl::ClippedSubstr(refSeq, hapStart0, refHapLen);
+  //    if (hapSeq.length() == refHapLen) {
+  //      hapData.emplace_back(
+  //          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), refHapLen, static_cast<usize>(leftFlank), Allele::REF});
+  //    }
+  //  }
+  //
+  //  {
+  //    // REF ALLELE – HaplotypeRightFlank
+  //    // -x-------------------
+  //    // -xxxxx---------------
+  //    const auto leftFlank = static_cast<i64>(1);
+  //    auto hapStart0 = static_cast<i64>(idxs.refStart) - leftFlank;
+  //    hapStart0 = (hapStart0 + refHapLen) >= refSeq.length() ? static_cast<i64>(refSeq.length() - refHapLen) :
+  //    hapStart0; const auto hapSeq = absl::ClippedSubstr(refSeq, hapStart0, refHapLen); if (hapSeq.length() ==
+  //    refHapLen) {
+  //      hapData.emplace_back(
+  //          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), refHapLen, static_cast<usize>(leftFlank), Allele::REF});
+  //    }
+  //  }
+  //
+  //  {
+  //    // ALT ALLELE – HaplotypeLeftFlank
+  //    // -------------------x-
+  //    // ---------------xxxxx-
+  //    const auto leftFlank = static_cast<i64>(altHapLen - altAlleleLen) + 2;
+  //    auto hapStart0 = static_cast<i64>(idxs.altStart) - leftFlank;
+  //    hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
+  //    const auto hapSeq = absl::ClippedSubstr(altSeq, hapStart0, altHapLen);
+  //    if (hapSeq.length() == altHapLen) {
+  //      hapData.emplace_back(
+  //          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), altHapLen, static_cast<usize>(leftFlank), Allele::ALT});
+  //    }
+  //  }
+  //
+  //  {
+  //    // ALT ALLELE – HaplotypeRightFlank
+  //    // -x-------------------
+  //    // -xxxxx---------------
+  //    const auto leftFlank = static_cast<i64>(1);
+  //    auto hapStart0 = static_cast<i64>(idxs.altStart) - leftFlank;
+  //    hapStart0 = (hapStart0 + altHapLen) >= altSeq.length() ? static_cast<i64>(altSeq.length() - altHapLen) :
+  //    hapStart0; const auto hapSeq = absl::ClippedSubstr(altSeq, hapStart0, altHapLen); if (hapSeq.length() ==
+  //    altHapLen) {
+  //      hapData.emplace_back(
+  //          HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), altHapLen, static_cast<usize>(leftFlank), Allele::ALT});
+  //    }
+  //  }
 }
 }  // namespace lancet2

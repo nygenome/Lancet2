@@ -436,27 +436,7 @@ SkipLocalAlignment:
     // Populate ref and alt haplotype spanning the ref and alt alleles with
     // length atleast kmer size or ref/alt allele length whichever is larger
     T.Finalize();
-    const auto refAlleleLen = T.GetRefLength();
-    const auto altAlleleLen = T.GetAltLength();
-
-    const auto refHapLen = std::max(refAlleleLen, kmerSize);
-    const auto altHapLen = std::max(altAlleleLen, kmerSize);
-
-    const auto refLeftFlankLen =
-        static_cast<i64>(std::ceil((static_cast<double>(refHapLen) - static_cast<double>(refAlleleLen)) / 2.0));
-    const auto altLeftFlankLen =
-        static_cast<i64>(std::ceil((static_cast<double>(altHapLen) - static_cast<double>(altAlleleLen)) / 2.0));
-
-    i64 refHapStart = static_cast<i64>(T.RefStartOffset()) - refLeftFlankLen;
-    i64 altHapStart = static_cast<i64>(T.AltStartOffset()) - altLeftFlankLen;
-
-    if (refHapStart < 0 || altHapStart < 0) continue;
-    T.RefKmerHash = Kmer(refAnchorSeq.substr(refHapStart, refHapLen)).GetHash();
-    T.AltKmerHash = Kmer(pathSeq.substr(altHapStart, altHapLen)).GetHash();
-    T.RefKmerLen = static_cast<usize>(refHapLen);
-    T.AltKmerLen = static_cast<usize>(altHapLen);
-    T.RefLeftFlankLen = refLeftFlankLen;
-    T.AltLeftFlankLen = altLeftFlankLen;
+    T.BuildHaplotypes(refAnchorSeq, pathSeq, kmerSize);
   }
 
   BuildVariants(absl::MakeConstSpan(transcripts), variants);
@@ -523,26 +503,50 @@ static inline auto GetAvgBaseQual(std::string_view baseQuals, const AlleleSpan& 
   return static_cast<double>(currSum) / static_cast<double>(baseQuals.length());
 }
 
+static inline void IncrementHpCov(HpCov& currCov, const Strand strand, const u8 haplotypeID) {
+  strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
+  if (haplotypeID == 1) {
+    currCov.HP1++;
+  } else if (haplotypeID == 2) {
+    currCov.HP2++;
+  } else {
+    currCov.HP0++;
+  }
+}
+
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
+  // One Transcript has two allele hashes – one each for ref and alt allele
+  // One Allele has 3 associated haplotype hashes :-
+  //                                   SNV                    InDel
+  //     HaplotypeCentered  – ----------x---------- | --------xxxxx--------
+  //     HaplotypeLeftFlank – -------------------x- | ---------------xxxxx-
+  //    HaplotypeRightFlank – -x------------------- | -xxxxx---------------
+  // 'x' marks the location of the allele sequence in the haplotype
+  // For each transcript, we calculate counts of exact matches for
+  // any one of the three haplotype configurations for both ref & alt
+
   absl::flat_hash_set<usize> hapLens;                    // Set with Lengths of all haplotypes
-  absl::flat_hash_map<u64, SampleHpCovs> sampleHapCovs;  // Maps haplotype hash to sample coverages
+  absl::flat_hash_map<u64, u64> hap2AlleleMap;           // Maps haplotype hash to allele hash
+  absl::flat_hash_map<u64, SampleHpCovs> sampleHapCovs;  // Maps allele hash to sample coverages
   absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps haplotype hash to allele span
 
   for (const Transcript& T : transcripts) {
     const auto isSNV = T.Code() == TranscriptCode::SNV;
-    const auto refSpan = isSNV ? AlleleSpan{T.RefLeftFlankLen, 1} : AlleleSpan{0, T.RefKmerLen};
-    const auto altSpan = isSNV ? AlleleSpan{T.AltLeftFlankLen, 1} : AlleleSpan{0, T.AltKmerLen};
+    const auto alleles = T.GetAlleleHashes();
+    const auto haplotypes = T.GetHaplotypesData();
 
-    hapLens.insert(T.RefKmerLen);
-    sampleHapCovs.try_emplace(T.RefKmerHash, SampleHpCovs{});
-    alleleSpans.try_emplace(T.RefKmerHash, refSpan);
+    for (const auto h : haplotypes) {
+      const auto alSpan = isSNV ? AlleleSpan{h.hapLeftFlank, 1} : AlleleSpan{0, h.hapLen};
+      alleleSpans.try_emplace(h.hapHash, alSpan);
+      hapLens.insert(h.hapLen);
 
-    hapLens.insert(T.AltKmerLen);
-    sampleHapCovs.try_emplace(T.AltKmerHash, SampleHpCovs{});
-    alleleSpans.try_emplace(T.AltKmerHash, altSpan);
+      const auto currAlleleHash = h.alleleKind == Allele::ALT ? alleles.AltHash : alleles.RefHash;
+      sampleHapCovs.try_emplace(currAlleleHash, SampleHpCovs{});
+      hap2AlleleMap.try_emplace(h.hapHash, currAlleleHash);
+    }
   }
 
-  // mateMer -> readName + sampleLabel, kmerHash
+  // mateMer -> readName + sampleLabel, alleleHash
   using MateMer = std::pair<std::string, u64>;
   absl::flat_hash_set<MateMer> seenMateMers;
   const auto minBQ = static_cast<double>(params->minBaseQual);
@@ -556,7 +560,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
         const auto merHash = Kmer::CanonicalSeqHash(absl::ClippedSubstr(readSeq, offset, haplotypeLength));
-        if (!sampleHapCovs.contains(merHash)) continue;
+        if (!hap2AlleleMap.contains(merHash)) continue;
 
         const auto isTmrRd = rd.label == SampleLabel::TUMOR;
         const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
@@ -568,20 +572,11 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         if (isTmrRd && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
-        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
+        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
         if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
-        HpCov& currCov = isTmrRd ? sampleHapCovs.at(merHash).TmrCov : sampleHapCovs.at(merHash).NmlCov;
-
-        rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
-        if (rd.haplotypeID == 1) {
-          currCov.HP1++;
-        } else if (rd.haplotypeID == 2) {
-          currCov.HP2++;
-        } else {
-          currCov.HP0++;
-        }
-
+        auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
+        IncrementHpCov(isTmrRd ? data.TmrCov : data.NmlCov, rd.strand, rd.haplotypeID);
         seenMateMers.insert(mmId);
       }
     }
@@ -589,8 +584,9 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
   usize numVariants = 0;
   for (const Transcript& T : transcripts) {
-    const auto refCovs = sampleHapCovs.at(T.RefKmerHash);
-    const auto altCovs = sampleHapCovs.at(T.AltKmerHash);
+    const auto alleles = T.GetAlleleHashes();
+    const auto refCovs = sampleHapCovs.at(alleles.RefHash);
+    const auto altCovs = sampleHapCovs.at(alleles.AltHash);
     Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
 
     if (V.ComputeState() == VariantState::NONE) continue;
