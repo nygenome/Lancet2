@@ -572,7 +572,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         if (isTmrRd && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
-        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
+        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
         if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
         auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
@@ -589,7 +589,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto altCovs = sampleHapCovs.at(alleles.AltHash);
     Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
 
-    if (V.ComputeState() == VariantState::NONE) continue;
+    // if (V.ComputeState() == VariantState::NONE) continue;
     variants->emplace_back(std::move(V));
     numVariants++;
   }
