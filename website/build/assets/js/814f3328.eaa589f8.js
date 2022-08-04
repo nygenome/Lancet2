@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunklancet_2_website=self.webpackChunklancet_2_website||[]).push([[535],{5641:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Welcome","permalink":"/Lancet2/blog/welcome"}]}')}}]);
