@@ -572,7 +572,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
         auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
         IncrementHpCov(isTmrRd ? data.RawTmrCov : data.RawNmlCov, rd.strand, rd.haplotypeID);
-        if (avgAlleleQual < minBQ) {
+        if (avgAlleleQual >= minBQ) {
           IncrementHpCov(isTmrRd ? data.BQPassTmrCov : data.BQPassNmlCov, rd.strand, rd.haplotypeID);
         }
 
@@ -590,9 +590,10 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
     const auto tmrCov = VariantHpCov(isSNV ? refCovs.BQPassTmrCov : refCovs.RawTmrCov,
                                      isSNV ? altCovs.BQPassTmrCov : altCovs.RawTmrCov);
+
     const auto hasOneLowQualNmlSNVAlt = isSNV && altCovs.RawNmlCov.GetTotalCov() == 1;
-    const auto nmlCov = VariantHpCov(isSNV ? refCovs.BQPassNmlCov : refCovs.RawNmlCov,
-                                     hasOneLowQualNmlSNVAlt ? altCovs.BQPassNmlCov : altCovs.RawNmlCov);
+    const auto nmlAltCov = hasOneLowQualNmlSNVAlt ? altCovs.BQPassNmlCov : altCovs.RawNmlCov;
+    const auto nmlCov = VariantHpCov(refCovs.RawNmlCov, nmlAltCov);
 
     if (Variant::ComputeState(tmrCov, nmlCov) == VariantState::NONE) continue;
 
