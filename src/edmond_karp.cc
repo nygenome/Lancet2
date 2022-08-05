@@ -17,14 +17,11 @@ EdmondKarpMaxFlow::EdmondKarpMaxFlow(const Graph::NodeContainer *nc, usize kmer_
 
   const auto srcItr = nodesMap->find(MOCK_SOURCE_ID);
   LANCET_ASSERT(srcItr != nodesMap->end() && srcItr->second != nullptr);  // NOLINT
-  LANCET_ASSERT(srcItr->second->NumEdges() == 1);                         // NOLINT
-  LANCET_ASSERT(srcItr->second->NumEdges(Strand::FWD) == 1);              // NOLINT
   sourcePtr = srcItr->second.get();
 
 #ifndef NDEBUG
   const auto snkItr = nodesMap->find(MOCK_SINK_ID);
   LANCET_ASSERT(snkItr != nodesMap->end() && snkItr->second != nullptr);  // NOLINT
-  LANCET_ASSERT(snkItr->second->NumEdges() == 1);                         // NOLINT
 #endif
 }
 
@@ -64,7 +61,7 @@ auto EdmondKarpMaxFlow::NextPath() -> std::unique_ptr<Path> {
 
       if (e.GetDstID() == MOCK_SOURCE_ID || e.GetSrcDir() != currBuilder.Direction()) continue;
       const auto neighbourItr = nodesMap->find(e.GetDstID());
-      LANCET_ASSERT(neighbourItr != nodesMap->end());
+      if (neighbourItr == nodesMap->end()) continue;
 
       PathBuilder extensionBuilder(currBuilder);
       // If extension found a new edge between multiple calls to next_path, increment path score
