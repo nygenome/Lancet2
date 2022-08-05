@@ -84,6 +84,30 @@ auto HtsAlignment::IsProperPair() const -> bool { return (samFlags & BAM_FPROPER
 auto HtsAlignment::IsRead1() const -> bool { return (samFlags & BAM_FREAD1) != 0; }                  // NOLINT
 auto HtsAlignment::IsRead2() const -> bool { return (samFlags & BAM_FREAD2) != 0; }                  // NOLINT
 
+auto HtsAlignment::PercentOverlapWith(const GenomicRegion &region) const -> double {
+  if (IsWithinRegion(region)) return 100.0;
+
+  const auto regionStart0 = region.GetStartPos1() - 1;
+  const auto regionEnd0 = region.GetEndPos1() - 1;
+  const auto alnLength = readSequence.length();
+
+  const auto startInRegion = (startPosition0 >= regionStart0) && (startPosition0 <= regionEnd0);
+  const auto endInRegion = (endPosition0 >= regionStart0) && (endPosition0 <= regionEnd0);
+
+  if (startInRegion && !endInRegion) {
+    // Region           |--------------------xxxxxx|
+    // Alignment                            |-------------|
+    const auto numOvlpBases = region.GetEndPos1() - startPosition0;
+    return static_cast<double>(numOvlpBases * 100) / static_cast<double>(alnLength);
+  }
+
+  // !startInRegion && endInRegion
+  // Region           |--------------------------|
+  // Alignment  |------xxxxxx|
+  const auto numOvlpBases = endPosition0 - regionStart0 + 1;
+  return static_cast<double>(numOvlpBases * 100) / static_cast<double>(alnLength);
+}
+
 auto HtsAlignment::GetSoftClips(std::vector<u32> *clip_sizes, std::vector<u32> *read_positions,
                                 std::vector<u32> *genome_positions, bool use_padded) const -> bool {
   // initialize positions & flags
