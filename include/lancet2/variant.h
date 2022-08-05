@@ -21,7 +21,7 @@ class Variant {
 
   [[nodiscard]] auto MakeVcfLine(const CliParams& params) const -> std::string;
   [[nodiscard]] auto ID() const -> VariantID;
-  [[nodiscard]] auto ComputeState() const -> VariantState;
+  [[nodiscard]] static auto ComputeState(const VariantHpCov& tmr, const VariantHpCov& nml) -> VariantState;
 
   std::string ChromName;   // NOLINT
   usize Position;          // NOLINT
