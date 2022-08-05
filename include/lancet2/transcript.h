@@ -1,9 +1,10 @@
 #pragma once
 
-#include <array>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include "absl/types/span.h"
 #include "lancet2/core_enums.h"
 #include "lancet2/kmer.h"
 #include "lancet2/sized_ints.h"
@@ -31,13 +32,6 @@ class Transcript {
   Transcript(std::string chrom, usize genome_ref_pos, TranscriptCode kind, Transcript::Offsets offsets,
              Transcript::Bases bases);
   Transcript() = delete;
-
-  u64 RefKmerHash = 0;        // NOLINT
-  u64 AltKmerHash = 0;        // NOLINT
-  usize RefKmerLen = 0;       // NOLINT
-  usize AltKmerLen = 0;       // NOLINT
-  usize RefLeftFlankLen = 0;  // NOLINT
-  usize AltLeftFlankLen = 0;  // NOLINT
 
   [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
   [[nodiscard]] auto Position() const noexcept -> usize { return genomeRefPos; }
@@ -68,9 +62,22 @@ class Transcript {
   [[nodiscard]] auto GetVariantLength() const noexcept -> usize { return varLen; }
   void Finalize();
 
-  template <typename H>
-  friend auto AbslHashValue(H h, const Transcript& T) -> H {
-    return H::combine(std::move(h), T.chromName, T.genomeRefPos, T.refAllele, T.altAllele, T.isFinalized, T.varLen);
+  struct AlleleHashes {
+    u64 RefHash;
+    u64 AltHash;
+  };
+  [[nodiscard]] auto GetAlleleHashes() const noexcept -> AlleleHashes;
+
+  struct HaplotypeData {
+    u64 hapHash;
+    usize hapLen;
+    usize hapLeftFlank;
+    Allele alleleKind;
+  };
+  void BuildHaplotypes(std::string_view refSeq, std::string_view altSeq, usize kmerLen);
+
+  [[nodiscard]] auto GetHaplotypesData() const -> absl::Span<const HaplotypeData> {
+    return absl::MakeConstSpan(hapData);
   }
 
  private:
@@ -86,5 +93,6 @@ class Transcript {
 
   bool isFinalized = false;
   usize varLen = 0;
+  std::vector<HaplotypeData> hapData;
 };
 }  // namespace lancet2
