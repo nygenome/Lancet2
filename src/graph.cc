@@ -526,6 +526,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   // any one of the three haplotype configurations for both ref & alt
 
   absl::flat_hash_set<usize> hapLens;                    // Set with Lengths of all haplotypes
+  absl::flat_hash_set<u64> snvHaps;                      // Set with canonical haplotype hashes
   absl::flat_hash_map<u64, u64> hap2AlleleMap;           // Maps canonical haplotype hash to allele hash
   absl::flat_hash_map<u64, SampleHpCovs> sampleHapCovs;  // Maps allele hash to sample coverages
   absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps canonical haplotype hash to allele span
@@ -543,6 +544,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
       const auto currAlleleHash = h.alleleKind == Allele::ALT ? alleles.AltHash : alleles.RefHash;
       sampleHapCovs.try_emplace(currAlleleHash, SampleHpCovs{});
       hap2AlleleMap.try_emplace(h.hapHash, currAlleleHash);
+      if (isSNV) snvHaps.insert(h.hapHash);
     }
   }
 
@@ -569,7 +571,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         // Skip adding to kmer count if allele length is a single base.
         // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
         // Always add to kmer count for normal sample reads, so that we don't call FPs
-        if (haplotypeLength == 1 && avgAlleleQual < minBQ) continue;
+        if (snvHaps.contains(merHash) && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
