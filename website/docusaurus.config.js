@@ -36,8 +36,8 @@ const config = {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          //editUrl:
-          //  'https://github.com/nygenome/Lancet2/gh-pages/',
+          editUrl:
+            'https://github.com/nygenome/Lancet2/tree/main/',
         },
         blog: {
           showReadingTime: true,
