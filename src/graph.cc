@@ -322,7 +322,7 @@ void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector
   try {
     rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
   } catch (const std::exception& e) {
-    LOG_TRACE("Error processing window {}: error aligning ref: %s, qry: %s | exception – %s", window->ToRegionString(),
+    LOG_TRACE("Error processing window {}: error aligning ref: {}, qry: {} | exception – {}", window->ToRegionString(),
               refAnchorSeq, pathSeq, e.what());
     return;
   }
@@ -332,11 +332,12 @@ void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector
 
 SkipLocalAlignment:
   LANCET_ASSERT(aligned.ref.length() == aligned.qry.length());  // NOLINT
-  const auto refStartTrim = TrimEndGaps(&aligned);
+  const auto trimAl = TrimEndGaps(&aligned);
 
   // 0-based reference anchor position in absolute chromosome coordinates
-  const auto anchorGenomeStart = static_cast<usize>(window->GetStartPos0()) + einfo.startOffset + refStartTrim;
+  const auto anchorGenomeStart = static_cast<usize>(window->GetStartPos0()) + einfo.startOffset + trimAl.refStartTrim;
   usize refIdx = 0;   // 0-based coordinate
+  usize pathIdx = 0;  // 0-based coordinate
   usize refPos = 0;   // 1-based coordinate
   usize pathPos = 0;  // 1-based coordinate
 
@@ -352,21 +353,23 @@ SkipLocalAlignment:
     if (aligned.ref[idx] == ALIGN_GAP) {
       code = TranscriptCode::INSERTION;
       refIdx = refPos;  // save variant position in reference before increment
+      pathIdx = pathPos;
       ++pathPos;
     } else if (aligned.qry[idx] == ALIGN_GAP) {
       code = TranscriptCode::DELETION;
       refIdx = refPos;  // save variant position in reference before increment
+      pathIdx = pathPos;
       ++refPos;
     } else {
       code = aligned.ref[idx] == aligned.qry[idx] ? TranscriptCode::REF_MATCH : TranscriptCode::SNV;
       refIdx = refPos;  // save variant position in reference before increment
+      pathIdx = pathPos;
       ++refPos;
       ++pathPos;
     }
 
     if (code == TranscriptCode::REF_MATCH) continue;
 
-    const auto pathIdx = pathPos - 1;                          // 0-based index into the path sequence
     const auto genomeRefPos = anchorGenomeStart + refIdx + 1;  // 1-based genome position
 
     // compute previous base to the current event for both
@@ -389,10 +392,10 @@ SkipLocalAlignment:
 
     // create new transcript if we are sure that we can't extend a previous event
     if (transcripts.empty() || prevCode == TranscriptCode::REF_MATCH) {
-      tmpOffsets.refStart = refIdx;
-      tmpOffsets.altStart = pathIdx;
-      tmpOffsets.refEnd = refIdx + 1;
-      tmpOffsets.altEnd = pathIdx + 1;
+      tmpOffsets.refStart = refIdx + trimAl.refStartTrim;
+      tmpOffsets.altStart = pathIdx + trimAl.qryStartTrim;
+      tmpOffsets.refEnd = refIdx + 1 + trimAl.refStartTrim;
+      tmpOffsets.altEnd = pathIdx + 1 + trimAl.qryStartTrim;
 
       tmpBases.refBase = aligned.ref[idx];
       tmpBases.altBase = aligned.qry[idx];
@@ -419,7 +422,7 @@ SkipLocalAlignment:
 
     // extend existing deletion, if possible
     const auto deletedRefLen = tr.RefSeq().length();
-    if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen) == genomeRefPos) {
+    if (sameTranscriptCode && code == TranscriptCode::DELETION && (tr.Position() + deletedRefLen - 1) == genomeRefPos) {
       continue;
     }
 
@@ -516,26 +519,23 @@ static inline void IncrementHpCov(HpCov& currCov, const Strand strand, const u8 
 
 void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const {
   // One Transcript has two allele hashes – one each for ref and alt allele
-  // One Allele has 3 associated haplotype hashes :-
   //                                   SNV                    InDel
   //     HaplotypeCentered  – ----------x---------- | --------xxxxx--------
-  //     HaplotypeLeftFlank – -------------------x- | ---------------xxxxx-
-  //    HaplotypeRightFlank – -x------------------- | -xxxxx---------------
   // 'x' marks the location of the allele sequence in the haplotype
   // For each transcript, we calculate counts of exact matches for
   // any one of the three haplotype configurations for both ref & alt
 
   absl::flat_hash_set<usize> hapLens;                    // Set with Lengths of all haplotypes
-  absl::flat_hash_map<u64, u64> hap2AlleleMap;           // Maps haplotype hash to allele hash
+  absl::flat_hash_map<u64, u64> hap2AlleleMap;           // Maps canonical haplotype hash to allele hash
   absl::flat_hash_map<u64, SampleHpCovs> sampleHapCovs;  // Maps allele hash to sample coverages
-  absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps haplotype hash to allele span
+  absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps canonical haplotype hash to allele span
 
   for (const Transcript& T : transcripts) {
     const auto isSNV = T.Code() == TranscriptCode::SNV;
     const auto alleles = T.GetAlleleHashes();
     const auto haplotypes = T.GetHaplotypesData();
 
-    for (const auto h : haplotypes) {
+    for (const auto& h : haplotypes) {
       const auto alSpan = isSNV ? AlleleSpan{h.hapLeftFlank, 1} : AlleleSpan{0, h.hapLen};
       alleleSpans.try_emplace(h.hapHash, alSpan);
       hapLens.insert(h.hapLen);
@@ -572,7 +572,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         if (isTmrRd && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
-        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), merHash);
+        const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
         if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
         auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
@@ -589,7 +589,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto altCovs = sampleHapCovs.at(alleles.AltHash);
     Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
 
-    // if (V.ComputeState() == VariantState::NONE) continue;
+    if (V.ComputeState() == VariantState::NONE) continue;
     variants->emplace_back(std::move(V));
     numVariants++;
   }

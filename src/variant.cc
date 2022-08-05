@@ -22,7 +22,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto strandBiasScore = GetStrandBiasScore();
 
   const auto varState = ComputeState();
-  // LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
+  LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
   auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
                               ToString(Kind), Length, KmerSize, strandBiasScore);
