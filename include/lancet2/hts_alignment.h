@@ -54,6 +54,16 @@ class HtsAlignment {
     return (startPosition0 >= (region.GetStartPos1() - 1)) && (endPosition0 <= (region.GetEndPos1() - 1));
   }
 
+  [[nodiscard]] auto OverlapsRegion(const GenomicRegion& region) const -> bool {
+    const auto regionStart0 = region.GetStartPos1() - 1;
+    const auto regionEnd0 = region.GetEndPos1() - 1;
+
+    const auto startInRegion = (startPosition0 >= regionStart0) && (startPosition0 <= regionEnd0);
+    const auto endInRegion = (endPosition0 >= regionStart0) && (endPosition0 <= regionEnd0);
+
+    return startInRegion || endInRegion;
+  }
+
   [[nodiscard]] auto PercentOverlapWith(const GenomicRegion& region) const -> double;
 
   [[nodiscard]] auto GetLength() const -> usize { return readSequence.length(); }
