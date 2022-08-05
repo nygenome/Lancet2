@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "absl/strings/str_format.h"
+#include "lancet2/assert_macro.h"
 
 namespace {
 template <typename T>
@@ -117,7 +118,7 @@ auto Align(std::string_view ref, std::string_view qry) -> AlnSeqs {
   refAln.reserve(std::max(refLen, qryLen) + std::min(refLen, qryLen));
   qryAln.reserve(std::max(refLen, qryLen) + std::min(refLen, qryLen));
 
-  while (i > 0 || j > 0) {
+  while (i > 0 && j > 0) {
     char t = m.at(i, j).trace_back;
     if (t == '*') break;
 
@@ -159,20 +160,29 @@ auto Align(std::string_view ref, std::string_view qry) -> AlnSeqs {
   return AlnSeqs{refAln, qryAln};
 }
 
-auto TrimEndGaps(AlnSeqsView* aln) -> usize {
+auto TrimEndGaps(AlnSeqsView* aln) -> TrimResult {
   // Trim end GAPS and adjust end alignments until both ends in ref and qry have no GAPS
   usize refStartTrim = 0;
-  usize start = 0;
+  usize qryStartTrim = 0;
+  usize combinedAlnTrim = 0;
   usize end = aln->ref.length() - 1;
+  LANCET_ASSERT(aln->ref.length() == aln->qry.length());
 
-  const auto startGap = aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP;
+  const auto startGap = aln->ref[combinedAlnTrim] == ALIGN_GAP || aln->qry[combinedAlnTrim] == ALIGN_GAP;
   const auto endGap = aln->ref[end] == ALIGN_GAP || aln->qry[end] == ALIGN_GAP;
 
   if (startGap || endGap) {
-    // move start until no begin alignment gaps are found
-    while (aln->ref[start] == ALIGN_GAP || aln->qry[start] == ALIGN_GAP) {
-      if (aln->ref[start] == ALIGN_GAP) refStartTrim++;
-      start++;
+    // move qryStartTrim until no begin alignment gaps are found
+    while (aln->ref[combinedAlnTrim] == ALIGN_GAP || aln->qry[combinedAlnTrim] == ALIGN_GAP) {
+      if (aln->ref[combinedAlnTrim] != ALIGN_GAP) {
+        refStartTrim++;
+      }
+
+      if (aln->qry[combinedAlnTrim] != ALIGN_GAP) {
+        qryStartTrim++;
+      }
+
+      combinedAlnTrim++;
     }
 
     // move end until no end alignment gaps are found
@@ -180,10 +190,10 @@ auto TrimEndGaps(AlnSeqsView* aln) -> usize {
       end--;
     }
 
-    aln->ref = aln->ref.substr(start, end - start);
-    aln->qry = aln->qry.substr(start, end - start);
+    aln->ref = aln->ref.substr(combinedAlnTrim, end - qryStartTrim);
+    aln->qry = aln->qry.substr(combinedAlnTrim, end - qryStartTrim);
   }
 
-  return refStartTrim;
+  return {refStartTrim, qryStartTrim};
 }
 }  // namespace lancet2
