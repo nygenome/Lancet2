@@ -569,7 +569,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         // Skip adding to kmer count if allele length is a single base.
         // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
         // Always add to kmer count for normal sample reads, so that we don't call FPs
-        if (isTmrRd && avgAlleleQual < minBQ) continue;
+        if (haplotypeLength == 1 && avgAlleleQual < minBQ) continue;
 
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
@@ -587,10 +587,12 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto alleles = T.GetAlleleHashes();
     const auto refCovs = sampleHapCovs.at(alleles.RefHash);
     const auto altCovs = sampleHapCovs.at(alleles.AltHash);
-    Variant V(T, kmerSize, VariantHpCov(refCovs.TmrCov, altCovs.TmrCov), VariantHpCov(refCovs.NmlCov, altCovs.NmlCov));
 
-    if (V.ComputeState() == VariantState::NONE) continue;
-    variants->emplace_back(std::move(V));
+    const auto tmrCov = VariantHpCov(refCovs.TmrCov, altCovs.TmrCov);
+    const auto nmlCov = VariantHpCov(refCovs.NmlCov, altCovs.NmlCov);
+    if (Variant::ComputeState(tmrCov, nmlCov) == VariantState::NONE) continue;
+
+    variants->emplace_back(Variant(T, kmerSize, tmrCov, nmlCov));
     numVariants++;
   }
 

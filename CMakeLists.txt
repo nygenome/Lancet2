@@ -63,7 +63,6 @@ add_library(lancet2_core STATIC
 
         include/lancet2/ref_window.h
         include/lancet2/read_info.h
-        include/lancet2/kmer_cov.h
         include/lancet2/window_builder.h src/window_builder.cc
         include/lancet2/cli_params.h src/cli_params.cc
         include/lancet2/core_enums.h src/core_enums.cc
