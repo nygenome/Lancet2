@@ -43,7 +43,7 @@ class RefWindow {
 
   [[nodiscard]] auto ToSamtoolsRegion() const -> GenomicRegion {
     // resulting genomic region is 1-based, includes start and end
-    return {chromName, static_cast<u32>(startPos0 + 1), static_cast<u32>(endPos0 + 1)};
+    return {chromName, static_cast<u32>(startPos0 + 1), static_cast<u32>(endPos0)};
   }
 
   [[nodiscard]] auto IsEmpty() const -> bool {
