@@ -526,7 +526,6 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   // any one of the three haplotype configurations for both ref & alt
 
   absl::flat_hash_set<usize> hapLens;                    // Set with Lengths of all haplotypes
-  absl::flat_hash_set<u64> snvHaps;                      // Set with canonical haplotype hashes
   absl::flat_hash_map<u64, u64> hap2AlleleMap;           // Maps canonical haplotype hash to allele hash
   absl::flat_hash_map<u64, SampleHpCovs> sampleHapCovs;  // Maps allele hash to sample coverages
   absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps canonical haplotype hash to allele span
@@ -544,7 +543,6 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
       const auto currAlleleHash = h.alleleKind == Allele::ALT ? alleles.AltHash : alleles.RefHash;
       sampleHapCovs.try_emplace(currAlleleHash, SampleHpCovs{});
       hap2AlleleMap.try_emplace(h.hapHash, currAlleleHash);
-      if (isSNV) snvHaps.insert(h.hapHash);
     }
   }
 
@@ -568,17 +566,16 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
         const auto avgAlleleQual = GetAvgBaseQual(merQuals, alleleSpans.at(merHash));
 
-        // Skip adding to kmer count if allele length is a single base.
-        // This is to reduce adding coverage from low quality bases for SNVs leading to FPs
-        // Always add to kmer count for normal sample reads, so that we don't call FPs
-        if (snvHaps.contains(merHash) && isTmrRd && avgAlleleQual < minBQ) continue;
-
         // Add label to key, so that keys are unique for tumor and normal samples
         const auto mmId = std::make_pair(rd.readName + ToString(rd.label), hap2AlleleMap.at(merHash));
         if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
         auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
-        IncrementHpCov(isTmrRd ? data.TmrCov : data.NmlCov, rd.strand, rd.haplotypeID);
+        IncrementHpCov(isTmrRd ? data.RawTmrCov : data.RawNmlCov, rd.strand, rd.haplotypeID);
+        if (avgAlleleQual < minBQ) {
+          IncrementHpCov(isTmrRd ? data.BQPassTmrCov : data.BQPassNmlCov, rd.strand, rd.haplotypeID);
+        }
+
         seenMateMers.insert(mmId);
       }
     }
@@ -586,12 +583,17 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
   usize numVariants = 0;
   for (const Transcript& T : transcripts) {
+    const auto isSNV = T.Code() == TranscriptCode::SNV;
     const auto alleles = T.GetAlleleHashes();
     const auto refCovs = sampleHapCovs.at(alleles.RefHash);
     const auto altCovs = sampleHapCovs.at(alleles.AltHash);
 
-    const auto tmrCov = VariantHpCov(refCovs.TmrCov, altCovs.TmrCov);
-    const auto nmlCov = VariantHpCov(refCovs.NmlCov, altCovs.NmlCov);
+    const auto tmrCov = VariantHpCov(isSNV ? refCovs.BQPassTmrCov : refCovs.RawTmrCov,
+                                     isSNV ? altCovs.BQPassTmrCov : altCovs.RawTmrCov);
+    const auto hasOneLowQualNmlSNVAlt = isSNV && altCovs.RawNmlCov.GetTotalCov() == 1;
+    const auto nmlCov = VariantHpCov(isSNV ? refCovs.BQPassNmlCov : refCovs.RawNmlCov,
+                                     hasOneLowQualNmlSNVAlt ? altCovs.BQPassNmlCov : altCovs.RawNmlCov);
+
     if (Variant::ComputeState(tmrCov, nmlCov) == VariantState::NONE) continue;
 
     variants->emplace_back(Variant(T, kmerSize, tmrCov, nmlCov));

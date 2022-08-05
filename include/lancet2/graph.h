@@ -110,8 +110,10 @@ class Graph {
   };
 
   struct SampleHpCovs {
-    HpCov TmrCov;
-    HpCov NmlCov;
+    HpCov RawTmrCov;
+    HpCov RawNmlCov;
+    HpCov BQPassTmrCov;
+    HpCov BQPassNmlCov;
   };
   void BuildVariants(absl::Span<const Transcript> transcripts, std::vector<Variant>* variants) const;
 
