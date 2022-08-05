@@ -21,7 +21,7 @@ auto Variant::MakeVcfLine(const CliParams& params) const -> std::string {
   const auto somaticScore = GetSomaticFETScore();
   const auto strandBiasScore = GetStrandBiasScore();
 
-  const auto varState = ComputeState();
+  const auto varState = ComputeState(TumorCov, NormalCov);
   LANCET_ASSERT(varState != VariantState::NONE);  // NOLINT
 
   auto info = absl::StrFormat("%s;FETS=%f;TYPE=%s;LEN=%d;KMERSIZE=%d;SB=%f", ToString(varState), somaticScore,
@@ -84,9 +84,9 @@ auto Variant::ID() const -> VariantID {
                                                   utils::PRIME1);
 }
 
-auto Variant::ComputeState() const -> VariantState {
-  const auto nmlAlt = NormalCov.TotalAltCov();
-  const auto tmrAlt = TumorCov.TotalAltCov();
+auto Variant::ComputeState(const VariantHpCov& tmr, const VariantHpCov& nml) -> VariantState {
+  const auto nmlAlt = nml.TotalAltCov();
+  const auto tmrAlt = tmr.TotalAltCov();
 
   if (nmlAlt > 0 && tmrAlt > 0) return VariantState::SHARED;
   if (nmlAlt == 0 && tmrAlt > 0) return VariantState::SOMATIC;
