@@ -37,7 +37,7 @@ const config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/nygenome/Lancet2/tree/main/',
+            'https://github.com/nygenome/Lancet2/tree/main/website',
         },
         blog: {
           showReadingTime: true,
