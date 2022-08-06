@@ -521,6 +521,8 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   // One Transcript has two allele hashes – one each for ref and alt allele
   //                                   SNV                    InDel
   //     HaplotypeCentered  – ----------x---------- | --------xxxxx--------
+  //    HaplotypeLeftFlank  – ------------------x-- | --------------xxxxx--
+  //    HaplotypeRightFlank – --x------------------ | --xxxxx--------------
   // 'x' marks the location of the allele sequence in the haplotype
   // For each transcript, we calculate counts of exact matches for
   // any one of the three haplotype configurations for both ref & alt
