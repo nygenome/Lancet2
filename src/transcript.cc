@@ -151,6 +151,8 @@ void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSe
     }
   }
 
+  if (kind != TranscriptCode::SNV) return;
+
   {
     // REF ALLELE – HaplotypeLeftFlank
     // ------------------x--
