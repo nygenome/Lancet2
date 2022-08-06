@@ -593,7 +593,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto tmrCov = VariantHpCov(isSNV ? refCovs.BQPassTmrCov : refCovs.RawTmrCov,
                                      isSNV ? altCovs.BQPassTmrCov : altCovs.RawTmrCov);
 
-    const auto hasOneLowQualNmlSNVAlt = isSNV && altCovs.RawNmlCov.GetTotalCov() == 1;
+    const auto hasOneLowQualNmlSNVAlt = isSNV && altCovs.BQPassNmlCov.GetTotalCov() == 0;
     const auto nmlAltCov = hasOneLowQualNmlSNVAlt ? altCovs.BQPassNmlCov : altCovs.RawNmlCov;
     const auto nmlCov = VariantHpCov(refCovs.RawNmlCov, nmlAltCov);
 
