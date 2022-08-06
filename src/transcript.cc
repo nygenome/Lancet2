@@ -155,12 +155,14 @@ void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSe
     // REF ALLELE – HaplotypeLeftFlank
     // ------------------x--
     // --------------xxxxx--
-    const auto leftFlank = isLongRef ? 0 : static_cast<i64>(refHapLen - refAlleleLen - 2);
+    const auto noFlankNeeded = isLongRef || ((refHapLen - refAlleleLen) <= 2);
+    const auto leftFlank = noFlankNeeded ? 0 : static_cast<i64>(refHapLen - refAlleleLen - 2);
     auto hapStart0 = static_cast<i64>(idxs.refStart) - leftFlank;
     hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
     hapStart0 = (hapStart0 + refHapLen) >= refSeq.length() ? static_cast<i64>(refSeq.length() - refHapLen) : hapStart0;
     const auto hapSeq = absl::ClippedSubstr(refSeq, hapStart0, refHapLen);
-    if (hapSeq.length() == refHapLen) {
+    const auto foundRef = hapSeq.find(refAllele) < hapSeq.length();
+    if (hapSeq.length() == refHapLen && foundRef) {
       hapData.emplace_back(
           HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), refHapLen, static_cast<usize>(leftFlank), Allele::REF});
     }
@@ -170,12 +172,14 @@ void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSe
     // ALT ALLELE – HaplotypeLeftFlank
     // ------------------x--
     // --------------xxxxx--
-    const auto leftFlank = isLongAlt ? 0 : static_cast<i64>(altHapLen - altAlleleLen - 2);
+    const auto noFlankNeeded = isLongAlt || ((altHapLen - altAlleleLen) <= 2);
+    const auto leftFlank = noFlankNeeded ? 0 : static_cast<i64>(altHapLen - altAlleleLen - 2);
     auto hapStart0 = static_cast<i64>(idxs.altStart) - leftFlank;
     hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
     hapStart0 = (hapStart0 + altHapLen) >= altSeq.length() ? static_cast<i64>(altSeq.length() - altHapLen) : hapStart0;
     const auto hapSeq = absl::ClippedSubstr(altSeq, hapStart0, altHapLen);
-    if (hapSeq.length() == altHapLen) {
+    const auto foundAlt = hapSeq.find(altAllele) < hapSeq.length();
+    if (hapSeq.length() == altHapLen && foundAlt) {
       hapData.emplace_back(
           HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), altHapLen, static_cast<usize>(leftFlank), Allele::ALT});
     }
@@ -185,12 +189,14 @@ void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSe
     // REF ALLELE – HaplotypeRightFlank
     // --x------------------
     // --xxxxx--------------
-    const auto leftFlank = isLongRef ? 0 : static_cast<i64>(2);
+    const auto noFlankNeeded = isLongRef || ((refHapLen - refAlleleLen) <= 2);
+    const auto leftFlank = noFlankNeeded ? 0 : static_cast<i64>(2);
     auto hapStart0 = static_cast<i64>(idxs.refStart) - leftFlank;
     hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
     hapStart0 = (hapStart0 + refHapLen) >= refSeq.length() ? static_cast<i64>(refSeq.length() - refHapLen) : hapStart0;
     const auto hapSeq = absl::ClippedSubstr(refSeq, hapStart0, refHapLen);
-    if (hapSeq.length() == refHapLen) {
+    const auto foundRef = hapSeq.find(refAllele) < hapSeq.length();
+    if (hapSeq.length() == refHapLen && foundRef) {
       hapData.emplace_back(
           HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), refHapLen, static_cast<usize>(leftFlank), Allele::REF});
     }
@@ -200,12 +206,14 @@ void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSe
     // ALT ALLELE – HaplotypeRightFlank
     // --x------------------
     // --xxxxx--------------
-    const auto leftFlank = isLongAlt ? 0 : static_cast<i64>(2);
+    const auto noFlankNeeded = isLongAlt || ((altHapLen - altAlleleLen) <= 2);
+    const auto leftFlank = noFlankNeeded ? 0 : static_cast<i64>(2);
     auto hapStart0 = static_cast<i64>(idxs.altStart) - leftFlank;
     hapStart0 = hapStart0 < 0 ? 0 : hapStart0;
     hapStart0 = (hapStart0 + altHapLen) >= altSeq.length() ? static_cast<i64>(altSeq.length() - altHapLen) : hapStart0;
     const auto hapSeq = absl::ClippedSubstr(altSeq, hapStart0, altHapLen);
-    if (hapSeq.length() == altHapLen) {
+    const auto foundAlt = hapSeq.find(altAllele) < hapSeq.length();
+    if (hapSeq.length() == altHapLen && foundAlt) {
       hapData.emplace_back(
           HaplotypeData{Kmer::CanonicalSeqHash(hapSeq), altHapLen, static_cast<usize>(leftFlank), Allele::ALT});
     }
