@@ -104,15 +104,25 @@ auto Transcript::GetAlleleHashes() const noexcept -> AlleleHashes {
       absl::hash_internal::CityHash64WithSeeds(alt.c_str(), alt.length(), utils::PRIME0, utils::PRIME1)};
 }
 
+static inline auto MinNonRepeatKmerSize(std::string_view seq, usize k) -> usize {
+  usize result = k;
+  while (utils::HasRepeatKmer(seq, result)) {
+    result += 2;
+  }
+
+  return result;
+}
+
 void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSeq, usize kmerLen) {
   const auto refAlleleLen = refAllele.length();
   const auto altAlleleLen = altAllele.length();
+  const auto currentKmerSize = MinNonRepeatKmerSize(altSeq, kmerLen);
 
-  const auto refHapLen = std::max(refAlleleLen, kmerLen);
-  const auto altHapLen = std::max(altAlleleLen, kmerLen);
+  const auto refHapLen = std::max(refAlleleLen, currentKmerSize);
+  const auto altHapLen = std::max(altAlleleLen, currentKmerSize);
 
-  const auto isLongRef = refAlleleLen >= kmerLen;
-  const auto isLongAlt = altAlleleLen >= kmerLen;
+  const auto isLongRef = refAlleleLen >= currentKmerSize;
+  const auto isLongAlt = altAlleleLen >= currentKmerSize;
 
   hapData.clear();
   hapData.reserve(6);
