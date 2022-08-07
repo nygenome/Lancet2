@@ -130,6 +130,7 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, Re
 auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& params, SampleLabel label) -> bool {
   if (aln.IsQcFailed() || aln.IsDuplicate()) return false;
   if (params.skipSecondary && aln.IsSecondary()) return false;
+  if (label == SampleLabel::NORMAL) return true;
   if (aln.GetMappingQual() < params.minReadMappingQual) return false;
 
   // AS: Alignment score
@@ -140,8 +141,6 @@ auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& para
     const auto failsAsXsFilter = std::abs(AS - XS) < params.minReadAsXsDiff;
     if (failsAsXsFilter) return false;
   }
-
-  if (label == SampleLabel::NORMAL) return true;
 
   // XT type: Unique/Repeat/N/Mate-sw
   // XT:A:M (one-mate recovered) means that one of the pairs is uniquely mapped and the other isn't
