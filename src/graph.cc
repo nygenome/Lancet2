@@ -506,11 +506,11 @@ static inline auto GetAvgBaseQual(std::string_view baseQuals, const AlleleSpan& 
   return static_cast<double>(currSum) / static_cast<double>(baseQuals.length());
 }
 
-static inline void IncrementHpCov(HpCov& currCov, const Strand strand, const u8 haplotypeID) {
-  strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
-  if (haplotypeID == 1) {
+static inline void IncrementHpCov(HpCov& currCov, const ReadInfo& rd) {
+  rd.strand == Strand::FWD ? currCov.FwdCov++ : currCov.RevCov++;
+  if (rd.haplotypeID == 1) {
     currCov.HP1++;
-  } else if (haplotypeID == 2) {
+  } else if (rd.haplotypeID == 2) {
     currCov.HP2++;
   } else {
     currCov.HP0++;
@@ -554,17 +554,17 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   const auto minBQ = static_cast<double>(params->minBaseQual);
 
   for (const auto& rd : sampleReads) {
+    const auto readSeq = rd.SeqView();
+    const auto readQual = rd.QualView();
+    const auto isTmrRd = rd.label == SampleLabel::TUMOR;
+
     for (const usize& haplotypeLength : hapLens) {
       if (rd.Length() < haplotypeLength) continue;
-
-      const auto readSeq = rd.SeqView();
-      const auto readQual = rd.QualView();
 
       for (usize offset = 0; offset <= (rd.Length() - haplotypeLength); ++offset) {
         const auto merHash = Kmer::CanonicalSeqHash(absl::ClippedSubstr(readSeq, offset, haplotypeLength));
         if (!hap2AlleleMap.contains(merHash)) continue;
 
-        const auto isTmrRd = rd.label == SampleLabel::TUMOR;
         const auto merQuals = absl::ClippedSubstr(readQual, offset, haplotypeLength);
         const auto avgAlleleQual = GetAvgBaseQual(merQuals, alleleSpans.at(merHash));
 
@@ -573,9 +573,9 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
         if (seenMateMers.find(mmId) != seenMateMers.end()) continue;
 
         auto& data = sampleHapCovs.at(hap2AlleleMap.at(merHash));
-        IncrementHpCov(isTmrRd ? data.RawTmrCov : data.RawNmlCov, rd.strand, rd.haplotypeID);
+        IncrementHpCov(isTmrRd ? data.RawTmrCov : data.RawNmlCov, rd);
         if (avgAlleleQual >= minBQ) {
-          IncrementHpCov(isTmrRd ? data.BQPassTmrCov : data.BQPassNmlCov, rd.strand, rd.haplotypeID);
+          IncrementHpCov(isTmrRd ? data.BQPassTmrCov : data.BQPassNmlCov, rd);
         }
 
         seenMateMers.insert(mmId);
