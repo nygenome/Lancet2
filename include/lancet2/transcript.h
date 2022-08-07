@@ -33,7 +33,7 @@ class Transcript {
              Transcript::Bases bases);
   Transcript() = delete;
 
-  [[nodiscard]] auto ChromName() const noexcept -> std::string { return chromName; }
+  [[nodiscard]] auto GetChromName() const noexcept -> std::string { return chromName; }
   [[nodiscard]] auto Position() const noexcept -> usize { return genomeRefPos; }
   [[nodiscard]] auto RefStartOffset() const noexcept -> usize { return idxs.refStart; }
   [[nodiscard]] auto AltStartOffset() const noexcept -> usize { return idxs.altStart; }
