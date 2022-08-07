@@ -128,10 +128,20 @@ void ReadExtractor::FetchPairs(usize sampleIdx, const MateInfoMap& mate_info, Re
 }
 
 auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& params, SampleLabel label) -> bool {
-  if (label == SampleLabel::NORMAL) return true;
-
   if (aln.IsQcFailed() || aln.IsDuplicate()) return false;
   if (params.skipSecondary && aln.IsSecondary()) return false;
+  if (aln.GetMappingQual() < params.minReadMappingQual) return false;
+
+  // AS: Alignment score
+  // XS: Suboptimal alignment score
+  if (aln.HasTag("AS") && aln.HasTag("XS")) {
+    const auto AS = bam_aux2i(aln.GetTagData("AS").value());
+    const auto XS = bam_aux2i(aln.GetTagData("XS").value());
+    const auto failsAsXsFilter = std::abs(AS - XS) < params.minReadAsXsDiff;
+    if (failsAsXsFilter) return false;
+  }
+
+  if (label == SampleLabel::NORMAL) return false;
 
   // XT type: Unique/Repeat/N/Mate-sw
   // XT:A:M (one-mate recovered) means that one of the pairs is uniquely mapped and the other isn't
@@ -143,16 +153,6 @@ auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& para
 
   // XA -- BWA (Illumina): alternative hits; format: (chr,pos,CIGAR,NM;)
   if (aln.HasTag("XA")) return false;
-
-  if (aln.GetMappingQual() < params.minReadMappingQual) return false;
-
-  // AS: Alignment score
-  // XS: Suboptimal alignment score
-  if (aln.HasTag("AS") && aln.HasTag("XS")) {
-    const auto AS = bam_aux2i(aln.GetTagData("AS").value());
-    const auto XS = bam_aux2i(aln.GetTagData("XS").value());
-    return std::abs(AS - XS) >= params.minReadAsXsDiff;
-  }
 
   return true;
 }
