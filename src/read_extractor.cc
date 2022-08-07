@@ -141,7 +141,7 @@ auto ReadExtractor::PassesFilters(const HtsAlignment& aln, const CliParams& para
     if (failsAsXsFilter) return false;
   }
 
-  if (label == SampleLabel::NORMAL) return false;
+  if (label == SampleLabel::NORMAL) return true;
 
   // XT type: Unique/Repeat/N/Mate-sw
   // XT:A:M (one-mate recovered) means that one of the pairs is uniquely mapped and the other isn't
