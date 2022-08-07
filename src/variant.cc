@@ -11,7 +11,7 @@
 
 namespace lancet2 {
 Variant::Variant(const Transcript& transcript, usize kmer_size, VariantHpCov tmrCov, VariantHpCov nmlCov)
-    : ChromName(transcript.ChromName()), Position(transcript.Position()), RefAllele(transcript.RefSeq()),
+    : ChromName(transcript.GetChromName()), Position(transcript.Position()), RefAllele(transcript.RefSeq()),
       AltAllele(transcript.AltSeq()), Kind(transcript.Code()), STRResult(transcript.STRResult()),
       Length(transcript.GetVariantLength()), KmerSize(kmer_size), TumorCov(tmrCov), NormalCov(nmlCov) {
   LANCET_ASSERT(Kind != TranscriptCode::REF_MATCH && transcript.IsFinalized());  // NOLINT
