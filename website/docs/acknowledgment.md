@@ -3,8 +3,6 @@ id: acknowledgment
 title: Acknowledgments
 ---
 
-Special thanks to:
+# Funding
 
-* ...
-* ...
-* ...
+Lancet development is currently funded by ITCR under the NCI R21 award 1R21CA220411-01A1.
