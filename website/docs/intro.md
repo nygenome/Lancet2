@@ -1,8 +1,6 @@
 ---
 sidebar_position: 1
 ---
-There's only so much more to try
-I THINK THIS IS IT???!!
 # Getting Started
 
 Install the Lancet repository to your machine:
