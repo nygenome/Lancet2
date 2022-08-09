@@ -4,4 +4,4 @@ title: Welcome
 authors: [gnarzisi, rmusunuri, bzhu]
 ---
 
-This is where benchmark reports with some comments will be placed
+This is where blog posts will be made
