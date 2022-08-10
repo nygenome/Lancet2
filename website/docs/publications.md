@@ -10,7 +10,7 @@ Abstract:
 
 Reliable detection of somatic variations is of critical importance in cancer research. Here we present Lancet, an accurate and sensitive somatic variant caller, which detects SNVs and indels by jointly analyzing reads from tumor and matched normal samples using colored de Bruijn graphs. We demonstrate, through extensive experimental comparison on synthetic and real whole-genome sequencing datasets, that Lancet has better accuracy, especially for indel detection, than widely used somatic callers, such as MuTect, MuTect2, LoFreq, Strelka, and Strelka2. Lancet features a reliable variant scoring system, which is essential for variant prioritization, and detects low-frequency mutations without sacrificing the sensitivity to call longer insertions and deletions empowered by the local-assembly engine. In addition to genome-wide analysis, Lancet allows inspection of somatic variants in graph space, which augments the traditional read alignment visualization to help confirm a variant of interest. Lancet is available as an open-source program at https://github.com/nygenome/lancet.
 
-### [Somatic variant analysis of linked-reads sequencing data with Lancet](https://www.biorxiv.org/content/10.1101/2020.07.04.158063v1)
+### [Somatic variant analysis of linked-reads sequencing data with Lancet](https://doi.org/10.1093/bioinformatics/btaa888)
 
 Abstract:
 
