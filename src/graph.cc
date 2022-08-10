@@ -322,8 +322,8 @@ void Graph::ProcessPath(const Path& path, const SrcSnkResult& einfo, std::vector
   try {
     rawAlignedSeqs = Align(refAnchorSeq, pathSeq);
   } catch (const std::exception& e) {
-    LOG_TRACE("Error processing window {}: error aligning ref: {}, qry: {} | exception – {}", window->ToRegionString(),
-              refAnchorSeq, pathSeq, e.what());
+    LOG_INFO("Error processing window {}: error aligning ref: {}, qry: {} | exception – {}", window->ToRegionString(),
+             refAnchorSeq, pathSeq, e.what());
     return;
   }
 
