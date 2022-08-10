@@ -3,7 +3,7 @@
 > Microassembly based somatic variant caller
 
 [![DockerBuildAndPush](https://github.com/nygenome/Lancet2/actions/workflows/main.yml/badge.svg)](https://github.com/nygenome/Lancet2/pkgs/container/lancet2)
-[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?label=API%20docs&style=flat)](https://nygenome.github.io/Lancet2)
+[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?label=Documentation&style=flat)](https://nygenome.github.io/Lancet2)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ## **NOTE**
