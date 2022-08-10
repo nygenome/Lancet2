@@ -116,13 +116,14 @@ static inline auto MinNonRepeatKmerSize(std::string_view seq, usize k) -> usize 
 void Transcript::BuildHaplotypes(std::string_view refSeq, std::string_view altSeq, usize kmerLen) {
   const auto refAlleleLen = refAllele.length();
   const auto altAlleleLen = altAllele.length();
-  const auto currentKmerSize = std::max(MinNonRepeatKmerSize(refSeq, kmerLen), MinNonRepeatKmerSize(altSeq, kmerLen));
+  const auto refKmerSize = MinNonRepeatKmerSize(refSeq, kmerLen);
+  const auto altKmerSize = MinNonRepeatKmerSize(altSeq, kmerLen);
 
-  const auto refHapLen = std::max(refAlleleLen, currentKmerSize);
-  const auto altHapLen = std::max(altAlleleLen, currentKmerSize);
+  const auto refHapLen = std::max(refAlleleLen, refKmerSize);
+  const auto altHapLen = std::max(altAlleleLen, altKmerSize);
 
-  const auto isLongRef = refAlleleLen >= currentKmerSize;
-  const auto isLongAlt = altAlleleLen >= currentKmerSize;
+  const auto isLongRef = refAlleleLen >= refKmerSize;
+  const auto isLongAlt = altAlleleLen >= altKmerSize;
 
   hapData.clear();
   hapData.reserve(6);
