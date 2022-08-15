@@ -19,7 +19,7 @@ const FeatureList = [
       <>
         Standard Lancet variant calling only requires a tumor and normal sample along with
         an accompanying reference fasta and a designated path to output the vcf file to. 
-        Check out the command line section for for different options to customize a run.
+        Check out the command line section for different options to customize a run.
       </>
     ),
   },
