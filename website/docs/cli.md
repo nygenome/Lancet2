@@ -16,9 +16,6 @@ Bring up the standard help output. This will give examples of options the user c
 ### `--version`
 Print the version information for the build
 
-### `--verbose`
-Turns on verbose logging and will allow the user to see all log outputs
-
 ## Required Arguments:
 A standard run of Lancet will provide a tumor bam file, a normal bam file, the reference fasta, and an output path to place the outputted vcf file.
 ```shell
@@ -102,4 +99,103 @@ This allows you to define the maximum number of mismatches used to detect approx
 ### `--max-tip-length`
 This will define the maximum tip length allowed in the genereated graphs. By default, the maximum tip length is set to 11.
 
-### 
+### `--graph-traversal-limit`
+Maximum allowed tip length in the graph. By default, this value is set to 11.
+Check cli.cpp, why is params->minGraphTipLength
+
+### `--graph-traversal-limit`
+Max BFS/DFS graph traversal limit. By default, this value is set to 100000.
+
+### `--max-indel-length`
+Maximum limit on the indel length to detect. Default is set to 500.
+
+### `--min-anchor-cov`
+Minimum coverage for anchor nodes (source & sink). Default is 5
+
+### `--min-node-cov`
+Minimum coverage for all nodes in the graph. Default is 1
+
+### `--min-cov-ratio`
+Minimum node by window coverage for all nodes. Default is 0.01
+Node to window coverage ratio?
+
+### `--max-window-cov`
+Maximum average window coverage before downsampling. Default is 1000
+
+### `--min-as-xs-diff`
+Minimum difference between AS and XS scores (BWA-mem). Default is 5
+
+### STR Parameters
+What is STR?
+
+### `--max-str-unit-len`
+Maximum unit length for an STR motif. Default is 4
+
+### `--min-str-units`
+Minimum number of STR units required to report. Default is 7
+
+### `--maxSTRDist`
+Maximum distance (in bp) of variant from the STR motif. Default is 1
+
+### Filters
+These options let you apply different filters to apply to the variant caller
+
+### `-c`, `--max-nml-alt-cnt`
+Maximum ALT allele count in normal sample. Default is set at 0
+
+### `-C`, `--min-tmr-alt-cnt`
+Minimum ALT allele count in tumor sample. Default is 3
+
+### `-v`, `--max-nml-vaf`
+Maximum variant allele frequency in normal sample. Default is 0
+
+### `-V`, `--min-tmr-vaf`
+Minimum variant allele frequency in tumor sample. Default is 0.01
+
+### `--min-nml-cov`
+Minimum variant coverage in the normal sample. Default is 10
+
+### `--min-tmr-cov`
+Minimum variant coverage in the tumor sample. Default is 4
+
+### `--max-nml-cov`
+Maximum variant coverage in the normal sample. Default is 1000
+
+### `--max-tmr-cov`
+Maximum variant coverage in the tumor sample. Default is 1000
+
+### `--min-fisher`
+Minimum phred scaled score for somatic variants. Default is 5
+
+### `--min-str-fisher`
+Minimum phred scaled score for STR variants. Default is 25
+
+### `--min-strand-cnt`
+Minimum per strand contribution for a variant. Default is 1
+
+### Feature Flags
+Use these flags to toggle certain portions of the code to apply different features. By default, these features are off, but by using tags (with no argument following), you can toggle the feature on.
+
+### `--verbose`
+Turn on verbose logging for more detailed messages
+
+### `--tenx-mode`
+Run Lnacet in 10X Linked Reads mode
+
+### `--active-region-off`
+Turn off active region detection
+
+### `--kmer-recovery-on`
+Turn on experimental kmer recovery
+
+### `--xa-filter`
+Skip reads with XA tag (BWA-mem only)
+
+### `--skip-secondary`
+Skip secondary read alignments
+
+### `--extract-pairs`
+Extract read pairs for each window
+
+### `--no-contig-check`
+Skip checking for same contigs in BAM/CRAMs and reference
