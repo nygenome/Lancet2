@@ -31,8 +31,8 @@ Provide the path to the normal bam file. Index for this file should also be in t
 ### `-r`, `--reference`
 Provide the path to the reference fasta file. Index for this file should also be in the same directory
 
-### `-o`, `--out-vcf`
-Specify where to place the outputted vcf file.`
+### `-o`, `--out-prefix`
+Prefix to use for all output files and directories
 
 ## Optional Arguments:
 These arguments allow for more fine-tuned control of the tool. If not provided, default values will be assigned
