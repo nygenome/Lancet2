@@ -126,7 +126,7 @@ Maximum average window coverage before downsampling. Default is 1000
 Minimum difference between AS and XS scores (BWA-mem). Default is 5
 
 ### STR Parameters
-What is STR?
+Use these flags to deal with Short Tandem Repeats
 
 ### `--max-str-unit-len`
 Maximum unit length for an STR motif. Default is 4
