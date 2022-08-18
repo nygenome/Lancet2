@@ -1,24 +1,12 @@
 ---
 sidebar_position: 1
 ---
-# Getting Started
-
-Install the Lancet repository to your machine:
-
-```bash
-git clone https://github.com/nygenome/Lancet2.git
-cd Lancet2 && mkdir build && cd build
-cmake .. && make
-```
+# Basic Usage
 
 Here is a basic run of the Lancet tool from the newly created build directory:
 
 ```bash
-./lancet pipeline -t /path/to/tumor.bam -n /path/to/normal.bam -r /path/to/ref.fasta -o /path/to/output.vcf
+./lancet2 pipeline -t /path/to/tumor.bam -n /path/to/normal.bam -r /path/to/ref.fasta -o /path/to/out.vcf --region 22 --num-threads 8
 ```
 
-## Prerequisites:
-* CMake >= 3.14.x
-* C++ compiler with support for ISO C++17 standard
-* zlib, bzip2, liblzma, cURL and OpenSSL
-
+The command above detects somatic variants in a tumor/normal pair of bam files for chromosome 22 using 8 threads and outputs the VCF file as out.vcf.
