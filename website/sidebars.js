@@ -22,12 +22,12 @@ const sidebars = {
     {
       type: 'category',
       label: 'Getting Started',
-      items: ['Background','intro'],
+      items: ['Background','Installation','intro'],
     },
     {
       type:'category',
       label: 'Guides',
-      items: ['Guides/Overview','Guides/Options','Guides/Visualization'],
+      items: ['Guides/GWS','Guides/Exome','Guides/Docker','Guides/Visualization'],
     },
   ],
    
