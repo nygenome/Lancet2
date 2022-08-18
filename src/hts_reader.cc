@@ -263,7 +263,7 @@ class HtsReader::Impl {
     if (idx == nullptr) {
       const auto dotPos = inpath.string().rfind('.', std::string::npos);
       if (dotPos != 0 && dotPos != std::string::npos) {
-        const auto* idxExt = fp->format.format == cram ? ".crai" : ".bai";
+        const auto* idxExt = fp->format.format == cram ? "crai" : "bai";
         const auto altIdxPath = inpath.string().substr(0, dotPos) + idxExt;
         idx.reset(sam_index_load2(fp.get(), inpath.c_str(), altIdxPath.c_str()));
       }
