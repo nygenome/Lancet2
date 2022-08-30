@@ -1,6 +1,6 @@
 # Genome-Wide Scan
 
-Due to its pure local-assembly strategy, Lancet currently has longer runtimes compared to standard alignment-based variant callers. For whole-genome sequencing studies it is highly recommended to split the analysis by chromosome and then merge the results. Splitting the work by chromosome will also reduce the overall memory requirements to analyze the whole-genome data.
+For whole-genome sequencing studies it is highly recommended to split the analysis by chromosome and then merge the results. Splitting the work by chromosome will reduce overall runtime and memory requirements to analyze whole-genome data.
 
 ```
 NUMBER_OF_AUTOSOMES=22
