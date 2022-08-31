@@ -20,5 +20,8 @@ sfdp -Tpdf example_file.dot -O
 
 The above command will create a example_file.dot.pdf file that shows the graph. For large graphs, Adobe Acrobat Reader may have troubles rendering the graph in which case we recommend opening the PDF file using the "Preview" image viewer software available in MacOS.
 
-# PROVIDE EXAMPLE IMAGES
-What is a good window to see similar features as was in the first lancet pictures
+Below is an example of what the generated graphs may look like. The first image is before pruning, the second is after, and the third highlights the path flow taken through the graph. The blue nodes are k-mers shared by both tumor and normal; the white nodes are k-mer with low support (e.g., sequencing errors); the red nodes are k-mers only present in the tumor node.:
+
+![before pruning](https://github.com/nygenome/Lancet2/website/static/img/22:21205400-21205599_c1_before_pruning.dot.pdf)
+![after pruning](https://github.com/nygenome/Lancet2/website/static/img/22:21205400-21205599_c1_after_pruning.dot.pdf)
+![path flow](https://github.com/nygenome/Lancet2/website/static/img/22:21205400-21205599_c1_path_flow.dot.pdf)
