@@ -22,6 +22,7 @@ The above command will create a example_file.dot.pdf file that shows the graph. 
 
 Below is an example of what the generated graphs may look like. The first image is before pruning, the second is after, and the third highlights the path flow taken through the graph. The blue nodes are k-mers shared by both tumor and normal; the white nodes are k-mer with low support (e.g., sequencing errors); the red nodes are k-mers only present in the tumor node.:
 
+<img src="https://github.com/nygenome/Lancet2/tree/main/website/static/img/22:21205400-21205599_c1_before_pruning.png" width="400">
 ![before pruning](https://github.com/nygenome/Lancet2/tree/main/website/static/img/22\:21205400-21205599_c1_before_pruning.png)
 ![after pruning](https://github.com/nygenome/Lancet2/tree/main/website/static/img/22\:21205400-21205599_c1_after_pruning.png)
 ![path flow](https://github.com/nygenome/Lancet2/tree/main/website/static/img/22\:21205400-21205599_c1_path_flow.png)
