@@ -7,7 +7,7 @@ const FeatureList = [
     title: 'Localized',
     description: (
       <>
-        With Lancet&apos;s localized assembly and construction of deBruijn graphs,
+        With its localized assembly and construction of deBruijn graphs,
         Lancet is able to quickly and accurately detect variants in a tumor-normal 
         pair while working efficiently using as many CPU resources as available.
       </>
@@ -26,9 +26,11 @@ const FeatureList = [
   {
     title: 'Joint Assembly',
     description: (
-      <>
-        As a tool, Lancet is able to jointly assemble reads from a tumor sample along with a 
-        matched normal sample. This results in an increase in accuracy of identifying mutations, 
+      <>        
+        Lancet employs a unique strategy where data from the tumor 
+        and matched normal is jointly assembled into small-scale sequence graphs 
+        representing the local genome structures of the sample.
+        This results in increased accuracy to identify mutations, 
         especially indels, private to the tumor.
       </>
     ),
