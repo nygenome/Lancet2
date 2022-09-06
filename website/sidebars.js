@@ -23,11 +23,13 @@ const sidebars = {
       type: 'category',
       label: 'Installation',
       items: ['getting_started'],
+      collapsed: false,
     },
     {
       type:'category',
       label: 'Guides',
       items: ['Guides/GWS','Guides/Exome','Guides/Visualization'],
+      collapsed: false,
     },
   ],
    
