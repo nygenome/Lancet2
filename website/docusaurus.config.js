@@ -135,12 +135,16 @@ const config = {
         ],
         copyright: `Copyright © ${new Date().getFullYear()} Lancet. Built with Docusaurus.`,
       },
+      colorMode: {
+        defaultMode: 'dark',
+        disableSwitch: false,
+        respectPrefersColorScheme: true,
+      },
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
       },
     }),
-    defaultMode: 'dark',
 };
 
 module.exports = config;
