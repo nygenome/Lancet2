@@ -140,6 +140,7 @@ const config = {
         darkTheme: darkCodeTheme,
       },
     }),
+    defaultMode: 'dark',
 };
 
 module.exports = config;
