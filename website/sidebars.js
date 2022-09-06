@@ -21,7 +21,7 @@ const sidebars = {
   tutorialSidebar: [
     {
       type: 'category',
-      label: 'Installation',
+      label: 'Getting Started',
       items: ['getting_started'],
       collapsed: false,
     },
