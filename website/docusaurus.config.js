@@ -97,8 +97,8 @@ const config = {
             title: 'Docs',
             items: [
               {
-                label: 'Docs',
-                to: '/docs/intro',
+                label: 'Installation',
+                to: '/docs/installation',
               },
               {
                 label: 'Command line',
