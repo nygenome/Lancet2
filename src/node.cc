@@ -78,7 +78,12 @@ void Node::UpdateCovInfo(const ReadInfo& ri, bool is_tenx_mode) {
 }
 void Node::IncrementCov(SampleLabel label, Strand s) { covs.Update(label, s); }
 
-auto Node::FillColor() const -> std::string { return IsSource() ? "cyan3" : IsSink() ? "yellow2" : labels.FillColor(); }
+auto Node::FillColor() const -> std::string {
+  if (IsSource()) return "cyan3";
+  if (IsSink()) return "yellow2";
+  if (TotalSampleCount() == 1) return "snow";
+  return labels.FillColor();
+}
 
 auto Node::LabelRatio(KmerLabel label) const -> double { return labels.LabelRatio(label); }
 auto Node::HasLabel(KmerLabel label) const -> bool { return labels.HasLabel(label); }
