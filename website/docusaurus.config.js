@@ -6,7 +6,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Lancet 2',
+  title: 'Lancet2',
   staticDirectories: ['static'],
   tagline: 'Somatic variant caller with localized micro-assembly',
   url: 'https://nygenome.github.io',
@@ -58,7 +58,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'Lancet 2',
+        title: 'Lancet2',
         logo: {
           alt: 'Lancet Site Logo',
           src: 'img/nygc_logo.png',
@@ -133,7 +133,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Lancet. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Lancet2. Built with Docusaurus.`,
       },
       colorMode: {
         defaultMode: 'dark',
