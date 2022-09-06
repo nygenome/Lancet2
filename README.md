@@ -29,5 +29,25 @@ cd Lancet2 && mkdir build && cd build
 cmake .. && make
 ```
 
-#### Funding
+## Documentation
+
+Documentation for Lancet2 is hosted on [GitHub pages](https://nygenome.github.io/Lancet2/).
+
+## Support
+
+Please report any bugs or feature requests to the [Lancet2 issue tracker](https://github.com/nygenome/Lancet2/issues).
+
+## Authors
+
+Rajeeva Musunuri, Bryan Zhu and Giuseppe Narzisi
+
+## Citing
+
+See [publications](https://nygenome.github.io/Lancet2/docs/publications) associated with Lancet.
+
+## License
+
+Lancet2 is distributed under the [BSD 3-Clause License](LICENSE).
+
+## Funding
 Informatics Technology for Cancer Research (<a href="https://itcr.cancer.gov">ITCR</a>) under the NCI U01 award <a href="https://reporter.nih.gov/project-details/10304730">1U01CA253405-01A1</a>.
