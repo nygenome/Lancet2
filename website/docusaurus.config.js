@@ -115,7 +115,7 @@ const config = {
               },
               {
                 label: 'Biostars',
-                href: 'https://www.biostars.org/tag/lancet',
+                href: 'https://www.biostars.org/post/search/?query=lancet',
               },
             ],
           },
