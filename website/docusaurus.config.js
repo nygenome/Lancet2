@@ -66,7 +66,7 @@ const config = {
         items: [
           {
             type: 'doc',
-            docId: 'getting_started#installation',
+            docId: 'getting_started',
             position: 'left',
             label: 'Docs',
           },
