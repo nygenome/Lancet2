@@ -36,7 +36,7 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
   
-  if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "raw_graph");
+  if (!params->outGraphsDir.empty()) WriteDot(0, "raw_graph");
   RemoveLowCovNodes(0);
   nodesMap.rehash(0);
   const auto componentsInfo = MarkConnectedComponents();
