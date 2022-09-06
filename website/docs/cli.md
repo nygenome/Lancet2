@@ -4,9 +4,10 @@ title: Command Line Reference
 ---
 ## pipeline
 This is the subcommand that will kick off the tool. This will always follow directly after the call to the Lancet executable
-```shell
-./lancet pipeline --help
-./lancet pipeline -t /path/to/tumor.bam -n /path/to/normal.bam -r /path/to/ref.fasta -o /path/to/out.vcf
+
+```bash
+lancet2 pipeline --help
+lancet2 pipeline -t /path/to/tumor.bam -n /path/to/normal.bam -r /path/to/ref.fasta -o /path/to/out_prefix
 ```
 
 ## General Options:
@@ -32,7 +33,7 @@ Provide the path to the normal bam file. Index for this file should also be in t
 Provide the path to the reference fasta file. Index for this file should also be in the same directory
 
 ### `-o`, `--out-prefix`
-Prefix to use for all output files and directories
+Prefix to use for output VCF (will be bgzipped and indexed)
 
 ## Optional Arguments:
 These arguments allow for more fine-tuned control of the tool. If not provided, default values will be assigned
