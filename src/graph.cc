@@ -35,7 +35,8 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
   Timer timer;
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
-
+  
+  if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "raw_graph");
   RemoveLowCovNodes(0);
   nodesMap.rehash(0);
   const auto componentsInfo = MarkConnectedComponents();
@@ -51,14 +52,14 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
       return;
     }
 
-    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "before_pruning");
+    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "before_compression");
     CompressGraph(comp.ID);
     RemoveLowCovNodes(comp.ID);
     CompressGraph(comp.ID);
     RemoveTips(comp.ID);
     RemoveShortLinks(comp.ID);
     nodesMap.rehash(0);
-    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "after_pruning");
+    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "after_compression");
 
     if (HasCycle()) {
       shouldIncrementK = true;
