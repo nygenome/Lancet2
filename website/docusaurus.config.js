@@ -7,6 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Lancet',
+  staticDirectories: ['static'],
   tagline: 'Somatic variant caller with localized micro-assembly',
   url: 'https://nygenome.github.io',
   baseUrl: '/Lancet2/',
@@ -59,7 +60,7 @@ const config = {
       navbar: {
         title: 'Lancet',
         logo: {
-          alt: 'My Site Logo',
+          alt: 'Lancet Site Logo',
           src: 'img/nygc_logo.png',
         },
         items: [
@@ -73,7 +74,7 @@ const config = {
             type: 'doc',
             docId: 'cli',
             position: 'left',
-            label: 'Command Line',
+            label: 'Command Line Options',
           },
           {
             type: 'doc',
@@ -100,7 +101,7 @@ const config = {
                 to: '/docs/intro',
               },
               {
-                label: 'Command line',
+                label: 'Command line Options',
                 to: '/docs/cli',
               },
             ],
