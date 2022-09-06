@@ -27,7 +27,7 @@ const sidebars = {
     {
       type:'category',
       label: 'Guides',
-      items: ['Guides/GWS','Guides/Exome','Guides/Docker','Guides/Visualization'],
+      items: ['Guides/GWS','Guides/Exome','Guides/Visualization'],
     },
   ],
    
