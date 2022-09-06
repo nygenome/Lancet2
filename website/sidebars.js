@@ -22,7 +22,7 @@ const sidebars = {
     {
       type: 'category',
       label: 'Getting Started',
-      id: 'getting_started',
+      items: ['getting_started'],
     },
     {
       type:'category',
