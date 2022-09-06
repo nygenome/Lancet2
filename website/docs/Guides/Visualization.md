@@ -26,13 +26,13 @@ The above command will create a example_file.pdf file that shows the graph. For 
 Below is an example of what the generated graphs may look like. The blue nodes are k-mers shared by both tumor and normal; the white nodes are k-mer with low support (likely sequencing errors); the green nodes are k-mers only present in the normal; the red nodes are k-mers only present in the tumor.:
 
 The first image below shows the raw graph before removing the low coverage nodes.
-![raw_graph](static/img/chr14_72547800-72548098_c0_raw_graph.png)
+![raw_graph](../../static/img/chr14_72547800-72548098_c0_raw_graph.png)
 
 The second image below shows the graph before compression and tip removal.
-![before_compression](static/img/chr14_72547800-72548098_c1_before_compression.png)
+![before_compression](../../static/img/chr14_72547800-72548098_c1_before_compression.png)
 
 The third image below shows the graph after compression and tip removal.
-![after_compression](static/img/chr14_72547800-72548098_c1_after_compression.png)
+![after_compression](../../static/img/chr14_72547800-72548098_c1_after_compression.png)
 
 The fourth image below highlights all the assembly path flows taken through the graph.
-![path_flow](static/img/chr14_72547800-72548098_c1_path_flow.png)
+![path_flow](../../static/img/chr14_72547800-72548098_c1_path_flow.png)
