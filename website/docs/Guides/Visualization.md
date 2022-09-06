@@ -1,9 +1,9 @@
-# Visualization
+# Graph Visualization
 
 By passing the ```--graphs-dir``` parameter and providing a directory where you want the graphs to be placed, Lancet will write deBruijn graphs for each window inspected and place them into the directory as dot files. NOTE: whichever directory is given as the graphs-dir will be cleared so be mindful of what directory you provide.
 
 ```bash
-./lancet2 pipeline -t tumor.bam -n normal.bam -r ref.fasta --graphs-dir ./dot_graphs_dir
+lancet2 pipeline -t tumor.bam -n normal.bam -r ref.fasta --graphs-dir ./dot_graphs_dir
 ```
 
 The above command will export the DeBruijn graph at various stages of the assembly (low coverage removal, graph compression and traversal) to the following set of files:
@@ -17,7 +17,7 @@ Where X refers to the connected component within the graph (in most cases only o
 
 These files can be rendered using the dot utility available in the [Graphviz](http://www.graphviz.org/) visualization software package.
 
-```
+```bash
 dot -Tpdf -o example_file.pdf example_file.dot
 ```
 
