@@ -26,7 +26,7 @@ lancet2 --version
 
 * CMake >= 3.14.x
 * C++ compiler with support for ISO C++17 standard
-* zlib, bzip2, liblzma, cURL and OpenSSL
+* zlib, bzip2, liblzma, cURL and OpenSSL (Needed to build htslib)
 
 ## Docker
 
