@@ -534,7 +534,7 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
   absl::flat_hash_map<u64, AlleleSpan> alleleSpans;      // Maps canonical haplotype hash to allele span
 
   for (const Transcript& T : transcripts) {
-    if (T.refAllele == T.altAllele) continue;
+    if (T.RefSeq() == T.AltSeq()) continue;
 
     const auto isSNV = T.Code() == TranscriptCode::SNV;
     const auto alleles = T.GetAlleleHashes();
@@ -588,6 +588,8 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
 
   usize numVariants = 0;
   for (const Transcript& T : transcripts) {
+    if (T.RefSeq() == T.AltSeq()) continue;
+
     const auto isSNV = T.Code() == TranscriptCode::SNV;
     const auto alleles = T.GetAlleleHashes();
     const auto refCovs = sampleHapCovs.at(alleles.RefHash);
@@ -599,7 +601,6 @@ void Graph::BuildVariants(absl::Span<const Transcript> transcripts, std::vector<
     const auto nmlCov = VariantHpCov(refCovs.RawNmlCov, lowQualSNV ? altCovs.BQPassNmlCov : altCovs.RawNmlCov);
 
     if (Variant::ComputeState(tmrCov, nmlCov) == VariantState::NONE) continue;
-    if (T.refAllele == T.altAllele) continue;
 
     variants->emplace_back(Variant(T, kmerSize, tmrCov, nmlCov));
     numVariants++;
