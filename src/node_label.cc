@@ -44,9 +44,9 @@ auto NodeLabel::FillColor() const -> std::string {
   const auto hasTmr = HasLabel(KmerLabel::TUMOR);
   const auto hasNml = HasLabel(KmerLabel::NORMAL);
 
-  if (hasRef && hasTmr && hasNml) return "lightblue";
-  if (hasTmr && !hasNml) return "orangered";
-  if (hasNml && !hasTmr) return hasRef ? "lightblue" : "royalblue";
-  return "lightblue";
+  if (hasRef || (hasTmr && hasNml)) return "royalblue"; // SHARED (or) REF
+  if (hasTmr && !hasNml && !hasRef) return "orangered"; // TUMOR only
+  if (hasNml && !hasTmr && !hasRef) return "limegreen"; // NORMAL only
+  return "lightblue"; // Should not get here. But catch call if we get here.
 }
 }  // namespace lancet2
