@@ -68,13 +68,13 @@ const config = {
             type: 'doc',
             docId: 'Background',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Docs',
           },
           {
             type: 'doc',
             docId: 'cli',
             position: 'left',
-            label: 'Command Line Options',
+            label: 'Command Line',
           },
           {
             type: 'doc',
@@ -101,7 +101,7 @@ const config = {
                 to: '/docs/intro',
               },
               {
-                label: 'Command line Options',
+                label: 'Command line',
                 to: '/docs/cli',
               },
             ],

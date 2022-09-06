@@ -1,6 +1,6 @@
 ---
 id: cli
-title: Command Line Options
+title: Command Line Reference
 ---
 ## pipeline
 This is the subcommand that will kick off the tool. This will always follow directly after the call to the Lancet executable
