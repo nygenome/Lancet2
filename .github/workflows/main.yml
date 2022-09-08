@@ -21,7 +21,6 @@ jobs:
                 with:
                     images: |
                         rmusunuri/lancet2
-                        ghcr.io/nygenome/Lancet2
                     tags: |
                         type=schedule
                         type=ref,event=branch
@@ -43,13 +42,6 @@ jobs:
                     username: ${{ secrets.DOCKERHUB_USERNAME }}
                     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            -   name: Login to GitHub Container Registry
-                uses: docker/login-action@v2
-                with:
-                    registry: ghcr.io
-                    username: ${{ github.repository_owner }}
-                    password: ${{ secrets.GITHUB_TOKEN }}
-
             -   name: Build and push Lancet2 Clang Docker image
                 uses: docker/build-push-action@v3
                 with:
@@ -62,7 +54,6 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:clang
-                        ghcr.io/nygenome/lancet2:clang
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 ASan Docker image
@@ -77,7 +68,6 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:asan
-                        ghcr.io/nygenome/lancet2:asan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 UBSan Docker image
@@ -92,7 +82,6 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:ubsan
-                        ghcr.io/nygenome/lancet2:ubsan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 MSan Docker image
@@ -107,7 +96,6 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:msan
-                        ghcr.io/nygenome/lancet2:msan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 TSan Docker image
@@ -122,7 +110,6 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:tsan
-                        ghcr.io/nygenome/lancet2:tsan
                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 GCC Docker image
@@ -137,5 +124,5 @@ jobs:
                     labels: ${{ steps.meta.outputs.labels }}
                     tags: |
                         rmusunuri/lancet2:gcc
-                        ghcr.io/nygenome/lancet2:gcc
+                        rmusunuri/lancet2:latest
                         ${{ steps.meta.outputs.tags }}
