@@ -42,75 +42,75 @@ jobs:
                     username: ${{ secrets.DOCKERHUB_USERNAME }}
                     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            -   name: Build and push Lancet2 Clang Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/clang.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        rmusunuri/lancet2:clang
-                        ${{ steps.meta.outputs.tags }}
+#             -   name: Build and push Lancet2 Clang Docker image
+#                 uses: docker/build-push-action@v3
+#                 with:
+#                     file: docker/clang.Dockerfile
+#                     cache-from: type=gha
+#                     cache-to: type=gha,mode=max
+#                     platforms: linux/amd64
+#                     context: .
+#                     push: ${{ github.event_name != 'pull_request' }}
+#                     labels: ${{ steps.meta.outputs.labels }}
+#                     tags: |
+#                         rmusunuri/lancet2:clang
+#                         ${{ steps.meta.outputs.tags }}
 
-            -   name: Build and push Lancet2 ASan Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/asan.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        rmusunuri/lancet2:asan
-                        ${{ steps.meta.outputs.tags }}
+#             -   name: Build and push Lancet2 ASan Docker image
+#                 uses: docker/build-push-action@v3
+#                 with:
+#                     file: docker/asan.Dockerfile
+#                     cache-from: type=gha
+#                     cache-to: type=gha,mode=max
+#                     platforms: linux/amd64
+#                     context: .
+#                     push: ${{ github.event_name != 'pull_request' }}
+#                     labels: ${{ steps.meta.outputs.labels }}
+#                     tags: |
+#                         rmusunuri/lancet2:asan
+#                         ${{ steps.meta.outputs.tags }}
 
-            -   name: Build and push Lancet2 UBSan Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/ubsan.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        rmusunuri/lancet2:ubsan
-                        ${{ steps.meta.outputs.tags }}
+#             -   name: Build and push Lancet2 UBSan Docker image
+#                 uses: docker/build-push-action@v3
+#                 with:
+#                     file: docker/ubsan.Dockerfile
+#                     cache-from: type=gha
+#                     cache-to: type=gha,mode=max
+#                     platforms: linux/amd64
+#                     context: .
+#                     push: ${{ github.event_name != 'pull_request' }}
+#                     labels: ${{ steps.meta.outputs.labels }}
+#                     tags: |
+#                         rmusunuri/lancet2:ubsan
+#                         ${{ steps.meta.outputs.tags }}
 
-            -   name: Build and push Lancet2 MSan Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/msan.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        rmusunuri/lancet2:msan
-                        ${{ steps.meta.outputs.tags }}
+#             -   name: Build and push Lancet2 MSan Docker image
+#                 uses: docker/build-push-action@v3
+#                 with:
+#                     file: docker/msan.Dockerfile
+#                     cache-from: type=gha
+#                     cache-to: type=gha,mode=max
+#                     platforms: linux/amd64
+#                     context: .
+#                     push: ${{ github.event_name != 'pull_request' }}
+#                     labels: ${{ steps.meta.outputs.labels }}
+#                     tags: |
+#                         rmusunuri/lancet2:msan
+#                         ${{ steps.meta.outputs.tags }}
 
-            -   name: Build and push Lancet2 TSan Docker image
-                uses: docker/build-push-action@v3
-                with:
-                    file: docker/tsan.Dockerfile
-                    cache-from: type=gha
-                    cache-to: type=gha,mode=max
-                    platforms: linux/amd64
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    tags: |
-                        rmusunuri/lancet2:tsan
-                        ${{ steps.meta.outputs.tags }}
+#             -   name: Build and push Lancet2 TSan Docker image
+#                 uses: docker/build-push-action@v3
+#                 with:
+#                     file: docker/tsan.Dockerfile
+#                     cache-from: type=gha
+#                     cache-to: type=gha,mode=max
+#                     platforms: linux/amd64
+#                     context: .
+#                     push: ${{ github.event_name != 'pull_request' }}
+#                     labels: ${{ steps.meta.outputs.labels }}
+#                     tags: |
+#                         rmusunuri/lancet2:tsan
+#                         ${{ steps.meta.outputs.tags }}
 
             -   name: Build and push Lancet2 GCC Docker image
                 uses: docker/build-push-action@v3
