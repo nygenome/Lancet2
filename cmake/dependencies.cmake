@@ -14,8 +14,8 @@ endfunction()
 set(LIBDEFLATE_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/libdeflate")
 set(LIBDEFLATE "${LIBDEFLATE_ROOT_DIR}/libdeflate.a")
 ExternalProject_Add(libdeflate
-        URL https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.12.tar.gz
-        URL_MD5 038cb9addf76c450115b7de0a6427a84
+        URL https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.14.tar.gz
+        URL_MD5 aa1d4bbf51e5521197132f10b3bdc994
         PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${LIBDEFLATE_ROOT_DIR}
         BUILD_IN_SOURCE 1 INSTALL_COMMAND "" CONFIGURE_COMMAND "" BUILD_BYPRODUCTS ${LIBDEFLATE}
         BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
@@ -26,8 +26,8 @@ set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(HTSLIB_INCLUDE_DIR "${HTSLIB_ROOT_DIR}")
 set(LIBHTS "${HTSLIB_ROOT_DIR}/libhts.a")
 ExternalProject_Add(htslib
-        URL https://github.com/samtools/htslib/releases/download/1.15.1/htslib-1.15.1.tar.bz2
-        URL_MD5 9ea5cff8edcebb01f31dd02bd4d2a082
+        URL https://github.com/samtools/htslib/releases/download/1.16/htslib-1.16.tar.bz2
+        URL_MD5 d31777ef90d1369a52049ba0ac3c0375
         PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${HTSLIB_ROOT_DIR}
         BUILD_IN_SOURCE 1 INSTALL_COMMAND "" BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static
         CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/scripts/configure_htslib.sh ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER}
@@ -59,7 +59,7 @@ endif ()
 FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.10.0)
 FetchContent_MakeAvailable(spdlog)
 
-FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.2.0)
+FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.3.1)
 FetchContent_MakeAvailable(cli11)
 
 set(MI_BUILD_TESTS OFF)
@@ -69,7 +69,7 @@ FetchContent_MakeAvailable(mimalloc)
 # Add abseil for general utilities. Update as often as possible.
 # See https://abseil.io/about/philosophy#upgrade-support
 FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-        GIT_TAG b35ae3281ac7be49b42dc574403ff5fbcf1788fb)
+        GIT_TAG a87df8e9dbe15a2799efdf4f74e89b4fbfda4570)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
     set(BUILD_TESTING OFF)
@@ -80,7 +80,7 @@ if (NOT abseil_POPULATED)
 endif ()
 
 if (LANCET2_TESTS)
-    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.0.1)
+    FetchContent_Declare(catch GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.1.1)
     FetchContent_MakeAvailable(catch)
 endif ()
 
@@ -89,7 +89,7 @@ if (LANCET2_BENCHMARKS)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
     set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF)
     set(BENCHMARK_ENABLE_INSTALL OFF)
-    FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.6.1)
+    FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.7.0)
     FetchContent_MakeAvailable(benchmark)
 endif ()
 
