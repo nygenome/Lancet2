@@ -7,6 +7,7 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates unzip git make wget gcc g++ && \
     wget --no-check-certificate -cq "https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.sh" && \
     wget --no-check-certificate -cq "https://github.com/ninja-build/ninja/releases/download/v1.11.0/ninja-linux.zip" && \
+    /bin/bash "cmake-3.23.2-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
     unzip -d /usr/bin ninja-linux.zip && apt-get clean && apt-get purge && \
     rm -rf "/var/lib/apt/lists/*" "/tmp/*" "/var/tmp/*" "cmake-3.23.2-linux-x86_64.sh" "ninja-linux.zip"
 
