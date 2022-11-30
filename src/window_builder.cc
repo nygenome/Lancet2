@@ -58,7 +58,10 @@ auto WindowBuilder::BuildWindows() const -> absl::StatusOr<std::vector<WindowPtr
 
   for (const auto &regStr : inputRegions) {
     const auto parseResult = ParseRegion(regStr);
-    if (!parseResult.ok()) return parseResult.status();
+    if (!parseResult.ok()) {
+      LOG_WARN("%s – Skipping region", parseResult.status().message());
+      continue;
+    }
 
     const auto &rawReg = parseResult.value();
     if (!contigIdxMap.contains(rawReg.GetChromName())) {
