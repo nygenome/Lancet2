@@ -2,12 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/abseil-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/benchmark-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/catch-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/cli11-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/concurrentqueue-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/mimalloc-src" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/cmake-build-release-pi3dm5/_deps/spdlog-src" vcs="Git" />
   </component>
 </project>
