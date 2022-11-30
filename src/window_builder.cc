@@ -59,7 +59,7 @@ auto WindowBuilder::BuildWindows() const -> absl::StatusOr<std::vector<WindowPtr
   for (const auto &regStr : inputRegions) {
     const auto parseResult = ParseRegion(regStr);
     if (!parseResult.ok()) {
-      LOG_WARN("%s – Skipping region", parseResult.status().message());
+      LOG_WARN("{} – Skipping region", parseResult.status().message());
       continue;
     }
 
