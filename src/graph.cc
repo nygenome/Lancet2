@@ -15,6 +15,7 @@
 #include "lancet2/assert_macro.h"
 #include "lancet2/canonical_kmers.h"
 #include "lancet2/dot_serializer.h"
+#include "lancet2/gfa_serializer.h"
 #include "lancet2/edmond_karp.h"
 #include "lancet2/kmer.h"
 #include "lancet2/log_macros.h"
@@ -461,12 +462,16 @@ void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_
 
 void Graph::WriteDot(usize comp_id, const std::string& suffix) const {
   const DotSerializer ds(this);
+  const GfaSerializer gs(this);
   ds.WriteComponent(comp_id, suffix);
+  gs.WriteComponent(comp_id, suffix);
 }
 
 void Graph::WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const {
   const DotSerializer ds(this);
+  const GfaSerializer gs(this);
   ds.WriteComponent(comp_id, flow_paths);
+  gs.WriteComponent(comp_id, flow_paths);
 }
 
 void Graph::EraseNode(NodeIterator itr) {
