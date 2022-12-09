@@ -73,6 +73,7 @@ add_library(lancet2_core STATIC
         include/lancet2/tandem_repeat.h src/tandem_repeat.cc
         include/lancet2/canonical_kmers.h src/canonical_kmers.cc
         include/lancet2/dot_serializer.h src/dot_serializer.cc
+        include/lancet2/gfa_serializer.h src/gfa_serializer.cc
         include/lancet2/align.h src/align.cc
         include/lancet2/edmond_karp.h src/edmond_karp.cc
         include/lancet2/transcript.h src/transcript.cc

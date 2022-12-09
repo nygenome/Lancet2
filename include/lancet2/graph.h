@@ -93,6 +93,7 @@ class Graph {
   [[nodiscard]] auto find(NodeIdentifier node_id) const -> ConstNodeIterator { return nodesMap.find(node_id); }
 
   class DotSerializer;
+  class GfaSerializer;
 
  private:
   usize kmerSize = 0;
