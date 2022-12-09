@@ -72,9 +72,9 @@ void Graph::GfaSerializer::DumpComponent(usize comp_id, std::ostream& out_stream
     const auto hasTmr = node_label.HasLabel(KmerLabel::TUMOR);
     const auto hasNml = node_label.HasLabel(KmerLabel::NORMAL);
     auto final_label = "";
-    if (hasRef) final_label = "REFERENCE";
-    if (hasTmr) final_label = "TUMOR";
-    if (hasNml) final_label = "NORMAL";
+    if (hasRef || (hasTmr && hasNml)) final_label = "REF/SHARED";
+    if (hasTmr && !hasRef && !hasNml) final_label = "TUMOR";
+    if (hasNml && !hasRef && !hasTmr) final_label = "NORMAL";
     out_stream << absl::StreamFormat("S\t%d\t%s\tLN:i:%d\ttc:i:%d\tnc:i:%d\tor:i:%d\tla:Z:%s\n",p.first,forwardSequence,p.second->GetLength(),p.second->SampleCount(SampleLabel::TUMOR),p.second->SampleCount(SampleLabel::NORMAL),p.second->GetOrientation(),final_label);
 
     for (const Edge& e : *p.second) {
