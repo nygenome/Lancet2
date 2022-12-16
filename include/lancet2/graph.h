@@ -64,6 +64,8 @@ class Graph {
 
   void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
 
+  void WriteGfa(usize comp_id, const std::string& suffix) const;
+  void WriteGfa(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const;
   void WriteDot(usize comp_id, const std::string& suffix) const;
   void WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const;
 
