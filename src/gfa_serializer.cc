@@ -20,7 +20,6 @@ void Graph::GfaSerializer::WriteComponent(usize comp_id, const std::string& suff
 
   DumpHeader(outStream);
   DumpComponent(comp_id, outStream);
-  outStream << "}\n";
   outStream.close();
 }
 
@@ -46,7 +45,6 @@ void Graph::GfaSerializer::WriteComponent(usize comp_id, absl::Span<const PathNo
     DumpPathFlow(path_flow, currentHue, outStream);
   }); 
 
-  outStream << "}\n";
   outStream.close();
 }
 
@@ -56,7 +54,7 @@ void Graph::GfaSerializer::DumpHeader(std::ostream& out_stream) {
 }
 
 void Graph::GfaSerializer::DumpComponent(usize comp_id, std::ostream& out_stream) const {
-
+  std::ostringstream linkStream;
   std::for_each(graphPtr->nodesMap.cbegin(), graphPtr->nodesMap.cend(), [&](Graph::NodeContainer::const_reference p) {
     if (comp_id != 0 && p.second->ComponentID != comp_id) return;
 
@@ -78,13 +76,14 @@ void Graph::GfaSerializer::DumpComponent(usize comp_id, std::ostream& out_stream
     out_stream << absl::StreamFormat("S\t%d\t%s\tLN:i:%d\ttc:i:%d\tnc:i:%d\tor:i:%d\tla:Z:%s\n",p.first,forwardSequence,p.second->GetLength(),p.second->SampleCount(SampleLabel::TUMOR),p.second->SampleCount(SampleLabel::NORMAL),p.second->GetOrientation(),final_label);
 
     for (const Edge& e : *p.second) {
-      out_stream << absl::StreamFormat("L\t%d\t+\t%d\t+\t%dM\n",p.first, e.GetDstID(),(p.second->GetLength() - 1));
+      linkStream << absl::StreamFormat("L\t%d\t+\t%d\t+\t%dM\n",p.first,e.GetDstID(),(p.second->GetLength() - 1));
+      //out_stream << absl::StreamFormat("L\t%d\t+\t%d\t+\t%dM\n",p.first, e.GetDstID(),(p.second->GetLength() - 1));
                                        //ToString(e.GetSrcDir()), ToString(e.GetDstDir()));
     }
 
   });
-
-  out_stream << "}\n";
+  std::string linkLines = linkStream.str();
+  out_stream << linkLines;
 }
 
 void Graph::GfaSerializer::DumpPathFlow(const PathNodeIds& path_flow, double hue, std::ostream& out_stream) {
