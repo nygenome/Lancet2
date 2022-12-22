@@ -83,7 +83,6 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
     EdmondKarpMaxFlow flow(&nodesMap, kmerSize, maxPathLength, params->graphTraversalLimit, params->tenxMode);
     std::vector<PathNodeIds> perPathTouches;
     auto pathPtr = flow.NextPath();
-
     while (pathPtr != nullptr) {
       numPaths++;
       if (!params->outGraphsDir.empty()) perPathTouches.emplace_back(pathPtr->TouchedEdgeIDs());
@@ -106,7 +105,7 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
     if (!params->outGraphsDir.empty() && !perPathTouches.empty()) {
       absl::Span<const PathNodeIds> flow_paths = absl::MakeConstSpan(perPathTouches);
       WriteDot(comp.ID, flow_paths);
-      WriteGfa(comp.ID, flow_paths);
+      WriteGfa(comp.ID, flow_paths, windowId);
     }
   }
 
@@ -476,9 +475,9 @@ void Graph::WriteGfa(usize comp_id, const std::string& suffix) const {
   gs.WriteComponent(comp_id, suffix);
 }
 
-void Graph::WriteGfa(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const {
+void Graph::WriteGfa(usize comp_id, absl::Span<const PathNodeIds> flow_paths, std::string windowId) const {
   const GfaSerializer gs(this);
-  gs.WriteComponent(comp_id, flow_paths);
+  gs.WriteComponent(comp_id, flow_paths, windowId);
 }
 
 void Graph::WriteDot(usize comp_id, const std::string& suffix) const {
