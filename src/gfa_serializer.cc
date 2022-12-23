@@ -75,7 +75,9 @@ void Graph::GfaSerializer::DumpComponent(usize comp_id, std::ostream& out_stream
     out_stream << absl::StreamFormat("S\t%d\t%s\tLN:i:%d\ttc:i:%d\tnc:i:%d\tor:i:%d\tla:Z:%s\n",p.first,forwardSequence,p.second->GetLength(),p.second->SampleCount(SampleLabel::TUMOR),p.second->SampleCount(SampleLabel::NORMAL),p.second->GetOrientation(),final_label);
 
     for (const Edge& e : *p.second) {
-      linkStream << absl::StreamFormat("L\t%d\t+\t%d\t+\t%dM\n",p.first,e.GetDstID(),(p.second->GetLength() - 1));
+      const char srcDir = (ToString(e.GetSrcDir()) == "F") ? '+' : '-';
+      const char dstDir = (ToString(e.GetDstDir()) == "F") ? '+' : '-';
+      linkStream << absl::StreamFormat("L\t%d\t%c\t%d\t%c\t%dM\n",p.first,srcDir,e.GetDstID(),dstDir,(p.second->GetLength() - 1));
       //out_stream << absl::StreamFormat("L\t%d\t+\t%d\t+\t%dM\n",p.first, e.GetDstID(),(p.second->GetLength() - 1));
                                        //ToString(e.GetSrcDir()), ToString(e.GetDstDir()));
     }
