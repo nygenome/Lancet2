@@ -22,7 +22,7 @@ class Graph::GfaSerializer {
 
   static void DumpHeader(std::ostream& out_stream);
   void DumpComponent(usize comp_id, std::ostream& out_stream) const;
-  static void DumpPathFlow(const PathNodeIds& path_flow, usize pathNum, std::string& windowId, std::ostream& out_stream);
+  void DumpPathFlow(const PathNodeIds& path_flow, usize pathNum, std::string& windowId, std::ostream& out_stream) const;
 
   static auto OppositeStrandSequence(std::string_view seq) -> std::string;
 };

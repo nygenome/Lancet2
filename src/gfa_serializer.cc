@@ -40,8 +40,7 @@ void Graph::GfaSerializer::WriteComponent(usize comp_id, absl::Span<const PathNo
   DumpComponent(comp_id, outStream);
   
   std::for_each(flow_paths.cbegin(), flow_paths.cend(), [&](const PathNodeIds& path_flow) {
-    pathNum++;
-    
+    pathNum++; 
     DumpPathFlow(path_flow, pathNum, windowId, outStream);
   }); 
   outStream.close();
@@ -87,22 +86,41 @@ void Graph::GfaSerializer::DumpComponent(usize comp_id, std::ostream& out_stream
   out_stream << linkLines;
 }
 
-void Graph::GfaSerializer::DumpPathFlow(const PathNodeIds& path_flow, usize pathNum, std::string& windowId, std::ostream& out_stream) {
+void Graph::GfaSerializer::DumpPathFlow(const PathNodeIds& path_flow, usize pathNum, std::string& windowId, std::ostream& out_stream) const{
   std::vector<std::string> windowSplit = absl::StrSplit(windowId,':');
-  std::string chrom = "chr" + windowSplit[0];
   std::vector<std::string> posSplit = absl::StrSplit(windowSplit[1],'-');
+
+  std::string chrom = "chr" + windowSplit[0];
   std::string start = posSplit[0];
   std::string end = posSplit[1];
 
   std::ostringstream walkStream;
-  walkStream << ">" << path_flow.cbegin()->srcId;
+  std::ostringstream pathStream;
+  std::ostringstream overlapStream;
+
+  auto startId = path_flow.cbegin()->srcId;
+  auto startNode = graphPtr->find(startId);
+  auto startDir = ToString(startNode->second->GetOrientation());
+  auto startWalk = (startDir == "F") ? '>' : '<';
+  auto startPath = (startDir == "F") ? '+' : '-';
+  walkStream << startWalk << path_flow.cbegin()->srcId;
+  pathStream << path_flow.cbegin()->srcId << "+";
+  
   std::for_each(path_flow.cbegin(), path_flow.cend(), [&](const EdgeNodeIds& ep) {
-    walkStream << absl::StreamFormat(">%d",ep.dstId);
-    //out_stream << absl::StreamFormat("%d -> %d [color=\"%f 0.85 0.85\"]", ep.srcId, ep.dstId, hue);
+    auto srcNode = graphPtr->find(ep.srcId);
+    auto dstNode = graphPtr->find(ep.dstId);
+    auto overlap = (srcNode->second->GetLength() > dstNode->second->GetLength()) ? (dstNode->second->GetLength() - 1) : (srcNode->second->GetLength() - 1);
+    auto dstDir = ToString(dstNode->second->GetOrientation());
+    auto dstWalk = (dstDir == "F") ? '>' : '<';
+    auto dstPath = (dstDir == "F") ? '+' : '-'; 
+    walkStream << dstWalk << absl::StreamFormat("%d",ep.dstId);
+    pathStream << absl::StreamFormat("%d",ep.dstId) << dstPath;
+    overlapStream << absl::StreamFormat("%dM",overlap);
   });
   out_stream << absl::StreamFormat("W\tsampleName??\t%d\t%s\t%s\t%s\t",pathNum, chrom, start, end);
   std::string walk = walkStream.str();
   out_stream << walk << "\n";
+  out_stream << absl::StreamFormat("P\t%d\t",pathNum) << pathStream.str() << "\t" << overlapStream.str();
 }
 
 auto Graph::GfaSerializer::OppositeStrandSequence(absl::string_view seq) -> std::string {
