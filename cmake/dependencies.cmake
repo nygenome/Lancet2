@@ -14,8 +14,8 @@ endfunction()
 set(LIBDEFLATE_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/libdeflate")
 set(LIBDEFLATE "${LIBDEFLATE_ROOT_DIR}/libdeflate.a")
 ExternalProject_Add(libdeflate
-        URL https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.17.tar.gz
-        URL_MD5 88cecda43f00fcffb62fd2a398f7554e
+        URL https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.14.tar.gz
+        URL_MD5 aa1d4bbf51e5521197132f10b3bdc994
         PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${LIBDEFLATE_ROOT_DIR}
         BUILD_IN_SOURCE 1 INSTALL_COMMAND "" CONFIGURE_COMMAND "" BUILD_BYPRODUCTS ${LIBDEFLATE}
         BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
