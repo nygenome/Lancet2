@@ -12,21 +12,21 @@ Lancet2 is currently under development and is not ready for production use.
 
 ## Installation
 
-#### Dependencies
+### Dependencies
 
 * [CMake](https://cmake.org/download/) >= 3.14.x
 * [C++ compiler](https://en.cppreference.com/w/cpp/compiler_support#C.2B.2B17_features) with support
   for [ISO C++17 standard](https://en.cppreference.com/w/cpp/17)
-    - Tested with GCC >= 8.x, Clang >= 7.x
+* Tested with GCC >= 8.x, Clang >= 7.x
 * [zlib](https://github.com/madler/zlib), [bzip2](https://github.com/enthought/bzip2-1.0.6)
   , [liblzma](https://tukaani.org/xz/), [cURL](https://curl.haxx.se) and [OpenSSL](https://www.openssl.org)
 
-#### Build commands
+### Build commands
 
 ```bash
 git clone https://github.com/nygenome/Lancet2.git
 cd Lancet2 && mkdir build && cd build
-cmake .. && make
+cmake -Wno-dev .. && make
 ```
 
 ## Documentation
@@ -50,4 +50,5 @@ See [publications](https://nygenome.github.io/Lancet2/docs/publications) associa
 Lancet2 is distributed under the [BSD 3-Clause License](LICENSE).
 
 ## Funding
-Informatics Technology for Cancer Research (<a href="https://itcr.cancer.gov">ITCR</a>) under the NCI U01 award <a href="https://reporter.nih.gov/project-details/10304730">1U01CA253405-01A1</a>.
+
+Informatics Technology for Cancer Research ([ITCR](https://itcr.cancer.gov)) under the NCI U01 award [1U01CA253405-01A1](https://reporter.nih.gov/project-details/10304730).

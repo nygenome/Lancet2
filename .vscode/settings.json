@@ -1,5 +1,6 @@
 {
     "cmake.configureArgs": [
+        "-Wno-dev",
         "-DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3"
     ]
 }
