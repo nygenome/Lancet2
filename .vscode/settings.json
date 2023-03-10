@@ -1,0 +1,5 @@
+{
+    "cmake.configureArgs": [
+        "-DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3"
+    ]
+}
