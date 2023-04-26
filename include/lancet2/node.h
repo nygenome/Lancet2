@@ -38,6 +38,7 @@ class Node {
   [[nodiscard]] auto GetSeqView() const noexcept -> std::string_view { return mer.GetSeqView(); }
   [[nodiscard]] auto GetOrientation() const noexcept -> Strand { return mer.GetOrientation(); }
   [[nodiscard]] auto GetLength() const noexcept -> usize { return mer.GetLength(); }
+  [[nodiscard]] auto GetLabel() const noexcept -> NodeLabel { return labels; }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mer.IsEmpty() && quals.IsEmpty() && labels.IsEmpty(); }
 
   [[nodiscard]] auto GetNodeID() const -> NodeIdentifier { return nodeID; }
