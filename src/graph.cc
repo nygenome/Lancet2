@@ -15,6 +15,7 @@
 #include "lancet2/assert_macro.h"
 #include "lancet2/canonical_kmers.h"
 #include "lancet2/dot_serializer.h"
+#include "lancet2/gfa_serializer.h"
 #include "lancet2/edmond_karp.h"
 #include "lancet2/kmer.h"
 #include "lancet2/log_macros.h"
@@ -36,7 +37,10 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
   const auto windowId = window->ToRegionString();
   LOG_DEBUG("Starting to process graph for {} with {} nodes", windowId, nodesMap.size());
   
-  if (!params->outGraphsDir.empty()) WriteDot(0, "raw_graph");
+  if (!params->outGraphsDir.empty()) {
+    WriteDot(0, "raw_graph");
+    WriteGfa(0,"raw_graph");
+  }
   RemoveLowCovNodes(0);
   nodesMap.rehash(0);
   const auto componentsInfo = MarkConnectedComponents();
@@ -52,14 +56,20 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
       return;
     }
 
-    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "before_compression");
+    if (!params->outGraphsDir.empty()) {
+      WriteDot(comp.ID, "before_compression");
+      WriteGfa(comp.ID, "before_compression");
+    }
     CompressGraph(comp.ID);
     RemoveLowCovNodes(comp.ID);
     CompressGraph(comp.ID);
     RemoveTips(comp.ID);
     RemoveShortLinks(comp.ID);
     nodesMap.rehash(0);
-    if (!params->outGraphsDir.empty()) WriteDot(comp.ID, "after_compression");
+    if (!params->outGraphsDir.empty()) {
+      WriteDot(comp.ID, "after_compression");
+      WriteGfa(comp.ID, "after_compression");
+    }
 
     if (HasCycle()) {
       shouldIncrementK = true;
@@ -73,7 +83,6 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
     EdmondKarpMaxFlow flow(&nodesMap, kmerSize, maxPathLength, params->graphTraversalLimit, params->tenxMode);
     std::vector<PathNodeIds> perPathTouches;
     auto pathPtr = flow.NextPath();
-
     while (pathPtr != nullptr) {
       numPaths++;
       if (!params->outGraphsDir.empty()) perPathTouches.emplace_back(pathPtr->TouchedEdgeIDs());
@@ -94,7 +103,9 @@ void Graph::ProcessGraph(std::vector<Variant>* results) {
 
     if (numPaths == 0) LOG_DEBUG("No path found in component{} for {} with K={}", comp.ID, windowId, kmerSize);
     if (!params->outGraphsDir.empty() && !perPathTouches.empty()) {
-      WriteDot(comp.ID, absl::MakeConstSpan(perPathTouches));
+      absl::Span<const PathNodeIds> flow_paths = absl::MakeConstSpan(perPathTouches);
+      WriteDot(comp.ID, flow_paths);
+      WriteGfa(comp.ID, flow_paths, windowId);
     }
   }
 
@@ -457,6 +468,16 @@ void Graph::WritePathFasta(std::string_view path_seq, usize comp_id, usize path_
   std::ofstream outStream(fName, std::ios::out | std::ios::app);
   outStream << absl::StreamFormat(">%s\n%s\n", pathID, path_seq);
   outStream.close();
+}
+
+void Graph::WriteGfa(usize comp_id, const std::string& suffix) const {
+  const GfaSerializer gs(this);
+  gs.WriteComponent(comp_id, suffix);
+}
+
+void Graph::WriteGfa(usize comp_id, absl::Span<const PathNodeIds> flow_paths, std::string windowId) const {
+  const GfaSerializer gs(this);
+  gs.WriteComponent(comp_id, flow_paths, windowId);
 }
 
 void Graph::WriteDot(usize comp_id, const std::string& suffix) const {

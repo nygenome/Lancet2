@@ -64,6 +64,8 @@ class Graph {
 
   void WritePathFasta(std::string_view path_seq, usize comp_id, usize path_num) const;
 
+  void WriteGfa(usize comp_id, const std::string& suffix) const;
+  void WriteGfa(usize comp_id, absl::Span<const PathNodeIds> flow_paths, std::string windowId) const;
   void WriteDot(usize comp_id, const std::string& suffix) const;
   void WriteDot(usize comp_id, absl::Span<const PathNodeIds> flow_paths) const;
 
@@ -93,6 +95,7 @@ class Graph {
   [[nodiscard]] auto find(NodeIdentifier node_id) const -> ConstNodeIterator { return nodesMap.find(node_id); }
 
   class DotSerializer;
+  class GfaSerializer;
 
  private:
   usize kmerSize = 0;
