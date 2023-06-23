@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
-  <component name="JavaScriptSettings">
-    <option name="languageLevel" value="ES6" />
+  <component name="CidrRootsConfiguration">
+    <libraryRoots>
+      <file path="$PROJECT_DIR$/cmake-build-debug" />
+      <file path="$PROJECT_DIR$/cmake-build-debug-clang16" />
+      <file path="$PROJECT_DIR$/cmake-build-debug-gcc12" />
+      <file path="$PROJECT_DIR$/cmake-build-debug-gcc12/_deps" />
+      <file path="$PROJECT_DIR$/cmake-build-release" />
+      <file path="$PROJECT_DIR$/cmake-build-release-clang16" />
+      <file path="$PROJECT_DIR$/cmake-build-release-gcc12" />
+      <file path="$PROJECT_DIR$/cmake-build-release-gcc12/_deps" />
+      <file path="$PROJECT_DIR$/external" />
+    </libraryRoots>
   </component>
 </project>

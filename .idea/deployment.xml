@@ -1,25 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" promptOnRemoteOverwrite="CHECK_TIMESTAMP" serverName="Remote Development" createEmptyFolders="true" preserveFilePermissions="true" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeDeletion="false" autoUploadExternalChanges="true" notifyRemoteChanges="true">
+    <option name="confirmBeforeDeletion" value="false" />
     <serverData>
-      <paths name="pi3dm5 (a04bc326-3984-4135-b9b7-aac099261ae9)">
+      <paths name="lancet-dev01-gcc12 (e79b4d6a-cc93-4c87-bbd1-e2df71a247cf)">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/tmp.zH7Z8bdGNl" local="$PROJECT_DIR$" />
+            <mapping deploy="Lancet2" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release-nygc-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-relwithdebinfo" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-relwithdebinfo-nygc-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-nygc-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-relwithdebinfo-pi3dm5" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
+            <excludedPath path="/Lancet2/data" />
           </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>
