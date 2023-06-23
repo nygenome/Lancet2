@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExternalDependencies">
+    <plugin id="com.intellij.cidr.lang" />
+    <plugin id="com.intellij.cidr.lang.clangd" />
+    <plugin id="org.jetbrains.plugins.clangFormat" />
+  </component>
+</project>

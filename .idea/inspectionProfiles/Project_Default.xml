@@ -1,20 +1,111 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
-    <inspection_tool class="ConstantFunctionResult" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="ConstantParameter" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="DanglingPointer" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="EndlessLoop" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="InfiniteRecursion" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="LocalValueEscapesScope" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="LoopDoesntUseConditionVariable" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="Annotator" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="ArgumentSelectionDefects" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="ClangTidy" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES">
+        <option name="clangTidyChecks" value="-*,abseil-*,bugprone-*,cert-*,cppcoreguidelines-*,modernize-*,performance-*,llvm-include-order,llvm-namespace-comment,misc-*,-misc-misleading-bidirectional,-misc-no-recursion,readability-*,-readability-function-cognitive-complexity" />
+      </scope>
+      <option name="clangTidyChecks" value="-*,abseil-*,bugprone-*,cert-*,cppcoreguidelines-*,modernize-*,performance-*,readability-*,llvm-header-guard,llvm-include-order,llvm-namespace-comment,misc-*,-misc-unused-parameters,-misc-unused-alias-decls,-misc-misleading-identifier,-misc-unused-using-decls,-misc-misleading-bidirectional,-misc-static-assert,-misc-non-private-member-variables-in-classes" />
+    </inspection_tool>
+    <inspection_tool class="ClangdErrorsAndWarnings" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="Clazy" enabled="false" level="INFORMATION" enabled_by_default="false" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="false" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="DuplicatedCode" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WEAK WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="EmptyDeclOrStmt" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="EmptyDirectory" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="GrazieInspection" enabled="false" level="GRAMMAR_ERROR" enabled_by_default="false" />
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="IncorrectFormatting" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WEAK WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="InjectedReferences" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="LanguageDetectionInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="LongLine" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="Misra" enabled="false" level="INFORMATION" enabled_by_default="false" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="false" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="NotImplementedFunctions" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCInconsistentNaming" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="TEXT_STYLE_SUGGESTION" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedConcept" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedGlobalDeclaration" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedIncludeDirective" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES">
+        <option name="strategy" value="RemoveCompletelyUnused" />
+        <option name="showInHeaders" value="true" />
+      </scope>
+    </inspection_tool>
+    <inspection_tool class="OCUnusedMacro" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedStruct" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedTemplateParameter" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="OCUnusedTypeAlias" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="PreprocessorComment" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="ProblematicWhitespace" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="ReassignedToPlainText" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="RedundantSuppression" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="Simplify" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
     <inspection_tool class="SpellCheckingInspection" enabled="false" level="TYPO" enabled_by_default="false">
       <option name="processCode" value="true" />
       <option name="processLiterals" value="true" />
       <option name="processComments" value="true" />
     </inspection_tool>
-    <inspection_tool class="UnusedLocalVariable" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="UnusedParameter" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="UnusedValue" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="SyntaxError" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="TodoComment" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="UnconstrainedVariableType" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
+    <inspection_tool class="VirtualCallInCtorOrDtor" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
+    </inspection_tool>
   </profile>
 </component>

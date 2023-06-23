@@ -2,9 +2,8 @@
 <project version="4">
   <component name="CMakeSharedSettings">
     <configurations>
-      <configuration PROFILE_NAME="Debug-pi3dm5" ENABLED="true" CONFIG_NAME="Debug" TOOLCHAIN_NAME="pi3dm5" GENERATION_OPTIONS="-G Ninja -DLANCET2_TESTS=ON -DLANCET2_BENCHMARKS=ON -DLANCET2_PROFILER=ON" />
-      <configuration PROFILE_NAME="Release-pi3dm5" ENABLED="true" CONFIG_NAME="Release" TOOLCHAIN_NAME="pi3dm5" GENERATION_OPTIONS="-G Ninja -DLANCET2_TESTS=ON -DLANCET2_BENCHMARKS=ON -DLANCET2_PROFILER=ON" />
-      <configuration PROFILE_NAME="RelWithDebInfo-pi3dm5" ENABLED="true" CONFIG_NAME="RelWithDebInfo" TOOLCHAIN_NAME="pi3dm5" GENERATION_OPTIONS="-G Ninja -DLANCET2_TESTS=ON -DLANCET2_BENCHMARKS=ON -DLANCET2_PROFILER=ON" />
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" TOOLCHAIN_NAME="lancet-dev01-gcc12" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON -DLANCET_BENCHMARKS=ON" BUILD_OPTIONS="-- -v" />
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" TOOLCHAIN_NAME="lancet-dev01-gcc12" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON" BUILD_OPTIONS="-- -v" />
     </configurations>
   </component>
 </project>
