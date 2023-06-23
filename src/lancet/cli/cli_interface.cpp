@@ -146,7 +146,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CLI::ExistingFile);
   subcmd->add_option("--padding", wb_prms.mRegionPadding, "Padding for both sides of all input regions")
       ->group("Regions")
-      ->check(CLI::Range(u32(0), u32(1000)));
+      ->check(CLI::Range(u32(0), core::WindowBuilder::MAX_ALLOWED_REGION_PAD));
   subcmd->add_option("-p,--pct-overlap", wb_prms.mPercentOverlap, "Percent overlap between consecutive windows")
       ->group("Regions")
       ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_PCT_OVERLAP, core::WindowBuilder::MAX_ALLOWED_PCT_OVERLAP));
