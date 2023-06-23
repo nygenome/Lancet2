@@ -46,6 +46,11 @@ endif ()
 FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.11.0 SYSTEM)
 FetchContent_MakeAvailable(spdlog)
 
+set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+set(LIBDEFLATE_BUILD_GZIP OFF)
+set(LIBDEFLATE_BUILD_TESTS OFF)
+set(LIBDEFLATE_USE_SHARED_LIB OFF)
 FetchContent_Declare(libdeflate GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git GIT_TAG v1.18 SYSTEM)
 FetchContent_MakeAvailable(libdeflate)
 

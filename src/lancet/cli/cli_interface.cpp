@@ -92,7 +92,7 @@ CliInterface::CliInterface()
 
   mCliApp.set_help_flag();
   mCliApp.failure_message(CLI::FailureMessage::help);
-  static constexpr usize DEFAULT_TERMINAL_FORMATTER_WIDTH = 80;
+  static constexpr usize DEFAULT_TERMINAL_FORMATTER_WIDTH = 70;
   mCliApp.get_formatter()->column_width(DEFAULT_TERMINAL_FORMATTER_WIDTH);
   mCliApp.add_flag_function("-v,--version", version_printer, "Print Lancet version information")->group("Flags");
   mCliApp.add_flag_function("-h,--help", help_printer, "Print this help message and exit")->group("Flags");
