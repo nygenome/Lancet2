@@ -1,7 +1,8 @@
 FROM gcc:13 AS builder
 LABEL maintainer="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 
-RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get --yes --no-install-recommends upgrade && \
+RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get upgrade && \
+    apt-get install --yes --no-install-recommends ca-certificates unzip git make wget gcc g++ \
     wget -cq "https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-x86_64.sh" && \
     wget -cq "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip" && \
     /bin/bash "cmake-3.26.4-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
