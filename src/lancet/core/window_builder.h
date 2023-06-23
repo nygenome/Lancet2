@@ -22,6 +22,7 @@ class WindowBuilder {
   static constexpr u32 DEFAULT_REGION_PADDING = 500;
   static constexpr u32 MIN_ALLOWED_WINDOW_LEN = 500;
   static constexpr u32 MAX_ALLOWED_WINDOW_LEN = 5000;
+  static constexpr u32 MAX_ALLOWED_REGION_PAD = 1000;
 
   struct Params {
     u32 mWindowLength = DEFAULT_WINDOW_LENGTH;
