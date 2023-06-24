@@ -116,7 +116,7 @@ class Graph {
 
   [[nodiscard]] static auto CanonicalKmerHash(std::string_view seq) -> u64;
   [[nodiscard]] static auto HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool;
-  [[nodiscard]] static auto AnchorLen(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
+  [[nodiscard]] static auto RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
 
   enum State { NO_LOW_COV = 0, REF_ANCHORS = 1, PRUNED_GRAPH = 2 };
   void WriteDot(State state, usize comp_id);

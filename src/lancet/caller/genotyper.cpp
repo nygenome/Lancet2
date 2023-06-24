@@ -37,8 +37,8 @@ Genotyper::Genotyper() {
   mMappingOpts->best_n = 1;
 }
 
-auto Genotyper::Genotype(RefHap ref, AltHaps alts, Reads reads, const VariantSet& vset) -> Result {
-  ResetData(ref, alts);
+auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result {
+  ResetData(haplotypes);
 
   Result genotyped_variants;
   static constexpr usize DEFAULT_EXPECTED_SAMPLES_COUNT = 2;
@@ -175,9 +175,10 @@ auto Genotyper::AlnInfo::FindIdentityRanges() const -> RefQryIdentityRanges {
 }
 
 auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
-                                        const StartEndIndices& allele_span) -> std::optional<usize> {
-  // First find if the variant allele range is contained within any of the ref/haplotype match ranges
-  // If variant allele is contained within one of the ranges then return variant start idx for read
+                                        const StartEndIndices& allele_span) const -> std::optional<usize> {
+  // First, find if the variant allele range is contained within any of the ref/haplotype match ranges
+  // Second, check if 100% of the qry is contained within the variant allele i.e variant longer than read
+  // If either of these two scenarios happen, we return the start idx in read which supports variant
 
   const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
   const auto [var_allele_start, var_allele_end] = allele_span;
@@ -185,27 +186,32 @@ auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equa
 
   for (usize idx = 0; idx < hap_identity_ranges.size(); ++idx) {
     const auto [aln_hap_match_start, aln_hap_match_end] = hap_identity_ranges[idx];
+    const auto [read_match_start, read_match_end] = read_identity_ranges[idx];
+    // Check if alignment has exact match with variant allele within it
     if (aln_hap_match_start <= var_allele_start && aln_hap_match_end >= var_allele_end) {
       const auto allele_to_hap_match_start_diff = var_allele_start - aln_hap_match_start;
-      const auto read_match_start = read_identity_ranges[idx][0];
       return read_match_start + allele_to_hap_match_start_diff;
+    }
+
+    // Check if 100% of alignment length is contained within variant allele span
+    // This will only happen if variant is longer than the read length itself
+    const auto full_read_match = (read_match_end - read_match_start) == mQryLen && mGcIden == 1.0;
+    if (full_read_match && var_allele_start <= aln_hap_match_start && var_allele_end >= aln_hap_match_end) {
+      return read_identity_ranges[idx][0];
     }
   }
 
   return std::nullopt;
 }
 
-void Genotyper::ResetData(RefHap ref, AltHaps alts) {
+void Genotyper::ResetData(Haplotypes sequences) {
   mIndices.clear();
-  mIndices.reserve(alts.size() + 1);
+  mIndices.reserve(sequences.size() + 1);
 
-  const char* seq_ref = ref.SeqData();
   const auto* iopts = mIndexingOpts.get();
-
-  mIndices.emplace_back(Minimap2Index(mm_idx_str(iopts->w, iopts->k, 0, iopts->bucket_bits, 1, &seq_ref, nullptr)));
-  std::ranges::for_each(alts, [this, &iopts](const std::string& alt_seq) {
-    const char* raw_alt = alt_seq.c_str();
-    auto* idx_result = mm_idx_str(iopts->w, iopts->k, 0, iopts->bucket_bits, 1, &raw_alt, nullptr);
+  std::ranges::for_each(sequences, [this, &iopts](const std::string& seq) {
+    const char* raw_seq = seq.c_str();
+    auto* idx_result = mm_idx_str(iopts->w, iopts->k, 0, iopts->bucket_bits, 1, &raw_seq, nullptr);
     this->mIndices.emplace_back(Minimap2Index(idx_result));
   });
 
@@ -242,6 +248,7 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
     aln_info.mDpScore = top_hit->score;
     aln_info.mGcIden = mm_event_identity(top_hit);
     aln_info.mHapIdx = idx;
+    aln_info.mQryLen = read.Length();
 
     int max_len = 0;
     char* cs_result_ptr = nullptr;
