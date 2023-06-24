@@ -68,7 +68,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   const auto num_vars = vset.Count();
-  LOG_DEBUG("Found {} variant(s) for window {} from MSA of reference and {} haplotypes", num_vars, reg_str, nalts)
+  LOG_DEBUG("Found variant(s) for window {} from MSA of reference and {} haplotypes", reg_str, nalts)
 
   const auto klen = mDebruijnGraph.CurrentK();
   const auto &vprms = mParamsPtr->mVariantParams;
@@ -81,7 +81,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   mCurrentCode = StatusCode::FOUND_GENOTYPED_VARIANT;
-  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", num_vars, reg_str)
+  LOG_DEBUG("Genotyped variant(s) for window {} by re-aligning sample reads", reg_str)
   return variants;
 }
 
