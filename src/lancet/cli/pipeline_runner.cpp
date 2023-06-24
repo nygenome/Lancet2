@@ -145,6 +145,7 @@ void PipelineRunner::Run() {
   }
 
   hts::BgzfOstream output_vcf;
+  std::filesystem::create_directories(mParamsPtr->mOutVcfGz.parent_path());
   if (!output_vcf.Open(mParamsPtr->mOutVcfGz, hts::BgzfFormat::VCF)) {
     LOG_CRITICAL("Could not open output VCF file: {}", mParamsPtr->mOutVcfGz.string())
     std::exit(EXIT_FAILURE);
