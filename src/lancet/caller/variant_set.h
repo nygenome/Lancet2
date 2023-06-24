@@ -46,11 +46,12 @@ class VariantSet {
  private:
   absl::btree_set<RawVariant> mResultVariants;
 
+  using EndsGap = std::array<usize, 2>;
   using StartAndEnd = std::array<usize, 2>;
   using VarRanges = std::vector<StartAndEnd>;
   using Alignment = std::array<std::string_view, 2>;
-  [[nodiscard]] static auto FindVariationRanges(const Alignment& aln_view, const StartAndEnd& gapfree) -> VarRanges;
-  [[nodiscard]] static auto EndGapsFreeRange(absl::Span<const std::string_view> msa_view) -> StartAndEnd;
+  [[nodiscard]] static auto FindVariationRanges(const Alignment& aln_view, const EndsGap& gap_counts) -> VarRanges;
+  [[nodiscard]] static auto CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap;
 };
 
 }  // namespace lancet::caller
