@@ -188,13 +188,13 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
       auto range_start = static_cast<usize>(std::distance(ref_aln.begin(), mis_start));
       const auto range_end = static_cast<usize>(std::distance(ref_aln.begin(), mis_end) - 1);
 
-      while (range_start > 0 && ref_aln[range_start] == ALN_GAP || alt_aln[range_start] == ALN_GAP) {
+      while (range_start > 0 && (ref_aln[range_start] == ALN_GAP || alt_aln[range_start] == ALN_GAP)) {
         range_start--;
       }
 
       // Left align the variant if we are at an InDel/MNP, so that get normalized variant range
       const auto is_indel_or_mnp = ((range_end - range_start) > 1) || (range_start != range_end);
-      while (range_start > 0 && is_indel_or_mnp && ref_aln[range_start] != alt_aln[range_start]) {
+      while (range_start > 0 && (is_indel_or_mnp && ref_aln[range_start] != alt_aln[range_start])) {
         range_start--;
       }
 
