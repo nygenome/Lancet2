@@ -138,14 +138,18 @@ void PipelineRunner::Run() {
 
   ValidateAndPopulateParams();
   if (!mParamsPtr->mVariantBuilder.mOutGraphsDir.empty()) {
-    // Set CBDG out graphs directory parameter as well and create new out graphs root diretory
+    // Set out graphs directory parameter as well and create new out graphs root diretory
     mParamsPtr->mVariantBuilder.mGraphParams.mOutGraphsDir = mParamsPtr->mVariantBuilder.mOutGraphsDir;
     std::filesystem::remove_all(mParamsPtr->mVariantBuilder.mOutGraphsDir);
     std::filesystem::create_directories(mParamsPtr->mVariantBuilder.mOutGraphsDir);
   }
 
+  mParamsPtr->mOutVcfGz = std::filesystem::absolute(mParamsPtr->mOutVcfGz);
+  if (!std::filesystem::exists(mParamsPtr->mOutVcfGz.parent_path())) {
+    std::filesystem::create_directories(mParamsPtr->mOutVcfGz.parent_path());
+  }
+
   hts::BgzfOstream output_vcf;
-  std::filesystem::create_directories(mParamsPtr->mOutVcfGz.parent_path());
   if (!output_vcf.Open(mParamsPtr->mOutVcfGz, hts::BgzfFormat::VCF)) {
     LOG_CRITICAL("Could not open output VCF file: {}", mParamsPtr->mOutVcfGz.string())
     std::exit(EXIT_FAILURE);
