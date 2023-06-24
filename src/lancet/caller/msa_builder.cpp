@@ -12,12 +12,12 @@ namespace {
 using AlnEngine = std::unique_ptr<spoa::AlignmentEngine>;
 inline auto BuildAlnEngine(absl::Span<const std::string> seqs) -> AlnEngine {
   static constexpr i8 MATCH = 1;
-  static constexpr i8 MISMATCH = -4;
-  static constexpr i8 OPEN1 = -26;
+  static constexpr i8 MISMATCH = -19;
+  static constexpr i8 OPEN1 = -81;
   static constexpr i8 EXTEND1 = -1;
-  static constexpr i8 OPEN2 = -6;
+  static constexpr i8 OPEN2 = -39;
   static constexpr i8 EXTEND2 = -2;
-  // asm20 from minimap2 -> https://lh3.github.io/minimap2/minimap2.html -> aligns sequences upto 20% divergence well
+  // asm5 from minimap2 -> https://lh3.github.io/minimap2/minimap2.html -> assembly to same species ref scoring
   // https://curiouscoding.nl/posts/pairwise-alignment -> Convex affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
   auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kSW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
   const auto* longest_seq = std::ranges::max_element(seqs, std::less<>(), &std::string::size);
