@@ -80,13 +80,13 @@ VariantSet::VariantSet(const MsaBuilder &bldr, const core::Window &win) {
   LANCET_ASSERT(std::ranges::all_of(msa, [&msa](std::string_view seq) { return seq.size() == msa[0].size(); }))
 
   // Walk through each pairwise REF-ALT alignment in the MSA
-  const auto gapless_range = EndGapsFreeRange(absl::MakeConstSpan(msa));
+  const auto ends_gap_counts = CountEndsGap(absl::MakeConstSpan(msa));
   for (usize alt_hap_idx = 1; alt_hap_idx < num_msa_seqs; ++alt_hap_idx) {
     const auto ref_aln = msa[REF_HAP_IDX];
     const auto alt_aln = msa[alt_hap_idx];
     const auto alt_sequence = bldr.FetchHaplotypeSeqView(alt_hap_idx);
 
-    for (const auto &mismatch : FindVariationRanges({ref_aln, alt_aln}, gapless_range)) {
+    for (const auto &mismatch : FindVariationRanges({ref_aln, alt_aln}, ends_gap_counts)) {
       auto ref_allele = std::move(BuildAllele(msa[REF_HAP_IDX], mismatch));
       auto alt_allele = std::move(BuildAllele(msa[alt_hap_idx], mismatch));
       const auto num_superfluous = RemoveSuperfluousBases(ref_allele, alt_allele);
@@ -151,23 +151,23 @@ auto VariantSet::FindOverlappingVariants(const usize hap_idx, const StartEndRang
   return results;
 }
 
-auto VariantSet::FindVariationRanges(const Alignment &aln_view, const StartAndEnd &gapfree) -> VarRanges {
+auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &gap_counts) -> VarRanges {
   const auto [ref_aln, alt_aln] = aln_view;
   LANCET_ASSERT(ref_aln.size() == alt_aln.size())
 
   // Skip all left and right flanking gaps from alignment
-  const auto [gap_free_start, gap_free_end] = gapfree;
+  const auto [start_gaps, end_gaps] = gap_counts;
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (gap_free_start >= gap_free_end || gap_free_end > ref_aln.size()) return {};
+  if ((start_gaps + end_gaps) >= ref_aln.size()) return {};
 
   std::vector<StartAndEnd> mismatch_ranges;
   static constexpr usize ESTIMATED_NUM_RANGES_TO_ALLOCATE = 32;
   mismatch_ranges.reserve(ESTIMATED_NUM_RANGES_TO_ALLOCATE);
 
-  const auto *itr_ref = ref_aln.begin() + gap_free_start;
-  const auto *itr_alt = alt_aln.begin() + gap_free_start;
-  const auto *const end_itr_ref = ref_aln.begin() + gap_free_end;
-  const auto *const end_itr_alt = alt_aln.begin() + gap_free_end;
+  const auto *itr_ref = ref_aln.begin() + start_gaps;
+  const auto *itr_alt = alt_aln.begin() + start_gaps;
+  const auto *const end_itr_ref = ref_aln.end() - end_gaps;
+  const auto *const end_itr_alt = alt_aln.end() - end_gaps;
 
   while (itr_ref != end_itr_ref && itr_alt != end_itr_alt) {
     // std::mismatch returns a pair of iterators to the first mismatching elements of two ranges
@@ -188,20 +188,18 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const StartAndEn
       auto range_start = static_cast<usize>(std::distance(ref_aln.begin(), mis_start));
       const auto range_end = static_cast<usize>(std::distance(ref_aln.begin(), mis_end) - 1);
 
-      while (range_start > 1 && ref_aln[range_start] == ALN_GAP || alt_aln[range_start] == ALN_GAP) {
+      while (range_start > 0 && ref_aln[range_start] == ALN_GAP || alt_aln[range_start] == ALN_GAP) {
         range_start--;
       }
 
       // Left align the variant if we are at an InDel/MNP, so that get normalized variant range
       const auto is_indel_or_mnp = ((range_end - range_start) > 1) || (range_start != range_end);
-      while (range_start > 1 && is_indel_or_mnp && ref_aln[range_start] != alt_aln[range_start]) {
+      while (range_start > 0 && is_indel_or_mnp && ref_aln[range_start] != alt_aln[range_start]) {
         range_start--;
       }
 
-      LANCET_ASSERT(range_start < gap_free_end)
-      LANCET_ASSERT(range_end < gap_free_end)
-      // Check to make sure that range_start-- doesn't wrap below 0 to SIZE_MAX
-      if (range_start < gap_free_end) {
+      // Check to make sure that range_start doesn't go below start gaps
+      if (range_start >= start_gaps) {
         mismatch_ranges.emplace_back(StartAndEnd{range_start, range_end});
       }
 
@@ -216,21 +214,22 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const StartAndEn
   return mismatch_ranges;
 }
 
-auto VariantSet::EndGapsFreeRange(absl::Span<const std::string_view> msa_view) -> StartAndEnd {
-  usize start_idx = 0;
-  usize end_idx = msa_view[REF_HAP_IDX].length() - 1;
-  const auto aln_has_start_gap = [&start_idx](const std::string_view aln) -> bool { return aln[start_idx] == ALN_GAP; };
-  const auto aln_has_end_gap = [&end_idx](const std::string_view aln) -> bool { return aln[end_idx] == ALN_GAP; };
-
-  while (std::ranges::all_of(msa_view, aln_has_start_gap)) {
-    ++start_idx;
+auto VariantSet::CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap {
+  usize start_gaps = 0;
+  const auto has_start_gap = [&start_gaps](const std::string_view aln) -> bool { return aln[start_gaps] == ALN_GAP; };
+  while (std::ranges::all_of(msa_view, has_start_gap)) {
+    ++start_gaps;
   }
 
+  usize end_gaps = 0;
+  i64 end_idx = static_cast<i64>(msa_view[REF_HAP_IDX].length()) - 1;
+  const auto aln_has_end_gap = [&end_idx](const std::string_view aln) -> bool { return aln[end_idx] == ALN_GAP; };
   while (std::ranges::all_of(msa_view, aln_has_end_gap)) {
     --end_idx;
+    ++end_gaps;
   }
 
-  return {start_idx, end_idx};
+  return {start_gaps, end_gaps};
 }
 
 }  // namespace lancet::caller
