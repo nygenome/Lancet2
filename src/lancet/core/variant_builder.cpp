@@ -48,39 +48,40 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
 
   const auto total_cov = SampleInfo::TotalMeanCov(samples, window->Length());
   LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str, reads.size(), total_cov)
-  const auto haplotype_paths = mDebruijnGraph.MakeHaplotypes(window->AsRegionPtr(), reads);
-  if (haplotype_paths.empty()) {
+  // First haplotype will always be the reference haplotype sequence for the graph
+  const auto haplotypes = mDebruijnGraph.MakeHaplotypes(window->AsRegionPtr(), reads);
+  const auto nalts = haplotypes.size() - 1;
+  if (nalts == 0) {
     LOG_DEBUG("Could not assemble any haplotypes for window {} with k={}", reg_str, mDebruijnGraph.CurrentK())
     mCurrentCode = StatusCode::SKIPPED_NOASM_HAPLOTYPE;
     return {};
   }
 
-  const auto nhaps = haplotype_paths.size();
-  LOG_DEBUG("Building POA based MSA for window {} with ref anchor and {} haplotypes", reg_str, nhaps)
-  const absl::Span<const std::string> alt_seqs = absl::MakeConstSpan(haplotype_paths);
-  const caller::MsaBuilder msa_builder(window->AsRegionPtr(), alt_seqs, MakeGfaPath(*window));
+  LOG_DEBUG("Building POA based MSA for window {} with reference and {} haplotypes", reg_str, nalts)
+  const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(haplotypes);
+  const caller::MsaBuilder msa_builder(ref_and_alt_haps, MakeGfaPath(*window));
   const caller::VariantSet vset(msa_builder, *window);
   if (vset.IsEmpty()) {
-    LOG_DEBUG("No variants found for window {} from MSA of ref anchor and {} haplotypes", reg_str, nhaps)
+    LOG_DEBUG("No variants found for window {} from MSA of reference and {} haplotypes", reg_str, nalts)
     mCurrentCode = StatusCode::MISSING_NO_MSA_VARIANTS;
     return {};
   }
 
-  const auto var_cnt = vset.Count();
-  LOG_DEBUG("Found {} variant(s) for window {} from MSA of ref anchor and {} haplotypes", var_cnt, reg_str, nhaps)
+  const auto num_vars = vset.Count();
+  LOG_DEBUG("Found {} variant(s) for window {} from MSA of reference and {} haplotypes", num_vars, reg_str, nalts)
 
   const auto klen = mDebruijnGraph.CurrentK();
   const auto &vprms = mParamsPtr->mVariantParams;
 
   WindowResults variants;
-  variants.reserve(var_cnt);
+  variants.reserve(num_vars);
 
-  for (auto &&[var_ptr, evidence] : mGenotyper.Genotype(*region, alt_seqs, reads, vset)) {
+  for (auto &&[var_ptr, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
     variants.emplace_back(std::make_unique<caller::VariantCall>(var_ptr, std::move(evidence), samples, vprms, klen));
   }
 
   mCurrentCode = StatusCode::FOUND_GENOTYPED_VARIANT;
-  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", var_cnt, reg_str)
+  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", num_vars, reg_str)
   return variants;
 }
 

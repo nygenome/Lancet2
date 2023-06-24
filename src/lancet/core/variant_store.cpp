@@ -65,18 +65,21 @@ void VariantStore::ExtractKeysAndDumpToStream(absl::Span<const Key> keys, std::o
   std::vector<Value> variants;
   variants.reserve(keys.size());
 
+  using caller::RawVariant::State::NONE;
+  using caller::RawVariant::Type::REF;
+  static const auto has_no_support = [](const Value &item) -> bool {
+    return item->Category() == REF || item->State() == NONE || item->Quality() == 0;
+  };
+
   std::ranges::for_each(keys, [&variants, this](const Key &key) {
     auto handle = this->mData.extract(key);
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (!handle.empty()) variants.emplace_back(std::move(handle.mapped()));
+    if (handle.empty() || has_no_support(handle.mapped())) return;
+    variants.emplace_back(std::move(handle.mapped()));
   });
 
   std::ranges::sort(variants, [](const Value &lhs, const Value &rhs) -> bool { return *lhs < *rhs; });
-  std::ranges::for_each(variants, [&out](const Value &item) {
-    if (item->Category() != caller::RawVariant::Type::REF && item->State() != caller::RawVariant::State::NONE) {
-      fmt::print(out, "{}\n", item->AsVcfRecord());
-    }
-  });
+  std::ranges::for_each(variants, [&out](const Value &item) { fmt::print(out, "{}\n", item->AsVcfRecord()); });
 
   out.flush();
   LOG_DEBUG("Flushed {} variants from store to output VCF file", variants.size())

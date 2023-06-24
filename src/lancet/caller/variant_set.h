@@ -46,11 +46,11 @@ class VariantSet {
  private:
   absl::btree_set<RawVariant> mResultVariants;
 
-  using StartEndIndices = std::array<usize, 2>;
-  using VariationRanges = std::vector<StartEndIndices>;
-  using PairwiseAlignment = std::array<std::string_view, 2>;
-  [[nodiscard]] static auto FindVariationRanges(const PairwiseAlignment& alignment_view) -> VariationRanges;
-  [[nodiscard]] static auto EndGapsFreeRange(const PairwiseAlignment& alignment_view) -> StartEndIndices;
+  using StartAndEnd = std::array<usize, 2>;
+  using VarRanges = std::vector<StartAndEnd>;
+  using Alignment = std::array<std::string_view, 2>;
+  [[nodiscard]] static auto FindVariationRanges(const Alignment& aln_view, const StartAndEnd& gapfree) -> VarRanges;
+  [[nodiscard]] static auto EndGapsFreeRange(absl::Span<const std::string_view> msa_view) -> StartAndEnd;
 };
 
 }  // namespace lancet::caller

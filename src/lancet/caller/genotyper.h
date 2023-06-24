@@ -25,12 +25,11 @@ class Genotyper {
   void SetNumSamples(const usize num_samples) { mNumSamples = num_samples; }
 
   using Reads = absl::Span<const cbdg::Read>;
-  using RefHap = const hts::Reference::Region&;
-  using AltHaps = absl::Span<const std::string>;
+  using Haplotypes = absl::Span<const std::string>;
 
   using PerSampleVariantEvidence = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
   using Result = absl::flat_hash_map<const RawVariant*, PerSampleVariantEvidence>;
-  [[nodiscard]] auto Genotype(RefHap item, AltHaps alts, Reads reads, const VariantSet& vset) -> Result;
+  [[nodiscard]] auto Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result;
 
   class AlnInfo {
    public:
@@ -42,6 +41,7 @@ class Genotyper {
     i32 mDpScore = -1;
     f64 mGcIden = 0.0;
     usize mHapIdx = 0;
+    usize mQryLen = 0;
     std::string mCsTag;
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
@@ -57,8 +57,8 @@ class Genotyper {
     using RefQryIdentityRanges = std::array<IdentityRanges, 2>;
 
     [[nodiscard]] auto FindIdentityRanges() const -> RefQryIdentityRanges;
-    [[nodiscard]] static auto FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
-                                             const StartEndIndices& allele_span) -> std::optional<usize>;
+    [[nodiscard]] auto FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
+                                      const StartEndIndices& allele_span) const -> std::optional<usize>;
   };
 
  private:
@@ -82,7 +82,7 @@ class Genotyper {
   IndexingOpts mIndexingOpts = std::make_unique<mm_idxopt_t>();
   ThreadBuffer mThreadBuffer = ThreadBuffer(mm_tbuf_init());
 
-  void ResetData(RefHap ref, AltHaps alts);
+  void ResetData(Haplotypes seq);
 
   [[nodiscard]] auto AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo>;
 

@@ -28,7 +28,7 @@ auto Graph::MakeHaplotypes(RegionPtr region, ReadList reads) -> std::vector<std:
   mRegion = std::move(region);
 
   Timer timer;
-  std::vector<std::string> alt_hap_paths;
+  std::vector<std::string> haplotypes;
   absl::flat_hash_set<MateMer> mate_mers;
 
   static constexpr usize DEFAULT_MIN_ANCHOR_LENGTH = 250;
@@ -69,11 +69,11 @@ IncrementKmerAndRetry:
         continue;
       }
 
-      const auto anchor_len = AnchorLen(source, sink, mCurrK);
+      const auto current_anchor_length = RefAnchorLength(source, sink, mCurrK);
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (anchor_len < DEFAULT_MIN_ANCHOR_LENGTH) continue;
+      if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH) continue;
 
-      LOG_TRACE("Found {}bp anchor for {} comp={} with k={}", anchor_len, reg_str, comp_id, mCurrK)
+      LOG_TRACE("Found {}bp anchor for {} comp={} with k={}", current_anchor_length, reg_str, comp_id, mCurrK)
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
@@ -104,7 +104,7 @@ IncrementKmerAndRetry:
 
       while (path_seq) {
         LOG_TRACE("Assembled {}bp path sequence for {} with k={}", path_seq->length(), reg_str, mCurrK)
-        alt_hap_paths.emplace_back(std::move(*path_seq));
+        haplotypes.emplace_back(std::move(*path_seq));
         path_seq = max_flow.NextPath();
       }
     }
@@ -113,13 +113,14 @@ IncrementKmerAndRetry:
   }
 
 DoneAssembling:
-  std::ranges::sort(alt_hap_paths);
-  const auto dup_range = std::ranges::unique(alt_hap_paths);
-  alt_hap_paths.erase(dup_range.begin(), dup_range.end());
+  std::ranges::sort(haplotypes);
+  const auto dup_range = std::ranges::unique(haplotypes);
+  haplotypes.erase(dup_range.begin(), dup_range.end());
+  haplotypes.emplace(haplotypes.begin(), mRegion->SeqView());
 
   const auto human_rt = timer.HumanRuntime();
-  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", alt_hap_paths.size(), reg_str, mCurrK, human_rt)
-  return alt_hap_paths;
+  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", haplotypes.size(), reg_str, mCurrK, human_rt)
+  return haplotypes;
 }
 
 void Graph::CompressGraph(const usize component_id) {
@@ -657,7 +658,7 @@ auto Graph::HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool {
          HasApproximateRepeat(absl::MakeConstSpan(klen_seqs), NUM_ALLOWED_MISMATCHES);
 }
 
-auto Graph::AnchorLen(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize {
+auto Graph::RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize {
   return sink.mRefOffset - source.mRefOffset + currk;
 }
 
