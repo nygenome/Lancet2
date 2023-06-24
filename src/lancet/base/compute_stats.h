@@ -1,5 +1,5 @@
-#ifndef SRC_LANCET_BASE_ONLINE_STATS_H_
-#define SRC_LANCET_BASE_ONLINE_STATS_H_
+#ifndef SRC_LANCET_BASE_COMPUTE_STATS_H_
+#define SRC_LANCET_BASE_COMPUTE_STATS_H_
 
 #include <algorithm>
 #include <cmath>
@@ -85,4 +85,23 @@ class OnlineStats {
   f64 mMoment2 = 0.0;
 };
 
-#endif  // SRC_LANCET_BASE_ONLINE_STATS_H_
+template <Number T>
+[[nodiscard]] static inline auto Median(absl::Span<const T> data) -> T {
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (data.empty()) return 0;
+
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (data.size() == 1) return data[0];
+
+  std::vector<T> dcopy(data.cbegin(), data.cend());
+  std::nth_element(dcopy.begin(), dcopy.begin() + data.length() / 2, dcopy.end());
+  const T half_item = dcopy[data.length() / 2];
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (data.length() % 2 == 1) return half_item;
+
+  std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2) - 1, dcopy.end());
+  const T half_minus_one_item = dcopy[(data.length() / 2) - 1];
+  return (half_item + half_minus_one_item) / 2;
+}
+
+#endif  // SRC_LANCET_BASE_COMPUTE_STATS_H_
