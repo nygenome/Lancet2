@@ -3,9 +3,6 @@ include(FetchContent)
 include(ProcessorCount)
 ProcessorCount(NumCores)
 find_program(MAKE_EXE NAMES gmake nmake make REQUIRED)
-find_program(AUTOCONF_EXE NAMES autoconf REQUIRED)
-find_program(AUTOHEADER_EXE NAMES autoheader REQUIRED)
-find_program(AUTORECONF_EXE NAMES autoreconf REQUIRED)
 
 message(STATUS "Setting up library dependencies required for the build")
 function(message)
@@ -24,12 +21,8 @@ set(MI_BUILD_STATIC ON)
 set(MI_BUILD_SHARED OFF)
 set(MI_BUILD_OBJECT OFF)
 set(MI_BUILD_TESTS OFF)
-if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-	set(MI_DEBUG_FULL ON)
-endif ()
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
-target_compile_options(mimalloc-static PRIVATE "-Wno-stringop-overflow")
 
 FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 94d77fe SYSTEM)
 FetchContent_GetProperties(abseil)
@@ -45,6 +38,45 @@ endif ()
 
 FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.11.0 SYSTEM)
 FetchContent_MakeAvailable(spdlog)
+
+FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.3.2 SYSTEM)
+FetchContent_MakeAvailable(cli11)
+
+FetchContent_Declare(wyhash GIT_REPOSITORY https://github.com/wangyi-fudan/wyhash.git GIT_TAG 77e50f2 SYSTEM)
+FetchContent_GetProperties(wyhash)
+if (NOT wyhash_POPULATED)
+	FetchContent_Populate(wyhash)
+	add_library(wyhash INTERFACE)
+	target_include_directories(wyhash SYSTEM INTERFACE "${wyhash_SOURCE_DIR}")
+endif ()
+
+set(MRMR3_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3")
+set(MRMR3_H "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.h")
+set(MRMR3_CPP "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.cpp")
+set(MRMR3_URL "https://raw.githubusercontent.com/aappleby/smhasher/master/src")
+file(MAKE_DIRECTORY "${MRMR3_ROOT}")
+file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.cpp" "${MRMR3_CPP}" EXPECTED_MD5 "3425d5e59cb3df3c6c5e31c7094d9aa6")
+file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.h" "${MRMR3_H}" EXPECTED_MD5 "73aad07ed2b324775d23d2a29cd12f8f")
+add_library(MurmurHash3 STATIC "${MRMR3_CPP}" "${MRMR3_H}")
+target_include_directories(MurmurHash3 SYSTEM PUBLIC "${MRMR3_ROOT}")
+
+set(CONCURRENTQUEUE_GIT_REPO "https://github.com/cameron314/concurrentqueue.git")
+FetchContent_Declare(concurrentqueue GIT_REPOSITORY ${CONCURRENTQUEUE_GIT_REPO} GIT_TAG v1.0.4 SYSTEM)
+FetchContent_GetProperties(concurrentqueue)
+if (NOT concurrentqueue_POPULATED)
+	FetchContent_Populate(concurrentqueue)
+	add_library(concurrentqueue INTERFACE)
+	target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
+endif ()
+
+set(ROARING_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/roaring")
+set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v1.3.0")
+file(MAKE_DIRECTORY "${ROARING_ROOT}")
+file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "a9440ccdb38715aac83fca86dc4809d0")
+file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "fe2b2d24d80c4df5f8dfdf6138564426")
+file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "b141f2f268d067e522eed161f480c714")
+add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
+target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
 
 set(LIBDEFLATE_BUILD_STATIC_LIB ON)
 set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
@@ -71,27 +103,6 @@ endif ()
 FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.2 SYSTEM)
 FetchContent_MakeAvailable(zlib-ng)
 
-set(BZIP2_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/bzip2")
-set(LIB_BZ2 "${BZIP2_ROOT_DIR}/libbz2.a")
-ExternalProject_Add(bzip2
-		GIT_REPOSITORY git://sourceware.org/git/bzip2.git GIT_TAG bzip2-1.0.8
-		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${BZIP2_ROOT_DIR}
-		BUILD_IN_SOURCE 1 CONFIGURE_COMMAND "" INSTALL_COMMAND ""
-		BUILD_COMMAND ${MAKE_EXE} -j${NumCores} libbz2.a "CFLAGS=${CMAKE_C_FLAGS_RELEASE}"
-		BUILD_BYPRODUCTS ${LIB_BZ2} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
-		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
-
-set(LZMA_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/xz")
-set(LIB_LZMA "${LZMA_ROOT_DIR}/lib/liblzma.a")
-set(LZMA_CONFIG_PARAMS ${LZMA_ROOT_DIR} ${CMAKE_C_COMPILER})
-ExternalProject_Add(lzma
-		URL https://tukaani.org/xz/xz-5.4.3.tar.gz URL_MD5 d48f46cd5792e331712c0ef300206df2
-		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${LZMA_ROOT_DIR}
-		BUILD_IN_SOURCE 1 INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE}
-		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_lzma.sh ${LZMA_CONFIG_PARAMS}
-		BUILD_BYPRODUCTS ${LIB_LZMA} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
-		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
-
 set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(LIB_HTS "${HTSLIB_ROOT_DIR}/libhts.a")
 set(HTSLIB_CONFIG_PARAMS ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER})
@@ -103,7 +114,7 @@ ExternalProject_Add(htslib
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_htslib.sh ${HTSLIB_CONFIG_PARAMS}
 		LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON USES_TERMINAL_DOWNLOAD OFF
 		USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
-add_dependencies(htslib zlibstatic bzip2 lzma libdeflate_static)
+add_dependencies(htslib zlibstatic libdeflate_static)
 
 set(MM2_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/minimap2")
 set(LIB_MM2 "${MM2_ROOT_DIR}/libminimap2.a")
@@ -130,48 +141,9 @@ ExternalProject_Add(gperftools
 		BUILD_BYPRODUCTS ${LIB_PROFILER} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
 
-FetchContent_Declare(wyhash GIT_REPOSITORY https://github.com/wangyi-fudan/wyhash.git GIT_TAG 77e50f2 SYSTEM)
-FetchContent_GetProperties(wyhash)
-if (NOT wyhash_POPULATED)
-	FetchContent_Populate(wyhash)
-	add_library(wyhash INTERFACE)
-	target_include_directories(wyhash SYSTEM INTERFACE "${wyhash_SOURCE_DIR}")
-endif ()
-
 set(spoa_optimize_for_native OFF)
 FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 08957f6 SYSTEM)
 FetchContent_MakeAvailable(spoa)
-
-FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.3.2 SYSTEM)
-FetchContent_MakeAvailable(cli11)
-
-set(CONCURRENTQUEUE_GIT_REPO "https://github.com/cameron314/concurrentqueue.git")
-FetchContent_Declare(concurrentqueue GIT_REPOSITORY ${CONCURRENTQUEUE_GIT_REPO} GIT_TAG v1.0.4 SYSTEM)
-FetchContent_GetProperties(concurrentqueue)
-if (NOT concurrentqueue_POPULATED)
-	FetchContent_Populate(concurrentqueue)
-	add_library(concurrentqueue INTERFACE)
-	target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
-endif ()
-
-set(ROARING_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/roaring")
-set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v1.3.0")
-file(MAKE_DIRECTORY "${ROARING_ROOT}")
-file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "a9440ccdb38715aac83fca86dc4809d0")
-file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "fe2b2d24d80c4df5f8dfdf6138564426")
-file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "b141f2f268d067e522eed161f480c714")
-add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
-target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
-
-set(MRMR3_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3")
-set(MRMR3_H "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.h")
-set(MRMR3_CPP "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.cpp")
-set(MRMR3_URL "https://raw.githubusercontent.com/aappleby/smhasher/master/src")
-file(MAKE_DIRECTORY "${MRMR3_ROOT}")
-file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.cpp" "${MRMR3_CPP}" EXPECTED_MD5 "3425d5e59cb3df3c6c5e31c7094d9aa6")
-file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.h" "${MRMR3_H}" EXPECTED_MD5 "73aad07ed2b324775d23d2a29cd12f8f")
-add_library(MurmurHash3 STATIC "${MRMR3_CPP}" "${MRMR3_H}")
-target_include_directories(MurmurHash3 SYSTEM PUBLIC "${MRMR3_ROOT}")
 
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")

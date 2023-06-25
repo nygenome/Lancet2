@@ -663,7 +663,7 @@ auto Graph::CanonicalKmerHash(std::string_view seq) -> u64 {
 
 auto Graph::HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool {
   const auto klen_seqs = SlidingView(seq, window);
-  static constexpr i64 NUM_ALLOWED_MISMATCHES = 2;
+  static constexpr usize NUM_ALLOWED_MISMATCHES = 3;
 
   return HasExactRepeat(absl::MakeConstSpan(klen_seqs)) ||
          HasApproximateRepeat(absl::MakeConstSpan(klen_seqs), NUM_ALLOWED_MISMATCHES);

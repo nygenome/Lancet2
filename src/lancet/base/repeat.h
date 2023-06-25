@@ -10,6 +10,6 @@
 [[nodiscard]] auto HammingDistNaive(std::string_view first, std::string_view second) -> usize;
 
 [[nodiscard]] auto HasExactRepeat(absl::Span<const std::string_view> kmers) -> bool;
-[[nodiscard]] auto HasApproximateRepeat(absl::Span<const std::string_view> kmers, i64 num_allowed_mismatches) -> bool;
+[[nodiscard]] auto HasApproximateRepeat(absl::Span<const std::string_view> kmers, usize num_allowed_mismatches) -> bool;
 
 #endif  // SRC_LANCET_BASE_REPEAT_H_

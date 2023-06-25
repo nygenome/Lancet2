@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" promptOnRemoteOverwrite="CHECK_TIMESTAMP" serverName="Remote Development" createEmptyFolders="true" preserveFilePermissions="true" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" confirmBeforeDeletion="false" autoUploadExternalChanges="true" notifyRemoteChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" promptOnRemoteOverwrite="CHECK_TIMESTAMP" serverName="Remote Development" createEmptyFolders="true" preserveFilePermissions="true" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" confirmBeforeDeletion="false" autoUploadExternalChanges="true" notifyRemoteChanges="true" compareModeInSync="TEXT">
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
@@ -10,11 +10,7 @@
             <mapping deploy="Lancet2" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
             <excludedPath path="/Lancet2/data" />
-            <excludedPath path="/home/rmusunuri/Lancet2/cmake-build-debug" />
-            <excludedPath path="/home/rmusunuri/Lancet2/cmake-build-release" />
           </excludedPaths>
         </serverdata>
       </paths>

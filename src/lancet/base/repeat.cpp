@@ -66,7 +66,7 @@ auto HasExactRepeat(absl::Span<const std::string_view> kmers) -> bool {
   return kmers.size() != uniq_kmers.size();
 }
 
-auto HasApproximateRepeat(absl::Span<const std::string_view> kmers, const i64 num_allowed_mismatches) -> bool {
+auto HasApproximateRepeat(absl::Span<const std::string_view> kmers, const usize num_allowed_mismatches) -> bool {
   for (const auto& first_kmer : kmers) {
     for (const auto& second_kmer : kmers) {
       // NOLINTNEXTLINE(readability-braces-around-statements)
@@ -74,7 +74,7 @@ auto HasApproximateRepeat(absl::Span<const std::string_view> kmers, const i64 nu
 
       const auto dist = HammingDistWord64(first_kmer, second_kmer);
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (dist <= num_allowed_mismatches) return true;
+      if (dist < num_allowed_mismatches) return true;
     }
   }
 

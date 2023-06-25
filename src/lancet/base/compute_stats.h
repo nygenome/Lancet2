@@ -72,18 +72,18 @@ class OnlineStats {
 
   auto operator!=(const OnlineStats& rhs) const -> bool { return !(*this == rhs); }
 
-  template <Number T>
-  [[nodiscard]] static auto Mean(absl::Span<const T> data) -> f64 {
-    OnlineStats stats;
-    std::ranges::for_each(data, [&stats](const T item) { stats.Add(item); });
-    return stats.Mean();
-  }
-
  private:
   usize mNum = 0;
   f64 mMoment1 = 0.0;
   f64 mMoment2 = 0.0;
 };
+
+template <Number T>
+[[nodiscard]] static inline auto Mean(absl::Span<const T> data) -> f64 {
+  OnlineStats stats;
+  std::ranges::for_each(data, [&stats](const T item) { stats.Add(item); });
+  return stats.Mean();
+}
 
 template <Number T>
 [[nodiscard]] static inline auto Median(absl::Span<const T> data) -> T {
