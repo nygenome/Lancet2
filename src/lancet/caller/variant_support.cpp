@@ -4,19 +4,24 @@
 #include <cmath>
 #include <ranges>
 
+#include "absl/container/fixed_array.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/hts/fisher_exact.h"
 
 namespace lancet::caller {
 
-void VariantSupport::AddQual(const u8 qual, const AlleleStrand& allele_strand) {
-  const auto [allele, strand] = allele_strand;
+void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 quality) {
+  auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
+  if (name_hashes.contains(rname_hash)) return;  // NOLINT(readability-braces-around-statements)
+
   switch (allele) {
     case Allele::REF:
-      strand == Strand::FWD ? mRefFwdQuals.emplace_back(qual) : mRefRevQuals.emplace_back(qual);
+      mRefNameHashes.emplace(rname_hash);
+      strand == Strand::FWD ? mRefFwdQuals.emplace_back(quality) : mRefRevQuals.emplace_back(quality);
       break;
     default:
-      strand == Strand::FWD ? mAltFwdQuals.emplace_back(qual) : mAltRevQuals.emplace_back(qual);
+      mAltNameHashes.emplace(rname_hash);
+      strand == Strand::FWD ? mAltFwdQuals.emplace_back(quality) : mAltRevQuals.emplace_back(quality);
       break;
   }
 }
@@ -75,6 +80,12 @@ auto VariantSupport::StrandBiasScore() const -> u8 {
   const auto revs = Row{static_cast<int>(mRefRevQuals.size()), static_cast<int>(mAltRevQuals.size())};
   const auto result = hts::FisherExact::Test({fwds, revs});
   return hts::ErrorProbToPhred(result.mDiffProb);
+}
+
+auto VariantSupport::SupportingReadHashes(const Allele allele) const -> roaring::Roaring {
+  const auto& curr_allele_set = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
+  const absl::FixedArray<u32> allele_hashes(curr_allele_set.cbegin(), curr_allele_set.cend());
+  return {curr_allele_set.size(), allele_hashes.data()};
 }
 
 }  // namespace lancet::caller

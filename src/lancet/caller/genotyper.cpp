@@ -7,6 +7,7 @@
 #include "absl/strings/numbers.h"
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
+#include "lancet/base/hash.h"
 #include "mmpriv.h"
 
 namespace {
@@ -276,6 +277,7 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
 void Genotyper::AddToTable(Result& result, const cbdg::Read& read, const SupportsInfo& read_supports) {
   const auto quals = read.QualView();
   const auto sample_name = read.SampleName();
+  const auto rname_hash = HashStr32(read.QnameView());
   const auto read_strand = read.BitwiseFlag().IsFwdStrand() ? Strand::FWD : Strand::REV;
 
   for (const auto& [var_ptr, qry_start_and_allele] : read_supports) {
@@ -285,7 +287,7 @@ void Genotyper::AddToTable(Result& result, const cbdg::Read& read, const Support
     const auto [read_start_idx0, allele] = qry_start_and_allele;
     const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
     const auto median_allele_qual = Median(quals.subspan(read_start_idx0, allele_len));
-    sample_variant->AddQual(median_allele_qual, std::make_pair(allele, read_strand));
+    sample_variant->AddEvidence(rname_hash, allele, read_strand, median_allele_qual);
   }
 }
 
