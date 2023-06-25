@@ -7,20 +7,21 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
+#include "roaring.hh"
 
 namespace lancet::caller {
 
 enum class Allele : bool { REF, ALT };
 enum class Strand : bool { FWD, REV };
-using AlleleStrand = std::pair<Allele, Strand>;
 
 class VariantSupport {
  public:
   VariantSupport() = default;
 
-  void AddQual(u8 qual, const AlleleStrand& allele_strand);
+  void AddEvidence(u32 rname_hash, Allele allele, Strand strand, u8 quality);
 
   [[nodiscard]] inline auto RefFwdCount() const noexcept -> usize { return mRefFwdQuals.size(); }
   [[nodiscard]] inline auto RefRevCount() const noexcept -> usize { return mRefRevQuals.size(); }
@@ -39,12 +40,18 @@ class VariantSupport {
   /// Phred scaled probability of strand bias being present in the ref and alt alleles
   [[nodiscard]] auto StrandBiasScore() const -> u8;
 
+  [[nodiscard]] auto SupportingReadHashes(Allele allele) const -> roaring::Roaring;
+
  private:
-  using QualsVector = std::vector<u8>;
-  QualsVector mRefFwdQuals;
-  QualsVector mRefRevQuals;
-  QualsVector mAltFwdQuals;
-  QualsVector mAltRevQuals;
+  using Qualities = std::vector<u8>;
+  using ReadNames = absl::flat_hash_set<u32>;
+
+  ReadNames mRefNameHashes;
+  ReadNames mAltNameHashes;
+  Qualities mRefFwdQuals;
+  Qualities mRefRevQuals;
+  Qualities mAltFwdQuals;
+  Qualities mAltRevQuals;
 };
 
 }  // namespace lancet::caller
