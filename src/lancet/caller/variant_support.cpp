@@ -4,7 +4,7 @@
 #include <cmath>
 #include <ranges>
 
-#include "lancet/base/online_stats.h"
+#include "lancet/base/compute_stats.h"
 #include "lancet/hts/fisher_exact.h"
 
 namespace lancet::caller {

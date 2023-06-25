@@ -44,7 +44,7 @@ void AsyncWorker::Process(std::stop_token stop_token) {
 
     const auto status_code = mVariantBuilderPtr->CurrentStatus();
     auto result = Result{.mGenomeIdx = window_ptr->GenomeIndex(), .mRuntime = timer.Runtime(), .mStatus = status_code};
-    
+
     mOutputPtr->enqueue(producer_token, std::move(result));
     done_counts->fetch_add(-1, std::memory_order_release);
     num_done++;

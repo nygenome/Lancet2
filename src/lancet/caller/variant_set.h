@@ -16,7 +16,7 @@ namespace lancet::caller {
 
 class VariantSet {
  public:
-  explicit VariantSet(const MsaBuilder& bldr, const core::Window& win);
+  explicit VariantSet(const MsaBuilder& bldr, const core::Window& win, usize ref_anchor_start);
 
   using Btree = absl::btree_set<RawVariant>;
 
@@ -38,10 +38,6 @@ class VariantSet {
 
   [[nodiscard]] auto IsEmpty() const -> bool { return mResultVariants.empty(); }
   [[nodiscard]] auto Count() const -> usize { return mResultVariants.size(); }
-
-  using StartEndRange = std::array<i32, 2>;
-  using VariantPtrs = std::vector<const RawVariant*>;
-  [[nodiscard]] auto FindOverlappingVariants(usize hap_idx, const StartEndRange& interval) const -> VariantPtrs;
 
  private:
   absl::btree_set<RawVariant> mResultVariants;

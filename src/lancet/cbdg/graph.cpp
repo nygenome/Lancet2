@@ -21,24 +21,26 @@
 namespace lancet::cbdg {
 
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
-auto Graph::MakeHaplotypes(RegionPtr region, ReadList reads) -> std::vector<std::string> {
+auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result {
   mAvgCov = 0.0;
   mReads = reads;
   mSourceAndSinkIds = {0, 0};
   mRegion = std::move(region);
 
   Timer timer;
-  std::vector<std::string> haplotypes;
+  GraphHaps per_comp_haplotypes;
+  std::string_view ref_anchor_seq;
+  std::vector<usize> anchor_start_idxs;
   absl::flat_hash_set<MateMer> mate_mers;
 
-  static constexpr usize DEFAULT_MIN_ANCHOR_LENGTH = 250;
-  static constexpr f64 DEFAULT_PCT_NODES_NEEDED = 25.0;
+  static constexpr usize DEFAULT_MIN_ANCHOR_LENGTH = 150;
+  static constexpr f64 DEFAULT_PCT_NODES_NEEDED = 10.0;
 
   const auto reg_str = mRegion->ToSamtoolsRegion();
   mCurrK = mParams.mMinKmerLen - 2;
 
 IncrementKmerAndRetry:
-  while (mCurrK < mParams.mMaxKmerLen) {
+  while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
     mCurrK += 2;
     timer.Reset();
 
@@ -54,6 +56,8 @@ IncrementKmerAndRetry:
     if (!mParams.mOutGraphsDir.empty()) WriteDot(State::NO_LOW_COV, 0);
 
     const auto components = MarkConnectedComponents();
+    per_comp_haplotypes.reserve(components.size());
+    anchor_start_idxs.reserve(components.size());
     LOG_TRACE("Found {} connected components in graph for {} with k={}", components.size(), reg_str, mCurrK)
 
     for (const auto& cinfo : components) {
@@ -74,7 +78,10 @@ IncrementKmerAndRetry:
       if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH) continue;
 
       LOG_TRACE("Found {}bp anchor for {} comp={} with k={}", current_anchor_length, reg_str, comp_id, mCurrK)
+
+      std::vector<std::string> haplotypes;
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
+      ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (!mParams.mOutGraphsDir.empty()) WriteDot(State::REF_ANCHORS, comp_id);
@@ -107,20 +114,24 @@ IncrementKmerAndRetry:
         haplotypes.emplace_back(std::move(*path_seq));
         path_seq = max_flow.NextPath();
       }
-    }
 
-    goto DoneAssembling;  // NOLINT(cppcoreguidelines-avoid-goto)
+      if (!haplotypes.empty()) {
+        std::ranges::sort(haplotypes);
+        const auto dup_range = std::ranges::unique(haplotypes);
+        haplotypes.erase(dup_range.begin(), dup_range.end());
+        haplotypes.emplace(haplotypes.begin(), ref_anchor_seq);
+        per_comp_haplotypes.emplace_back(std::move(haplotypes));
+        anchor_start_idxs.emplace_back(source.mRefOffset);
+      }
+    }
   }
 
-DoneAssembling:
-  std::ranges::sort(haplotypes);
-  const auto dup_range = std::ranges::unique(haplotypes);
-  haplotypes.erase(dup_range.begin(), dup_range.end());
-  haplotypes.emplace(haplotypes.begin(), mRegion->SeqView());
-
+  static const auto summer = [](const u64 sum, const auto& comp_haps) -> u64 { return sum + comp_haps.size() - 1; };
+  const auto num_asm_haps = std::accumulate(per_comp_haplotypes.cbegin(), per_comp_haplotypes.cend(), 0, summer);
   const auto human_rt = timer.HumanRuntime();
-  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", haplotypes.size(), reg_str, mCurrK, human_rt)
-  return haplotypes;
+
+  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", num_asm_haps, reg_str, mCurrK, human_rt)
+  return {.mGraphHaplotypes = per_comp_haplotypes, .mAnchorStartIdxs = anchor_start_idxs};
 }
 
 void Graph::CompressGraph(const usize component_id) {

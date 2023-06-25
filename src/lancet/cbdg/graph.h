@@ -54,7 +54,17 @@ class Graph {
   Graph(Params params) : mParams(std::move(params)) {}
 
   [[nodiscard]] auto CurrentK() const noexcept -> usize { return mCurrK; }
-  [[nodiscard]] auto MakeHaplotypes(RegionPtr region, ReadList reads) -> std::vector<std::string>;
+
+  // First is always ref hap, rest are alts
+  using CompHaps = std::vector<std::string>;
+  using GraphHaps = std::vector<CompHaps>;
+
+  struct Result {
+    GraphHaps mGraphHaplotypes;
+    std::vector<usize> mAnchorStartIdxs;
+  };
+
+  [[nodiscard]] auto BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result;
 
  private:
   usize mCurrK = 0;

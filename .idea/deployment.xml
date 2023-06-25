@@ -10,7 +10,11 @@
             <mapping deploy="Lancet2" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
             <excludedPath path="/Lancet2/data" />
+            <excludedPath path="/home/rmusunuri/Lancet2/cmake-build-debug" />
+            <excludedPath path="/home/rmusunuri/Lancet2/cmake-build-release" />
           </excludedPaths>
         </serverdata>
       </paths>

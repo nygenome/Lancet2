@@ -48,36 +48,47 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
 
   const auto total_cov = SampleInfo::TotalMeanCov(samples, window->Length());
   LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str, reads.size(), total_cov)
-  // First haplotype will always be the reference haplotype sequence for the graph
-  const auto haplotypes = mDebruijnGraph.MakeHaplotypes(window->AsRegionPtr(), reads);
-  const auto nalts = haplotypes.size() - 1;
-  if (nalts == 0) {
+  // First haplotype from each component will always be the reference haplotype sequence for the graph
+  const auto dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads);
+  const auto &component_haplotypes = dbg_rslt.mGraphHaplotypes;
+
+  static const auto summer = [](const u64 sum, const auto &comp_haps) -> u64 { return sum + comp_haps.size() - 1; };
+  const auto num_asm_haps = std::accumulate(component_haplotypes.cbegin(), component_haplotypes.cend(), 0, summer);
+  if (num_asm_haps == 0) {
     LOG_DEBUG("Could not assemble any haplotypes for window {} with k={}", reg_str, mDebruijnGraph.CurrentK())
     mCurrentCode = StatusCode::SKIPPED_NOASM_HAPLOTYPE;
     return {};
   }
 
-  LOG_DEBUG("Building POA based MSA for window {} with reference and {} haplotypes", reg_str, nalts)
-  const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(haplotypes);
-  const caller::MsaBuilder msa_builder(ref_and_alt_haps, MakeGfaPath(*window));
-  const caller::VariantSet vset(msa_builder, *window);
-  if (vset.IsEmpty()) {
-    LOG_DEBUG("No variants found for window {} from MSA of reference and {} haplotypes", reg_str, nalts)
-    mCurrentCode = StatusCode::MISSING_NO_MSA_VARIANTS;
-    return {};
-  }
-
-  const auto num_vars = vset.Count();
-  LOG_DEBUG("Found variant(s) for window {} from MSA of reference and {} haplotypes", reg_str, nalts)
-
-  const auto klen = mDebruijnGraph.CurrentK();
+  WindowResults variants;
+  const auto dbg_klen = mDebruijnGraph.CurrentK();
   const auto &vprms = mParamsPtr->mVariantParams;
 
-  WindowResults variants;
-  variants.reserve(num_vars);
+  for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
+    const auto nseqs = component_haplotypes[idx].size();
+    const auto anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
+    const std::vector<std::string> &comp_haps = component_haplotypes[idx];
+    LOG_DEBUG("Building MSA for graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
 
-  for (auto &&[var_ptr, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
-    variants.emplace_back(std::make_unique<caller::VariantCall>(var_ptr, std::move(evidence), samples, vprms, klen));
+    const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
+    const caller::MsaBuilder msa_builder(ref_and_alt_haps, MakeGfaPath(*window, idx));
+    const caller::VariantSet vset(msa_builder, *window, anchor_start);
+
+    if (vset.IsEmpty()) {
+      LOG_DEBUG("No variants found in graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
+      continue;
+    }
+
+    LOG_DEBUG("Found variant(s) in graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
+    for (auto &&[var, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
+      variants.emplace_back(std::make_unique<caller::VariantCall>(var, std::move(evidence), samples, vprms, dbg_klen));
+    }
+  }
+
+  if (variants.empty()) {
+    LOG_DEBUG("No variants found for window {} from {} assembled graph paths", reg_str, num_asm_haps)
+    mCurrentCode = StatusCode::MISSING_NO_MSA_VARIANTS;
+    return {};
   }
 
   mCurrentCode = StatusCode::FOUND_GENOTYPED_VARIANT;
@@ -85,11 +96,11 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   return variants;
 }
 
-auto VariantBuilder::MakeGfaPath(const Window &window) const -> std::filesystem::path {
+auto VariantBuilder::MakeGfaPath(const Window &win, const usize comp_id) const -> std::filesystem::path {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mParamsPtr->mOutGraphsDir.empty()) return {};
 
-  const auto fname = fmt::format("msa__{}_{}_{}.gfa", window.ChromName(), window.StartPos1(), window.EndPos1());
+  const auto fname = fmt::format("msa__{}_{}_{}__c{}.gfa", win.ChromName(), win.StartPos1(), win.EndPos1(), comp_id);
   auto out_path = mParamsPtr->mOutGraphsDir / "poa_graph" / fname;
   std::filesystem::create_directories(mParamsPtr->mOutGraphsDir / "poa_graph");
   return out_path;
