@@ -16,6 +16,7 @@
 * [Autoconf](https://command-not-found.com/autoconf)
 * [Make](https://command-not-found.com/make)
 * [CMake](https://cmake.org/download) (3.25 or greater)
+* [Ninja](https://command-not-found.com/ninja-build)
 * [GCC](https://gcc.gnu.org) (12.x or greater)
 
 ### Build commands
@@ -23,8 +24,7 @@
 ```bash
 git clone https://github.com/nygenome/Lancet2.git
 cd Lancet2 && mkdir build && cd build
-cmake ..
-make
+cmake -DCMAKE_BUILD_TYPE=Release -GNinja .. && ninja -v
 ```
 
 ## Documentation
