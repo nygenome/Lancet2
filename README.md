@@ -14,10 +14,8 @@
 * [x86-64](https://en.wikipedia.org/wiki/X86-64) [Linux](https://kernel.org/)
 * [Autoconf](https://command-not-found.com/autoconf)
 * [Autopoint](https://command-not-found.com/autopoint)
-* [po4a](https://command-not-found.com/po4a)
 * [Git](https://command-not-found.com/git)
 * [Make](https://command-not-found.com/make)
-* [Ninja](https://command-not-found.com/ninja-build)
 * [CMake](https://cmake.org/download) (3.25 or greater)
 * [GCC](https://gcc.gnu.org) (12.x or greater)
 
@@ -26,7 +24,7 @@
 ```bash
 git clone https://github.com/nygenome/Lancet2.git
 cd Lancet2 && mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -GNinja .. && ninja -v
+cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
 ```
 
 ## Documentation
