@@ -7,17 +7,15 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "lancet/base/compute_stats.h"
+#include "lancet/base/hash.h"
 #include "lancet/hts/fisher_exact.h"
 #include "spdlog/fmt/fmt.h"
-#include "wyhash.h"
 
 namespace {
 
 [[nodiscard]] inline auto HashRawVariant(const lancet::caller::RawVariant *var) -> u64 {
-  const auto vinfo = fmt::format("{},{},{},{},{},{}", var->mChromName, var->mGenomeStart1, var->mRefAllele,
-                                 var->mAltAllele, var->mAlleleLength, static_cast<i8>(var->mType));
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-  return wyhash(vinfo.c_str(), vinfo.length(), 0, _wyp);
+  return HashStr64(fmt::format("{},{},{},{},{},{}", var->mChromName, var->mGenomeStart1, var->mRefAllele,
+                               var->mAltAllele, var->mAlleleLength, static_cast<i8>(var->mType)));
 }
 
 }  // namespace

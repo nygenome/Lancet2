@@ -153,13 +153,13 @@ Kmer::Kmer(std::string_view seq) {
 
   switch (mDfltSign) {
     case Sign::PLUS:
-      mIdentifier = HashStr(seq);
+      mIdentifier = HashStr64(seq);
       mDfltSeq = seq;
       mOppoSeq = std::move(rc_seq);
       break;
 
     case Sign::MINUS:
-      mIdentifier = HashStr(rc_seq);
+      mIdentifier = HashStr64(rc_seq);
       mDfltSeq = std::move(rc_seq);
       mOppoSeq = seq;
       break;
