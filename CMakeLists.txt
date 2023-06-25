@@ -68,8 +68,8 @@ add_library(lancet_base STATIC src/lancet/base/version.h
 		src/lancet/base/hash.h src/lancet/base/hash.cpp
 		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
 		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)
-target_link_libraries(lancet_base PUBLIC spdlog::spdlog absl::time absl::span
-		absl::fixed_array absl::strings PRIVATE wyhash MurmurHash3)
+target_link_libraries(lancet_base PRIVATE wyhash MurmurHash3
+		PUBLIC spdlog::spdlog absl::time absl::span absl::fixed_array absl::strings)
 target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/generated")
 set_target_properties(lancet_base PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
@@ -86,8 +86,8 @@ set_target_properties(lancet_hts PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRE
 target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(lancet_hts)
-target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set absl::flat_hash_map
-		zlibstatic libdeflate_static ${LIB_BZ2} ${LIB_LZMA} ${LIB_HTS} PRIVATE absl::strings)
+target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set
+		absl::flat_hash_map zlibstatic libdeflate_static ${LIB_BZ2} ${LIB_LZMA} ${LIB_HTS})
 
 add_library(lancet_cbdg STATIC src/lancet/cbdg/read.h
 		src/lancet/cbdg/label.h src/lancet/cbdg/edge.h
