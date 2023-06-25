@@ -163,6 +163,16 @@ file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_
 add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
 target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
 
+set(MRMR3_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3")
+set(MRMR3_H "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.h")
+set(MRMR3_CPP "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.cpp")
+set(MRMR3_URL "https://raw.githubusercontent.com/aappleby/smhasher/master/src")
+file(MAKE_DIRECTORY "${MRMR3_ROOT}")
+file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.cpp" "${MRMR3_CPP}" EXPECTED_MD5 "3425d5e59cb3df3c6c5e31c7094d9aa6")
+file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.h" "${MRMR3_H}" EXPECTED_MD5 "73aad07ed2b324775d23d2a29cd12f8f")
+add_library(MurmurHash3 STATIC "${MRMR3_CPP}" "${MRMR3_H}")
+target_include_directories(MurmurHash3 SYSTEM PUBLIC "${MRMR3_ROOT}")
+
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")

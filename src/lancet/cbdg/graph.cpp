@@ -658,7 +658,7 @@ auto Graph::AddToGraph(SeqKplusOnes kplus_ones, SeqLabels labels, const usize ma
 
 auto Graph::CanonicalKmerHash(std::string_view seq) -> u64 {
   auto rc_seq = RevComp(seq);
-  return seq < rc_seq ? HashStr(seq) : HashStr(rc_seq);
+  return seq < rc_seq ? HashStr64(seq) : HashStr64(rc_seq);
 }
 
 auto Graph::HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool {

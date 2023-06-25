@@ -42,8 +42,8 @@ class SampleInfo {
   struct Hash {
     using is_transparent = void;
 
-    auto operator()(const SampleInfo& sinfo) const -> usize { return HashStr(sinfo.SampleName()); }
-    auto operator()(std::string_view sample_name) const -> usize { return HashStr(sample_name); }
+    auto operator()(const SampleInfo& sinfo) const -> usize { return HashStr64(sinfo.SampleName()); }
+    auto operator()(std::string_view sample_name) const -> usize { return HashStr64(sample_name); }
   };
 
   struct Equal {
@@ -66,7 +66,7 @@ class SampleInfo {
   u64 mNumReads = 0;
   u64 mNumBases = 0;
   f64 mMeanCov = 0.0;
-  
+
   i64 mMinExpectedInsert = 0;
   i64 mMaxExpectedInsert = 0;
 
