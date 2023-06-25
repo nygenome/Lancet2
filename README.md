@@ -15,8 +15,8 @@
 * [Git](https://command-not-found.com/git)
 * [Autoconf](https://command-not-found.com/autoconf)
 * [Make](https://command-not-found.com/make)
-* [CMake](https://cmake.org/download) (3.25 or greater)
 * [Ninja](https://command-not-found.com/ninja-build)
+* [CMake](https://cmake.org/download) (3.25 or greater)
 * [GCC](https://gcc.gnu.org) (12.x or greater)
 
 ### Build commands
