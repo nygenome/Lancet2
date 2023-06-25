@@ -68,7 +68,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto strand_bias = evidence->StrandBiasScore();
     const auto somatic_score = SomaticScore(sinfo, per_sample_evidence);
 
-    mSiteQuality = std::max(mSiteQuality, is_germline_mode ? static_cast<u8>(gt_quality) : somatic_score);
+    mSiteQuality = std::max(mSiteQuality, is_germline_mode ? static_cast<u64>(gt_quality) : somatic_score);
     mTotalSampleCov += evidence->TotalSampleCov();
     per_sample_filters.clear();
 
@@ -144,7 +144,7 @@ auto VariantCall::AsVcfRecord() const -> std::string {
   return vcf_record;
 }
 
-auto VariantCall::SomaticScore(const core::SampleInfo &tumor, const PerSampleEvidence &supports) -> u8 {
+auto VariantCall::SomaticScore(const core::SampleInfo &tumor, const PerSampleEvidence &supports) -> u64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (tumor.TagKind() != cbdg::Label::TUMOR) return 0;
 
