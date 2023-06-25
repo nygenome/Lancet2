@@ -42,6 +42,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     return {};
   }
 
+  LOG_DEBUG("Collecting sample reads for window {}", reg_str)
   const auto rc_result = mReadCollector.CollectRegionResult(*region);
   const absl::Span<const cbdg::Read> reads = absl::MakeConstSpan(rc_result.mSampleReads);
   const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);

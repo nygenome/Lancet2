@@ -76,7 +76,11 @@ auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& v
 
 auto Genotyper::AlnInfo::IsEmpty() const noexcept -> bool {
   return mRefStart == -1 && mQryStart == -1 && mRefEnd == -1 && mQryEnd == -1 && mDpScore == -1 && mGcIden == 0.0 &&
-         mCsTag.empty();
+         mHapIdx == 0 && mQryLen == 0 && mCsTag.empty();
+}
+
+auto Genotyper::AlnInfo::IsFullQueryMatch() const noexcept -> bool {
+  return (mQryEnd - mQryStart) == static_cast<i32>(mQryLen) && mGcIden == 1.0;
 }
 
 void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const VariantSet& called_variants) const {
@@ -179,11 +183,6 @@ auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equa
   // Second, check if 100% of the qry is contained within the variant allele i.e variant longer than read
   // If either of these two scenarios happen, we return the start idx in read which supports variant
 
-  // Since we align read to ref and all alts, we expect full end to end read alignment with no clipping
-  if (mQryStart < 0 || mQryEnd < 0 || (mQryEnd - mQryStart) != static_cast<i32>(mQryLen)) {
-    return std::nullopt;
-  }
-
   const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
   const auto [var_allele_start, var_allele_end] = allele_span;
   LANCET_ASSERT(hap_identity_ranges.size() == read_identity_ranges.size())
@@ -238,7 +237,6 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
     const auto* hap_mm_idx = mIndices[idx].get();
     auto* regs = mm_map(hap_mm_idx, read_len, read.SeqPtr(), &nregs, tbuffer, map_opts, read.QnamePtr());
     if (regs == nullptr || nregs <= 0) {
-      results.emplace_back(aln_info);
       FreeMinimap2Alignment(regs, nregs);
       continue;
     }
@@ -267,7 +265,7 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
 
     // If exact match with REF haplotype, skip aligning with ALTs
     const AlnInfo& added_aln_info = results.back();
-    if (idx == REF_HAP_IDX && added_aln_info.mGcIden == 1.0) {
+    if (idx == REF_HAP_IDX && added_aln_info.IsFullQueryMatch()) {
       break;
     }
   }

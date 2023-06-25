@@ -46,6 +46,7 @@ class Genotyper {
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     [[nodiscard]] auto IsEmpty() const noexcept -> bool;
+    [[nodiscard]] auto IsFullQueryMatch() const noexcept -> bool;
 
     using QryStartAllele = std::pair<usize, Allele>;
     using SupportsInfo = absl::flat_hash_map<const RawVariant*, QryStartAllele>;
