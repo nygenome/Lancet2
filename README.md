@@ -11,9 +11,10 @@
 
 ### Pre-requisites to compile from source
 
-* [x86-64](https://en.wikipedia.org/wiki/X86-64) [Linux](https://kernel.org/)
-* [Autoconf](https://command-not-found.com/autoconf)
-* [Autopoint](https://command-not-found.com/autopoint)
+* [Linux](https://kernel.org/)
+* [x86-64](https://en.wikipedia.org/wiki/X86-64)
+* [BZip2](https://sourceware.org/bzip2/)
+* [LibLZMA](https://tukaani.org/xz/)
 * [Git](https://command-not-found.com/git)
 * [Make](https://command-not-found.com/make)
 * [CMake](https://cmake.org/download) (3.25 or greater)

@@ -19,11 +19,7 @@ set_property(CACHE LANCET_BUILD_STATIC PROPERTY STRINGS "OFF" "ON")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
-
+set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
 message(STATUS "CMAKE_HOST_SYSTEM_NAME: ${CMAKE_HOST_SYSTEM_NAME}")
 message(STATUS "CMAKE_HOST_SYSTEM_PROCESSOR: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 MESSAGE(STATUS "CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
@@ -55,6 +51,9 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
+find_package(BZip2 REQUIRED)
+find_package(LibLZMA REQUIRED)
+
 include(cmake/cpu_family.cmake)
 include(cmake/defaults.cmake)
 include(cmake/version.cmake)
@@ -85,9 +84,8 @@ add_dependencies(lancet_hts htslib)
 set_target_properties(lancet_hts PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_hts)
-target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set
-		absl::flat_hash_map zlibstatic libdeflate_static ${LIB_BZ2} ${LIB_LZMA} ${LIB_HTS})
+target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set absl::flat_hash_map
+		${LIB_HTS} INTERFACE BZip2::BZip2 LibLZMA::LibLZMA zlibstatic libdeflate_static)
 
 add_library(lancet_cbdg STATIC src/lancet/cbdg/read.h
 		src/lancet/cbdg/label.h src/lancet/cbdg/edge.h
@@ -105,10 +103,10 @@ add_library(lancet_caller STATIC src/lancet/caller/raw_variant.h
 		src/lancet/caller/msa_builder.cpp src/lancet/caller/msa_builder.h
 		src/lancet/caller/variant_set.cpp src/lancet/caller/variant_set.h
 		src/lancet/caller/genotyper.cpp src/lancet/caller/genotyper.h)
+add_dependencies(lancet_caller minimap2)
 target_include_directories(lancet_caller PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(lancet_caller SYSTEM PUBLIC "${MM2_ROOT_DIR}")
-target_link_libraries(lancet_caller PRIVATE wyhash INTERFACE zlibstatic
-		PUBLIC lancet_cbdg spoa absl::btree RoaringBitmap ${LIB_MM2})
+target_link_libraries(lancet_caller PUBLIC lancet_cbdg spoa absl::btree RoaringBitmap ${LIB_MM2} PRIVATE zlibstatic)
 set_target_properties(lancet_caller PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_info.h
@@ -125,7 +123,7 @@ add_library(lancet_cli STATIC src/lancet/cli/cli_params.h
 		src/lancet/cli/pipeline_runner.cpp src/lancet/cli/pipeline_runner.h
 		src/lancet/cli/cli_interface.cpp src/lancet/cli/cli_interface.h)
 target_include_directories(lancet_cli PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_cli PUBLIC lancet_core CLI11 PRIVATE absl::strings)
+target_link_libraries(lancet_cli PUBLIC lancet_core CLI11)
 set_target_properties(lancet_cli PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 set(LANCET_MAIN_CPP "${CMAKE_BINARY_DIR}/generated/lancet_main.cpp")
