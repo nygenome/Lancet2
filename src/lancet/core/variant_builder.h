@@ -54,7 +54,7 @@ class VariantBuilder {
   std::shared_ptr<const Params> mParamsPtr;
   StatusCode mCurrentCode = StatusCode::UNKNOWN;
 
-  [[nodiscard]] auto MakeGfaPath(const Window& window) const -> std::filesystem::path;
+  [[nodiscard]] auto MakeGfaPath(const Window& win, usize comp_id) const -> std::filesystem::path;
 };
 
 [[nodiscard]] auto ToString(VariantBuilder::StatusCode status_code) -> std::string;

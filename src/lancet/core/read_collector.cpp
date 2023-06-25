@@ -8,7 +8,7 @@
 
 #include "absl/strings/ascii.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/online_stats.h"
+#include "lancet/base/compute_stats.h"
 #include "spdlog/fmt/fmt.h"
 
 namespace {

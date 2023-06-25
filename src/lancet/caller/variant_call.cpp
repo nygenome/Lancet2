@@ -6,7 +6,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "lancet/base/online_stats.h"
+#include "lancet/base/compute_stats.h"
 #include "lancet/hts/fisher_exact.h"
 #include "spdlog/fmt/fmt.h"
 #include "wyhash.h"
@@ -76,7 +76,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (alt_freq > prms.mMaxNmlVaf) per_sample_filters.emplace_back("HighNmlVaf");
       if (evidence->TotalAltCov() > prms.mMaxNmlAltCnt) per_sample_filters.emplace_back("HighNmlAltCnt");
-      if (sinfo.MeanCov() < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
+      if (evidence->TotalSampleCov() < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
       if (gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
       // NOLINTEND(readability-braces-around-statements)
       if (genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
@@ -88,7 +88,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
       if (evidence->TotalAltCov() < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrAltCnt");
-      if (sinfo.MeanCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
+      if (evidence->TotalAltCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
       if (gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
       if (somatic_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomatic");
       // NOLINTEND(readability-braces-around-statements)

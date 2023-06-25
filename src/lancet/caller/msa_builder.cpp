@@ -19,7 +19,7 @@ inline auto BuildAlnEngine(absl::Span<const std::string> seqs) -> AlnEngine {
   static constexpr i8 EXTEND2 = -2;
   // asm5 from minimap2 -> https://lh3.github.io/minimap2/minimap2.html -> assembly to same species ref scoring
   // https://curiouscoding.nl/posts/pairwise-alignment -> Convex affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
-  auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kSW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
+  auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
   const auto* longest_seq = std::ranges::max_element(seqs, std::less<>(), &std::string::size);
   aln->Prealloc(longest_seq->length(), 4);
   return aln;

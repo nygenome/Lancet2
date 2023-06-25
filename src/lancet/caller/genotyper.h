@@ -49,7 +49,7 @@ class Genotyper {
 
     using QryStartAllele = std::pair<usize, Allele>;
     using SupportsInfo = absl::flat_hash_map<const RawVariant*, QryStartAllele>;
-    void AddSupportingInfo(SupportsInfo& supports, const VariantSet& vset) const;
+    void AddSupportingInfo(SupportsInfo& supports, const VariantSet& called_variants) const;
 
    private:
     using StartEndIndices = std::array<usize, 2>;

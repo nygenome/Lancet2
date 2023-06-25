@@ -6,9 +6,8 @@
 
 #include "absl/strings/numbers.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/online_stats.h"
+#include "lancet/base/compute_stats.h"
 #include "mmpriv.h"
-#include "spdlog/fmt/fmt.h"
 
 namespace {
 
@@ -80,23 +79,23 @@ auto Genotyper::AlnInfo::IsEmpty() const noexcept -> bool {
          mCsTag.empty();
 }
 
-void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const VariantSet& vset) const {
+void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const VariantSet& called_variants) const {
   const auto curr_allele = mHapIdx == REF_HAP_IDX ? Allele::REF : Allele::ALT;
   const auto hap_and_rd_identity_ranges = FindIdentityRanges();
 
-  for (const auto& olap_var : vset.FindOverlappingVariants(mHapIdx, {mRefStart, mRefEnd})) {
+  for (const auto& variant : called_variants) {
     // If read has already been counted as support for this variant as support
     // skip the CS tag check to confirm that the read has exact match to the allele
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (supports.contains(olap_var)) continue;
+    if (!variant.mHapStart0Idxs.contains(mHapIdx) || supports.contains(&variant)) continue;
 
-    const auto al_start = olap_var->mHapStart0Idxs.at(mHapIdx);
-    const auto al_len = curr_allele == Allele::REF ? olap_var->mRefAllele.length() : olap_var->mAltAllele.length();
+    const auto al_start = variant.mHapStart0Idxs.at(mHapIdx);
+    const auto al_len = curr_allele == Allele::REF ? variant.mRefAllele.length() : variant.mAltAllele.length();
     const auto allele_range = StartEndIndices({al_start, al_start + al_len - 1});
     const auto rd_start_idx_supporting_allele = FindQueryStart(hap_and_rd_identity_ranges, allele_range);
     if (rd_start_idx_supporting_allele) {
       auto qstart_strand = std::make_pair(rd_start_idx_supporting_allele.value(), curr_allele);
-      supports.emplace(olap_var, std::move(qstart_strand));
+      supports.emplace(&variant, std::move(qstart_strand));
     }
   }
 }
@@ -180,6 +179,11 @@ auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equa
   // Second, check if 100% of the qry is contained within the variant allele i.e variant longer than read
   // If either of these two scenarios happen, we return the start idx in read which supports variant
 
+  // Since we align read to ref and all alts, we expect full end to end read alignment with no clipping
+  if (mQryStart < 0 || mQryEnd < 0 || (mQryEnd - mQryStart) != static_cast<i32>(mQryLen)) {
+    return std::nullopt;
+  }
+
   const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
   const auto [var_allele_start, var_allele_end] = allele_span;
   LANCET_ASSERT(hap_identity_ranges.size() == read_identity_ranges.size())
@@ -188,7 +192,7 @@ auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equa
     const auto [aln_hap_match_start, aln_hap_match_end] = hap_identity_ranges[idx];
     const auto [read_match_start, read_match_end] = read_identity_ranges[idx];
     // Check if alignment has exact match with variant allele within it
-    if (aln_hap_match_start <= var_allele_start && aln_hap_match_end >= var_allele_end) {
+    if (aln_hap_match_start < var_allele_start && aln_hap_match_end > var_allele_end) {
       const auto allele_to_hap_match_start_diff = var_allele_start - aln_hap_match_start;
       return read_match_start + allele_to_hap_match_start_diff;
     }
@@ -282,9 +286,8 @@ void Genotyper::AddToTable(Result& result, const cbdg::Read& read, const Support
 
     const auto [read_start_idx0, allele] = qry_start_and_allele;
     const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
-    const auto allele_qualities = quals.subspan(read_start_idx0, allele_len);
-    const auto mean_allele_qual = static_cast<u8>(std::round(OnlineStats::Mean(allele_qualities)));
-    sample_variant->AddQual(mean_allele_qual, std::make_pair(allele, read_strand));
+    const auto median_allele_qual = Median(quals.subspan(read_start_idx0, allele_len));
+    sample_variant->AddQual(median_allele_qual, std::make_pair(allele, read_strand));
   }
 }
 
