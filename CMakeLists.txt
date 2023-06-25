@@ -106,7 +106,8 @@ add_library(lancet_caller STATIC src/lancet/caller/raw_variant.h
 		src/lancet/caller/genotyper.cpp src/lancet/caller/genotyper.h)
 target_include_directories(lancet_caller PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(lancet_caller SYSTEM PUBLIC "${MM2_ROOT_DIR}")
-target_link_libraries(lancet_caller PUBLIC lancet_cbdg spoa absl::btree ${LIB_MM2} PRIVATE wyhash INTERFACE zlibstatic)
+target_link_libraries(lancet_caller PRIVATE wyhash INTERFACE zlibstatic
+		PUBLIC lancet_cbdg spoa absl::btree RoaringBitmap ${LIB_MM2})
 set_target_properties(lancet_caller PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_info.h
