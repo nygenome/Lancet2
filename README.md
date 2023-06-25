@@ -11,8 +11,10 @@
 
 ### Pre-requisites to compile from source
 
-* [Linux](https://kernel.org/) [x86-64 system](https://en.wikipedia.org/wiki/X86-64)
+* [x86-64](https://en.wikipedia.org/wiki/X86-64) [Linux](https://kernel.org/)
 * [Autoconf](https://command-not-found.com/autoconf)
+* [Autopoint](https://command-not-found.com/autopoint)
+* [po4a](https://command-not-found.com/po4a)
 * [Git](https://command-not-found.com/git)
 * [Make](https://command-not-found.com/make)
 * [Ninja](https://command-not-found.com/ninja-build)

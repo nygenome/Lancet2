@@ -87,7 +87,7 @@ target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(lancet_hts)
 target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set absl::flat_hash_map
-		${LIB_HTS} PRIVATE absl::strings INTERFACE zlibstatic libdeflate_static ${LIB_BZ2} ${LIB_LZMA})
+		zlibstatic libdeflate_static ${LIB_BZ2} ${LIB_LZMA} ${LIB_HTS} PRIVATE absl::strings)
 
 add_library(lancet_cbdg STATIC src/lancet/cbdg/read.h
 		src/lancet/cbdg/label.h src/lancet/cbdg/edge.h

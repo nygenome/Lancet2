@@ -85,7 +85,7 @@ set(LZMA_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/xz")
 set(LIB_LZMA "${LZMA_ROOT_DIR}/lib/liblzma.a")
 set(LZMA_CONFIG_PARAMS ${LZMA_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(lzma
-		URL https://tukaani.org/xz/xz-5.4.2.tar.gz URL_MD5 4ac4e5da95aa8604a81e32079cb00d42
+		URL https://tukaani.org/xz/xz-5.4.3.tar.gz URL_MD5 d48f46cd5792e331712c0ef300206df2
 		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${LZMA_ROOT_DIR}
 		BUILD_IN_SOURCE 1 INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_lzma.sh ${LZMA_CONFIG_PARAMS}
