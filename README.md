@@ -12,8 +12,8 @@
 ### Pre-requisites to compile from source
 
 * [Linux](https://kernel.org/) [x86-64 system](https://en.wikipedia.org/wiki/X86-64)
-* [Git](https://command-not-found.com/git)
 * [Autoconf](https://command-not-found.com/autoconf)
+* [Git](https://command-not-found.com/git)
 * [Make](https://command-not-found.com/make)
 * [Ninja](https://command-not-found.com/ninja-build)
 * [CMake](https://cmake.org/download) (3.25 or greater)
