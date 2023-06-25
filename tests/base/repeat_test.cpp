@@ -22,4 +22,11 @@ TEST_CASE("Can calculcate hamming distance correctly", "[lancet][base][repeat]")
     REQUIRE(HammingDistWord64(test, diff_b) == 1);
     REQUIRE(HammingDistWord64(diff_a, diff_b) == 2);
   }
+
+  SECTION("128-bit word method calculates correct distances") {
+    REQUIRE(HammingDistWord128(test, test) == 0);
+    REQUIRE(HammingDistWord128(test, diff_a) == 1);
+    REQUIRE(HammingDistWord128(test, diff_b) == 1);
+    REQUIRE(HammingDistWord128(diff_a, diff_b) == 2);
+  }
 }

@@ -12,11 +12,11 @@ auto HammingDistWord64(std::string_view first, std::string_view second) -> usize
   usize result = 0;
 
   const auto num_words = (first.length() >> 3);
-  const auto rem_words = (first.length() & 7);
+  const auto rem_words = static_cast<unsigned long long>(first.length() & 7);
 
   // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
-  const auto* aptr = reinterpret_cast<const u64*>(first.data());
-  const auto* bptr = reinterpret_cast<const u64*>(second.data());
+  const auto* aptr = reinterpret_cast<const unsigned long long*>(first.data());
+  const auto* bptr = reinterpret_cast<const unsigned long long*>(second.data());
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -25,24 +25,24 @@ auto HammingDistWord64(std::string_view first, std::string_view second) -> usize
   for (usize idx = 0; idx < num_words; ++idx) {
     auto val = (aptr[idx] ^ bptr[idx]);
     val |= val >> 4;
-    val &= u64(0x0f0f0f0f0f0f0f0f);
+    val &= 0x0f0f0f0f0f0f0f0fULL;
     val |= val >> 2;
-    val &= u64(0x3333333333333333);
+    val &= 0x3333333333333333ULL;
     val |= val >> 1;
-    val &= u64(0x5555555555555555);
+    val &= 0x5555555555555555ULL;
     result += std::popcount(val);
   }
 
   if (rem_words > 0) {
     auto val = (aptr[num_words] ^ bptr[num_words]);
     val |= val >> 4;
-    val &= u64(0x0f0f0f0f0f0f0f0f);
+    val &= 0x0f0f0f0f0f0f0f0fULL;
     val |= val >> 2;
-    val &= u64(0x3333333333333333);
+    val &= 0x3333333333333333ULL;
     val |= val >> 1;
-    val &= u64(0x5555555555555555);
+    val &= 0x5555555555555555ULL;
     // make sure to mask out bits outside the string lengths
-    result += std::popcount((val & ((1L << ((rem_words) << 3L)) - 1L)));
+    result += std::popcount((val & ((1ULL << ((rem_words) << 3ULL)) - 1ULL)));
   }
 
   // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
