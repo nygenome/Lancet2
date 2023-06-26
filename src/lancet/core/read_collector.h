@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/downsampler.h"
 #include "lancet/base/hash.h"
@@ -23,21 +24,18 @@ class ReadCollector {
  public:
   static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 1000.0;
 
-  using InsertRange = std::array<i64, 2>;
-  using BamCramWithInsert = std::pair<std::filesystem::path, InsertRange>;
-
   struct Params {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     std::filesystem::path mRefPath;
-    std::vector<BamCramWithInsert> mNormals;
-    std::vector<BamCramWithInsert> mTumors;
+    std::vector<std::filesystem::path> mNormalPaths;
+    std::vector<std::filesystem::path> mTumorPaths;
 
     f64 mMaxWinCov = DEFAULT_MAX_WINDOW_COVERAGE;
     bool mNoCtgCheck = false;
     bool mExtractPairs = false;
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
-    [[nodiscard]] auto SamplesCount() const -> usize { return mNormals.size() + mTumors.size(); }
+    [[nodiscard]] auto SamplesCount() const -> usize { return mNormalPaths.size() + mTumorPaths.size(); }
   };
 
   using Read = cbdg::Read;
@@ -52,14 +50,13 @@ class ReadCollector {
 
   [[nodiscard]] auto CollectRegionResult(const Region& region) -> Result;
 
-  using AlnAndRefPaths = std::array<std::filesystem::path, 2>;
-  [[nodiscard]] static auto EstimateInsertRange(const AlnAndRefPaths& paths) -> InsertRange;
   [[nodiscard]] static auto IsActiveRegion(const Params& params, const Region& region) -> bool;
   [[nodiscard]] static auto BuildSampleNameList(const Params& params) -> std::vector<std::string>;
 
  private:
   using ExtractorPtr = std::unique_ptr<hts::Extractor>;
-  using MateRegionsMap = absl::flat_hash_map<std::string, hts::Alignment::MateInfo>;
+  using AlnAndRefPaths = std::array<std::filesystem::path, 2>;
+  using MateRegionsMap = absl::flat_hash_map<u64, hts::Alignment::MateInfo>;
   using SampleExtractors = absl::flat_hash_map<SampleInfo, ExtractorPtr, SampleInfo::Hash, SampleInfo::Equal>;
 
   Params mParams;
@@ -72,8 +69,8 @@ class ReadCollector {
 
   [[nodiscard]] static auto FailsTier1Check(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto FailsTier2Check(const hts::Alignment& aln) -> bool;
+  
   [[nodiscard]] static auto MakeSampleList(const Params& params) -> std::vector<SampleInfo>;
-
   [[nodiscard]] static auto BuildSortedMateInfos(const MateRegionsMap& data) -> std::vector<hts::Alignment::MateInfo>;
 };
 

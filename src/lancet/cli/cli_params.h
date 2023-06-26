@@ -23,8 +23,6 @@ class CliParams {
   std::filesystem::path mBedFile;
   std::filesystem::path mRunStats;
   std::vector<std::string> mInRegions;
-  std::vector<std::filesystem::path> mNormalPaths;
-  std::vector<std::filesystem::path> mTumorPaths;
 
   usize mNumWorkerThreads = 2;
   bool mEnableVerboseLogging = false;
