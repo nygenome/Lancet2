@@ -1,24 +1,29 @@
 #include "lancet/core/read_collector.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <ranges>
 #include <string>
 #include <utility>
 
+#include "absl/container/btree_map.h"
 #include "absl/strings/ascii.h"
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
 #include "spdlog/fmt/fmt.h"
 
+using CountMap = absl::btree_map<u32, u32>;
+
 namespace {
 
-inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i64 start, std::map<u32, u32>* result) {
+inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i64 start, CountMap* result) {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (start < 0) return;
 
-  auto genome_pos = static_cast<u32>(start);
   std::string token;
+  token.reserve(md_val.length());
+  auto genome_pos = static_cast<u32>(start);
 
   for (const auto& character : md_val) {
     if (absl::ascii_isdigit(static_cast<unsigned char>(character))) {
@@ -31,18 +36,15 @@ inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
     token.clear();
 
     const auto base_pos = static_cast<usize>(genome_pos - start);
-    static constexpr u8 min_bq = 20;
+    static constexpr u8 MIN_BASE_QUAL = 20;
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (quals.at(base_pos) < min_bq) continue;
+    if (quals.at(base_pos) < MIN_BASE_QUAL) continue;
 
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(character));
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
-      const auto& itr = result->find(genome_pos);
-      if (itr != result->end()) {
-        itr->second++;
-      } else {
-        result->emplace(genome_pos, 1);
-      }
+      auto [itr, newly_added] = result->try_emplace(genome_pos, 1);
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (!newly_added) itr->second++;
     }
   }
 }
@@ -60,29 +62,29 @@ inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
 
 namespace lancet::core {
 
-ReadCollector::ReadCollector(Params params) : mParams(std::move(params)) {
+// NOLINTNEXTLINE(cert-err58-cpp)
+static const std::array<std::string, 6> FILL_SAM_TAGS = {"AS", "XS", "XT", "XA", "SA", "MD"};
+
+ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGermlineMode(false) {
   using hts::Extractor;
   using hts::Alignment::Fields::AUX_RGAUX;
-  using hts::Alignment::Fields::CIGAR_SEQ_QUAL;
-  static const auto aln_tags = std::vector<std::string>{"AS", "XS", "XT", "XA", "SA"};
-  const auto needs_pairs = mParams.mExtractReadPairs;
 
   mSampleList = MakeSampleList(mParams);
+  const auto no_ctgcheck = mParams.mNoCtgCheck;
+
   for (const auto& sinfo : mSampleList) {
-    const auto needs_tags = (sinfo.TagKind() == cbdg::Label::TUMOR && !(mParams.mNoFilterRds)) || needs_pairs;
-    const auto fields = needs_tags ? AUX_RGAUX : CIGAR_SEQ_QUAL;
-    const auto tags = needs_tags ? absl::MakeConstSpan(aln_tags) : absl::Span<const std::string>();
-    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, fields, tags, mParams.mNoCtgCheck);
+    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, no_ctgcheck);
     mExtractors.emplace(sinfo, std::move(extractor));
   }
+
+  static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
+  mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
 }
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
-  const auto max_sample_cov = mParams.mMaxWinCov / static_cast<f64>(mSampleList.size());
-
-  // custom hash and equal, so we don't add reads with same seq multiple times
   std::vector<Read> sample_reads;
   absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mate_regions;
+  const auto max_sample_cov = mParams.mMaxWinCov / static_cast<f64>(mSampleList.size());
 
   for (auto& sinfo : mSampleList) {
     u64 num_reads = 0;
@@ -101,10 +103,9 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     extractor->SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : *extractor) {
-      const auto bflag = aln.Flag();
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || aln.MapQual() == 0) continue;
-      if (is_tumor_sample && !mParams.mNoFilterRds && FailsFilter(aln)) continue;
+      if (FailsTier1Check(aln)) continue;
+      if ((is_tumor_sample || mIsGermlineMode) && FailsTier2Check(aln)) continue;
       if (!mDownsampler.ShouldSample()) continue;
       // NOLINTEND(readability-braces-around-statements)
 
@@ -113,7 +114,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!mParams.mExtractReadPairs) continue;
+      if (!mParams.mExtractPairs) continue;
 
       // First check if we already saw both mates in the same window
       const auto mate_itr = expected_mate_regions.find(aln.QnameView());
@@ -123,21 +124,21 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       }
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (bflag.IsMateUnmapped()) continue;
+      if (aln.Flag().IsMateUnmapped()) continue;
 
       const auto has_split_aln = aln.HasTag("SA");
       const auto curr_insert = std::abs(aln.InsertSize());
       const auto abnormal_insert = curr_insert < sinfo.mMinExpectedInsert || curr_insert > sinfo.mMaxExpectedInsert;
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!abnormal_insert && !has_split_aln && bflag.IsMappedProperPair()) continue;
+      if (!abnormal_insert && !has_split_aln && aln.Flag().IsMappedProperPair()) continue;
 
-      auto [itr, newly_emplaced] = expected_mate_regions.try_emplace(aln.QnameView(), aln.MateLocation());
+      auto [itr, newly_added] = expected_mate_regions.try_emplace(aln.QnameView(), aln.MateLocation());
       // If not newly emplaced, then we already read both pairs
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!newly_emplaced) expected_mate_regions.erase(itr);
+      if (!newly_added) expected_mate_regions.erase(itr);
     }
 
-    if (!mParams.mExtractReadPairs || expected_mate_regions.empty()) {
+    if (!mParams.mExtractPairs || expected_mate_regions.empty()) {
       sinfo.SetNumReads(num_reads);
       sinfo.SetNumBases(num_bases);
       sinfo.CalculateMeanCov(region.Length());
@@ -193,24 +194,24 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
 
 auto ReadCollector::EstimateInsertRange(const AlnAndRefPaths& paths) -> InsertRange {
   static constexpr usize MAX_READS_TO_SAMPLE = 100000;
-  static constexpr usize MIN_REQUIRED_MAPPING_QUALITY = 30;
 
   OnlineStats stats;
   InsertRange normal_range{0, 0};
+  using hts::Alignment::Fields::AUX_RGAUX;
   const auto [bam_cram_path, ref_path] = paths;
-  hts::Extractor extractor(bam_cram_path, ref_path, hts::Alignment::Fields::CIGAR_SEQ_QUAL, {}, true);
+  hts::Extractor extractor(bam_cram_path, ref_path, AUX_RGAUX, FILL_SAM_TAGS, true);
 
   for (const auto& aln : extractor) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (stats.Count() >= MAX_READS_TO_SAMPLE) break;
 
-    const auto bitflag = aln.Flag();
-    if (bitflag.IsSecondary() || bitflag.IsSupplementary() || bitflag.IsQcFail() || bitflag.IsDuplicate() ||
-        aln.ChromIndex() != aln.MateChromIndex() || aln.MapQual() < MIN_REQUIRED_MAPPING_QUALITY) {
+    if (FailsTier1Check(aln) || FailsTier2Check(aln) || aln.HasTag("SA") || aln.ChromIndex() != aln.MateChromIndex()) {
+      continue;
     }
 
+    const auto bflag = aln.Flag();
     const auto cigar = aln.CigarData();
-    if (bitflag.IsPairedInSequencing() && bitflag.IsMappedProperPair() && HasOnlyMatches(cigar)) {
+    if (bflag.IsPairedInSequencing() && bflag.IsMappedProperPair() && HasOnlyMatches(cigar)) {
       stats.Add(std::abs(aln.InsertSize()));
     }
   }
@@ -226,31 +227,37 @@ auto ReadCollector::EstimateInsertRange(const AlnAndRefPaths& paths) -> InsertRa
 }
 
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
-  std::vector<u32> genome_positions;  // softclip genome positions for single alignment
-  std::map<u32, u32> mismatches;      // genome position -> number of mismatches at position
-  std::map<u32, u32> insertions;      // genome position -> number of insertions at position
-  std::map<u32, u32> deletions;       // genome position -> number of deletions at position
-  std::map<u32, u32> softclips;       // genome position -> number of softclips at position
+  absl::btree_map<u32, u32> mismatches;  // genome position -> number of mismatches at position
+  absl::btree_map<u32, u32> insertions;  // genome position -> number of insertions at position
+  absl::btree_map<u32, u32> deletions;   // genome position -> number of deletions at position
+  absl::btree_map<u32, u32> softclips;   // genome position -> number of softclips at position
+  std::vector<u32> genome_positions;     // softclip genome positions for single alignment
+  static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
 
-  for (const auto& sinfo : MakeSampleList(params)) {
+  const auto sample_list = MakeSampleList(params);
+  const auto is_germline_mode = std::ranges::all_of(sample_list, is_normal);
+
+  for (const auto& sinfo : sample_list) {
     genome_positions.clear();
     mismatches.clear();
     insertions.clear();
     deletions.clear();
     softclips.clear();
 
-    constexpr auto fields = hts::Alignment::Fields::AUX_RGAUX;
-    hts::Extractor extractor(sinfo.Path(), params.mRefPath, fields, {"MD"}, params.mNoCtgCheck);
+    using hts::Alignment::Fields::AUX_RGAUX;
+    const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
+    hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, params.mNoCtgCheck);
     extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : extractor) {
-      const auto bflag = aln.Flag();
-      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || bflag.IsUnmapped() || aln.MapQual() == 0) {
-        continue;
-      }
+      // NOLINTBEGIN(readability-braces-around-statements)
+      if (FailsTier1Check(aln) || aln.Flag().IsUnmapped()) continue;
+      if ((is_tumor_sample || is_germline_mode) && FailsTier2Check(aln)) continue;
+      // NOLINTEND(readability-braces-around-statements)
 
       if (aln.HasTag("MD")) {
-        ParseMd(aln.GetTag<std::string_view>("MD").value(), aln.QualView(), aln.StartPos0(), &mismatches);
+        const auto md_tag = aln.GetTag<std::string_view>("MD");
+        ParseMd(md_tag.value(), aln.QualView(), aln.StartPos0(), &mismatches);
       }
 
       const auto cigar_units = aln.CigarData();
@@ -258,13 +265,10 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
       bool has_soft_clip = false;
 
       // lambda function to increment the counter for `genome_positions`
-      static const auto increment_genome_pos = [](std::map<u32, u32>& map, u32 genome_pos) {
-        auto&& itr = map.find(genome_pos);
-        if (itr != map.end()) {
-          ++itr->second;
-          return;
-        }
-        map.emplace(genome_pos, 1);
+      static const auto increment_genome_pos = [](CountMap& counts, u32 genome_pos) {
+        auto [itr, newly_added] = counts.try_emplace(genome_pos, 1);
+        // NOLINTNEXTLINE(readability-braces-around-statements)
+        if (!newly_added) itr->second++;
       };
 
       for (const auto& cig_unit : cigar_units) {
@@ -293,19 +297,18 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
       genome_positions.clear();
       if (has_soft_clip && aln.GetSoftClips(nullptr, nullptr, &genome_positions, false)) {
-        // NOLINTNEXTLINE(readability-braces-around-statements)
-        for (const auto gpos : genome_positions) increment_genome_pos(softclips, gpos);
+        const auto handle_clips = [&softclips](const auto gpos) { increment_genome_pos(softclips, gpos); };
+        std::ranges::for_each(genome_positions, handle_clips);
         LANCET_ASSERT(!softclips.empty())
       }
 
       // lambda function to check if `map` has evidence of mutation >= 2 reads
-      static const auto found_mutation_evidence = [](const std::map<u32, u32>& map) {
-        return std::any_of(map.cbegin(), map.cend(), [](const auto& pair) { return pair.second >= 2; });
+      static const auto count_gt2 = [](const CountMap& counts) {
+        return std::any_of(counts.cbegin(), counts.cend(), [](const auto& pair) { return pair.second >= 2; });
       };
 
       // if evidence of SNV/insertion/deletion/softclip is found in window, mark region as active
-      if (found_mutation_evidence(mismatches) || found_mutation_evidence(insertions) ||
-          found_mutation_evidence(deletions) || found_mutation_evidence(softclips)) {
+      if (count_gt2(mismatches) || count_gt2(insertions) || count_gt2(deletions) || count_gt2(softclips)) {
         return true;
       }
     }
@@ -324,31 +327,29 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
 }
 
 auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64 {
-  static const auto filter_tags = std::vector<std::string>{"AS", "XS", "XT", "XA"};
+  using hts::Alignment::Fields::AUX_RGAUX;
+  const auto need_pairs = mParams.mExtractPairs;
+  const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
 
-  const auto need_pairs = mParams.mExtractReadPairs;
-  const auto need_filt = sinfo.TagKind() == cbdg::Label::NORMAL || !(mParams.mNoFilterRds);
-  const auto fields = need_filt ? hts::Alignment::Fields::AUX_RGAUX : hts::Alignment::Fields::CORE_QNAME;
-  const auto fill_tags = need_filt ? filter_tags : std::vector<std::string>{};
-
-  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, fields, fill_tags, true);
+  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, true);
   extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
-  static const auto base_summer = [&need_filt, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {
-    const auto bflag = aln.Flag();
-    if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || aln.MapQual() == 0 ||
-        (need_filt && FailsFilter(aln))) {
-      return sum;
-    }
-
-    return (!need_pairs || aln.MateOverlapsRegion(region)) ? sum + aln.Length() : sum + aln.Length() + aln.Length();
+  static const auto summer = [&need_tier2, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (FailsTier1Check(aln) || (need_tier2 && FailsTier2Check(aln))) return sum;
+    return (need_pairs && !aln.MateOverlapsRegion(region)) ? sum + aln.Length() + aln.Length() : sum + aln.Length();
   };
 
-  const u64 num_bases = std::accumulate(extractor.begin(), extractor.end(), 0, base_summer);
+  const u64 num_bases = std::accumulate(extractor.begin(), extractor.end(), 0, summer);
   return static_cast<f64>(num_bases) / static_cast<f64>(region.Length());
 }
 
-auto ReadCollector::FailsFilter(const hts::Alignment& aln) -> bool {
+auto ReadCollector::FailsTier1Check(const hts::Alignment& aln) -> bool {
+  const auto bflag = aln.Flag();
+  return bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsSecondary() || (bflag.IsMapped() && aln.MapQual() == 0);
+}
+
+auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
   static constexpr u8 DEFAULT_MIN_READ_MAPPING_QUALITY = 20;
   static constexpr i64 DEFAULT_MIN_READ_AS_XS_DIFF = 5;
 
@@ -371,14 +372,8 @@ auto ReadCollector::FailsFilter(const hts::Alignment& aln) -> bool {
   // see "XT:Z:R". Nonetheless, the mapping quality is not necessarily zero. When its mate can be
   // mapped unambiguously, the read can still be mapped confidently and thus assigned a high mapQ.
   // MapQ is computed for the read pair. XT is determined from a single read.
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (aln.HasTag("XT")) return true;
-
   // XA -- BWA (Illumina): alternative hits; format: (chr,pos,CIGAR,NM;)
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (aln.HasTag("XA")) return true;
-
-  return false;
+  return aln.HasTag("XT") || aln.HasTag("XA");
 }
 
 auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleInfo> {

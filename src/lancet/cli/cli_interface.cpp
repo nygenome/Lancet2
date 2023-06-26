@@ -194,10 +194,9 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
 #ifndef LANCET_DEVELOP_MODE
   subcmd->add_flag("--cpu-profile", params->mEnableCpuProfiling, "Turn on CPU profiling")->group("Flags");
 #endif
-  subcmd->add_flag("--extract-pairs", rc_prms.mExtractReadPairs, "Extract all useful read pairs")->group("Flags");
+  subcmd->add_flag("--extract-pairs", rc_prms.mExtractPairs, "Extract all useful read pairs")->group("Flags");
   subcmd->add_flag("--no-active-region", vb_prms.mSkipActiveRegion, "Force assemble all windows")->group("Flags");
   subcmd->add_flag("--no-contig-check", rc_prms.mNoCtgCheck, "Skip contig check with reference")->group("Flags");
-  subcmd->add_flag("--no-filter-reads", rc_prms.mNoFilterRds, "Use all sample reads skipping filters")->group("Flags");
 
   // Optional
   subcmd->add_option("--runtime-stats", params->mRunStats, "Output text file with per window runtime & status")

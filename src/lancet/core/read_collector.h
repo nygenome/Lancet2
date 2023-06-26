@@ -1,9 +1,7 @@
 #ifndef SRC_LANCET_CORE_READ_COLLECTOR_H_
 #define SRC_LANCET_CORE_READ_COLLECTOR_H_
 
-#include <array>
 #include <filesystem>
-#include <map>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -35,10 +33,8 @@ class ReadCollector {
     std::vector<BamCramWithInsert> mTumors;
 
     f64 mMaxWinCov = DEFAULT_MAX_WINDOW_COVERAGE;
-
     bool mNoCtgCheck = false;
-    bool mNoFilterRds = false;
-    bool mExtractReadPairs = false;
+    bool mExtractPairs = false;
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     [[nodiscard]] auto SamplesCount() const -> usize { return mNormals.size() + mTumors.size(); }
@@ -67,14 +63,17 @@ class ReadCollector {
   using SampleExtractors = absl::flat_hash_map<SampleInfo, ExtractorPtr, SampleInfo::Hash, SampleInfo::Equal>;
 
   Params mParams;
+  bool mIsGermlineMode;
   Downsampler mDownsampler;
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
 
   [[nodiscard]] auto EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64;
 
-  [[nodiscard]] static auto FailsFilter(const hts::Alignment& aln) -> bool;
+  [[nodiscard]] static auto FailsTier1Check(const hts::Alignment& aln) -> bool;
+  [[nodiscard]] static auto FailsTier2Check(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto MakeSampleList(const Params& params) -> std::vector<SampleInfo>;
+
   [[nodiscard]] static auto BuildSortedMateInfos(const MateRegionsMap& data) -> std::vector<hts::Alignment::MateInfo>;
 };
 
