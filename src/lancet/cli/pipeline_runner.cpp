@@ -268,7 +268,7 @@ auto PipelineRunner::BuildWindows(const CliParams &params) -> std::vector<core::
 auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
   using namespace std::string_view_literals;
   // clang-format off
-  static constexpr auto fstr_hdr = R"raw(##fileformat=VCFv4.4
+  static constexpr auto fstr_hdr = R"raw(##fileformat=VCFv4.3
 ##fileDate={}
 ##source=Lancet_{}
 ##commandLine="{}"
