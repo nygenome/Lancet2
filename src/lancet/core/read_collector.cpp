@@ -103,7 +103,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     for (const auto& aln : *extractor) {
       const auto bflag = aln.Flag();
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary()) continue;
+      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || aln.MapQual() == 0) continue;
       if (is_tumor_sample && !mParams.mNoFilterRds && FailsFilter(aln)) continue;
       if (!mDownsampler.ShouldSample()) continue;
       // NOLINTEND(readability-braces-around-statements)
@@ -245,8 +245,9 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
     for (const auto& aln : extractor) {
       const auto bflag = aln.Flag();
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || bflag.IsUnmapped()) continue;
+      if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || bflag.IsUnmapped() || aln.MapQual() == 0) {
+        continue;
+      }
 
       if (aln.HasTag("MD")) {
         ParseMd(aln.GetTag<std::string_view>("MD").value(), aln.QualView(), aln.StartPos0(), &mismatches);
@@ -335,11 +336,12 @@ auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& regi
 
   static const auto base_summer = [&need_filt, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {
     const auto bflag = aln.Flag();
-    // NOLINTBEGIN(readability-braces-around-statements)
-    if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || (need_filt && FailsFilter(aln))) return sum;
-    if (!need_pairs || aln.MateOverlapsRegion(region)) return sum + aln.Length();
-    // NOLINTEND(readability-braces-around-statements)
-    return sum + aln.Length() + aln.Length();
+    if (bflag.IsDuplicate() || bflag.IsQcFail() || bflag.IsSecondary() || aln.MapQual() == 0 ||
+        (need_filt && FailsFilter(aln))) {
+      return sum;
+    }
+
+    return (!need_pairs || aln.MateOverlapsRegion(region)) ? sum + aln.Length() : sum + aln.Length() + aln.Length();
   };
 
   const u64 num_bases = std::accumulate(extractor.begin(), extractor.end(), 0, base_summer);
