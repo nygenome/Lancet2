@@ -17,8 +17,8 @@ set_property(CACHE LANCET_BENCHMARKS PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_BUILD_STATIC PROPERTY STRINGS "OFF" "ON")
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
 message(STATUS "CMAKE_HOST_SYSTEM_NAME: ${CMAKE_HOST_SYSTEM_NAME}")
 message(STATUS "CMAKE_HOST_SYSTEM_PROCESSOR: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
@@ -67,8 +67,8 @@ add_library(lancet_base STATIC src/lancet/base/version.h
 		src/lancet/base/hash.h src/lancet/base/hash.cpp
 		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
 		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)
-target_link_libraries(lancet_base PRIVATE wyhash MurmurHash3
-		PUBLIC spdlog::spdlog absl::time absl::span absl::fixed_array absl::strings)
+target_link_libraries(lancet_base PRIVATE wyhash MurmurHash3 absl::flat_hash_set
+		PUBLIC spdlog::spdlog absl::span absl::fixed_array absl::strings absl::time)
 target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/generated")
 set_target_properties(lancet_base PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
@@ -84,17 +84,17 @@ add_dependencies(lancet_hts htslib)
 set_target_properties(lancet_hts PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set absl::flat_hash_map
-		${LIB_HTS} INTERFACE BZip2::BZip2 LibLZMA::LibLZMA zlibstatic libdeflate_static)
+target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set ${LIB_HTS}
+		PRIVATE absl::flat_hash_map INTERFACE BZip2::BZip2 LibLZMA::LibLZMA zlibstatic libdeflate_static)
 
-add_library(lancet_cbdg STATIC src/lancet/cbdg/read.h
-		src/lancet/cbdg/label.h src/lancet/cbdg/edge.h
+add_library(lancet_cbdg STATIC src/lancet/cbdg/label.h
 		src/lancet/cbdg/kmer.cpp src/lancet/cbdg/kmer.h
+		src/lancet/cbdg/edge.h src/lancet/cbdg/read.h
 		src/lancet/cbdg/node.cpp src/lancet/cbdg/node.h
 		src/lancet/cbdg/max_flow.cpp src/lancet/cbdg/max_flow.h
 		src/lancet/cbdg/graph.cpp src/lancet/cbdg/graph.h)
 target_include_directories(lancet_cbdg PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_cbdg PUBLIC lancet_hts absl::cord absl::inlined_vector)
+target_link_libraries(lancet_cbdg PUBLIC lancet_hts absl::cord absl::inlined_vector absl::flat_hash_map)
 set_target_properties(lancet_cbdg PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_caller STATIC src/lancet/caller/raw_variant.h
@@ -106,7 +106,7 @@ add_library(lancet_caller STATIC src/lancet/caller/raw_variant.h
 add_dependencies(lancet_caller minimap2)
 target_include_directories(lancet_caller PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(lancet_caller SYSTEM PUBLIC "${MM2_ROOT_DIR}")
-target_link_libraries(lancet_caller PUBLIC lancet_cbdg spoa absl::btree RoaringBitmap ${LIB_MM2} PRIVATE zlibstatic)
+target_link_libraries(lancet_caller PUBLIC lancet_cbdg RoaringBitmap spoa absl::btree ${LIB_MM2} PRIVATE zlibstatic)
 set_target_properties(lancet_caller PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_info.h
@@ -116,7 +116,7 @@ add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_i
 		src/lancet/core/variant_builder.cpp src/lancet/core/variant_builder.h
 		src/lancet/core/async_worker.cpp src/lancet/core/async_worker.h)
 target_include_directories(lancet_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_core PUBLIC lancet_caller concurrentqueue absl::synchronization)
+target_link_libraries(lancet_core PUBLIC lancet_caller absl::synchronization concurrentqueue PRIVATE absl::hash)
 set_target_properties(lancet_core PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_cli STATIC src/lancet/cli/cli_params.h
@@ -130,7 +130,8 @@ set(LANCET_MAIN_CPP "${CMAKE_BINARY_DIR}/generated/lancet_main.cpp")
 configure_file(src/lancet/main.cpp.inc "${LANCET_MAIN_CPP}" @ONLY)
 add_executable(Lancet2 ${LANCET_MAIN_CPP})
 target_include_directories(Lancet2 PRIVATE "${CMAKE_SOURCE_DIR}")
-target_link_libraries(Lancet2 PRIVATE absl::symbolize absl::failure_signal_handler mimalloc-static lancet_cli)
+target_link_libraries(Lancet2 PRIVATE lancet_cli absl::symbolize
+		absl::failure_signal_handler absl::cleanup mimalloc-static)
 set_target_properties(Lancet2 PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 set_property(TARGET Lancet2 PROPERTY $<$<ENABLE_LTO>:INTERPROCEDURAL_OPTIMIZATION TRUE>)
 

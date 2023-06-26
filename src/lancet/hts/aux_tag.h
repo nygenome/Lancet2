@@ -2,7 +2,6 @@
 #define SRC_LANCET_HTS_AUX_TAG_H_
 
 #include <array>
-#include <cerrno>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -10,7 +9,6 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 extern "C" {
 #include "htslib/sam.h"
