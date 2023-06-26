@@ -11,6 +11,7 @@
 #include "absl/strings/ascii.h"
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
+#include "lancet/base/hash.h"
 #include "spdlog/fmt/fmt.h"
 
 using CountMap = absl::btree_map<u32, u32>;
@@ -83,20 +84,20 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sample_reads;
-  absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mate_regions;
+  absl::flat_hash_map<u64, hts::Alignment::MateInfo> expected_mates;
   const auto max_sample_cov = mParams.mMaxWinCov / static_cast<f64>(mSampleList.size());
 
   for (auto& sinfo : mSampleList) {
     u64 num_reads = 0;
     u64 num_bases = 0;
-    expected_mate_regions.clear();
+    expected_mates.clear();
 
     const AlnAndRefPaths aln_refs{sinfo.Path(), mParams.mRefPath};
     const auto sample_name = std::string(sinfo.SampleName());
     const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
-    const auto sample_cov = EstimateCoverage(sinfo, region);
+    const auto est_sample_cov = EstimateCoverage(sinfo, region);
 
-    const auto pct_to_sample = sample_cov > max_sample_cov ? ((max_sample_cov * 100.0) / sample_cov) : 100.0;
+    const auto pct_to_sample = est_sample_cov > max_sample_cov ? ((max_sample_cov * 100.0) / est_sample_cov) : 100.0;
     mDownsampler.SetPercentToSample(pct_to_sample);
 
     auto& extractor = mExtractors.at(sinfo);
@@ -117,28 +118,24 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       if (!mParams.mExtractPairs) continue;
 
       // First check if we already saw both mates in the same window
-      const auto mate_itr = expected_mate_regions.find(aln.QnameView());
-      if (mate_itr != expected_mate_regions.end()) {
-        expected_mate_regions.erase(mate_itr);
+      const auto mate_itr = expected_mates.find(HashStr64(aln.QnameView()));
+      if (mate_itr != expected_mates.end()) {
+        expected_mates.erase(mate_itr);
         continue;
       }
 
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (aln.Flag().IsMateUnmapped()) continue;
+      // NOLINTBEGIN(readability-braces-around-statements)
+      if (aln.Flag().IsMateUnmapped() || FailsTier1Check(aln) || FailsTier2Check(aln)) continue;
+      if (aln.Flag().IsMappedProperPair() && !aln.HasTag("SA")) continue;
+      // NOLINTEND(readability-braces-around-statements)
 
-      const auto has_split_aln = aln.HasTag("SA");
-      const auto curr_insert = std::abs(aln.InsertSize());
-      const auto abnormal_insert = curr_insert < sinfo.mMinExpectedInsert || curr_insert > sinfo.mMaxExpectedInsert;
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!abnormal_insert && !has_split_aln && aln.Flag().IsMappedProperPair()) continue;
-
-      auto [itr, newly_added] = expected_mate_regions.try_emplace(aln.QnameView(), aln.MateLocation());
+      auto [itr, newly_added] = expected_mates.try_emplace(HashStr64(aln.QnameView()), aln.MateLocation());
       // If not newly emplaced, then we already read both pairs
       // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!newly_added) expected_mate_regions.erase(itr);
+      if (!newly_added) expected_mates.erase(itr);
     }
 
-    if (!mParams.mExtractPairs || expected_mate_regions.empty()) {
+    if (!mParams.mExtractPairs || expected_mates.empty()) {
       sinfo.SetNumReads(num_reads);
       sinfo.SetNumBases(num_bases);
       sinfo.CalculateMeanCov(region.Length());
@@ -146,8 +143,8 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     }
 
     std::vector<std::string> mate_region_specs;
-    mate_region_specs.reserve(expected_mate_regions.size());
-    std::ranges::transform(BuildSortedMateInfos(expected_mate_regions), std::back_inserter(mate_region_specs),
+    mate_region_specs.reserve(expected_mates.size());
+    std::ranges::transform(BuildSortedMateInfos(expected_mates), std::back_inserter(mate_region_specs),
                            [&extractor](const hts::Alignment::MateInfo& item) -> std::string {
                              const auto mate_chrom = extractor->ChromName(item.mChromIndex);
                              const auto mate_pos1 = item.mMateStartPos0 + 1;
@@ -156,22 +153,16 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
                                                         : fmt::format("{}:{}-{}", mate_chrom, mate_pos1, mate_pos1);
                            });
 
-    for (const auto& mr_spec : mate_region_specs) {
-      extractor->SetRegionToExtract(mr_spec);
+    extractor->SetRegionBatchToExtract(absl::MakeSpan(mate_region_specs));
+    for (const auto& aln : *extractor) {
+      const auto itr = expected_mates.find(HashStr64(aln.QnameView()));
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (itr == expected_mates.end()) continue;
 
-      for (const auto& aln : *extractor) {
-        const auto itr = expected_mate_regions.find(aln.QnameView());
-        // NOLINTNEXTLINE(readability-braces-around-statements)
-        if (itr == expected_mate_regions.end()) continue;
-
-        num_reads += 1;
-        num_bases += aln.Length();
-        sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
-
-        // We break out of current mate region when we find the expected mate
-        expected_mate_regions.erase(itr);
-        break;
-      }
+      num_reads += 1;
+      num_bases += aln.Length();
+      sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+      expected_mates.erase(itr);
     }
 
     sinfo.SetNumReads(num_reads);
@@ -190,40 +181,6 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   });
 
   return {.mSampleReads = std::move(sample_reads), .mSampleList = mSampleList};
-}
-
-auto ReadCollector::EstimateInsertRange(const AlnAndRefPaths& paths) -> InsertRange {
-  static constexpr usize MAX_READS_TO_SAMPLE = 100000;
-
-  OnlineStats stats;
-  InsertRange normal_range{0, 0};
-  using hts::Alignment::Fields::AUX_RGAUX;
-  const auto [bam_cram_path, ref_path] = paths;
-  hts::Extractor extractor(bam_cram_path, ref_path, AUX_RGAUX, FILL_SAM_TAGS, true);
-
-  for (const auto& aln : extractor) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (stats.Count() >= MAX_READS_TO_SAMPLE) break;
-
-    if (FailsTier1Check(aln) || FailsTier2Check(aln) || aln.HasTag("SA") || aln.ChromIndex() != aln.MateChromIndex()) {
-      continue;
-    }
-
-    const auto bflag = aln.Flag();
-    const auto cigar = aln.CigarData();
-    if (bflag.IsPairedInSequencing() && bflag.IsMappedProperPair() && HasOnlyMatches(cigar)) {
-      stats.Add(std::abs(aln.InsertSize()));
-    }
-  }
-
-  const auto mean_iss = stats.Mean();
-  const auto stddev_iss = stats.StdDev();
-
-  static constexpr f64 SIGMA = 2.0;
-  normal_range[0] = static_cast<i64>(mean_iss - (SIGMA * stddev_iss));
-  normal_range[1] = static_cast<i64>(mean_iss + (SIGMA * stddev_iss));
-
-  return normal_range;
 }
 
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
@@ -378,24 +335,20 @@ auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
 
 auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleInfo> {
   std::vector<SampleInfo> results;
-  results.reserve(params.mNormals.size() + params.mTumors.size());
+  results.reserve(params.mNormalPaths.size() + params.mTumorPaths.size());
   const hts::Reference ref(params.mRefPath);
 
   // Add normal samples
-  std::ranges::transform(params.mNormals, std::back_inserter(results), [&ref](const BamCramWithInsert& item) {
-    const hts::Extractor extractor(item.first, ref, hts::Alignment::Fields::CORE_QNAME, {}, true);
-    auto result = SampleInfo(extractor.SampleName(), item.first, cbdg::Label::NORMAL);
-    result.mMinExpectedInsert = item.second[0];
-    result.mMaxExpectedInsert = item.second[1];
+  std::ranges::transform(params.mNormalPaths, std::back_inserter(results), [&ref](const std::filesystem::path& fpath) {
+    const hts::Extractor extractor(fpath, ref, hts::Alignment::Fields::CORE_QNAME, {}, true);
+    auto result = SampleInfo(extractor.SampleName(), fpath, cbdg::Label::NORMAL);
     return result;
   });
 
   // Add tumor samples
-  std::ranges::transform(params.mTumors, std::back_inserter(results), [&ref](const BamCramWithInsert& item) {
-    const hts::Extractor extractor(item.first, ref, hts::Alignment::Fields::CORE_QNAME, {}, true);
-    auto result = SampleInfo(extractor.SampleName(), item.first, cbdg::Label::TUMOR);
-    result.mMinExpectedInsert = item.second[0];
-    result.mMaxExpectedInsert = item.second[1];
+  std::ranges::transform(params.mTumorPaths, std::back_inserter(results), [&ref](const std::filesystem::path& fpath) {
+    const hts::Extractor extractor(fpath, ref, hts::Alignment::Fields::CORE_QNAME, {}, true);
+    auto result = SampleInfo(extractor.SampleName(), fpath, cbdg::Label::TUMOR);
     return result;
   });
 
@@ -407,9 +360,8 @@ auto ReadCollector::BuildSortedMateInfos(const MateRegionsMap& data) -> std::vec
   std::vector<hts::Alignment::MateInfo> results;
   results.reserve(data.size());
 
-  using MateNameAndRegion = std::pair<std::string, hts::Alignment::MateInfo>;
+  using MateNameAndRegion = std::pair<const u64, hts::Alignment::MateInfo>;
   std::ranges::transform(data, std::back_inserter(results), [](const MateNameAndRegion& item) { return item.second; });
-
   std::ranges::sort(results, [](const hts::Alignment::MateInfo& lhs, const hts::Alignment::MateInfo& rhs) -> bool {
     return (lhs.mChromIndex != rhs.mChromIndex) ? lhs.mChromIndex < rhs.mChromIndex
                                                 : lhs.mMateStartPos0 < rhs.mMateStartPos0;

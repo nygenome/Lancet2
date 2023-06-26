@@ -67,9 +67,6 @@ class SampleInfo {
   u64 mNumBases = 0;
   f64 mMeanCov = 0.0;
 
-  i64 mMinExpectedInsert = 0;
-  i64 mMaxExpectedInsert = 0;
-
   std::string mSampleName;
   std::filesystem::path mFilePath;
   cbdg::Label::Tag mTag = cbdg::Label::REFERENCE;

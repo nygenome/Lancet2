@@ -120,10 +120,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   auto& fltr_prms = vb_prms.mVariantParams;
 
   // Datasets
-  subcmd->add_option("-n,--normal", params->mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
+  subcmd->add_option("-n,--normal", rc_prms.mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
       ->required(true)
       ->group("Datasets");
-  subcmd->add_option("-t,--tumor", params->mTumorPaths, "Path to one (or) more tumor BAM/CRAM file(s)")
+  subcmd->add_option("-t,--tumor", rc_prms.mTumorPaths, "Path to one (or) more tumor BAM/CRAM file(s)")
       ->required(false)
       ->group("Datasets");
 
