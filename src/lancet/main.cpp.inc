@@ -6,7 +6,6 @@
 #include "lancet/base/logging.h"
 #include "lancet/cli/cli_interface.h"
 #include "mimalloc-override.h"
-#include "mimalloc.h"
 
 auto main(const int argc, const char** argv) -> int {
   // Initialize the symbolizer to get a human-readable stack trace

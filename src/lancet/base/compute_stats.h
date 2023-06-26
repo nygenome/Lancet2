@@ -79,14 +79,14 @@ class OnlineStats {
 };
 
 template <Number T>
-[[nodiscard]] static inline auto Mean(absl::Span<const T> data) -> f64 {
+[[nodiscard]] inline auto Mean(absl::Span<const T> data) -> f64 {
   OnlineStats stats;
   std::ranges::for_each(data, [&stats](const T item) { stats.Add(item); });
   return stats.Mean();
 }
 
 template <Number T>
-[[nodiscard]] static inline auto Median(absl::Span<const T> data) -> T {
+[[nodiscard]] inline auto Median(absl::Span<const T> data) -> T {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.empty()) return 0;
 
