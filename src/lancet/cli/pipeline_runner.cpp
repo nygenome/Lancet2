@@ -342,17 +342,17 @@ void PipelineRunner::ValidateAndPopulateParams() {
   normals.reserve(mParamsPtr->mNormalPaths.size());
   tumors.reserve(mParamsPtr->mTumorPaths.size());
 
-  const auto skip_insert_size = !mParamsPtr->mVariantBuilder.mRdCollParams.mExtractReadPairs;
   const auto ref_path = mParamsPtr->mVariantBuilder.mRdCollParams.mRefPath;
+  const auto need_insert_size_range = mParamsPtr->mVariantBuilder.mRdCollParams.mExtractPairs;
 
-  const auto aln_with_insert_builder = [&ref_path, &skip_insert_size](const std::filesystem::path &fpath) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (skip_insert_size) return std::make_pair(fpath, core::ReadCollector::InsertRange{0, 0});
-
-    LOG_INFO("Estimating expected inserted size range for {}", fpath.filename())
-    const auto [min_iss, max_iss] = core::ReadCollector::EstimateInsertRange({fpath, ref_path});
-    LOG_INFO("Expected inserted size range for {}: [{}, {}]", fpath.filename(), min_iss, max_iss)
-    return std::make_pair(fpath, core::ReadCollector::InsertRange{min_iss, max_iss});
+  const auto aln_with_insert_builder = [&ref_path, &need_insert_size_range](const std::filesystem::path &fpath) {
+    if (need_insert_size_range) {
+      LOG_INFO("Estimating inserted size range for {} to extract abnormal pairs", fpath.filename())
+      const auto [min_iss, max_iss] = core::ReadCollector::EstimateInsertRange({fpath, ref_path});
+      LOG_INFO("Expected inserted size range for {}: [{}, {}]", fpath.filename(), min_iss, max_iss)
+      return std::make_pair(fpath, core::ReadCollector::InsertRange{min_iss, max_iss});
+    }
+    return std::make_pair(fpath, core::ReadCollector::InsertRange{0, 0});
   };
 
   std::ranges::transform(mParamsPtr->mNormalPaths, std::back_inserter(normals), aln_with_insert_builder);
