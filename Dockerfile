@@ -8,7 +8,7 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get upgrade --yes --n
     /bin/bash "cmake-3.26.4-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
     unzip -d /usr/bin ninja-linux.zip && rm -f cmake-3.26.4-linux-x86_64.sh ninja-linux.zip
 
-RUN DEBIAN_FRONTEND="noninteractive" git clone https://github.com/nygenome/Lancet2.git && cd /Lancet2 && mkdir build && \
+RUN DEBIAN_FRONTEND="noninteractive" git clone https://github.com/nygenome/Lancet2.git && cd Lancet2 && mkdir build && \
     cd build && cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DLANCET_BUILD_ARCH="haswell" .. && ninja -v
 
 FROM alpine:latest
