@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "roaring.hh"
@@ -44,7 +44,7 @@ class VariantSupport {
 
  private:
   using Qualities = std::vector<u8>;
-  using ReadNames = absl::flat_hash_set<u32>;
+  using ReadNames = absl::flat_hash_map<u32, Strand>;
 
   ReadNames mRefNameHashes;
   ReadNames mAltNameHashes;
