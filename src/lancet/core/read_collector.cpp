@@ -11,7 +11,6 @@
 #include "absl/strings/ascii.h"
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
-#include "lancet/base/hash.h"
 #include "spdlog/fmt/fmt.h"
 
 using CountMap = absl::btree_map<u32, u32>;
@@ -84,7 +83,7 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sample_reads;
-  absl::flat_hash_map<u64, hts::Alignment::MateInfo> expected_mates;
+  absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mates;
   const auto max_sample_cov = mParams.mMaxWinCov / static_cast<f64>(mSampleList.size());
 
   for (auto& sinfo : mSampleList) {
@@ -118,18 +117,18 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       if (!mParams.mExtractPairs) continue;
 
       // First check if we already saw both mates in the same window
-      const auto mate_itr = expected_mates.find(HashStr64(aln.QnameView()));
+      const auto mate_itr = expected_mates.find(aln.QnameView());
       if (mate_itr != expected_mates.end()) {
         expected_mates.erase(mate_itr);
         continue;
       }
 
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (aln.Flag().IsMateUnmapped() || FailsTier1Check(aln) || FailsTier2Check(aln)) continue;
+      if (aln.Flag().IsMateUnmapped() || FailsTier2Check(aln)) continue;
       if (aln.Flag().IsMappedProperPair() && !aln.HasTag("SA")) continue;
       // NOLINTEND(readability-braces-around-statements)
 
-      auto [itr, newly_added] = expected_mates.try_emplace(HashStr64(aln.QnameView()), aln.MateLocation());
+      auto [itr, newly_added] = expected_mates.try_emplace(aln.QnameView(), aln.MateLocation());
       // If not newly emplaced, then we already read both pairs
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (!newly_added) expected_mates.erase(itr);
@@ -142,27 +141,29 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       continue;
     }
 
-    std::vector<std::string> mate_region_specs;
-    mate_region_specs.reserve(expected_mates.size());
-    std::ranges::transform(BuildSortedMateInfos(expected_mates), std::back_inserter(mate_region_specs),
-                           [&extractor](const hts::Alignment::MateInfo& item) -> std::string {
-                             const auto mate_chrom = extractor->ChromName(item.mChromIndex);
-                             const auto mate_pos1 = item.mMateStartPos0 + 1;
-                             const auto colon_in_mate_chrom = mate_chrom.find(':') != std::string::npos;
-                             return colon_in_mate_chrom ? fmt::format("{{{}}}:{}-{}", mate_chrom, mate_pos1, mate_pos1)
-                                                        : fmt::format("{}:{}-{}", mate_chrom, mate_pos1, mate_pos1);
-                           });
+    auto rev_mate_regions = RevSortMateRegions(expected_mates);
+    while (!expected_mates.empty()) {
+      const auto& [rname, minfo] = rev_mate_regions.back();
+      if (!expected_mates.contains(rname)) {
+        rev_mate_regions.pop_back();
+        continue;
+      }
 
-    extractor->SetRegionBatchToExtract(absl::MakeSpan(mate_region_specs));
-    for (const auto& aln : *extractor) {
-      const auto itr = expected_mates.find(HashStr64(aln.QnameView()));
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (itr == expected_mates.end()) continue;
+      const auto mate_reg_spec = MakeRegSpec(minfo, extractor.get());
+      extractor->SetRegionToExtract(mate_reg_spec);
 
-      num_reads += 1;
-      num_bases += aln.Length();
-      sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
-      expected_mates.erase(itr);
+      for (const auto& aln : *extractor) {
+        const auto itr = expected_mates.find(aln.QnameView());
+        // NOLINTNEXTLINE(readability-braces-around-statements)
+        if (itr == expected_mates.end()) continue;
+
+        num_reads += 1;
+        num_bases += aln.Length();
+        sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+        expected_mates.erase(itr);
+      }
+
+      rev_mate_regions.pop_back();
     }
 
     sinfo.SetNumReads(num_reads);
@@ -356,18 +357,22 @@ auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleIn
   return results;
 }
 
-auto ReadCollector::BuildSortedMateInfos(const MateRegionsMap& data) -> std::vector<hts::Alignment::MateInfo> {
-  std::vector<hts::Alignment::MateInfo> results;
-  results.reserve(data.size());
-
-  using MateNameAndRegion = std::pair<const u64, hts::Alignment::MateInfo>;
-  std::ranges::transform(data, std::back_inserter(results), [](const MateNameAndRegion& item) { return item.second; });
-  std::ranges::sort(results, [](const hts::Alignment::MateInfo& lhs, const hts::Alignment::MateInfo& rhs) -> bool {
-    return (lhs.mChromIndex != rhs.mChromIndex) ? lhs.mChromIndex < rhs.mChromIndex
-                                                : lhs.mMateStartPos0 < rhs.mMateStartPos0;
+auto ReadCollector::RevSortMateRegions(const MateRegionsMap& data) -> std::vector<MateNameAndLocation> {
+  std::vector<MateNameAndLocation> results(data.cbegin(), data.cend());
+  std::ranges::sort(results, [](const MateNameAndLocation& lhs, const MateNameAndLocation& rhs) -> bool {
+    return (lhs.second.mChromIndex != rhs.second.mChromIndex) ? lhs.second.mChromIndex > rhs.second.mChromIndex
+                                                              : lhs.second.mMateStartPos0 > rhs.second.mMateStartPos0;
   });
 
   return results;
+}
+
+auto ReadCollector::MakeRegSpec(const hts::Alignment::MateInfo& info, const hts::Extractor* ext) -> std::string {
+  const auto mate_chrom = ext->ChromName(info.mChromIndex);
+  const auto mate_pos1 = info.mMateStartPos0 + 1;
+  const auto colon_in_mate_chrom = mate_chrom.find(':') != std::string::npos;
+  return colon_in_mate_chrom ? fmt::format("{{{}}}:{}-{}", mate_chrom, mate_pos1, mate_pos1)
+                             : fmt::format("{}:{}-{}", mate_chrom, mate_pos1, mate_pos1);
 }
 
 }  // namespace lancet::core

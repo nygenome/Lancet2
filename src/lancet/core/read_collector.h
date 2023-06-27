@@ -56,7 +56,7 @@ class ReadCollector {
  private:
   using ExtractorPtr = std::unique_ptr<hts::Extractor>;
   using AlnAndRefPaths = std::array<std::filesystem::path, 2>;
-  using MateRegionsMap = absl::flat_hash_map<u64, hts::Alignment::MateInfo>;
+  using MateRegionsMap = absl::flat_hash_map<std::string, hts::Alignment::MateInfo>;
   using SampleExtractors = absl::flat_hash_map<SampleInfo, ExtractorPtr, SampleInfo::Hash, SampleInfo::Equal>;
 
   Params mParams;
@@ -69,9 +69,12 @@ class ReadCollector {
 
   [[nodiscard]] static auto FailsTier1Check(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto FailsTier2Check(const hts::Alignment& aln) -> bool;
-  
+
   [[nodiscard]] static auto MakeSampleList(const Params& params) -> std::vector<SampleInfo>;
-  [[nodiscard]] static auto BuildSortedMateInfos(const MateRegionsMap& data) -> std::vector<hts::Alignment::MateInfo>;
+
+  using MateNameAndLocation = std::pair<std::string, hts::Alignment::MateInfo>;
+  [[nodiscard]] static auto RevSortMateRegions(const MateRegionsMap& data) -> std::vector<MateNameAndLocation>;
+  [[nodiscard]] static auto MakeRegSpec(const hts::Alignment::MateInfo& info, const hts::Extractor* ext) -> std::string;
 };
 
 }  // namespace lancet::core
