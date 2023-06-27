@@ -65,7 +65,7 @@ namespace lancet::core {
 // NOLINTNEXTLINE(cert-err58-cpp)
 static const std::array<std::string, 6> FILL_SAM_TAGS = {"AS", "XS", "XT", "XA", "SA", "MD"};
 
-ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGermlineMode(false) {
+ReadCollector::ReadCollector(Params params) : mParams(std::move(params)) {
   using hts::Extractor;
   using hts::Alignment::Fields::AUX_RGAUX;
 
@@ -76,9 +76,6 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
     auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, no_ctgcheck);
     mExtractors.emplace(sinfo, std::move(extractor));
   }
-
-  static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
-  mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
 }
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
@@ -105,7 +102,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     for (const auto& aln : *extractor) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (FailsTier1Check(aln)) continue;
-      if ((is_tumor_sample || mIsGermlineMode) && FailsTier2Check(aln)) continue;
+      if (is_tumor_sample && FailsTier2Check(aln)) continue;
       if (!mDownsampler.ShouldSample()) continue;
       // NOLINTEND(readability-braces-around-statements)
 
@@ -287,7 +284,7 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
 auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64 {
   using hts::Alignment::Fields::AUX_RGAUX;
   const auto need_pairs = mParams.mExtractPairs;
-  const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
+  const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR;
 
   hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, true);
   extractor.SetRegionToExtract(region.ToSamtoolsRegion());

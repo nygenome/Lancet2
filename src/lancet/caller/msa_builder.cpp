@@ -16,7 +16,7 @@ inline auto BuildAlnEngine(absl::Span<const std::string> seqs) -> AlnEngine {
   static constexpr i8 OPEN1 = -81;
   static constexpr i8 EXTEND1 = -1;
   static constexpr i8 OPEN2 = -39;
-  static constexpr i8 EXTEND2 = -2;
+  static constexpr i8 EXTEND2 = -3;
   // asm5 from minimap2 -> https://lh3.github.io/minimap2/minimap2.html -> assembly to same species ref scoring
   // https://curiouscoding.nl/posts/pairwise-alignment -> Convex affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
   auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
