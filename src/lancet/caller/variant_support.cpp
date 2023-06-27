@@ -3,21 +3,26 @@
 #include <algorithm>
 #include <cmath>
 #include <ranges>
+#include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/hts/fisher_exact.h"
 
 namespace lancet::caller {
 
 void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 quality) {
+  const auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
+  const auto itr = name_hashes.find(rname_hash);
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (itr != name_hashes.end() && itr->second == strand) return;
+
   switch (allele) {
     case Allele::REF:
-      mRefNameHashes.emplace(rname_hash);
+      mRefNameHashes.emplace(rname_hash, strand);
       strand == Strand::FWD ? mRefFwdQuals.emplace_back(quality) : mRefRevQuals.emplace_back(quality);
       break;
     default:
-      mAltNameHashes.emplace(rname_hash);
+      mAltNameHashes.emplace(rname_hash, strand);
       strand == Strand::FWD ? mAltFwdQuals.emplace_back(quality) : mAltRevQuals.emplace_back(quality);
       break;
   }
@@ -80,8 +85,13 @@ auto VariantSupport::StrandBiasScore() const -> u8 {
 }
 
 auto VariantSupport::SupportingReadHashes(const Allele allele) const -> roaring::Roaring {
-  const auto& curr_allele_set = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
-  const absl::FixedArray<u32> allele_hashes(curr_allele_set.cbegin(), curr_allele_set.cend());
+  const ReadNames& curr_allele_set = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
+
+  std::vector<u32> allele_hashes;
+  allele_hashes.reserve(curr_allele_set.size());
+  std::ranges::transform(curr_allele_set, std::back_inserter(allele_hashes),
+                         [](const ReadNames::value_type& item) { return item.first; });
+  
   return {curr_allele_set.size(), allele_hashes.data()};
 }
 
