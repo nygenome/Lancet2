@@ -21,7 +21,7 @@ void VariantStore::AddVariants(std::vector<Value> &&variants) {
       continue;
     }
 
-    if (prev->second->TotalCoverage() < curr->TotalCoverage()) {
+    if (prev->second->TotalCoverage() < curr->TotalCoverage() && prev->second->Quality() < curr->Quality()) {
       mData.erase(prev);
       mData.emplace(identifier, std::move(curr));
     }
