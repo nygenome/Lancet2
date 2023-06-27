@@ -11,9 +11,6 @@
 namespace lancet::caller {
 
 void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 quality) {
-  auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
-  if (name_hashes.contains(rname_hash)) return;  // NOLINT(readability-braces-around-statements)
-
   switch (allele) {
     case Allele::REF:
       mRefNameHashes.emplace(rname_hash);
