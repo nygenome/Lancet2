@@ -190,20 +190,34 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
 }
 
 auto VariantSet::CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap {
-  usize start_gaps = 0;
-  const auto has_start_gap = [&start_gaps](const std::string_view aln) -> bool { return aln[start_gaps] == ALN_GAP; };
-  while (std::ranges::any_of(msa_view, has_start_gap)) {
-    ++start_gaps;
-  }
+  static constexpr usize MIN_ENDS_GOOD_MATCH = 11;
 
-  usize end_gaps = 0;
-  i64 end_idx = static_cast<i64>(msa_view[REF_HAP_IDX].length()) - 1;
-  const auto has_end_gap = [&end_idx](const std::string_view aln) -> bool { return aln[end_idx] == ALN_GAP; };
-  while (std::ranges::any_of(msa_view, has_end_gap)) {
-    --end_idx;
-    ++end_gaps;
-  }
+  static const auto skips_before_good_start = [](const usize prev_skips, const std::string_view aln) -> usize {
+    usize curr_skips = 0;
+    while (curr_skips <= (aln.length() - MIN_ENDS_GOOD_MATCH)) {
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (std::ranges::count(aln.substr(curr_skips, MIN_ENDS_GOOD_MATCH), ALN_GAP) == 0) break;
+      ++curr_skips;
+    }
+    return std::max(prev_skips, curr_skips);
+  };
 
+  static const auto skips_before_good_end = [](const usize prev_skips, const std::string_view aln) -> usize {
+    usize curr_skips = 0;
+    auto curr_offset = static_cast<i64>(aln.length()) - static_cast<i64>(MIN_ENDS_GOOD_MATCH);
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (curr_offset < 0) return std::max(prev_skips, aln.length());
+    while (curr_offset >= 0) {
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (std::ranges::count(aln.substr(curr_offset, MIN_ENDS_GOOD_MATCH), ALN_GAP) == 0) break;
+      ++curr_skips;
+      --curr_offset;
+    }
+    return std::max(prev_skips, curr_skips);
+  };
+
+  const usize start_gaps = std::accumulate(msa_view.cbegin(), msa_view.cend(), 0, skips_before_good_start);
+  const usize end_gaps = std::accumulate(msa_view.cbegin(), msa_view.cend(), 0, skips_before_good_end);
   return {start_gaps, end_gaps};
 }
 
