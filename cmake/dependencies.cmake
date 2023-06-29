@@ -145,6 +145,9 @@ set(spoa_optimize_for_native OFF)
 FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 08957f6 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
+FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.82.0 SYSTEM)
+FetchContent_MakeAvailable(boost_math)
+
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")

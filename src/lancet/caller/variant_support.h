@@ -10,7 +10,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
-#include "roaring.hh"
 
 namespace lancet::caller {
 
@@ -35,12 +34,10 @@ class VariantSupport {
   [[nodiscard]] auto AltFrequency() const -> f64;
 
   /// Normalized Phred scaled genotype likelihoods for all possible genotype combinations
-  [[nodiscard]] auto NormalizedPhredLikelihoods() const -> std::array<int, 3>;
+  [[nodiscard]] auto ComputePLs() const -> std::array<int, 3>;
 
   /// Phred scaled probability of strand bias being present in the ref and alt alleles
   [[nodiscard]] auto StrandBiasScore() const -> u8;
-
-  [[nodiscard]] auto SupportingReadHashes(Allele allele) const -> roaring::Roaring;
 
  private:
   using Qualities = std::vector<u8>;

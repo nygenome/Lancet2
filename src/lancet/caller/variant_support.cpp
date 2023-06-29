@@ -5,6 +5,7 @@
 #include <ranges>
 #include <vector>
 
+#include "boost/math/distributions/binomial.hpp"
 #include "lancet/base/compute_stats.h"
 #include "lancet/hts/fisher_exact.h"
 
@@ -33,35 +34,36 @@ auto VariantSupport::AltFrequency() const -> f64 {
   return alt_total == 0 ? 0.0 : static_cast<f64>(alt_total) / static_cast<f64>(TotalSampleCov());
 }
 
-auto VariantSupport::NormalizedPhredLikelihoods() const -> std::array<int, 3> {
-  const std::array<absl::Span<const u8>, 2> ref_quals{mRefFwdQuals, mRefRevQuals};
-  const std::array<absl::Span<const u8>, 2> alt_quals{mAltFwdQuals, mAltRevQuals};
+auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
+  const auto nref = static_cast<f64>(TotalRefCov());
+  const auto nalt = static_cast<f64>(TotalAltCov());
+  const auto total = static_cast<f64>(TotalSampleCov());
+  const auto fraction_ref = static_cast<f64>(nref) / static_cast<f64>(total);
+  const auto fraction_alt = static_cast<f64>(nalt) / static_cast<f64>(total);
 
-  std::vector<f64> ref_probs;
-  std::vector<f64> alt_probs;
-  ref_probs.reserve(TotalRefCov());
-  alt_probs.reserve(TotalAltCov());
+  // NOLINTBEGIN(readability-braces-around-statements)
+  if (fraction_ref == 1.0 && fraction_alt == 0.0) return {0, hts::MAX_PHRED_SCORE, hts::MAX_PHRED_SCORE};
+  if (fraction_ref == 0.0 && fraction_alt == 1.0) return {hts::MAX_PHRED_SCORE, hts::MAX_PHRED_SCORE, 0};
+  // NOLINTEND(readability-braces-around-statements)
 
-  std::ranges::transform(std::ranges::join_view(ref_quals), std::back_inserter(ref_probs), hts::PhredToErrorProb);
-  std::ranges::transform(std::ranges::join_view(alt_quals), std::back_inserter(alt_probs), hts::PhredToErrorProb);
-
-  // Assume bi-allelic diploid calls
-  static constexpr f64 HET_RATIO = 0.5;
   f64 ref_hom_ll = 0.0;
   f64 het_alt_ll = 0.0;
   f64 alt_hom_ll = 0.0;
 
-  for (const f64 ref_ep : ref_probs) {
-    ref_hom_ll += ref_ep == 1.0 ? 0.0 : std::log10(1.0 - ref_ep);               // RR
-    het_alt_ll += std::log10(HET_RATIO * (1.0 - ref_ep) + HET_RATIO * ref_ep);  // RA
-    alt_hom_ll += std::log10(ref_ep);                                           // AA
-  }
+  const boost::math::binomial_distribution<f64> ref_dist(total, fraction_ref);
+  const boost::math::binomial_distribution<f64> alt_dist(total, fraction_alt);
 
-  for (const f64 alt_ep : alt_probs) {
-    ref_hom_ll += std::log10(alt_ep);                                           // RR
-    het_alt_ll += std::log10(HET_RATIO * (1.0 - alt_ep) + HET_RATIO * alt_ep);  // AR
-    alt_hom_ll += alt_ep == 1.0 ? 0.0 : std::log10(1.0 - alt_ep);               // AA
-  }
+  // REF_HOM probability log likelihood
+  const auto prob_all_refs = boost::math::pdf(ref_dist, total) * boost::math::pdf(alt_dist, 0);
+  ref_hom_ll += prob_all_refs == 0.0 ? 0.0 : std::log10(prob_all_refs);
+
+  // HET_ALT probability log likelihood
+  const auto prob_nref_nalt = boost::math::cdf(ref_dist, nref) * boost::math::cdf(alt_dist, nalt);
+  het_alt_ll += prob_nref_nalt == 0.0 ? 0.0 : std::log10(prob_nref_nalt);
+
+  // ALT_HOM probability log likelihood
+  const auto prob_all_alts = boost::math::pdf(ref_dist, 0) * boost::math::pdf(alt_dist, total);
+  alt_hom_ll += prob_all_alts == 0.0 ? 0.0 : std::log10(prob_all_alts);
 
   // PL = -10 * log10(P(G|D)) where P(G|D) is the likelihood of genotype G given data D
   static constexpr f64 LL_TO_PHRED_MULTIPLIER = -10.0;
@@ -71,9 +73,11 @@ auto VariantSupport::NormalizedPhredLikelihoods() const -> std::array<int, 3> {
 
   // Subtract minimum PL value to get normalized PL values
   const f64 min_ll_value = std::min({ref_hom_ll, het_alt_ll, alt_hom_ll});
-  return {static_cast<int>(std::round(ref_hom_ll - min_ll_value)),
-          static_cast<int>(std::round(het_alt_ll - min_ll_value)),
-          static_cast<int>(std::round(alt_hom_ll - min_ll_value))};
+  ref_hom_ll -= min_ll_value;
+  het_alt_ll -= min_ll_value;
+  alt_hom_ll -= min_ll_value;
+
+  return {hts::ClampPhredScore(ref_hom_ll), hts::ClampPhredScore(het_alt_ll), hts::ClampPhredScore(alt_hom_ll)};
 }
 
 auto VariantSupport::StrandBiasScore() const -> u8 {
@@ -82,17 +86,6 @@ auto VariantSupport::StrandBiasScore() const -> u8 {
   const auto revs = Row{static_cast<int>(mRefRevQuals.size()), static_cast<int>(mAltRevQuals.size())};
   const auto result = hts::FisherExact::Test({fwds, revs});
   return hts::ErrorProbToPhred(result.mDiffProb);
-}
-
-auto VariantSupport::SupportingReadHashes(const Allele allele) const -> roaring::Roaring {
-  const ReadNames& curr_allele_set = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
-
-  std::vector<u32> allele_hashes;
-  allele_hashes.reserve(curr_allele_set.size());
-  std::ranges::transform(curr_allele_set, std::back_inserter(allele_hashes),
-                         [](const ReadNames::value_type& item) { return item.first; });
-  
-  return {curr_allele_set.size(), allele_hashes.data()};
 }
 
 }  // namespace lancet::caller

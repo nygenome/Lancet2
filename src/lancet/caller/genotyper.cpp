@@ -95,7 +95,7 @@ void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const Variant
     if (!variant.mHapStart0Idxs.contains(mHapIdx) || supports.contains(&variant)) continue;
 
     const auto al_start = variant.mHapStart0Idxs.at(mHapIdx);
-    const auto al_len = curr_allele == Allele::REF ? variant.mRefAllele.length() : variant.mAltAllele.length();
+    const auto al_len = std::max(variant.mRefAllele.length(), variant.mAltAllele.length());
     const auto allele_range = StartEndIndices({al_start, al_start + al_len - 1});
     const auto rd_start_idx_supporting_allele = FindQueryStart(hap_and_rd_identity_ranges, allele_range);
     if (rd_start_idx_supporting_allele) {
@@ -287,7 +287,7 @@ void Genotyper::AddToTable(Result& result, const cbdg::Read& read, const Support
     const auto [read_start_idx0, allele] = qry_start_and_allele;
     const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
     const auto median_allele_qual = Median(quals.subspan(read_start_idx0, allele_len));
-    sample_variant->AddEvidence(rname_hash, allele, read_strand, median_allele_qual);
+    sample_variant->AddEvidence(rname_hash, allele, read_strand, std::min(median_allele_qual, read.MapQual()));
   }
 }
 
