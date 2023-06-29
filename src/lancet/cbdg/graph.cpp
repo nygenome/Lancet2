@@ -22,9 +22,7 @@ namespace lancet::cbdg {
 
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
 auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result {
-  mAvgCov = 0.0;
   mReads = reads;
-  mSourceAndSinkIds = {0, 0};
   mRegion = std::move(region);
 
   Timer timer;
@@ -43,6 +41,8 @@ IncrementKmerAndRetry:
   while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
     mCurrK += 2;
     timer.Reset();
+    mAvgCov = 0.0;
+    mSourceAndSinkIds = {0, 0};
 
     // NOLINTNEXTLINE(readability-braces-around-statements,cppcoreguidelines-avoid-goto)
     if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK)) goto IncrementKmerAndRetry;
@@ -51,9 +51,7 @@ IncrementKmerAndRetry:
     LOG_TRACE("Built graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
     RemoveLowCovNodes(0);
     mNodes.rehash(0);
-
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (!mParams.mOutGraphsDir.empty()) WriteDot(State::NO_LOW_COV, 0);
+    WRITE_DOT_DEVELOP(FIRST_LOW_COV_REMOVAL, 0);
 
     const auto components = MarkConnectedComponents();
     per_comp_haplotypes.reserve(components.size());
@@ -82,9 +80,7 @@ IncrementKmerAndRetry:
       std::vector<std::string> haplotypes;
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
       ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
-
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!mParams.mOutGraphsDir.empty()) WriteDot(State::REF_ANCHORS, comp_id);
+      WRITE_DOT_DEVELOP(FOUND_REF_ANCHORS, comp_id)
 
       if (HasCycle()) {
         LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
@@ -92,19 +88,22 @@ IncrementKmerAndRetry:
       }
 
       CompressGraph(comp_id);
+      WRITE_DOT_DEVELOP(FIRST_COMPRESSION, comp_id)
       RemoveLowCovNodes(comp_id);
+      WRITE_DOT_DEVELOP(SECOND_LOW_COV_REMOVAL, comp_id)
       CompressGraph(comp_id);
+      WRITE_DOT_DEVELOP(SECOND_COMPRESSION, comp_id)
       RemoveTips(comp_id);
-      RemoveShortLinks(comp_id);
+      WRITE_DOT_DEVELOP(SHORT_TIP_REMOVAL, comp_id)
+      // RemoveShortLinks(comp_id);
+      // WRITE_DOT_DEVELOP(SHORT_LINK_REMOVAL, comp_id)
 
       if (HasCycle()) {
         LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
         goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
       }
 
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!mParams.mOutGraphsDir.empty()) WriteDot(State::PRUNED_GRAPH, comp_id);
-
+      WriteDot(State::FULLY_PRUNED_GRAPH, comp_id);
       LOG_TRACE("Starting Edmond Karp traversal for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
       MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK);
       auto path_seq = max_flow.NextPath();
@@ -673,21 +672,37 @@ auto Graph::RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usiz
   return sink.mRefOffset - source.mRefOffset + currk;
 }
 
+auto Graph::ToString(const State state) -> std::string {
+  switch (state) {
+    case FIRST_LOW_COV_REMOVAL:
+      return "low_cov_removal1";
+    case FOUND_REF_ANCHORS:
+      return "found_ref_anchors";
+    case FIRST_COMPRESSION:
+      return "compression1";
+    case SECOND_LOW_COV_REMOVAL:
+      return "low_cov_removal2";
+    case SECOND_COMPRESSION:
+      return "compression2";
+    case SHORT_TIP_REMOVAL:
+      return "short_tip_removal";
+    default:
+      break;
+  }
+
+  return "fully_pruned";
+}
+
 void Graph::WriteDot(State state, usize comp_id) {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mParams.mOutGraphsDir.empty()) return;
 
   using namespace std::string_view_literals;
-  const auto sinfo = state == NO_LOW_COV ? "no_low_cov"sv : state == REF_ANCHORS ? "ref_anchors"sv : "pruned_graph"sv;
   const auto win_id = fmt::format("{}_{}_{}", mRegion->ChromName(), mRegion->StartPos1(), mRegion->EndPos1());
-  const auto fname = fmt::format("dbg__{}__{}__k{}__comp{}.dot", win_id, sinfo, mCurrK, comp_id);
+  const auto fname = fmt::format("dbg__{}__{}__k{}__comp{}.dot", win_id, ToString(state), mCurrK, comp_id);
 
   const auto out_path = mParams.mOutGraphsDir / "dbg_graph" / fname;
   std::filesystem::create_directories(mParams.mOutGraphsDir / "dbg_graph");
-
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (state == NO_LOW_COV) return SerializeToDot(mNodes, out_path, comp_id);
-
   return SerializeToDot(mNodes, out_path, comp_id, {mSourceAndSinkIds.cbegin(), mSourceAndSinkIds.cend()});
 }
 

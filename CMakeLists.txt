@@ -106,7 +106,7 @@ add_library(lancet_caller STATIC src/lancet/caller/raw_variant.h
 add_dependencies(lancet_caller minimap2)
 target_include_directories(lancet_caller PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(lancet_caller SYSTEM PUBLIC "${MM2_ROOT_DIR}")
-target_link_libraries(lancet_caller PUBLIC lancet_cbdg RoaringBitmap spoa absl::btree ${LIB_MM2} PRIVATE zlibstatic)
+target_link_libraries(lancet_caller PUBLIC lancet_cbdg spoa absl::btree ${LIB_MM2} PRIVATE boost_math zlibstatic)
 set_target_properties(lancet_caller PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_info.h

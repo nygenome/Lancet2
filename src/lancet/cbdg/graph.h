@@ -128,8 +128,24 @@ class Graph {
   [[nodiscard]] static auto HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool;
   [[nodiscard]] static auto RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
 
-  enum State { NO_LOW_COV = 0, REF_ANCHORS = 1, PRUNED_GRAPH = 2 };
+  enum State {
+    FIRST_LOW_COV_REMOVAL = 0,
+    FOUND_REF_ANCHORS = 1,
+    FIRST_COMPRESSION = 2,
+    SECOND_LOW_COV_REMOVAL = 3,
+    SECOND_COMPRESSION = 4,
+    SHORT_TIP_REMOVAL = 5,
+    SHORT_LINK_REMOVAL = 6,
+    FULLY_PRUNED_GRAPH = 7
+  };
+
+  [[nodiscard]] static auto ToString(State state) -> std::string;
   void WriteDot(State state, usize comp_id);
+#ifdef LANCET_DEVELOP_MODE
+#define WRITE_DOT_DEVELOP(...) WriteDot(__VA_ARGS__);
+#else
+#define WRITE_DOT_DEVELOP(...) ((void)0);
+#endif
 
   static void SerializeToDot(const NodeTable& graph, const std::filesystem::path& out_path, usize comp_id = 0,
                              const NodeIdSet& nodes_highlight = {}, const EdgeSet& edges_highlight = {},

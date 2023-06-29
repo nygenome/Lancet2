@@ -55,7 +55,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   for (const auto &sinfo : samps) {
     const auto &evidence = per_sample_evidence.at(sinfo.SampleName());
 
-    const auto sample_likelihoods = evidence->NormalizedPhredLikelihoods();
+    const auto sample_likelihoods = evidence->ComputePLs();
     const auto [smallest_index, second_smallest_index] = FirstAndSecondSmallestIndices(sample_likelihoods);
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
     const auto gt_quality = sample_likelihoods.at(second_smallest_index);
@@ -86,7 +86,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
       if (evidence->TotalAltCov() < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrAltCnt");
-      if (evidence->TotalAltCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
+      if (evidence->TotalSampleCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
       if (gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
       if (somatic_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomatic");
       // NOLINTEND(readability-braces-around-statements)

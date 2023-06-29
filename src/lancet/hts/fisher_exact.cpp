@@ -1,6 +1,7 @@
 #include "lancet/hts/fisher_exact.h"
 
 #include <cmath>
+#include <limits>
 
 #include "absl/container/fixed_array.h"
 #include "htslib/kfunc.h"
@@ -16,8 +17,6 @@ auto FisherExact::Test(const ContingencyTable &table) -> Result {
   result.mDataProb = kt_fisher_exact(n_11, n_12, n_21, n_22, &result.mLessProb, &result.mMoreProb, &result.mDiffProb);
   return result;
 }
-
-static constexpr usize MAX_PHRED_SCORE = 255;
 
 // clang-format off
 static constexpr auto LUT_PHRED_TO_ERROR_PROB = std::array<f64, MAX_PHRED_SCORE + 1>{
@@ -107,11 +106,14 @@ auto PhredToErrorProb(u32 phred_score) -> f64 {
 }
 
 auto ErrorProbToPhred(f64 prob) -> u8 {
-  if (prob == 1.0) return 0;                                 // NOLINT(readability-braces-around-statements)
-  if (prob == 0.0) return static_cast<u8>(MAX_PHRED_SCORE);  // NOLINT(readability-braces-around-statements)
+  if (prob == 1.0) return 0;                               // NOLINT(readability-braces-around-statements)
+  if (prob == 0.0) return std::numeric_limits<u8>::max();  // NOLINT(readability-braces-around-statements)
+  static constexpr f64 PHRED_MULTIPLIER = -10.0;
+  return ClampPhredScore(std::round(PHRED_MULTIPLIER * prob));
+}
 
-  const auto result = static_cast<i64>(std::round(-10.0 * std::log10(prob)));
-  return static_cast<u8>(std::clamp(result, i64(0), i64(MAX_PHRED_SCORE)));
+auto ClampPhredScore(f64 score) -> u8 {
+  return static_cast<u8>(std::round(std::clamp(score, f64(0), f64(MAX_PHRED_SCORE))));
 }
 
 }  // namespace lancet::hts
