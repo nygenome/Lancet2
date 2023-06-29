@@ -58,7 +58,8 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   ref_hom_ll += prob_all_refs == 0.0 ? 0.0 : std::log10(prob_all_refs);
 
   // HET_ALT probability log likelihood
-  const auto prob_nref_nalt = boost::math::cdf(ref_dist, nref) * boost::math::cdf(alt_dist, nalt);
+  const auto prob_nref_nalt = (boost::math::cdf(ref_dist, nref) - boost::math::cdf(ref_dist, 0)) *
+                              (boost::math::cdf(alt_dist, nalt) - boost::math::cdf(alt_dist, 0));
   het_alt_ll += prob_nref_nalt == 0.0 ? 0.0 : std::log10(prob_nref_nalt);
 
   // ALT_HOM probability log likelihood
