@@ -144,7 +144,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("-b,--bed-file", params->mBedFile, "Path to BED file with regions to process")
       ->group("Regions")
       ->check(CLI::ExistingFile);
-  subcmd->add_option("--padding", wb_prms.mRegionPadding, "Padding for both sides of all input regions")
+  subcmd->add_option("-P,--padding", wb_prms.mRegionPadding, "Padding for both sides of all input regions")
       ->group("Regions")
       ->check(CLI::Range(u32(0), core::WindowBuilder::MAX_ALLOWED_REGION_PAD));
   subcmd->add_option("-p,--pct-overlap", wb_prms.mPercentOverlap, "Percent overlap between consecutive windows")
