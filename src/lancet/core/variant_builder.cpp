@@ -48,6 +48,12 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);
 
   const auto total_cov = SampleInfo::TotalMeanCov(samples, window->Length());
+  if (total_cov < static_cast<f64>(mParamsPtr->mGraphParams.mMinRefAnchorCov)) {
+    LOG_DEBUG("Skipping window {} since it has only {:.2f}x total sample coverage", reg_str, total_cov)
+    mCurrentCode = StatusCode::SKIPPED_INACTIVE_REGION;
+    return {};
+  }
+
   LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str, reads.size(), total_cov)
   // First haplotype from each component will always be the reference haplotype sequence for the graph
   const auto dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads);
