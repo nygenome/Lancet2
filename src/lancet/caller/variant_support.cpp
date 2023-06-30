@@ -46,28 +46,23 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   auto alt_allele_prob = (nalt * site_accuracy_prob) / total;
 
   if (nref == 0.0) {
-    static constexpr f64 LOG_BASE = 10.0;
-    const auto log_ref_prob = std::log10(site_error_prob) * total;
-    const auto has_underflow = log_ref_prob < std::numeric_limits<f64>::min_exponent10;
-    ref_allele_prob = has_underflow ? std::numeric_limits<f64>::min() : std::pow(LOG_BASE, log_ref_prob);
+    ref_allele_prob = site_error_prob;
     alt_allele_prob = 1.0 - ref_allele_prob;
   }
 
   if (nalt == 0.0) {
-    static constexpr f64 LOG_BASE = 10.0;
-    const auto log_alt_prob = std::log10(site_error_prob) * total;
-    const auto has_underflow = log_alt_prob < std::numeric_limits<f64>::min_exponent10;
-    alt_allele_prob = has_underflow ? std::numeric_limits<f64>::min() : std::pow(LOG_BASE, log_alt_prob);
+    alt_allele_prob = site_error_prob;
     ref_allele_prob = 1.0 - alt_allele_prob;
   }
 
+  static constexpr f64 MIN_HET_COUNT = 2.0;
   const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
   const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
   const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-  const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
-  const auto prob_het_alt = nref == 0.0   ? boost::math::pdf(ref_dist, 1.0)
-                            : nalt == 0.0 ? boost::math::pdf(alt_dist, 1.0)
+  const auto prob_het_alt = nref == 0.0   ? boost::math::pdf(ref_dist, MIN_HET_COUNT)
+                            : nalt == 0.0 ? boost::math::pdf(alt_dist, MIN_HET_COUNT)
                                           : boost::math::pdf(alt_dist, nalt);
+  const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
 
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
