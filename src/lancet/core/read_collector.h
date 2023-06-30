@@ -60,6 +60,7 @@ class ReadCollector {
   using SampleExtractors = absl::flat_hash_map<SampleInfo, ExtractorPtr, SampleInfo::Hash, SampleInfo::Equal>;
 
   Params mParams;
+  bool mIsGermlineMode;
   Downsampler mDownsampler;
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
