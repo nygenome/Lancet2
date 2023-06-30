@@ -55,8 +55,6 @@ class VariantSupport {
   Qualities mAltRevQuals;
 
   [[nodiscard]] static auto ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3>;
-
-  [[nodiscard]] auto MeanErrorProb(Allele allele) const -> f64;
 };
 
 }  // namespace lancet::caller
