@@ -40,19 +40,24 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
 
-  static constexpr f64 min_double = std::numeric_limits<f64>::min();
   const auto site_error_prob = ExpectedErrorProbabilityAtSite();
   const auto site_accuracy_prob = 1.0 - site_error_prob;
   auto ref_allele_prob = (nref * site_accuracy_prob) / total;
   auto alt_allele_prob = (nalt * site_accuracy_prob) / total;
 
   if (nref == 0.0) {
-    ref_allele_prob = std::max(site_error_prob / total, min_double);
+    static constexpr f64 LOG_BASE = 10.0;
+    const auto log_ref_prob = std::log10(site_error_prob) * total;
+    const auto has_underflow = log_ref_prob < std::numeric_limits<f64>::min_exponent10;
+    ref_allele_prob = has_underflow ? std::numeric_limits<f64>::min() : std::pow(LOG_BASE, log_ref_prob);
     alt_allele_prob = 1.0 - ref_allele_prob;
   }
 
   if (nalt == 0.0) {
-    alt_allele_prob = std::max(site_error_prob / total, min_double);
+    static constexpr f64 LOG_BASE = 10.0;
+    const auto log_alt_prob = std::log10(site_error_prob) * total;
+    const auto has_underflow = log_alt_prob < std::numeric_limits<f64>::min_exponent10;
+    alt_allele_prob = has_underflow ? std::numeric_limits<f64>::min() : std::pow(LOG_BASE, log_alt_prob);
     ref_allele_prob = 1.0 - alt_allele_prob;
   }
 
