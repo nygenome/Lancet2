@@ -41,7 +41,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SSC:FT:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SSC:FT:HQ:GQ:PL");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto is_germline_mode = std::ranges::all_of(samps, is_normal);
@@ -60,6 +60,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
     const auto gt_quality = sample_likelihoods.at(second_smallest_index);
     const auto [ref_hom_pl, het_alt_pl, alt_hom_pl] = sample_likelihoods;
+    const auto [mean_ref_qual, mean_alt_qual] = evidence->MeanHaplotypeQualities();
 
     const auto single_strand_alt = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
     const auto alt_freq = evidence->AltFrequency();
@@ -105,11 +106,11 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(
-        // GT:AD:ADF:ADR:DP:VAF:SBS:SSC:FT:GQ:PL
-        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
+        // GT:AD:ADF:ADR:DP:VAF:SBS:SSC:FT:HQ:GQ:PL
+        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
                     evidence->AltRevCount(), evidence->TotalSampleCov(), alt_freq, strand_bias, somatic_score,
-                    sample_ft, gt_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+                    sample_ft, mean_ref_qual, mean_alt_qual, gt_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
   mFilterField = variant_level_filters.empty() ? "PASS" : absl::StrJoin(variant_level_filters, ";");
