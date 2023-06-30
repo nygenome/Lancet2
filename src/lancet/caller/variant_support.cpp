@@ -36,26 +36,11 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   const auto nref = static_cast<f64>(TotalRefCov());
   const auto nalt = static_cast<f64>(TotalAltCov());
   const auto total = static_cast<f64>(TotalSampleCov());
-  // NOLINTNEXTLINE(readability-braces-around-statements)
+  // NOLINTBEGIN(readability-braces-around-statements)
   if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
-
-  if (nref == 0.0) {
-    const auto alt_eprob = MeanErrorProb(Allele::ALT);
-    const boost::math::binomial_distribution<f64> alt_dist(total, 1.0 - alt_eprob);
-    const auto prob_hom_ref = boost::math::pdf(alt_dist, 0);
-    const auto prob_het_alt = boost::math::pdf(alt_dist, total / 2.0);
-    const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
-    return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
-  }
-
-  if (nalt == 0.0) {
-    const auto ref_eprob = MeanErrorProb(Allele::REF);
-    const boost::math::binomial_distribution<f64> ref_dist(total, 1.0 - ref_eprob);
-    const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-    const auto prob_het_alt = boost::math::pdf(ref_dist, total / 2.0);
-    const auto prob_hom_alt = boost::math::pdf(ref_dist, 0);
-    return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
-  }
+  if (nref == 0.0) return {hts::MAX_PHRED_SCORE, hts::MAX_PHRED_SCORE, 0};
+  if (nalt == 0.0) return {0, hts::MAX_PHRED_SCORE, hts::MAX_PHRED_SCORE};
+  // NOLINTEND(readability-braces-around-statements)
 
   const auto ref_fraction = static_cast<f64>(nref) / static_cast<f64>(total);
   const auto alt_fraction = static_cast<f64>(nalt) / static_cast<f64>(total);
@@ -111,16 +96,6 @@ auto VariantSupport::ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> 
   const auto pl_hom_alt = hom_alt_phred - min_phred;
 
   return {hts::ClampPhredScore(pl_hom_ref), hts::ClampPhredScore(pl_het_alt), hts::ClampPhredScore(pl_hom_alt)};
-}
-
-auto VariantSupport::MeanErrorProb(Allele allele) const -> f64 {
-  const auto qual_span = allele == Allele::REF ? std::array<absl::Span<const u8>, 2>{mRefFwdQuals, mRefRevQuals}
-                                               : std::array<absl::Span<const u8>, 2>{mAltFwdQuals, mAltRevQuals};
-  const auto qrange = std::ranges::join_view(qual_span);
-  static const auto phred2err = [](const u8 bql) -> f64 { return hts::PhredToErrorProb(bql); };
-  static const auto summer = [](const f64 sum, const u8 bql) -> f64 { return sum + phred2err(bql); };
-  const auto err_sum = std::accumulate(qrange.begin(), qrange.end(), 0.0, summer);
-  return err_sum == 0.0 ? 0.0 : err_sum / static_cast<f64>(allele == Allele::REF ? TotalRefCov() : TotalAltCov());
 }
 
 }  // namespace lancet::caller
