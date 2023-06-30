@@ -77,7 +77,6 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       if (mTotalSampleCov < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
       if (!is_germline_mode && alt_freq > prms.mMaxNmlVaf) per_sample_filters.emplace_back("HighNmlVaf");
       if (!is_germline_mode && total_alt_cov > prms.mMaxNmlAltCnt) per_sample_filters.emplace_back("HighNmlAltCnt");
-      if (is_germline_mode && gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
       // NOLINTEND(readability-braces-around-statements)
       if (is_germline_mode && genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
         per_sample_filters.emplace_back("StrandBias");

@@ -285,7 +285,6 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrVaf,Description="VariantCall allele frequency in atleast one tumor sample less than {}">
 ##FILTER=<ID=LowTmrAltCnt,Description="ALT allele count in atleast one tumor sample less than {}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {}">
-##FILTER=<ID=LowGQ,Description="Phred-scaled genotype quality for atleast one sample is less than {}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score for atleast one sample is greater than {}">
 ##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic score for atleast one tumor sample is less than {}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
@@ -326,8 +325,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       params.mVariantBuilder.mVariantParams.mMaxNmlVaf, params.mVariantBuilder.mVariantParams.mMaxNmlAltCnt,
       params.mVariantBuilder.mVariantParams.mMinNmlCov, params.mVariantBuilder.mVariantParams.mMinTmrVaf,
       params.mVariantBuilder.mVariantParams.mMinTmrAltCnt, params.mVariantBuilder.mVariantParams.mMinTmrCov,
-      params.mVariantBuilder.mVariantParams.mMinPhredScore, params.mVariantBuilder.mVariantParams.mMinPhredScore,
-      params.mVariantBuilder.mVariantParams.mMinPhredScore);
+      params.mVariantBuilder.mVariantParams.mMinPhredScore, params.mVariantBuilder.mVariantParams.mMinPhredScore);
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
   absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
