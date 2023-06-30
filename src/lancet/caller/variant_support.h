@@ -54,6 +54,7 @@ class VariantSupport {
   Qualities mAltFwdQuals;
   Qualities mAltRevQuals;
 
+  [[nodiscard]] auto ExpectedErrorProbabilityAtSite() const -> f64;
   [[nodiscard]] static auto ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3>;
 };
 
