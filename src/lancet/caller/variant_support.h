@@ -2,6 +2,7 @@
 #define SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 
 #include <array>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -39,6 +40,9 @@ class VariantSupport {
   /// Phred scaled probability of strand bias being present in the ref and alt alleles
   [[nodiscard]] auto StrandBiasScore() const -> u8;
 
+  /// Phred scaled probability of the REF and ALT allele
+  [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<int, 2>;
+
  private:
   using Qualities = std::vector<u8>;
   using ReadNames = absl::flat_hash_map<u32, Strand>;
@@ -49,6 +53,10 @@ class VariantSupport {
   Qualities mRefRevQuals;
   Qualities mAltFwdQuals;
   Qualities mAltRevQuals;
+
+  [[nodiscard]] static auto ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3>;
+
+  [[nodiscard]] auto MeanErrorProb(Allele allele) const -> f64;
 };
 
 }  // namespace lancet::caller
