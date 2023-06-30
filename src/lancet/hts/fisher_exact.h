@@ -17,10 +17,10 @@ namespace lancet::hts {
 /// To clarify, let's use an example of a 2x2 contingency table for a study
 /// where we are comparing cases and controls:
 ///
-///  |                 |  VariantCall   | Non-variant |
-///  |-----------------|------------|-------------|
-///  |    Case Samples |    n_11    |     n_12    |
-///  | Control Samples |    n_21    |     n_22    |
+///  |      |  variant   | non-variant |
+///  |------|------------|-------------|
+///  | Case |    n_11    |     n_12    |
+///  | Ctrl |    n_21    |     n_22    |
 ///
 /// `n_11` is the number of cases with the variant
 /// `n_12` is the number of cases without the variant
