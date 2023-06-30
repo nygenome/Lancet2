@@ -106,8 +106,8 @@ auto PhredToErrorProb(u32 phred_score) -> f64 {
 }
 
 auto ErrorProbToPhred(f64 prob) -> u8 {
-  if (prob == 1.0) return 0;                               // NOLINT(readability-braces-around-statements)
-  if (prob == 0.0) return std::numeric_limits<u8>::max();  // NOLINT(readability-braces-around-statements)
+  if (prob == 1.0) return 0;                // NOLINT(readability-braces-around-statements)
+  if (prob == 0.0) return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
   static constexpr f64 PHRED_MULTIPLIER = -10.0;
   return ClampPhredScore(std::round(PHRED_MULTIPLIER * std::log10(prob)));
 }
