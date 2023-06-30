@@ -297,6 +297,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=SBS,Number=1,Type=Integer,Description="Phred-scaled strand bias score">
 ##FORMAT=<ID=SSC,Number=1,Type=Integer,Description="Phred-scaled somatic score. Set to 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
+##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Phred-scaled haplotype quality for REF and ALT alleles">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotype combinations">
 )raw"sv;
