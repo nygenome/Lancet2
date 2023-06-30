@@ -62,6 +62,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto [ref_hom_pl, het_alt_pl, alt_hom_pl] = sample_likelihoods;
     const auto [mean_ref_qual, mean_alt_qual] = evidence->MeanHaplotypeQualities();
 
+    const auto total_alt_cov = evidence->TotalAltCov();
     const auto single_strand_alt = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
     const auto alt_freq = evidence->AltFrequency();
     const auto strand_bias = evidence->StrandBiasScore();
@@ -73,22 +74,20 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (alt_freq > prms.mMaxNmlVaf) per_sample_filters.emplace_back("HighNmlVaf");
-      if (evidence->TotalAltCov() > prms.mMaxNmlAltCnt) per_sample_filters.emplace_back("HighNmlAltCnt");
-      if (evidence->TotalSampleCov() < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
-      if (gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
+      if (mTotalSampleCov < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
+      if (!is_germline_mode && alt_freq > prms.mMaxNmlVaf) per_sample_filters.emplace_back("HighNmlVaf");
+      if (!is_germline_mode && total_alt_cov > prms.mMaxNmlAltCnt) per_sample_filters.emplace_back("HighNmlAltCnt");
       // NOLINTEND(readability-braces-around-statements)
-      if (genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
+      if (is_germline_mode && genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
         per_sample_filters.emplace_back("StrandBias");
       }
     }
 
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
       // NOLINTBEGIN(readability-braces-around-statements)
+      if (mTotalSampleCov < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
       if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
-      if (evidence->TotalAltCov() < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrAltCnt");
-      if (evidence->TotalSampleCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
-      if (gt_quality < prms.mMinPhredScore) per_sample_filters.emplace_back("LowGQ");
+      if (total_alt_cov < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrAltCnt");
       if (somatic_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomatic");
       // NOLINTEND(readability-braces-around-statements)
       if (genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
