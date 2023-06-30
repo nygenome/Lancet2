@@ -55,12 +55,15 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
     ref_allele_prob = 1.0 - alt_allele_prob;
   }
 
+  // Need atleast curr_het_count in both alleles to call HET_ALT
   static constexpr f64 MIN_HET_COUNT = 2.0;
+  const auto curr_het_count = std::min(MIN_HET_COUNT, total - 1.0);
+
   const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
   const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
   const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-  const auto prob_het_alt = nref == 0.0   ? boost::math::pdf(ref_dist, MIN_HET_COUNT)
-                            : nalt == 0.0 ? boost::math::pdf(alt_dist, MIN_HET_COUNT)
+  const auto prob_het_alt = nref == 0.0   ? boost::math::pdf(ref_dist, curr_het_count)
+                            : nalt == 0.0 ? boost::math::pdf(alt_dist, curr_het_count)
                                           : boost::math::pdf(alt_dist, nalt);
   const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
 
