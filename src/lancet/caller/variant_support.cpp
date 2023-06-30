@@ -40,33 +40,29 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
 
-  auto nhet_ref = nref;
-  auto nhet_alt = nalt;
-  auto ref_allele_prob = static_cast<f64>(nref) / static_cast<f64>(total);
-  auto alt_allele_prob = static_cast<f64>(nalt) / static_cast<f64>(total);
-
-  static constexpr f64 HALF = 0.5;
+  static constexpr f64 min_double = std::numeric_limits<f64>::min();
   const auto site_error_prob = ExpectedErrorProbabilityAtSite();
+  const auto site_accuracy_prob = 1.0 - site_error_prob;
+  auto ref_allele_prob = (nref * site_accuracy_prob) / total;
+  auto alt_allele_prob = (nalt * site_accuracy_prob) / total;
 
   if (nref == 0.0) {
-    nhet_ref = total * HALF;
-    nhet_alt = total * HALF;
-    ref_allele_prob = site_error_prob;
+    ref_allele_prob = std::max(site_error_prob / total, min_double);
     alt_allele_prob = 1.0 - ref_allele_prob;
   }
 
   if (nalt == 0.0) {
-    nhet_alt = total * HALF;
-    nhet_ref = total * HALF;
-    alt_allele_prob = site_error_prob;
+    alt_allele_prob = std::max(site_error_prob / total, min_double);
     ref_allele_prob = 1.0 - alt_allele_prob;
   }
 
   const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
   const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
-  const auto prob_hom_ref = boost::math::pdf(ref_dist, total) * boost::math::pdf(alt_dist, 0);
-  const auto prob_het_alt = boost::math::pdf(ref_dist, nhet_ref) * boost::math::pdf(alt_dist, nhet_alt);
-  const auto prob_hom_alt = boost::math::pdf(ref_dist, 0) * boost::math::pdf(alt_dist, total);
+  const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
+  const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
+  const auto prob_het_alt = nref == 0.0   ? boost::math::pdf(ref_dist, 1.0)
+                            : nalt == 0.0 ? boost::math::pdf(alt_dist, 1.0)
+                                          : boost::math::pdf(alt_dist, nalt);
 
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
