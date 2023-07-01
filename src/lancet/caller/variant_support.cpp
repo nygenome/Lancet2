@@ -36,32 +36,35 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   const auto nref = static_cast<f64>(TotalRefCov());
   const auto nalt = static_cast<f64>(TotalAltCov());
   const auto total = static_cast<f64>(TotalSampleCov());
-
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
 
-  const auto site_error_prob = ExpectedErrorProbabilityAtSite();
+  const auto ref_error_prob = MeanErrorProbability(Allele::REF);
+  const auto alt_error_prob = MeanErrorProbability(Allele::ALT);
+
   if (nref == 0.0 || nalt == 0.0) {
     static constexpr f64 LOG_BASE = 10.0;
     static constexpr f64 min_prob = std::numeric_limits<f64>::min();
-    const auto log_prob_least_likely_hom = std::log10(site_error_prob) * total;
+    const auto err_prob_most_likely_allele = std::max(ref_error_prob, alt_error_prob);
+
+    const auto log_prob_least_likely_hom = std::log10(err_prob_most_likely_allele) * total;
     const auto has_overflow = log_prob_least_likely_hom < std::numeric_limits<f64>::min_exponent10;
     const auto least_likely_hom_prob = has_overflow ? min_prob : std::pow(LOG_BASE, log_prob_least_likely_hom);
-    const auto most_likely_hom_prob = 1.0 - site_error_prob - least_likely_hom_prob;
+    const auto most_likely_hom_prob = 1.0 - err_prob_most_likely_allele - least_likely_hom_prob;
+
     const auto prob_hom_ref = nref == 0.0 ? least_likely_hom_prob : most_likely_hom_prob;
     const auto prob_hom_alt = nref == 0.0 ? most_likely_hom_prob : least_likely_hom_prob;
-    return ConvertGtProbsToPls({prob_hom_ref, site_error_prob, prob_hom_alt});
+    return ConvertGtProbsToPls({prob_hom_ref, err_prob_most_likely_allele, prob_hom_alt});
   }
 
-  const auto site_accuracy_prob = 1.0 - site_error_prob;
-  auto ref_allele_prob = (nref * site_accuracy_prob) / total;
-  auto alt_allele_prob = (nalt * site_accuracy_prob) / total;
+  auto ref_allele_prob = (nref * (1.0 - ref_error_prob)) / total;
+  auto alt_allele_prob = (nalt * (1.0 - alt_error_prob)) / total;
 
   const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
   const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
   const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-  const auto prob_het_alt = boost::math::pdf(alt_dist, nalt);
   const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
+  const auto prob_het_alt = 1.0 - (prob_hom_ref + prob_hom_alt);
 
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
@@ -74,37 +77,29 @@ auto VariantSupport::StrandBiasScore() const -> u8 {
   return hts::ErrorProbToPhred(result.mDiffProb);
 }
 
-auto VariantSupport::MeanHaplotypeQualities() const -> std::array<int, 2> {
-  const std::array<absl::Span<const u8>, 2> ref_quals{mRefFwdQuals, mRefRevQuals};
-  const std::array<absl::Span<const u8>, 2> alt_quals{mAltFwdQuals, mAltRevQuals};
-  const auto ref_range = std::ranges::join_view(ref_quals);
-  const auto alt_range = std::ranges::join_view(alt_quals);
-
-  static const auto summer = [](const f64 sum, const u8 bql) { return sum + hts::PhredToErrorProb(bql); };
-  const auto sum_ref_eprob = std::accumulate(ref_range.begin(), ref_range.end(), 0.0, summer);
-  const auto sum_alt_eprob = std::accumulate(alt_range.begin(), alt_range.end(), 0.0, summer);
-  const auto mean_ref_eprob = sum_ref_eprob == 0.0 ? 0.0 : sum_ref_eprob / static_cast<f64>(TotalRefCov());
-  const auto mean_alt_eprob = sum_alt_eprob == 0.0 ? 0.0 : sum_alt_eprob / static_cast<f64>(TotalAltCov());
-
-  return {hts::ErrorProbToPhred(mean_ref_eprob), hts::ErrorProbToPhred(mean_alt_eprob)};
+auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {
+  return {hts::ErrorProbToPhred(MeanErrorProbability(Allele::REF)),
+          hts::ErrorProbToPhred(MeanErrorProbability(Allele::ALT))};
 }
 
-auto VariantSupport::ExpectedErrorProbabilityAtSite() const -> f64 {
+auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (TotalSampleCov() == 0) return 0.0;
 
-  const std::array<absl::Span<const u8>, 4> data{mRefFwdQuals, mRefRevQuals, mAltFwdQuals, mAltRevQuals};
-  const auto quals = std::ranges::join_view(data);
+  const auto total_allele_cov = allele == Allele::REF ? TotalRefCov() : TotalAltCov();
+  const auto data = allele == Allele::REF ? std::array<absl::Span<const u8>, 2>{mRefFwdQuals, mRefRevQuals}
+                                          : std::array<absl::Span<const u8>, 2>{mAltFwdQuals, mAltRevQuals};
 
+  const auto quals = std::ranges::join_view(data);
   static const auto summer = [](const f64 sum, const u8 bql) { return sum + hts::PhredToErrorProb(bql); };
   const auto err_prob_sum = std::accumulate(quals.begin(), quals.end(), 0.0, summer);
-  return err_prob_sum / static_cast<f64>(TotalSampleCov());
+  return err_prob_sum == 0.0 ? 0.0 : err_prob_sum / static_cast<f64>(total_allele_cov);
 }
 
 auto VariantSupport::ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3> {
   const auto [prob_hom_ref, prob_het_alt, prob_hom_alt] = gt_probs;
 
-  static constexpr f64 min_log_prob = -308.0;
+  static constexpr f64 min_log_prob = std::numeric_limits<f64>::min_exponent10;
   const f64 hom_ref_ll = prob_hom_ref == 0.0 ? min_log_prob : std::log10(prob_hom_ref);
   const f64 het_alt_ll = prob_het_alt == 0.0 ? min_log_prob : std::log10(prob_het_alt);
   const f64 hom_alt_ll = prob_hom_alt == 0.0 ? min_log_prob : std::log10(prob_hom_alt);
