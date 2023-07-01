@@ -279,12 +279,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="VariantCall length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=STR,Number=1,Type=String,Description="If variant is STR, describes length and motif. (format: LEN:MOTIF)">
-##FILTER=<ID=HighNmlVaf,Description="VariantCall allele frequency in atleast one normal sample greater than {}">
-##FILTER=<ID=HighNmlAltCnt,Description="ALT allele count in atleast one normal sample greater than {}">
 ##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {}">
-##FILTER=<ID=LowTmrVaf,Description="VariantCall allele frequency in atleast one tumor sample less than {}">
-##FILTER=<ID=LowTmrAltCnt,Description="ALT allele count in atleast one tumor sample less than {}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {}">
+##FILTER=<ID=LowTmrVaf,Description="VariantCall allele frequency in atleast one tumor sample less than {}">
+##FILTER=<ID=LowTmrCnt,Description="ALT allele count in atleast one tumor sample less than {}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score for atleast one sample is greater than {}">
 ##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic score for atleast one tumor sample is less than {}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
@@ -322,9 +320,8 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
       fstr_hdr, absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone()), LancetFullVersion(),
       params.mFullCmdLine, params.mVariantBuilder.mRdCollParams.mRefPath.string(), ref_contigs_hdr,
-      params.mVariantBuilder.mVariantParams.mMaxNmlVaf, params.mVariantBuilder.mVariantParams.mMaxNmlAltCnt,
-      params.mVariantBuilder.mVariantParams.mMinNmlCov, params.mVariantBuilder.mVariantParams.mMinTmrVaf,
-      params.mVariantBuilder.mVariantParams.mMinTmrAltCnt, params.mVariantBuilder.mVariantParams.mMinTmrCov,
+      params.mVariantBuilder.mVariantParams.mMinNmlCov, params.mVariantBuilder.mVariantParams.mMinTmrCov,
+      params.mVariantBuilder.mVariantParams.mMinTmrVaf, params.mVariantBuilder.mVariantParams.mMinTmrAltCnt,
       params.mVariantBuilder.mVariantParams.mMinPhredScore, params.mVariantBuilder.mVariantParams.mMinPhredScore);
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
