@@ -275,13 +275,13 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 {}##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Flag set if variant present only in tumor sample(s)">
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Flag set if variant present only in normal samples(s)">
 ##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Flag set if variant present present in both tumor & normal sample(s)">
-##INFO=<ID=CATEGORY,Number=1,Type=String,Description="VariantCall category. Possible values are SNV, INS, DEL and MNP">
-##INFO=<ID=LEN,Number=1,Type=Integer,Description="VariantCall length in base pairs">
+##INFO=<ID=CATEGORY,Number=1,Type=String,Description="Variant category. Possible values are SNV, INS, DEL and MNP">
+##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=STR,Number=1,Type=String,Description="If variant is STR, describes length and motif. (format: LEN:MOTIF)">
 ##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {}">
-##FILTER=<ID=LowTmrVaf,Description="VariantCall allele frequency in atleast one tumor sample less than {}">
+##FILTER=<ID=LowTmrVaf,Description="Variant allele frequency in atleast one tumor sample less than {}">
 ##FILTER=<ID=LowTmrCnt,Description="ALT allele count in atleast one tumor sample less than {}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score for atleast one sample is greater than {}">
 ##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic score for atleast one tumor sample is less than {}">
