@@ -30,6 +30,7 @@ inline auto MakeVarType(const std::array<std::string_view, 2> ref_alt) -> RawVar
   const auto alt_len = static_cast<i64>(alt.length());
   const auto diff = alt_len - ref_len;
   // NOLINTBEGIN(readability-braces-around-statements)
+  if (ref == alt) return RawVariant::Type::REF;
   if (diff == 0 && ref.size() > 1 && alt.size() > 1) return RawVariant::Type::MNP;
   if (diff == 0 && ref.size() == 1 && alt.size() == 1) return RawVariant::Type::SNV;
   if (diff < 0 && ref.size() > 1) return RawVariant::Type::DEL;

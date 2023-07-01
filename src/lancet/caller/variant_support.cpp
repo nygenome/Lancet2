@@ -43,18 +43,19 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   const auto alt_error_prob = MeanErrorProbability(Allele::ALT);
 
   if (nref == 0.0 || nalt == 0.0) {
-    static constexpr f64 LOG_BASE = 10.0;
-    static constexpr f64 min_prob = std::numeric_limits<f64>::min();
     const auto err_prob_most_likely_allele = std::max(ref_error_prob, alt_error_prob);
+    const auto prob_pick_most_likely_allele = 1.0 - (err_prob_most_likely_allele / total);
+    const auto prob_pick_least_likely_allele = 1.0 - prob_pick_most_likely_allele;
 
-    const auto log_prob_least_likely_hom = std::log10(err_prob_most_likely_allele) * total;
-    const auto has_overflow = log_prob_least_likely_hom < std::numeric_limits<f64>::min_exponent10;
-    const auto least_likely_hom_prob = has_overflow ? min_prob : std::pow(LOG_BASE, log_prob_least_likely_hom);
-    const auto most_likely_hom_prob = 1.0 - err_prob_most_likely_allele - least_likely_hom_prob;
+    const boost::math::binomial_distribution<f64> most_likely_dist(total, prob_pick_most_likely_allele);
+    const boost::math::binomial_distribution<f64> least_likely_dist(total, prob_pick_least_likely_allele);
+    const auto least_likely_hom_prob = boost::math::pdf(least_likely_dist, total);
+    const auto most_likely_hom_prob = boost::math::pdf(most_likely_dist, total);
 
     const auto prob_hom_ref = nref == 0.0 ? least_likely_hom_prob : most_likely_hom_prob;
     const auto prob_hom_alt = nref == 0.0 ? most_likely_hom_prob : least_likely_hom_prob;
-    return ConvertGtProbsToPls({prob_hom_ref, err_prob_most_likely_allele, prob_hom_alt});
+    const auto prob_het_alt = 1.0 - (prob_hom_ref + prob_hom_alt);
+    return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
   }
 
   auto ref_allele_prob = (nref * (1.0 - ref_error_prob)) / total;
