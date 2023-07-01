@@ -8,13 +8,32 @@
 
 namespace lancet::hts {
 
-auto FisherExact::Test(const ContingencyTable &table) -> Result {
+/*
+Although Fisher's exact test is an exact test, meaning the p-values it produces are exact and not approximations,
+it has been criticized for being conservative. This means that it might not reject the null hypothesis when it should.
+The mid-P Fisher's exact test is an adjustment that aims to correct this conservativeness.
+
+The mid-P value in the Fisher's exact test is calculated by halving the p-value of the observed table and not
+considering it in the tail, regardless of whether it is more or less extreme than expected under the null hypothesis.
+* This reduces the conservativeness of FET and can result in a more accurate assessment of significance.
+* This can be more powerful than the standard FET, particularly in cases where the expected frequencies are small.
+* This better reflects the uncertainty in the observed data by not fully considering the observed table as extreme.
+Here's the logic of how you can calculate the mid-p value for both two-sided and one-sided (left and right) tests:
+ `midP = P - p_o/2`
+*/
+auto FisherExact::Test(const ContingencyTable &table) -> MidpAdjustedResult {
   const auto [case_counts, ctrl_counts] = table;
   const auto [n_11, n_12] = case_counts;
   const auto [n_21, n_22] = ctrl_counts;
 
-  Result result;
+  MidpAdjustedResult result;
   result.mDataProb = kt_fisher_exact(n_11, n_12, n_21, n_22, &result.mLessProb, &result.mMoreProb, &result.mDiffProb);
+
+  static constexpr f64 HALF = 0.5;
+  result.mDiffProb -= (HALF * result.mDataProb);
+  result.mLessProb -= (HALF * result.mDataProb);
+  result.mMoreProb -= (HALF * result.mMoreProb);
+
   return result;
 }
 

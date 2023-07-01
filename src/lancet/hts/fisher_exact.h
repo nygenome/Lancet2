@@ -56,7 +56,7 @@ class FisherExact {
   ///  to convert to the phred scale because it gives us an overall measure of statistical significance
   ///  without assuming a particular direction of the effect. However, if we have a specific hypothesis
   ///  about the direction of the effect, we could use the left or right p-values as appropriate.
-  struct Result {
+  struct MidpAdjustedResult {
     f64 mLessProb = 0.0;
     f64 mMoreProb = 0.0;
     f64 mDiffProb = 0.0;
@@ -65,7 +65,7 @@ class FisherExact {
 
   using Row = std::array<int, 2>;
   using ContingencyTable = std::array<Row, 2>;
-  [[nodiscard]] static auto Test(const ContingencyTable& table) -> Result;
+  [[nodiscard]] static auto Test(const ContingencyTable& table) -> MidpAdjustedResult;
 };
 
 static constexpr u8 MAX_PHRED_SCORE = 255;
