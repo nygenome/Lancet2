@@ -41,7 +41,7 @@ class VariantSupport {
   [[nodiscard]] auto StrandBiasScore() const -> u8;
 
   /// Phred scaled probability of the REF and ALT allele
-  [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<int, 2>;
+  [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<u8, 2>;
 
  private:
   using Qualities = std::vector<u8>;
@@ -54,7 +54,7 @@ class VariantSupport {
   Qualities mAltFwdQuals;
   Qualities mAltRevQuals;
 
-  [[nodiscard]] auto ExpectedErrorProbabilityAtSite() const -> f64;
+  [[nodiscard]] auto MeanErrorProbability(Allele allele) const -> f64;
   [[nodiscard]] static auto ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3>;
 };
 

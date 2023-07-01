@@ -63,7 +63,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto [mean_ref_qual, mean_alt_qual] = evidence->MeanHaplotypeQualities();
 
     const auto total_alt_cov = evidence->TotalAltCov();
-    const auto single_strand_alt = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
+    const auto single_strand_alt = evidence->AltFwdCount() == 1 || evidence->AltRevCount() == 1;
     const auto alt_freq = evidence->AltFrequency();
     const auto strand_bias = evidence->StrandBiasScore();
     const auto somatic_score = SomaticScore(sinfo, per_sample_evidence);
@@ -168,8 +168,8 @@ auto VariantCall::SomaticScore(const core::SampleInfo &tumor, const PerSampleEvi
 
   const auto cnt_tmr_alt = static_cast<int>(current_tmr_alt);
   const auto cnt_tmr_ref = static_cast<int>(current_tmr_ref);
-  const auto avg_nml_alt = static_cast<int>(std::floor(nml_alts.Mean()));
-  const auto avg_nml_ref = static_cast<int>(std::floor(nml_refs.Mean()));
+  const auto avg_nml_alt = static_cast<int>(std::round(nml_alts.Mean()));
+  const auto avg_nml_ref = static_cast<int>(std::round(nml_refs.Mean()));
 
   using Row = hts::FisherExact::Row;
   const auto tmr_counts = Row{cnt_tmr_alt, cnt_tmr_ref};
