@@ -177,11 +177,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   // Filters
   subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")->group("Filters");
   subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")->group("Filters");
-  subcmd->add_option("--max-nml-alt-cnt", fltr_prms.mMaxNmlAltCnt, "Max. ALT allele count in normal")->group("Filters");
-  subcmd->add_option("--min-tmr-alt-cnt", fltr_prms.mMinTmrAltCnt, "Min. ALT allele count in tumor")->group("Filters");
-  subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNmlVaf, "Max. ALT frequency in normal")
-      ->group("Filters")
-      ->check(CLI::Range(0.0, 1.0));
+  subcmd->add_option("--min-tmr-cnt", fltr_prms.mMinTmrAltCnt, "Min. ALT count in tumor")->group("Filters");
   subcmd->add_option("--min-tmr-vaf", fltr_prms.mMinTmrVaf, "Min. ALT frequency in tumor")
       ->group("Filters")
       ->check(CLI::Range(0.0, 1.0));

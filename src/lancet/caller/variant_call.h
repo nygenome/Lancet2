@@ -21,23 +21,17 @@ using VariantID = u64;
 class VariantCall {
  public:
   static constexpr f64 DEFAULT_MIN_TUMOR_VAF = 0.02;
-  static constexpr f64 DEFAULT_MAX_NORMAL_VAF = 0.02;
-
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
   static constexpr u32 DEFAULT_MIN_PHRED_SCORE = 20;
   static constexpr u32 DEFAULT_MIN_TUMOR_ALT_COUNT = 2;
-  static constexpr u32 DEFAULT_MAX_NORMAL_ALT_COUNT = 2;
 
   struct Params {
     f64 mMinTmrVaf = DEFAULT_MIN_TUMOR_VAF;
-    f64 mMaxNmlVaf = DEFAULT_MAX_NORMAL_VAF;
-
     u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
     u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
     u32 mMinPhredScore = DEFAULT_MIN_PHRED_SCORE;
     u32 mMinTmrAltCnt = DEFAULT_MIN_TUMOR_ALT_COUNT;
-    u32 mMaxNmlAltCnt = DEFAULT_MAX_NORMAL_ALT_COUNT;
   };
 
   using Samples = absl::Span<const core::SampleInfo>;

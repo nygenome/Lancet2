@@ -44,7 +44,9 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SSC:FT:HQ:GQ:PL");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
+  static const auto is_tumor = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::TUMOR; };
   const auto is_germline_mode = std::ranges::all_of(samps, is_normal);
+  const auto is_somatic_mode = std::ranges::any_of(samps, is_tumor);
 
   bool seen_in_normal = false;
   bool seen_in_tumor = false;
@@ -63,7 +65,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto [mean_ref_qual, mean_alt_qual] = evidence->MeanHaplotypeQualities();
 
     const auto total_alt_cov = evidence->TotalAltCov();
-    const auto single_strand_alt = evidence->AltFwdCount() == 1 || evidence->AltRevCount() == 1;
+    const auto single_strand_alt = evidence->AltFwdCount() <= 1 || evidence->AltRevCount() <= 1;
     const auto alt_freq = evidence->AltFrequency();
     const auto strand_bias = evidence->StrandBiasScore();
     const auto somatic_score = SomaticScore(sinfo, per_sample_evidence);
@@ -75,8 +77,6 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (mTotalSampleCov < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
-      if (!is_germline_mode && alt_freq > prms.mMaxNmlVaf) per_sample_filters.emplace_back("HighNmlVaf");
-      if (!is_germline_mode && total_alt_cov > prms.mMaxNmlAltCnt) per_sample_filters.emplace_back("HighNmlAltCnt");
       // NOLINTEND(readability-braces-around-statements)
       if (is_germline_mode && genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
         per_sample_filters.emplace_back("StrandBias");
@@ -87,7 +87,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (mTotalSampleCov < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
       if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
-      if (total_alt_cov < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrAltCnt");
+      if (total_alt_cov < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrCnt");
       if (somatic_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomatic");
       // NOLINTEND(readability-braces-around-statements)
       if (genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
@@ -113,10 +113,10 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFilterField = variant_level_filters.empty() ? "PASS" : absl::StrJoin(variant_level_filters, ";");
-  mState = seen_in_normal && seen_in_tumor ? RawVariant::State::SHARED
-           : seen_in_normal                ? RawVariant::State::NORMAL
-           : seen_in_tumor                 ? RawVariant::State::SOMATIC
-                                           : RawVariant::State::NONE;
+  mState = is_somatic_mode && seen_in_tumor && mFilterField == "PASS" ? RawVariant::State::SOMATIC
+           : seen_in_normal && seen_in_tumor                          ? RawVariant::State::SHARED
+           : seen_in_normal                                           ? RawVariant::State::NORMAL
+                                                                      : RawVariant::State::NONE;
 
   using namespace std::string_view_literals;
   const auto vstate = mState == RawVariant::State::SHARED    ? "SHARED"sv
