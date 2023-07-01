@@ -41,26 +41,26 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
 
   const auto site_error_prob = ExpectedErrorProbabilityAtSite();
+  if (nref == 0.0 || nalt == 0.0) {
+    static constexpr f64 LOG_BASE = 10.0;
+    static constexpr f64 min_prob = std::numeric_limits<f64>::min();
+    const auto log_prob_least_likely_hom = std::log10(site_error_prob) * total;
+    const auto has_overflow = log_prob_least_likely_hom < std::numeric_limits<f64>::min_exponent10;
+    const auto least_likely_hom_prob = has_overflow ? min_prob : std::pow(LOG_BASE, log_prob_least_likely_hom);
+    const auto most_likely_hom_prob = 1.0 - site_error_prob - least_likely_hom_prob;
+    const auto prob_hom_ref = nref == 0.0 ? least_likely_hom_prob : most_likely_hom_prob;
+    const auto prob_hom_alt = nref == 0.0 ? most_likely_hom_prob : least_likely_hom_prob;
+    return ConvertGtProbsToPls({prob_hom_ref, site_error_prob, prob_hom_alt});
+  }
+
   const auto site_accuracy_prob = 1.0 - site_error_prob;
   auto ref_allele_prob = (nref * site_accuracy_prob) / total;
   auto alt_allele_prob = (nalt * site_accuracy_prob) / total;
 
-  if (nref == 0.0) {
-    ref_allele_prob = site_error_prob;
-    alt_allele_prob = 1.0 - ref_allele_prob;
-  }
-
-  if (nalt == 0.0) {
-    alt_allele_prob = site_error_prob;
-    ref_allele_prob = 1.0 - alt_allele_prob;
-  }
-
-  const auto is_mle_hom = nref == 0.0 || nalt == 0.0;
   const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
   const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
-
   const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-  const auto prob_het_alt = is_mle_hom ? site_error_prob : boost::math::pdf(alt_dist, nalt);
+  const auto prob_het_alt = boost::math::pdf(alt_dist, nalt);
   const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
 
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
