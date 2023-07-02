@@ -49,9 +49,9 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
 
 auto VariantSupport::StrandBiasScore() const -> u8 {
   using Row = hts::FisherExact::Row;
-  const auto fwds = Row{static_cast<int>(mAltFwdQuals.size()), static_cast<int>(mRefFwdQuals.size())};
-  const auto revs = Row{static_cast<int>(mAltRevQuals.size()), static_cast<int>(mRefRevQuals.size())};
-  const auto result = hts::FisherExact::Test({fwds, revs});
+  const auto refs = Row{static_cast<int>(mRefFwdQuals.size()), static_cast<int>(mRefRevQuals.size())};
+  const auto alts = Row{static_cast<int>(mAltFwdQuals.size()), static_cast<int>(mAltRevQuals.size())};
+  const auto result = hts::FisherExact::Test({refs, alts});
   return hts::ErrorProbToPhred(result.mDiffProb);
 }
 
