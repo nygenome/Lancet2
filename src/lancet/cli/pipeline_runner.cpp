@@ -284,15 +284,17 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrVaf,Description="Variant allele frequency in atleast one tumor sample less than {}">
 ##FILTER=<ID=LowTmrCnt,Description="ALT allele count in atleast one tumor sample less than {}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score for atleast one sample is greater than {}">
-##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic score for atleast one tumor sample is less than {}">
+##FILTER=<ID=LowSomaticFS,Description="Phred-scaled somatic FET score for atleast one tumor sample < {MIN_PHRED}">
+##FILTER=<ID=LowSomaticOdds,Description="Phred-scaled somatic odds score for atleast one tumor sample < {MIN_PHRED}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth at the variant site">
 ##FORMAT=<ID=AAF,Number=1,Type=Float,Description="Alternate Allele Frequency">
-##FORMAT=<ID=SBS,Number=1,Type=Integer,Description="Phred-scaled strand bias score">
-##FORMAT=<ID=SSC,Number=1,Type=Integer,Description="Phred-scaled somatic score. Set to 0 for normal sample(s)">
+##FORMAT=<ID=SBS,Number=1,Type=Integer,Description="Phred-scaled strand bias score. Higher means more strand bias">
+##FORMAT=<ID=SFS,Number=1,Type=Integer,Description="Phred-scaled somatic FET score. Set to 0 for normal sample(s)">
+##FORMAT=<ID=SOS,Number=1,Type=Integer,Description="Phred-scaled somatic odds score. Set to 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Phred-scaled haplotype quality for REF and ALT alleles">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality">
@@ -322,7 +324,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       params.mFullCmdLine, params.mVariantBuilder.mRdCollParams.mRefPath.string(), ref_contigs_hdr,
       params.mVariantBuilder.mVariantParams.mMinNmlCov, params.mVariantBuilder.mVariantParams.mMinTmrCov,
       params.mVariantBuilder.mVariantParams.mMinTmrVaf, params.mVariantBuilder.mVariantParams.mMinTmrAltCnt,
-      params.mVariantBuilder.mVariantParams.mMinPhredScore, params.mVariantBuilder.mVariantParams.mMinPhredScore);
+      fmt::arg("MIN_PHRED", params.mVariantBuilder.mVariantParams.mMinPhredScore));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
   absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
