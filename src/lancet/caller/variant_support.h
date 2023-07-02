@@ -43,6 +43,9 @@ class VariantSupport {
   /// Phred scaled probability of the REF and ALT allele
   [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<u8, 2>;
 
+  /// Probability of either HET ALT (or) HOM ALT in the sample
+  [[nodiscard]] auto NonReferenceProbability() const -> f64;
+
  private:
   using Qualities = std::vector<u8>;
   using ReadNames = absl::flat_hash_map<u32, Strand>;
@@ -55,6 +58,7 @@ class VariantSupport {
   Qualities mAltRevQuals;
 
   [[nodiscard]] auto MeanErrorProbability(Allele allele) const -> f64;
+  [[nodiscard]] auto BinomialSuccessRatios() const -> std::array<f64, 2>;
   [[nodiscard]] static auto ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3>;
 };
 

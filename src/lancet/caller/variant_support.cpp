@@ -33,38 +33,15 @@ auto VariantSupport::AltFrequency() const -> f64 {
 }
 
 auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
-  const auto nref = static_cast<f64>(TotalRefCov());
-  const auto nalt = static_cast<f64>(TotalAltCov());
-  const auto total = static_cast<f64>(TotalSampleCov());
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (nref == 0.0 && nalt == 0.0 && total == 0.0) return {0, 0, 0};
+  if (TotalSampleCov() == 0) return {0, 0, 0};
 
-  const auto ref_error_prob = MeanErrorProbability(Allele::REF);
-  const auto alt_error_prob = MeanErrorProbability(Allele::ALT);
-
-  if (nref == 0.0 || nalt == 0.0) {
-    const auto err_prob_most_likely_allele = std::max(ref_error_prob, alt_error_prob);
-    const auto prob_pick_most_likely_allele = 1.0 - (err_prob_most_likely_allele / total);
-    const auto prob_pick_least_likely_allele = 1.0 - prob_pick_most_likely_allele;
-
-    const boost::math::binomial_distribution<f64> most_likely_dist(total, prob_pick_most_likely_allele);
-    const boost::math::binomial_distribution<f64> least_likely_dist(total, prob_pick_least_likely_allele);
-    const auto least_likely_hom_prob = boost::math::pdf(least_likely_dist, total);
-    const auto most_likely_hom_prob = boost::math::pdf(most_likely_dist, total);
-
-    const auto prob_hom_ref = nref == 0.0 ? least_likely_hom_prob : most_likely_hom_prob;
-    const auto prob_hom_alt = nref == 0.0 ? most_likely_hom_prob : least_likely_hom_prob;
-    const auto prob_het_alt = 1.0 - (prob_hom_ref + prob_hom_alt);
-    return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
-  }
-
-  auto ref_allele_prob = (nref * (1.0 - ref_error_prob)) / total;
-  auto alt_allele_prob = (nalt * (1.0 - alt_error_prob)) / total;
-
-  const boost::math::binomial_distribution<f64> ref_dist(total, ref_allele_prob);
-  const boost::math::binomial_distribution<f64> alt_dist(total, alt_allele_prob);
-  const auto prob_hom_ref = boost::math::pdf(ref_dist, total);
-  const auto prob_hom_alt = boost::math::pdf(alt_dist, total);
+  const auto total_count = static_cast<f64>(TotalSampleCov());
+  const auto [success_ratio_ref, success_ratio_alt] = BinomialSuccessRatios();
+  const boost::math::binomial_distribution<f64> ref_dist(total_count, success_ratio_ref);
+  const boost::math::binomial_distribution<f64> alt_dist(total_count, success_ratio_alt);
+  const auto prob_hom_ref = boost::math::pdf(ref_dist, total_count);
+  const auto prob_hom_alt = boost::math::pdf(alt_dist, total_count);
   const auto prob_het_alt = 1.0 - (prob_hom_ref + prob_hom_alt);
 
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
@@ -83,6 +60,16 @@ auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {
           hts::ErrorProbToPhred(MeanErrorProbability(Allele::ALT))};
 }
 
+auto VariantSupport::NonReferenceProbability() const -> f64 {
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (TotalSampleCov() == 0) return 0.0;
+
+  const auto total_count = static_cast<f64>(TotalSampleCov());
+  const auto success_ratio_alt = BinomialSuccessRatios()[1];
+  const boost::math::binomial_distribution<f64> alt_dist(total_count, success_ratio_alt);
+  return boost::math::cdf(boost::math::complement(alt_dist, 0));
+}
+
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (TotalSampleCov() == 0) return 0.0;
@@ -95,6 +82,40 @@ auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   static const auto summer = [](const f64 sum, const u8 bql) { return sum + hts::PhredToErrorProb(bql); };
   const auto err_prob_sum = std::accumulate(quals.begin(), quals.end(), 0.0, summer);
   return err_prob_sum == 0.0 ? 0.0 : err_prob_sum / static_cast<f64>(total_allele_cov);
+}
+
+auto VariantSupport::BinomialSuccessRatios() const -> std::array<f64, 2> {
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (TotalSampleCov() == 0) return {0.0, 0.0};
+
+  const auto ref_count = static_cast<f64>(TotalRefCov());
+  const auto alt_count = static_cast<f64>(TotalAltCov());
+  const auto total_count = static_cast<f64>(TotalSampleCov());
+  const auto ref_err_prob = MeanErrorProbability(Allele::REF);
+  const auto alt_err_prob = MeanErrorProbability(Allele::ALT);
+
+  static constexpr f64 MIN_PICK_PROB = 0.0 + std::numeric_limits<f32>::min();
+  static constexpr f64 MAX_PICK_PROB = 1.0 - std::numeric_limits<f32>::min();
+
+  if (alt_count == 0.0) {
+    // REF allele is the most likely allele to be picked if alt_count == 0.0
+    const auto prob_pick_ref = std::clamp(1.0 - (ref_err_prob / total_count), MIN_PICK_PROB, MAX_PICK_PROB);
+    const auto prob_pick_alt = 1.0 - prob_pick_ref;
+    return {prob_pick_ref, prob_pick_alt};
+  }
+
+  if (ref_count == 0.0) {
+    // ALT allele is the most likely allele to be picked if ref_count == 0.0
+    const auto prob_pick_alt = std::clamp(1.0 - (alt_err_prob / total_count), MIN_PICK_PROB, MAX_PICK_PROB);
+    const auto prob_pick_ref = 1.0 - prob_pick_alt;
+    return {prob_pick_ref, prob_pick_alt};
+  }
+
+  const auto weight_ref = std::clamp((1.0 - ref_err_prob) + alt_err_prob, 0.0, 1.0);
+  const auto weight_alt = std::clamp((1.0 - alt_err_prob) + ref_err_prob, 0.0, 1.0);
+  const auto prob_pick_ref = (ref_count / total_count) * weight_ref;
+  const auto prob_pick_alt = (alt_count / total_count) * weight_alt;
+  return {prob_pick_ref, prob_pick_alt};
 }
 
 auto VariantSupport::ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> std::array<int, 3> {
