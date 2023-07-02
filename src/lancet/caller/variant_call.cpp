@@ -184,22 +184,22 @@ auto VariantCall::SomaticOddsScore(const core::SampleInfo &current, const PerSam
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (current.TagKind() != cbdg::Label::TUMOR) return 0;
 
-  f64 nml_non_ref_prob = 0.0;
-  f64 tmr_non_ref_prob = 0.0;
+  f64 nml_vaf = std::numeric_limits<f64>::min();
+  f64 tmr_vaf = std::numeric_limits<f64>::min();
 
   for (const auto &[sample_info, evidence] : supports) {
     // Ignore other tumor samples even if present
     if (sample_info.SampleName() == current.SampleName()) {
-      tmr_non_ref_prob = evidence->NonReferenceProbability();
+      tmr_vaf = evidence->AltFrequency();
       continue;
     }
 
     if (sample_info.TagKind() == cbdg::Label::NORMAL) {
-      nml_non_ref_prob = std::max(nml_non_ref_prob, evidence->NonReferenceProbability());
+      nml_vaf = std::max(nml_vaf, evidence->AltFrequency());
     }
   }
 
-  const auto odds_ratio = tmr_non_ref_prob / nml_non_ref_prob;
+  const auto odds_ratio = tmr_vaf / nml_vaf;
   const auto somatic_error_prob = 1.0 / (odds_ratio + 1.0);
   return hts::ErrorProbToPhred(somatic_error_prob);
 }

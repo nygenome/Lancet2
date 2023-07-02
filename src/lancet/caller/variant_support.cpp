@@ -60,16 +60,6 @@ auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {
           hts::ErrorProbToPhred(MeanErrorProbability(Allele::ALT))};
 }
 
-auto VariantSupport::NonReferenceProbability() const -> f64 {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (TotalSampleCov() == 0) return std::numeric_limits<f32>::min();
-
-  const auto total_count = static_cast<f64>(TotalSampleCov());
-  const auto success_ratio_alt = BinomialSuccessRatios()[1];
-  const boost::math::binomial_distribution<f64> alt_dist(total_count, success_ratio_alt);
-  return boost::math::cdf(boost::math::complement(alt_dist, 0));
-}
-
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (TotalSampleCov() == 0) return std::numeric_limits<f32>::min();
