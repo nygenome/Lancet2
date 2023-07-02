@@ -23,7 +23,7 @@ class VariantCall {
   static constexpr f64 DEFAULT_MIN_TUMOR_VAF = 0.02;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
-  static constexpr u32 DEFAULT_MIN_PHRED_SCORE = 20;
+  static constexpr u32 DEFAULT_MIN_PHRED_SCORE = 10;
   static constexpr u32 DEFAULT_MIN_TUMOR_ALT_COUNT = 2;
 
   struct Params {
