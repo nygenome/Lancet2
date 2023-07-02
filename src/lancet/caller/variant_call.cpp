@@ -77,9 +77,8 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     per_sample_filters.clear();
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      // NOLINTBEGIN(readability-braces-around-statements)
-      if (mTotalSampleCov < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
-      // NOLINTEND(readability-braces-around-statements)
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (evidence->TotalSampleCov() < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
       if (is_germline_mode && genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
         per_sample_filters.emplace_back("StrandBias");
       }
@@ -87,7 +86,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
 
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (mTotalSampleCov < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
+      if (evidence->TotalSampleCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
       if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
       if (total_alt_cov < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrCnt");
       if (fet_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomaticFS");
