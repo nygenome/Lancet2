@@ -62,7 +62,7 @@ auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {
 
 auto VariantSupport::NonReferenceProbability() const -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (TotalSampleCov() == 0) return 0.0;
+  if (TotalSampleCov() == 0) return std::numeric_limits<f32>::min();
 
   const auto total_count = static_cast<f64>(TotalSampleCov());
   const auto success_ratio_alt = BinomialSuccessRatios()[1];
@@ -72,7 +72,7 @@ auto VariantSupport::NonReferenceProbability() const -> f64 {
 
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (TotalSampleCov() == 0) return 0.0;
+  if (TotalSampleCov() == 0) return std::numeric_limits<f32>::min();
 
   const auto total_allele_cov = allele == Allele::REF ? TotalRefCov() : TotalAltCov();
   const auto data = allele == Allele::REF ? std::array<absl::Span<const u8>, 2>{mRefFwdQuals, mRefRevQuals}
@@ -81,12 +81,12 @@ auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   const auto quals = std::ranges::join_view(data);
   static const auto summer = [](const f64 sum, const u8 bql) { return sum + hts::PhredToErrorProb(bql); };
   const auto err_prob_sum = std::accumulate(quals.begin(), quals.end(), 0.0, summer);
-  return err_prob_sum == 0.0 ? 0.0 : err_prob_sum / static_cast<f64>(total_allele_cov);
+  return err_prob_sum == 0.0 ? std::numeric_limits<f32>::min() : err_prob_sum / static_cast<f64>(total_allele_cov);
 }
 
 auto VariantSupport::BinomialSuccessRatios() const -> std::array<f64, 2> {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (TotalSampleCov() == 0) return {0.0, 0.0};
+  if (TotalSampleCov() == 0) return {std::numeric_limits<f32>::min(), std::numeric_limits<f32>::min()};
 
   const auto ref_count = static_cast<f64>(TotalRefCov());
   const auto alt_count = static_cast<f64>(TotalAltCov());
