@@ -175,12 +175,12 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->group("Parameters");
 
   // Filters
-  subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")->group("Filters");
-  subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")->group("Filters");
-  subcmd->add_option("--min-tmr-cnt", fltr_prms.mMinTmrAltCnt, "Min. ALT count in tumor")->group("Filters");
-  subcmd->add_option("--min-tmr-vaf", fltr_prms.mMinTmrVaf, "Min. ALT frequency in tumor")
+  subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")
       ->group("Filters")
-      ->check(CLI::Range(0.0, 1.0));
+      ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_NORMAL_COV, std::numeric_limits<u32>::max()));
+  subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")
+      ->group("Filters")
+      ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_TUMOR_COV, std::numeric_limits<u32>::max()));
   subcmd->add_option("--min-phred-score", fltr_prms.mMinPhredScore, "Min. phred score for PASS variants")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
