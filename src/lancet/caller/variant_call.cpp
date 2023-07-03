@@ -198,9 +198,7 @@ auto VariantCall::SomaticOddsScore(const core::SampleInfo &current, const PerSam
     }
   }
 
-  const auto odds_ratio = tmr_vaf / nml_vaf;
-  const auto somatic_error_prob = 1.0 / (odds_ratio + 1.0);
-  return hts::ErrorProbToPhred(somatic_error_prob);
+  return tmr_vaf == 0.0 ? 0 : hts::ErrorProbToPhred(nml_vaf / tmr_vaf);
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
