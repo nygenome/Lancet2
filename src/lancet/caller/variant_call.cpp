@@ -43,88 +43,84 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   mFormatFields.reserve(samps.size() + 1);
   mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SFS:SOS:FT:HQ:GQ:PL");
 
-  static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
-  static const auto is_tumor = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::TUMOR; };
-  const auto is_germline_mode = std::ranges::all_of(samps, is_normal);
-  const auto is_somatic_mode = std::ranges::any_of(samps, is_tumor);
+  // Strand Bias iff > 10 times likely to see ALT on one strand over the other
+  static constexpr u32 MAX_ALLOWED_STRAND_BIAS = 10;
 
-  bool seen_in_normal = false;
-  bool seen_in_tumor = false;
-  std::vector<std::string> per_sample_filters;
-  absl::btree_set<std::string> variant_level_filters;
+  static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
+  const auto germline_mode = std::ranges::all_of(samps, is_normal);
+
+  bool alt_seen_in_normal = false;
+  bool alt_seen_in_tumor = false;
+  std::vector<std::string> current_filters;
+  absl::btree_set<std::string> variant_site_filters;
   const auto is_str = var->mStrResult.mFoundStr;
 
   for (const auto &sinfo : samps) {
     const auto &evidence = per_sample_evidence.at(sinfo.SampleName());
 
-    const auto sample_likelihoods = evidence->ComputePLs();
-    const auto [smallest_index, second_smallest_index] = FirstAndSecondSmallestIndices(sample_likelihoods);
+    const auto phred_likelihoods = evidence->ComputePLs();
+    const auto [ref_hom_pl, het_alt_pl, alt_hom_pl] = phred_likelihoods;
+    const auto [smallest_index, second_smallest_index] = FirstAndSecondSmallestIndices(phred_likelihoods);
+
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
-    const auto gt_quality = sample_likelihoods.at(second_smallest_index);
-    const auto [ref_hom_pl, het_alt_pl, alt_hom_pl] = sample_likelihoods;
-    const auto [mean_ref_qual, mean_alt_qual] = evidence->MeanHaplotypeQualities();
+    const auto genotype_quality = static_cast<u32>(phred_likelihoods.at(second_smallest_index));
+    const auto [mean_ref_allele_quality, mean_alt_allele_quality] = evidence->MeanHaplotypeQualities();
 
-    const auto total_alt_cov = evidence->TotalAltCov();
-    const auto single_strand_alt = evidence->AltFwdCount() <= 1 || evidence->AltRevCount() <= 1;
-    const auto alt_freq = evidence->AltFrequency();
-    const auto strand_bias = evidence->StrandBiasScore();
-    const auto fet_score = SomaticFetScore(sinfo, per_sample_evidence);
-    const auto odds_score = SomaticOddsScore(sinfo, per_sample_evidence);
+    const auto alt_allele_frequency = evidence->AltFrequency();
+    const auto alt_strand_bias_score = evidence->AltStrandBiasScore();
+    const auto somatic_fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
+    const auto somatic_odds_score = SomaticOddsScore(sinfo, per_sample_evidence);
+    const auto somatic_quality = static_cast<u32>(std::round((somatic_fisher_score + somatic_odds_score) / 2.0));
 
-    const auto somatic_quality = static_cast<int>(std::min(fet_score, odds_score));
-    mSiteQuality = std::max(mSiteQuality, is_germline_mode ? gt_quality : somatic_quality);
+    mSiteQuality = std::max(mSiteQuality, germline_mode ? genotype_quality : somatic_quality);
     mTotalSampleCov += evidence->TotalSampleCov();
-    per_sample_filters.clear();
+    current_filters.clear();
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (evidence->TotalSampleCov() < prms.mMinNmlCov) per_sample_filters.emplace_back("LowNmlCov");
-      if (is_germline_mode && genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
-        per_sample_filters.emplace_back("StrandBias");
-      }
+      // NOLINTBEGIN(readability-braces-around-statements)
+      if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
+      if (germline_mode && alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
+      // NOLINTEND(readability-braces-around-statements)
     }
 
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (evidence->TotalSampleCov() < prms.mMinTmrCov) per_sample_filters.emplace_back("LowTmrCov");
-      if (alt_freq < prms.mMinTmrVaf) per_sample_filters.emplace_back("LowTmrVaf");
-      if (total_alt_cov < prms.mMinTmrAltCnt) per_sample_filters.emplace_back("LowTmrCnt");
-      if (fet_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomaticFS");
-      if (odds_score < prms.mMinPhredScore) per_sample_filters.emplace_back("LowSomaticOdds");
+      if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
+      if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
+      if (somatic_odds_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticOdds");
+      if (somatic_fisher_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticFisher");
       // NOLINTEND(readability-braces-around-statements)
-      if (genotype != REF_HOM && (single_strand_alt || strand_bias > prms.mMinPhredScore)) {
-        per_sample_filters.emplace_back("StrandBias");
-      }
     }
 
-    std::ranges::sort(per_sample_filters);
-    variant_level_filters.insert(per_sample_filters.cbegin(), per_sample_filters.cend());
-    const auto sample_ft = per_sample_filters.empty() ? "PASS" : absl::StrJoin(per_sample_filters, ";");
+    std::ranges::sort(current_filters);
+    variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
+    const auto sample_ft_field = current_filters.empty() ? "PASS" : absl::StrJoin(current_filters, ";");
 
     // NOLINTBEGIN(readability-braces-around-statements)
-    if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) seen_in_normal = true;
-    if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::TUMOR) seen_in_tumor = true;
+    if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
+    if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::TUMOR) alt_seen_in_tumor = true;
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(
         // GT:AD:ADF:ADR:DP:VAF:SBS:SFS:SOS:FT:HQ:GQ:PL
         fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
-                    evidence->AltRevCount(), evidence->TotalSampleCov(), alt_freq, strand_bias, fet_score, odds_score,
-                    sample_ft, mean_ref_qual, mean_alt_qual, gt_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+                    evidence->AltRevCount(), evidence->TotalSampleCov(), alt_allele_frequency, alt_strand_bias_score,
+                    somatic_fisher_score, somatic_odds_score, sample_ft_field, mean_ref_allele_quality,
+                    mean_alt_allele_quality, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
-  mFilterField = variant_level_filters.empty() ? "PASS" : absl::StrJoin(variant_level_filters, ";");
-  mState = is_somatic_mode && seen_in_tumor && mFilterField == "PASS" ? RawVariant::State::SOMATIC
-           : seen_in_normal && seen_in_tumor                          ? RawVariant::State::SHARED
-           : seen_in_normal                                           ? RawVariant::State::NORMAL
-                                                                      : RawVariant::State::NONE;
+  mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");
+  mState = alt_seen_in_normal && alt_seen_in_tumor ? RawVariant::State::SHARED
+           : alt_seen_in_normal                    ? RawVariant::State::NORMAL
+           : alt_seen_in_tumor                     ? RawVariant::State::TUMOR
+                                                   : RawVariant::State::NONE;
 
   using namespace std::string_view_literals;
-  const auto vstate = mState == RawVariant::State::SHARED    ? "SHARED"sv
-                      : mState == RawVariant::State::NORMAL  ? "NORMAL"sv
-                      : mState == RawVariant::State::SOMATIC ? "SOMATIC"sv
-                                                             : "NONE"sv;
+  const auto vstate = mState == RawVariant::State::SHARED   ? "SHARED"sv
+                      : mState == RawVariant::State::NORMAL ? "NORMAL"sv
+                      : mState == RawVariant::State::TUMOR  ? "TUMOR"sv
+                                                            : "NONE"sv;
 
   const auto vcategory = mCategory == RawVariant::Type::SNV   ? "SNV"sv
                          : mCategory == RawVariant::Type::INS ? "INS"sv
@@ -144,9 +140,9 @@ auto VariantCall::AsVcfRecord() const -> std::string {
   return vcf_record;
 }
 
-auto VariantCall::SomaticFetScore(const core::SampleInfo &current, const PerSampleEvidence &supports) -> u8 {
+auto VariantCall::SomaticFisherScore(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> u32 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (current.TagKind() != cbdg::Label::TUMOR) return 0;
+  if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
 
   u32 current_tmr_alt = 0;
   u32 current_tmr_ref = 0;
@@ -155,7 +151,7 @@ auto VariantCall::SomaticFetScore(const core::SampleInfo &current, const PerSamp
 
   for (const auto &[sample_info, evidence] : supports) {
     // Ignore other tumor samples even if present
-    if (sample_info.SampleName() == current.SampleName()) {
+    if (sample_info.SampleName() == curr.SampleName()) {
       current_tmr_alt = evidence->TotalAltCov();
       current_tmr_ref = evidence->TotalRefCov();
       continue;
@@ -176,19 +172,19 @@ auto VariantCall::SomaticFetScore(const core::SampleInfo &current, const PerSamp
   const auto tmr_counts = Row{cnt_tmr_alt, cnt_tmr_ref};
   const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
   const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
-  return hts::ErrorProbToPhred(result.mMoreProb);
+  return static_cast<u32>(hts::ErrorProbToPhred(result.mMoreProb));
 }
 
-auto VariantCall::SomaticOddsScore(const core::SampleInfo &current, const PerSampleEvidence &supports) -> u8 {
+auto VariantCall::SomaticOddsScore(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> u32 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (current.TagKind() != cbdg::Label::TUMOR) return 0;
+  if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
 
   f64 nml_vaf = std::numeric_limits<f64>::min();
   f64 tmr_vaf = std::numeric_limits<f64>::min();
 
   for (const auto &[sample_info, evidence] : supports) {
     // Ignore other tumor samples even if present
-    if (sample_info.SampleName() == current.SampleName()) {
+    if (sample_info.SampleName() == curr.SampleName()) {
       tmr_vaf = evidence->AltFrequency();
       continue;
     }
@@ -198,7 +194,7 @@ auto VariantCall::SomaticOddsScore(const core::SampleInfo &current, const PerSam
     }
   }
 
-  return tmr_vaf == 0.0 ? 0 : hts::ErrorProbToPhred(nml_vaf / tmr_vaf);
+  return tmr_vaf == 0.0 ? 0 : static_cast<u32>(hts::ErrorProbToPhred(nml_vaf / tmr_vaf));
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {

@@ -47,12 +47,16 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
 
-auto VariantSupport::StrandBiasScore() const -> u8 {
-  using Row = hts::FisherExact::Row;
-  const auto refs = Row{static_cast<int>(mRefFwdQuals.size()), static_cast<int>(mRefRevQuals.size())};
-  const auto alts = Row{static_cast<int>(mAltFwdQuals.size()), static_cast<int>(mAltRevQuals.size())};
-  const auto result = hts::FisherExact::Test({refs, alts});
-  return hts::ErrorProbToPhred(result.mDiffProb);
+auto VariantSupport::AltStrandBiasScore() const -> u32 {
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (TotalAltCov() == 0) return 0;
+
+  const auto total_alt_count = static_cast<f64>(TotalAltCov());
+  const auto min_alt_count = static_cast<f64>(std::min(mAltFwdQuals.size(), mAltRevQuals.size()));
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (min_alt_count == 0.0) return hts::MAX_PHRED_SCORE;
+  
+  return hts::ErrorProbToPhred(min_alt_count / total_alt_count);
 }
 
 auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {

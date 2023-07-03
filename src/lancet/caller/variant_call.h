@@ -20,18 +20,14 @@ using VariantID = u64;
 
 class VariantCall {
  public:
-  static constexpr f64 DEFAULT_MIN_TUMOR_VAF = 0.02;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
   static constexpr u32 DEFAULT_MIN_PHRED_SCORE = 10;
-  static constexpr u32 DEFAULT_MIN_TUMOR_ALT_COUNT = 2;
 
   struct Params {
-    f64 mMinTmrVaf = DEFAULT_MIN_TUMOR_VAF;
     u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
     u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
     u32 mMinPhredScore = DEFAULT_MIN_PHRED_SCORE;
-    u32 mMinTmrAltCnt = DEFAULT_MIN_TUMOR_ALT_COUNT;
   };
 
   using Samples = absl::Span<const core::SampleInfo>;
@@ -78,7 +74,7 @@ class VariantCall {
   std::string mAltAllele;
 
   i64 mVarLength;
-  int mSiteQuality;
+  u32 mSiteQuality;
   RawVariant::State mState;
   RawVariant::Type mCategory;
 
@@ -94,8 +90,8 @@ class VariantCall {
   using PerSampleEvidence = absl::flat_hash_map<const core::SampleInfo, std::unique_ptr<VariantSupport>,
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
-  [[nodiscard]] static auto SomaticFetScore(const core::SampleInfo& current, const PerSampleEvidence& supports) -> u8;
-  [[nodiscard]] static auto SomaticOddsScore(const core::SampleInfo& current, const PerSampleEvidence& supports) -> u8;
+  [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
+  [[nodiscard]] static auto SomaticOddsScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
   [[nodiscard]] static auto FirstAndSecondSmallestIndices(const std::array<int, 3>& pls) -> std::array<usize, 2>;
 };
 

@@ -15,7 +15,7 @@ class RawVariant {
   RawVariant() = default;
 
   enum class Type : i8 { REF = -1, SNV = 0, INS = 1, DEL = 2, MNP = 3 };
-  enum class State : i8 { NONE = -1, SHARED = 0, NORMAL = 1, SOMATIC = 2 };
+  enum class State : i8 { NONE = -1, SHARED = 0, NORMAL = 1, TUMOR = 2 };
 
   // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
   usize mChromIndex = -1;
