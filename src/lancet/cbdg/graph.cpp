@@ -49,10 +49,10 @@ IncrementKmerAndRetry:
 
     BuildGraph(mate_mers);
     LOG_TRACE("Built graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
-    WRITE_DOT_DEVELOP(RAW_BUILT_GRAPH, 0);
+    WriteDotDevelop(RAW_BUILT_GRAPH, 0);
     RemoveLowCovNodes(0);
     mNodes.rehash(0);
-    WRITE_DOT_DEVELOP(FIRST_LOW_COV_REMOVAL, 0);
+    WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
 
     const auto components = MarkConnectedComponents();
     per_comp_haplotypes.reserve(components.size());
@@ -81,7 +81,7 @@ IncrementKmerAndRetry:
       std::vector<std::string> haplotypes;
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
       ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
-      WRITE_DOT_DEVELOP(FOUND_REF_ANCHORS, comp_id)
+      WriteDotDevelop(FOUND_REF_ANCHORS, comp_id);
 
       if (HasCycle()) {
         LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
@@ -89,15 +89,15 @@ IncrementKmerAndRetry:
       }
 
       CompressGraph(comp_id);
-      WRITE_DOT_DEVELOP(FIRST_COMPRESSION, comp_id)
+      WriteDotDevelop(FIRST_COMPRESSION, comp_id);
       RemoveLowCovNodes(comp_id);
-      WRITE_DOT_DEVELOP(SECOND_LOW_COV_REMOVAL, comp_id)
+      WriteDotDevelop(SECOND_LOW_COV_REMOVAL, comp_id);
       CompressGraph(comp_id);
-      WRITE_DOT_DEVELOP(SECOND_COMPRESSION, comp_id)
+      WriteDotDevelop(SECOND_COMPRESSION, comp_id);
       RemoveTips(comp_id);
-      WRITE_DOT_DEVELOP(SHORT_TIP_REMOVAL, comp_id)
+      WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
       // RemoveShortLinks(comp_id);
-      // WRITE_DOT_DEVELOP(SHORT_LINK_REMOVAL, comp_id)
+      // WriteDotDevelop(SHORT_LINK_REMOVAL, comp_id);
 
       if (HasCycle()) {
         LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
