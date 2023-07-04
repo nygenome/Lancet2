@@ -15,6 +15,7 @@ namespace lancet::core {
 VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params)
     : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)) {
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
+  mGenotyper.SetIsGermlineMode(mReadCollector.IsGermlineMode());
 }
 
 auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) -> WindowResults {
@@ -87,7 +88,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     }
 
     LOG_DEBUG("Found variant(s) in graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
-    for (auto &&[var, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
+    for (auto &&[var, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset, mParamsPtr->mMinAltQuality)) {
       variants.emplace_back(std::make_unique<caller::VariantCall>(var, std::move(evidence), samples, vprms, dbg_klen));
     }
   }

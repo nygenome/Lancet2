@@ -171,6 +171,9 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->group("Parameters");
   subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")
       ->group("Parameters");
+  subcmd->add_option("--min-alt-quality", vb_prms.mMinAltQuality, "Min. phred quality supporting ALT allele")
+      ->group("Parameters")
+      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 
   // Filters
   subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")
@@ -179,10 +182,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")
       ->group("Filters")
       ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_TUMOR_COV, std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-alt-quality", fltr_prms.mMinAltQuality, "Min. phred scaled quality for ALT")
+  subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNormalVaf, "Max. allowed ALT frequency in normal")
       ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
-  subcmd->add_option("--min-phred-score", fltr_prms.mMinPhredScore, "Min. phred score for PASS variants")
+      ->check(CLI::Range(0.0, 1.0));
+  subcmd->add_option("--min-phred-score", fltr_prms.mMinPhredScore, "Min. phred scaled somatic score")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 

@@ -70,7 +70,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto alt_strand_bias_score = evidence->AltStrandBiasScore();
     const auto somatic_fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
     const auto somatic_odds_score = SomaticOddsScore(sinfo, per_sample_evidence);
-    const auto somatic_quality = static_cast<u32>(std::round((somatic_fisher_score + somatic_odds_score) / 2.0));
+    const auto somatic_quality = std::min({static_cast<u32>(ref_hom_pl), somatic_fisher_score, somatic_odds_score});
 
     mSiteQuality = std::max(mSiteQuality, germline_mode ? genotype_quality : somatic_quality);
     mTotalSampleCov += evidence->TotalSampleCov();
@@ -79,7 +79,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
-      if (germline_mode && mean_alt_allele_quality < prms.mMinAltQuality) current_filters.emplace_back("LowAltQual");
+      if (!germline_mode && alt_allele_frequency > prms.mMaxNormalVaf) current_filters.emplace_back("HighNmlVaf");
       if (germline_mode && alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
     }
@@ -87,11 +87,11 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
-      if (mean_alt_allele_quality < prms.mMinAltQuality) current_filters.emplace_back("LowAltQual");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
-      if (somatic_odds_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticOdds");
-      if (somatic_fisher_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticFisher");
       // NOLINTEND(readability-braces-around-statements)
+      if (somatic_fisher_score < prms.mMinPhredScore && somatic_odds_score < prms.mMinPhredScore) {
+        current_filters.emplace_back("LowSomatic");
+      }
     }
 
     std::ranges::sort(current_filters);

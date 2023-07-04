@@ -23,13 +23,14 @@ class Genotyper {
   Genotyper();
 
   void SetNumSamples(const usize num_samples) { mNumSamples = num_samples; }
+  void SetIsGermlineMode(const bool is_germline_mode) { mIsGermlineMode = is_germline_mode; }
 
   using Reads = absl::Span<const cbdg::Read>;
   using Haplotypes = absl::Span<const std::string>;
 
   using PerSampleVariantEvidence = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
   using Result = absl::flat_hash_map<const RawVariant*, PerSampleVariantEvidence>;
-  [[nodiscard]] auto Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result;
+  [[nodiscard]] auto Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset, u32 min_alt_qual) -> Result;
 
   class AlnInfo {
    public:
@@ -78,6 +79,7 @@ class Genotyper {
   static constexpr usize REF_HAP_IDX = 0;
 
   usize mNumSamples = 0;
+  bool mIsGermlineMode = false;
   std::vector<Minimap2Index> mIndices;
   MappingOpts mMappingOpts = std::make_unique<mm_mapopt_t>();
   IndexingOpts mIndexingOpts = std::make_unique<mm_idxopt_t>();
@@ -88,7 +90,7 @@ class Genotyper {
   [[nodiscard]] auto AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo>;
 
   using SupportsInfo = AlnInfo::SupportsInfo;
-  static void AddToTable(Result& result, const cbdg::Read& read, const SupportsInfo& read_supports);
+  static void AddToTable(Result& rslt, const cbdg::Read& read, const SupportsInfo& supports, u8 min_alt_qual);
 };
 
 }  // namespace lancet::caller

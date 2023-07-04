@@ -14,11 +14,11 @@ namespace detail {
 
 template <std::floating_point T1 = f64, std::floating_point T2 = f64>
 inline static constexpr auto AlmostEq(T1 first, T2 second) -> bool {
-  const auto is_second_low_prec = std::numeric_limits<T1>::epsilon() > std::numeric_limits<T2>::epsilon();
-  const auto aval = is_second_low_prec ? first : static_cast<T2>(first);
-  const auto bval = is_second_low_prec ? static_cast<T1>(second) : second;
-  const auto epsilon = is_second_low_prec ? std::numeric_limits<T1>::epsilon() : std::numeric_limits<T2>::epsilon();
-  return std::abs(aval - bval) <= epsilon;
+  const auto IsSecondLowPrec = std::numeric_limits<T1>::epsilon() > std::numeric_limits<T2>::epsilon();
+  const auto Aval = IsSecondLowPrec ? first : static_cast<T2>(first);
+  const auto Bval = IsSecondLowPrec ? static_cast<T1>(second) : second;
+  const auto Epsilon = IsSecondLowPrec ? std::numeric_limits<T1>::epsilon() : std::numeric_limits<T2>::epsilon();
+  return std::abs(Aval - Bval) <= Epsilon;
 }
 
 }  // namespace detail
@@ -80,9 +80,15 @@ class OnlineStats {
 
 template <Number T>
 [[nodiscard]] inline auto Mean(absl::Span<const T> data) -> f64 {
-  OnlineStats stats;
-  std::ranges::for_each(data, [&stats](const T item) { stats.Add(item); });
-  return stats.Mean();
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (data.empty()) return 0.0;
+
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (data.size() == 1) return data[0];
+
+  static const auto summer = [](const f64 sum, const T& num) { return sum + static_cast<f64>(num); };
+  const f64 sum = std::accumulate(data.cbegin(), data.cend(), 0.0, summer);
+  return sum / static_cast<f64>(data.size());
 }
 
 template <Number T>
@@ -102,6 +108,13 @@ template <Number T>
   std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2) - 1, dcopy.end());
   const T half_minus_one_item = dcopy[(data.length() / 2) - 1];
   return (half_item + half_minus_one_item) / 2;
+}
+
+template <Number T>
+[[nodiscard]] inline auto Minimum(absl::Span<const T> data) -> T {
+  static const auto accumulator = [](const T curr_min, const T value) -> T { return std::min(curr_min, value); };
+  const auto result = std::accumulate(data.cbegin(), data.cend(), std::numeric_limits<T>::max(), accumulator);
+  return result == std::numeric_limits<T>::max() ? static_cast<T>(0) : result;
 }
 
 #endif  // SRC_LANCET_BASE_COMPUTE_STATS_H_
