@@ -193,7 +193,7 @@ void PipelineRunner::Run() {
   std::ofstream runtime_stats_file;
   if (!mParamsPtr->mRunStats.empty()) {
     runtime_stats_file.open(mParamsPtr->mRunStats, std::ios::trunc);
-    fmt::print(runtime_stats_file, "CHROMOSOME\tSTART_POSITION\tEND_POSITION\tRUNTIME_NS\tSTATUS\n");
+    fmt::print(runtime_stats_file, "#CHROMOSOME\tSTART_POSITION\tEND_POSITION\tRUNTIME_NS\tSTATUS\n");
   }
 
   usize idx_to_flush = 0;
