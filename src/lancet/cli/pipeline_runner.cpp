@@ -268,20 +268,21 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
   using namespace std::string_view_literals;
   // clang-format off
   static constexpr auto fstr_hdr = R"raw(##fileformat=VCFv4.3
-##fileDate={}
-##source=Lancet_{}
-##commandLine="{}"
-##reference="{}"
-{}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
+##fileDate={RUN_TIMESTAMP}
+##source=Lancet_{FULL_VERSION_TAG}
+##commandLine="{FULL_COMMAND_USED}"
+##reference="{REFERENCE_PATH}"
+{CONTIG_HDR_LINES}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
 ##INFO=<ID=CATEGORY,Number=1,Type=String,Description="Variant category. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=STR,Number=1,Type=String,Description="If variant is STR, describes length and motif. (format: LEN:MOTIF)">
-##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {}">
-##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {}">
-##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than {}">
+##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {MIN_NML_COV}">
+##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
+##FILTER=<ID=LowAltQual,Description="Phred-scaled quality score for the ALT allele is less than {MIN_ALT_QUAL}">
+##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than {MIN_PHRED}">
 ##FILTER=<ID=LowSomaticOdds,Description="Phred-scaled somatic odds ratio score is less than {MIN_PHRED}">
 ##FILTER=<ID=LowSomaticFisher,Description="Phred-scaled somatic fisher exact test score is less than < {MIN_PHRED}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
@@ -306,21 +307,25 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
            absl::EndsWith(chrom, "_alt") || absl::EndsWith(chrom, "_decoy");
   };
 
-  std::string ref_contigs_hdr;
+  std::string contig_hdr_lines;
   static constexpr usize CONTIGS_BUFFER_SIZE = 524288;
-  ref_contigs_hdr.reserve(CONTIGS_BUFFER_SIZE);
+  contig_hdr_lines.reserve(CONTIGS_BUFFER_SIZE);
   const hts::Reference ref(params.mVariantBuilder.mRdCollParams.mRefPath);
   for (const auto &chrom : ref.ListChroms()) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (should_exclude_chrom(chrom.Name())) continue;
-    absl::StrAppend(&ref_contigs_hdr, fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
+    absl::StrAppend(&contig_hdr_lines, fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
   }
 
   auto full_hdr = fmt::format(
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-      fstr_hdr, absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone()), LancetFullVersion(),
-      params.mFullCmdLine, params.mVariantBuilder.mRdCollParams.mRefPath.string(), ref_contigs_hdr,
-      params.mVariantBuilder.mVariantParams.mMinNmlCov, params.mVariantBuilder.mVariantParams.mMinTmrCov,
+      fstr_hdr, fmt::arg("RUN_TIMESTAMP", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone())),
+      fmt::arg("FULL_VERSION_TAG", LancetFullVersion()), fmt::arg("FULL_COMMAND_USED", params.mFullCmdLine),
+      fmt::arg("REFERENCE_PATH", params.mVariantBuilder.mRdCollParams.mRefPath.string()),
+      fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines),
+      fmt::arg("MIN_NML_COV", params.mVariantBuilder.mVariantParams.mMinNmlCov),
+      fmt::arg("MIN_TMR_COV", params.mVariantBuilder.mVariantParams.mMinTmrCov),
+      fmt::arg("MIN_ALT_QUAL", params.mVariantBuilder.mVariantParams.mMinAltQuality),
       fmt::arg("MIN_PHRED", params.mVariantBuilder.mVariantParams.mMinPhredScore));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);

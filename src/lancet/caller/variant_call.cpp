@@ -79,6 +79,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
+      if (germline_mode && mean_alt_allele_quality < prms.mMinAltQuality) current_filters.emplace_back("LowAltQual");
       if (germline_mode && alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
     }
@@ -86,6 +87,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
+      if (mean_alt_allele_quality < prms.mMinAltQuality) current_filters.emplace_back("LowAltQual");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       if (somatic_odds_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticOdds");
       if (somatic_fisher_score < prms.mMinPhredScore) current_filters.emplace_back("LowSomaticFisher");
