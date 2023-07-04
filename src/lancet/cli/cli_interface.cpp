@@ -182,10 +182,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")
       ->group("Filters")
       ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_TUMOR_COV, std::numeric_limits<u32>::max()));
-  subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNormalVaf, "Max. allowed ALT frequency in normal")
+  subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNmlVaf, "Max. allowed ALT frequency in normal")
       ->group("Filters")
       ->check(CLI::Range(0.0, 1.0));
-  subcmd->add_option("--min-phred-score", fltr_prms.mMinPhredScore, "Min. phred scaled somatic score")
+  subcmd->add_option("--min-somatic-score", fltr_prms.mMinSomaticScore, "Min. phred scaled somatic score")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 

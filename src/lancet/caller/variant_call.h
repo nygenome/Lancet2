@@ -20,16 +20,16 @@ using VariantID = u64;
 
 class VariantCall {
  public:
+  static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
-  static constexpr u32 DEFAULT_MIN_PHRED_SCORE = 30;
-  static constexpr f64 DEFAULT_MAX_NORMAL_VAF = 0.10;
+  static constexpr u32 DEFAULT_MIN_SOMATIC_SCORE = 30;
 
   struct Params {
+    f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;
     u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
     u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
-    u32 mMinPhredScore = DEFAULT_MIN_PHRED_SCORE;
-    f64 mMaxNormalVaf = DEFAULT_MAX_NORMAL_VAF;
+    u32 mMinSomaticScore = DEFAULT_MIN_SOMATIC_SCORE;
   };
 
   using Samples = absl::Span<const core::SampleInfo>;
@@ -93,7 +93,7 @@ class VariantCall {
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
   [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
-  [[nodiscard]] static auto SomaticOddsScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
+  [[nodiscard]] static auto SomaticOddsRatio(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
   [[nodiscard]] static auto FirstAndSecondSmallestIndices(const std::array<int, 3>& pls) -> std::array<usize, 2>;
 };
 

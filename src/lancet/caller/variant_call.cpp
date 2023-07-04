@@ -41,10 +41,12 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SFS:SOS:FT:HQ:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SOR:SFS:FT:GQ:PL");
 
   // Strand Bias iff > 10 times likely to see ALT on one strand over the other
   static constexpr u32 MAX_ALLOWED_STRAND_BIAS = 10;
+  // Minimum TMR_VAF/NML_VAF ratio required to mark variant as PASS if fisher exact test fails
+  static constexpr f64 MIN_ODDS_RATIO_TO_OVERRIDE_FISHER = 10.0;
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
@@ -64,22 +66,20 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
 
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
     const auto genotype_quality = static_cast<u32>(phred_likelihoods.at(second_smallest_index));
-    const auto [mean_ref_allele_quality, mean_alt_allele_quality] = evidence->MeanHaplotypeQualities();
 
     const auto alt_allele_frequency = evidence->AltFrequency();
     const auto alt_strand_bias_score = evidence->AltStrandBiasScore();
-    const auto somatic_fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
-    const auto somatic_odds_score = SomaticOddsScore(sinfo, per_sample_evidence);
-    const auto somatic_quality = std::min({static_cast<u32>(ref_hom_pl), somatic_fisher_score, somatic_odds_score});
+    const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
+    const auto odds_ratio = SomaticOddsRatio(sinfo, per_sample_evidence);
 
-    mSiteQuality = std::max(mSiteQuality, germline_mode ? genotype_quality : somatic_quality);
+    mSiteQuality = std::max(mSiteQuality, genotype_quality);
     mTotalSampleCov += evidence->TotalSampleCov();
     current_filters.clear();
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
-      if (!germline_mode && alt_allele_frequency > prms.mMaxNormalVaf) current_filters.emplace_back("HighNmlVaf");
+      if (!germline_mode && alt_allele_frequency > prms.mMaxNmlVaf) current_filters.emplace_back("HighNmlVaf");
       if (germline_mode && alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
     }
@@ -89,7 +89,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
-      if (somatic_fisher_score < prms.mMinPhredScore && somatic_odds_score < prms.mMinPhredScore) {
+      if (fisher_score < prms.mMinSomaticScore && odds_ratio < MIN_ODDS_RATIO_TO_OVERRIDE_FISHER) {
         current_filters.emplace_back("LowSomatic");
       }
     }
@@ -104,12 +104,11 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(
-        // GT:AD:ADF:ADR:DP:VAF:SBS:SFS:SOS:FT:HQ:GQ:PL
-        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
+        // GT:AD:ADF:ADR:DP:VAF:SBS:SOR:SFS:FT:GQ:PL
+        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
                     evidence->AltRevCount(), evidence->TotalSampleCov(), alt_allele_frequency, alt_strand_bias_score,
-                    somatic_fisher_score, somatic_odds_score, sample_ft_field, mean_ref_allele_quality,
-                    mean_alt_allele_quality, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+                    odds_ratio, fisher_score, sample_ft_field, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
   mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");
@@ -177,12 +176,13 @@ auto VariantCall::SomaticFisherScore(const core::SampleInfo &curr, const PerSamp
   return static_cast<u32>(hts::ErrorProbToPhred(result.mMoreProb));
 }
 
-auto VariantCall::SomaticOddsScore(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> u32 {
+auto VariantCall::SomaticOddsRatio(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
+  if (curr.TagKind() != cbdg::Label::TUMOR) return 0.0;
 
-  f64 nml_vaf = std::numeric_limits<f64>::min();
-  f64 tmr_vaf = std::numeric_limits<f64>::min();
+  static constexpr f64 MIN_F64 = std::numeric_limits<f64>::min();
+  f64 nml_vaf = MIN_F64;
+  f64 tmr_vaf = MIN_F64;
 
   for (const auto &[sample_info, evidence] : supports) {
     // Ignore other tumor samples even if present
@@ -196,7 +196,8 @@ auto VariantCall::SomaticOddsScore(const core::SampleInfo &curr, const PerSample
     }
   }
 
-  return tmr_vaf == 0.0 ? 0 : static_cast<u32>(hts::ErrorProbToPhred(nml_vaf / tmr_vaf));
+  static constexpr f64 MAX_F64 = std::numeric_limits<f64>::max();
+  return tmr_vaf == 0.0 ? 0.0 : nml_vaf == MIN_F64 ? MAX_F64 : tmr_vaf / nml_vaf;
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
