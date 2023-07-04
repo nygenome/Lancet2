@@ -23,7 +23,7 @@ class VariantCall {
   static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
-  static constexpr u32 DEFAULT_MIN_SOMATIC_SCORE = 30;
+  static constexpr u32 DEFAULT_MIN_SOMATIC_SCORE = 20;
 
   struct Params {
     f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;
@@ -92,8 +92,8 @@ class VariantCall {
   using PerSampleEvidence = absl::flat_hash_map<const core::SampleInfo, std::unique_ptr<VariantSupport>,
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
-  [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
-  [[nodiscard]] static auto SomaticOddsRatio(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
+  [[nodiscard]] static auto SomaticScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
+  [[nodiscard]] static auto MaximumNormalVaf(const PerSampleEvidence& supports) -> f64;
   [[nodiscard]] static auto FirstAndSecondSmallestIndices(const std::array<int, 3>& pls) -> std::array<usize, 2>;
 };
 
