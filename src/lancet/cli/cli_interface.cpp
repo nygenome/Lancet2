@@ -167,11 +167,9 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN + 2, cbdg::Graph::MAX_ALLOWED_KMER_LEN));
   subcmd->add_option("--min-anchor-cov", grph_prms.mMinRefAnchorCov, "Min. coverage for anchor nodes (source/sink)")
       ->group("Parameters");
-  subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCoverage, "Min. coverage needed for all nodes in the graph")
+  subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCoverage, "Min. coverage for nodes in the graph")
       ->group("Parameters");
-  subcmd->add_option("--min-cov-ratio", grph_prms.mMinNodeCovRatio, "Min. node to window coverage for all nodes")
-      ->group("Parameters");
-  subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage for downsampling")
+  subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")
       ->group("Parameters");
 
   // Filters

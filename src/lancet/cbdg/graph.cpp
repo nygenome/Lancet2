@@ -41,7 +41,6 @@ IncrementKmerAndRetry:
   while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
     mCurrK += 2;
     timer.Reset();
-    mAvgCov = 0.0;
     mSourceAndSinkIds = {0, 0};
 
     // NOLINTNEXTLINE(readability-braces-around-statements,cppcoreguidelines-avoid-goto)
@@ -49,7 +48,7 @@ IncrementKmerAndRetry:
 
     BuildGraph(mate_mers);
     LOG_TRACE("Built graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
-    WriteDotDevelop(RAW_BUILT_GRAPH, 0);
+
     RemoveLowCovNodes(0);
     mNodes.rehash(0);
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
@@ -96,8 +95,6 @@ IncrementKmerAndRetry:
       WriteDotDevelop(SECOND_COMPRESSION, comp_id);
       RemoveTips(comp_id);
       WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
-      // RemoveShortLinks(comp_id);
-      // WriteDotDevelop(SHORT_LINK_REMOVAL, comp_id);
 
       if (HasCycle()) {
         LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
@@ -330,46 +327,6 @@ void Graph::RemoveTips(const usize component_id) {
   }
 }
 
-void Graph::RemoveShortLinks(const usize component_id) {
-  std::vector<NodeID> nids_to_remove;
-  nids_to_remove.reserve(mNodes.size());
-
-  const auto min_len = static_cast<usize>(std::floor(static_cast<f64>(mCurrK) / 2.0));
-  const auto min_cov = static_cast<u32>(std::max(std::floor(std::cbrt(mAvgCov)), 4.0));
-
-  std::ranges::for_each(std::as_const(mNodes),
-                        [&nids_to_remove, &component_id, &min_len, &min_cov, this](NodeTable::const_reference item) {
-                          const auto [source_id, sink_id] = this->mSourceAndSinkIds;
-                          // NOLINTBEGIN(readability-braces-around-statements)
-                          if (item.second->GetComponentId() != component_id) return;
-                          if (item.first == source_id || item.first == sink_id) return;
-                          // NOLINTEND(readability-braces-around-statements)
-                          //
-
-                          const auto degree = item.second->NumOutEdges();
-                          const auto uniq_seq_len = item.second->SeqLength() - this->mCurrK + 1;
-                          if (degree < 2 || uniq_seq_len >= min_len || item.second->TotalReadSupport() > min_cov) {
-                            return;
-                          }
-
-                          const auto node_seq = item.second->SequenceFor(Kmer::Ordering::DEFAULT);
-                          const auto str_qry = FindStr(node_seq, this->mCurrK - 1);
-                          // do not remove short-links within STRs: small bubbles are normal in STRs
-                          // NOLINTNEXTLINE(readability-braces-around-statements)
-                          if (!str_qry.mFoundStr) nids_to_remove.emplace_back(item.first);
-                        });
-
-  if (!nids_to_remove.empty()) {
-    const auto region_str = mRegion->ToSamtoolsRegion();
-    LOG_TRACE("Removing {:.4f}% (or) {} short link nodes for {} in comp{} with k={}",
-              100.0 * (static_cast<f64>(nids_to_remove.size()) / static_cast<f64>(mNodes.size())),
-              nids_to_remove.size(), region_str, component_id, mCurrK)
-
-    RemoveNodes(absl::MakeConstSpan(nids_to_remove));
-    CompressGraph(component_id);
-  }
-}
-
 auto Graph::FindSource(const usize component_id) const -> RefAnchor {
   RefAnchor result{.mAnchorId = 0, .mRefOffset = 0, .mFoundAnchor = false};
 
@@ -517,30 +474,25 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
 }
 
 void Graph::RemoveLowCovNodes(const usize component_id) {
-  // min_node_cov -> minimum coverage required for each node.
-  // min_window_cov -> combined sample coverage * MIN_NODE_COV_RATIO for each node
-  const auto min_window_cov = static_cast<u32>(std::ceil(mParams.mMinNodeCovRatio * mAvgCov));
-  const auto min_req_cov = std::max(static_cast<u32>(mParams.mMinNodeCoverage), min_window_cov);
-
   std::vector<NodeID> nodes_to_remove;
   nodes_to_remove.reserve(mNodes.size());
 
-  std::ranges::for_each(std::as_const(mNodes),
-                        [&nodes_to_remove, &component_id, &min_req_cov, this](NodeTable::const_reference item) {
-                          const auto [source_id, sink_id] = this->mSourceAndSinkIds;
-                          // NOLINTBEGIN(readability-braces-around-statements)
-                          if (item.second->GetComponentId() != component_id) return;
-                          if (item.first == source_id || item.first == sink_id) return;
-                          // NOLINTEND(readability-braces-around-statements)
+  std::ranges::for_each(
+      std::as_const(mNodes), [&nodes_to_remove, &component_id, this](NodeTable::const_reference item) {
+        const auto [source_id, sink_id] = this->mSourceAndSinkIds;
+        // NOLINTBEGIN(readability-braces-around-statements)
+        if (item.second->GetComponentId() != component_id) return;
+        if (item.first == source_id || item.first == sink_id) return;
+        // NOLINTEND(readability-braces-around-statements)
 
-                          const auto is_nml_singleton = item.second->NormalReadSupport() == 1;
-                          const auto is_tmr_singleton = item.second->TumorReadSupport() == 1;
-                          const auto total_sample_cov = item.second->TotalReadSupport();
+        const auto is_nml_singleton = item.second->NormalReadSupport() == 1;
+        const auto is_tmr_singleton = item.second->TumorReadSupport() == 1;
+        const auto total_sample_cov = item.second->TotalReadSupport();
 
-                          if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < min_req_cov) {
-                            nodes_to_remove.emplace_back(item.first);
-                          }
-                        });
+        if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < this->mParams.mMinNodeCoverage) {
+          nodes_to_remove.emplace_back(item.first);
+        }
+      });
 
   if (!nodes_to_remove.empty()) {
     const auto region_str = mRegion->ToSamtoolsRegion();
@@ -574,7 +526,6 @@ void Graph::RemoveNodes(absl::Span<const NodeID> node_ids) {
 }
 
 void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
-  usize nsample_bases = 0;
   usize max_num_kmers = 0;
   std::vector<Label> labels;
   std::vector<SeqMers> kplus_ones;
@@ -588,16 +539,13 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
   // Add sample read k+1 sequence windows
   for (const auto& read : mReads) {
-    nsample_bases += read.Length();
     max_num_kmers += (read.Length() - mCurrK + 1);
     labels.emplace_back(read.TagKind());
     kplus_ones.emplace_back(SlidingView(read.SeqView(), mCurrK + 1));
   }
 
-  const absl::FixedArray<SeqNodes> added_nodes = AddToGraph(kplus_ones, labels, max_num_kmers);
-  mAvgCov = static_cast<f64>(nsample_bases) / static_cast<f64>(mRegion->Length());
-
   mRefNodeIds.clear();
+  const absl::FixedArray<SeqNodes> added_nodes = AddToGraph(kplus_ones, labels, max_num_kmers);
   const SeqNodes& ref_nodes = added_nodes[0];
   mRefNodeIds.reserve(ref_nodes.size());
   std::transform(ref_nodes.cbegin(), ref_nodes.cend(), std::back_inserter(mRefNodeIds),
@@ -675,8 +623,6 @@ auto Graph::RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usiz
 
 auto Graph::ToString(const State state) -> std::string {
   switch (state) {
-    case RAW_BUILT_GRAPH:
-      return "raw_graph";
     case FIRST_LOW_COV_REMOVAL:
       return "low_cov_removal1";
     case FOUND_REF_ANCHORS:
