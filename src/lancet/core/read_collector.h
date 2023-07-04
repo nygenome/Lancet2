@@ -49,6 +49,7 @@ class ReadCollector {
   };
 
   [[nodiscard]] auto CollectRegionResult(const Region& region) -> Result;
+  [[nodiscard]] auto IsGermlineMode() const noexcept -> bool { return mIsGermlineMode; }
 
   [[nodiscard]] static auto IsActiveRegion(const Params& params, const Region& region) -> bool;
   [[nodiscard]] static auto BuildSampleNameList(const Params& params) -> std::vector<std::string>;

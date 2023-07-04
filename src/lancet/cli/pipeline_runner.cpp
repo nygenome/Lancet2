@@ -281,11 +281,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=STR,Number=1,Type=String,Description="If variant is STR, describes length and motif. (format: LEN:MOTIF)">
 ##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {MIN_NML_COV}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
-##FILTER=<ID=LowAltQual,Description="Phred-scaled quality score for the ALT allele is less than {MIN_ALT_QUAL}">
-##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than {MIN_PHRED}">
-##FILTER=<ID=LowSomaticOdds,Description="Phred-scaled somatic odds ratio score is less than {MIN_PHRED}">
-##FILTER=<ID=LowSomaticFisher,Description="Phred-scaled somatic fisher exact test score is less than < {MIN_PHRED}">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
+##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than 10">
+##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic likelihood score is less than {MIN_PHRED}">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
@@ -296,7 +295,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=SOS,Number=1,Type=Integer,Description="Phred-scaled somatic odds ratio score. 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Phred-scaled mean haplotype quality for REF and ALT alleles">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality for the sample">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotype combinations">
 )raw"sv;
   // clang-format on
@@ -325,7 +324,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines),
       fmt::arg("MIN_NML_COV", params.mVariantBuilder.mVariantParams.mMinNmlCov),
       fmt::arg("MIN_TMR_COV", params.mVariantBuilder.mVariantParams.mMinTmrCov),
-      fmt::arg("MIN_ALT_QUAL", params.mVariantBuilder.mVariantParams.mMinAltQuality),
+      fmt::arg("MAX_NML_VAF", params.mVariantBuilder.mVariantParams.mMaxNormalVaf),
       fmt::arg("MIN_PHRED", params.mVariantBuilder.mVariantParams.mMinPhredScore));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);

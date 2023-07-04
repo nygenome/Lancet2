@@ -55,7 +55,7 @@ auto VariantSupport::AltStrandBiasScore() const -> u32 {
   const auto min_alt_count = static_cast<f64>(std::min(mAltFwdQuals.size(), mAltRevQuals.size()));
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (min_alt_count == 0.0) return hts::MAX_PHRED_SCORE;
-  
+
   return hts::ErrorProbToPhred(min_alt_count / total_alt_count);
 }
 

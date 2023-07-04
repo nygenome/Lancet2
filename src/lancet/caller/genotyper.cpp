@@ -37,7 +37,7 @@ Genotyper::Genotyper() {
   mMappingOpts->best_n = 1;
 }
 
-auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result {
+auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset, const u32 min_alt_qual) -> Result {
   ResetData(haplotypes);
 
   Result genotyped_variants;
@@ -68,8 +68,10 @@ auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& v
       item.AddSupportingInfo(read_supports, vset);
     });
 
-    // Add read supports to all the variants supported by it
-    AddToTable(genotyped_variants, read, read_supports);
+    // Add read supports to all the variants supported by it performing filtering on alt qual if needed
+    const auto should_filter_alt_qual = read.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
+    const auto min_req_alt_qual = should_filter_alt_qual ? static_cast<u8>(min_alt_qual) : u8(0);
+    AddToTable(genotyped_variants, read, read_supports, min_req_alt_qual);
   }
 
   return genotyped_variants;
@@ -274,20 +276,23 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
   return results;
 }
 
-void Genotyper::AddToTable(Result& result, const cbdg::Read& read, const SupportsInfo& read_supports) {
+void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read, const SupportsInfo& supports, const u8 min_alt_qual) {
   const auto quals = read.QualView();
   const auto sample_name = read.SampleName();
   const auto rname_hash = HashStr32(read.QnameView());
   const auto read_strand = read.BitwiseFlag().IsFwdStrand() ? Strand::FWD : Strand::REV;
 
-  for (const auto& [var_ptr, qry_start_and_allele] : read_supports) {
-    auto& variant_evidence = result.try_emplace(var_ptr, PerSampleVariantEvidence()).first->second;
+  for (const auto& [var_ptr, qry_start_and_allele] : supports) {
+    auto& variant_evidence = rslt.try_emplace(var_ptr, PerSampleVariantEvidence()).first->second;
     auto& sample_variant = variant_evidence.try_emplace(sample_name, std::make_unique<VariantSupport>()).first->second;
 
     const auto [read_start_idx0, allele] = qry_start_and_allele;
     const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
-    const auto median_allele_qual = Median(quals.subspan(read_start_idx0, allele_len));
-    sample_variant->AddEvidence(rname_hash, allele, read_strand, std::min(median_allele_qual, read.MapQual()));
+    const auto min_allele_qual = static_cast<u8>(Minimum(quals.subspan(read_start_idx0, allele_len)));
+    const auto support_quality = std::min(min_allele_qual, read.MapQual());
+    if (support_quality >= min_alt_qual) {
+      sample_variant->AddEvidence(rname_hash, allele, read_strand, support_quality);
+    }
   }
 }
 
