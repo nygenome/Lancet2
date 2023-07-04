@@ -26,6 +26,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele), mAltAllele(var->mAltAllele),
       mVarLength(var->mAlleleLength), mSiteQuality(std::numeric_limits<u32>::max()), mCategory(var->mType) {
+  f64 max_nml_vaf = 0.0;
   PerSampleEvidence per_sample_evidence;
   per_sample_evidence.reserve(supprts.size());
 
@@ -37,6 +38,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     }
 
     auto handle = supprts.extract(itr);
+    max_nml_vaf = std::max(max_nml_vaf, handle.mapped()->AltFrequency());
     per_sample_evidence.emplace(sinfo, std::move(handle.mapped()));
   }
 
@@ -54,7 +56,6 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   std::vector<std::string> current_filters;
   absl::btree_set<std::string> variant_site_filters;
   const auto is_str = var->mStrResult.mFoundStr;
-  const auto max_nml_vaf = MaximumNormalVaf(per_sample_evidence);
 
   for (const auto &sinfo : samps) {
     const auto &evidence = per_sample_evidence.at(sinfo.SampleName());
@@ -170,17 +171,6 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
   const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
   const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
   return static_cast<u32>(hts::ErrorProbToPhred(result.mDiffProb));
-}
-
-auto VariantCall::MaximumNormalVaf(const PerSampleEvidence &supports) -> f64 {
-  f64 max_nml_vaf = std::numeric_limits<f64>::min();
-  for (const auto &[sample_info, evidence] : supports) {
-    if (sample_info.TagKind() == cbdg::Label::NORMAL) {
-      max_nml_vaf = std::max(max_nml_vaf, evidence->AltFrequency());
-    }
-  }
-
-  return max_nml_vaf;
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
