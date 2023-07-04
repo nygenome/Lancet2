@@ -283,7 +283,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than 10">
-##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic likelihood score is less than {MIN_SOMATIC_SCORE}">
+##FILTER=<ID=LowSomaticScore,Description="Phred-scaled somatic likelihood score is less than {MIN_SOMATIC_SCORE}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
@@ -291,8 +291,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
 ##FORMAT=<ID=AAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
 ##FORMAT=<ID=SBS,Number=1,Type=Integer,Description="Phred-scaled strand bias score for ALT allele">
-##FORMAT=<ID=SOR,Number=1,Type=Integer,Description="Somatic Odds ratio i.e tumor/normal VAF. 0 for normal sample(s)">
-##FORMAT=<ID=SFS,Number=1,Type=Integer,Description="Phred-scaled somatic fisher exact score. 0 for normal sample(s)">
+##FORMAT=<ID=SSC,Number=1,Type=Integer,Description="Phred-scaled somatic fisher exact score. 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality for the sample">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotype combinations">
