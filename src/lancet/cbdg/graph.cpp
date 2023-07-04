@@ -49,6 +49,7 @@ IncrementKmerAndRetry:
 
     BuildGraph(mate_mers);
     LOG_TRACE("Built graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
+    WRITE_DOT_DEVELOP(RAW_BUILT_GRAPH, 0);
     RemoveLowCovNodes(0);
     mNodes.rehash(0);
     WRITE_DOT_DEVELOP(FIRST_LOW_COV_REMOVAL, 0);
@@ -674,6 +675,8 @@ auto Graph::RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usiz
 
 auto Graph::ToString(const State state) -> std::string {
   switch (state) {
+    case RAW_BUILT_GRAPH:
+      return "raw_graph";
     case FIRST_LOW_COV_REMOVAL:
       return "low_cov_removal1";
     case FOUND_REF_ANCHORS:

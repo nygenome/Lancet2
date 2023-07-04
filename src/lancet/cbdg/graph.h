@@ -129,6 +129,7 @@ class Graph {
   [[nodiscard]] static auto RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
 
   enum State {
+    RAW_BUILT_GRAPH = -1,
     FIRST_LOW_COV_REMOVAL = 0,
     FOUND_REF_ANCHORS = 1,
     FIRST_COMPRESSION = 2,
