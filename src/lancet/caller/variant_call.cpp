@@ -87,8 +87,10 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
-      if (fisher_score < prms.mMinSomaticScore && max_nml_vaf > 0.0) current_filters.emplace_back("LowSomaticScore");
       // NOLINTEND(readability-braces-around-statements)
+      if (alt_allele_frequency > 0.0 && max_nml_vaf > 0.0 && fisher_score < prms.mMinSomaticScore) {
+        current_filters.emplace_back("LowSomaticScore");
+      }
     }
 
     std::ranges::sort(current_filters);
