@@ -142,10 +142,15 @@ class Graph {
 
   [[nodiscard]] static auto ToString(State state) -> std::string;
   void WriteDot(State state, usize comp_id);
+  
 #ifdef LANCET_DEVELOP_MODE
-#define WRITE_DOT_DEVELOP(...) WriteDot(__VA_ARGS__);
+  template <class... Args>
+  constexpr inline void WriteDotDevelop(Args&&... args) {
+    WriteDot(std::forward<Args>(args)...);
+  }
 #else
-#define WRITE_DOT_DEVELOP(...) ((void)0);
+  template <class... Args>
+  constexpr inline void WriteDotDevelop([[maybe_unused]] Args&&... args) {}
 #endif
 
   static void SerializeToDot(const NodeTable& graph, const std::filesystem::path& out_path, usize comp_id = 0,
