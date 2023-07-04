@@ -88,7 +88,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
-      if (alt_allele_frequency > 0.0 && max_nml_vaf > 0.0 && fisher_score < prms.mMinSomaticScore) {
+      if (genotype != REF_HOM && max_nml_vaf > 0.0 && fisher_score < prms.mMinSomaticScore) {
         current_filters.emplace_back("LowSomaticScore");
       }
     }
