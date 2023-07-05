@@ -87,13 +87,15 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
-      if (fisher_score < prms.mMinSomaticScore && max_nml_vaf > 0.0) current_filters.emplace_back("LowSomaticScore");
+      if (max_nml_vaf != 0.0 && fisher_score < prms.mMinSomaticScore) current_filters.emplace_back("LowSomaticScore");
       // NOLINTEND(readability-braces-around-statements)
     }
 
     std::ranges::sort(current_filters);
     variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
     const auto sample_ft_field = current_filters.empty() ? "PASS" : absl::StrJoin(current_filters, ";");
+    const auto is_pass_somatic = sample_ft_field == "PASS" && sinfo.TagKind() == cbdg::Label::TUMOR;
+    const auto somatic_score = is_pass_somatic ? prms.mMinSomaticScore : fisher_score;
 
     // NOLINTBEGIN(readability-braces-around-statements)
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
@@ -105,7 +107,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
         fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
                     evidence->AltRevCount(), evidence->TotalSampleCov(), alt_allele_frequency, alt_strand_bias_score,
-                    fisher_score, sample_ft_field, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+                    somatic_score, sample_ft_field, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
   mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");
