@@ -9,13 +9,14 @@ namespace lancet::cli {
 
 class RemainingTimer {
  public:
-  explicit RemainingTimer(usize num_iterations);
+  explicit RemainingTimer(usize num_iterations, usize num_threads);
   void Update(const absl::Duration& loop_time);
   [[nodiscard]] auto EstimateRemaining() const -> absl::Duration;
 
  private:
   usize mNumDone = 0;
   usize mNumTotal = 0;
+  usize mNumThreads = 1;
   OnlineStats mRunStats;
 };
 

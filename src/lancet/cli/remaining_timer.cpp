@@ -3,7 +3,8 @@
 namespace lancet::cli {
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-RemainingTimer::RemainingTimer(const usize num_iterations) : mNumTotal(num_iterations) {}
+RemainingTimer::RemainingTimer(const usize num_iterations, const usize num_threads)
+    : mNumTotal(num_iterations), mNumThreads(num_threads) {}
 
 void RemainingTimer::Update(const absl::Duration& loop_time) {
   mNumDone++;
@@ -11,8 +12,8 @@ void RemainingTimer::Update(const absl::Duration& loop_time) {
 }
 
 auto RemainingTimer::EstimateRemaining() const -> absl::Duration {
-  const auto estimated_ns_remaining = static_cast<i64>(mNumTotal - mNumDone) * static_cast<i64>(mRunStats.Mean());
-  return absl::Nanoseconds(estimated_ns_remaining);
+  const auto estimated_ns_remaining = static_cast<f64>(mNumTotal - mNumDone) * mRunStats.Mean();
+  return absl::Nanoseconds(estimated_ns_remaining / static_cast<f64>(mNumThreads));
 }
 
 }  // namespace lancet::cli

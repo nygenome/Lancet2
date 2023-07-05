@@ -198,9 +198,9 @@ void PipelineRunner::Run() {
   }
 
   usize idx_to_flush = 0;
-  RemainingTimer remtimer(num_total_windows);
   core::AsyncWorker::Result async_worker_result;
   moodycamel::ConsumerToken result_consumer_token(*recv_qptr);
+  RemainingTimer remtimer(num_total_windows, mParamsPtr->mNumWorkerThreads);
 
   auto stats = InitWindowStats();
   constexpr usize nbuffer_windows = 100;
