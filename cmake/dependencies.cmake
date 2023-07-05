@@ -168,7 +168,7 @@ if (LANCET_BENCHMARKS)
 	set(BENCHMARK_ENABLE_INSTALL OFF)
 	set(BENCHMARK_INSTALL_DOCS OFF)
 	set(BENCHMARK_ENABLE_LTO OFF)
-	FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.8.0 SYSTEM)
+	FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.8.1 SYSTEM)
 	FetchContent_MakeAvailable(benchmark)
 endif ()
 
