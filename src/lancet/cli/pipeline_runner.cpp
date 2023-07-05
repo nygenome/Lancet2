@@ -223,9 +223,9 @@ void PipelineRunner::Run() {
     const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(1)));
     const auto rem_runtime = absl::FormatDuration(absl::Trunc(remtimer.EstimateRemaining(), absl::Milliseconds(1)));
     const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(1)));
-    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
+    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f} windows/sec | {} done with {} in {}",
              percent_windows_done(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
-             elapsed_time, rem_runtime, win_name, win_status, win_runtime)
+             elapsed_time, rem_runtime, remtimer.MeanRatePerSecond(), win_name, win_status, win_runtime)
 
     if (runtime_stats_file.is_open()) {
       // BED file positions are 0-based half closed-open interval
