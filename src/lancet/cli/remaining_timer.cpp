@@ -4,7 +4,12 @@ namespace lancet::cli {
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 RemainingTimer::RemainingTimer(const usize num_iterations, const usize num_threads)
-    : mNumTotal(num_iterations), mNumThreads(num_threads) {}
+    : mNumTotal(num_iterations), mNumThreads(num_threads) {
+  static constexpr f64 PRIOR_MEAN_NS = 1e9;
+  static constexpr f64 PRIOR_STDDEV_NS = 5e8;
+  mRunStats.SetPriorMean(PRIOR_MEAN_NS);
+  mRunStats.SetPriorStandardDeviation(PRIOR_STDDEV_NS);
+}
 
 void RemainingTimer::Update(const absl::Duration& loop_time) {
   mNumDone++;
