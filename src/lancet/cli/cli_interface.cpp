@@ -151,7 +151,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCov, "Min. coverage for nodes in the graph")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-node-cov-ratio", grph_prms.mMinNodeCovRatio, "Min. node to window coverage ratio")
+  subcmd->add_option("--min-cov-ratio", grph_prms.mMinCovRatio, "Min. node to window coverage ratio")
       ->group("Parameters")
       ->check(CLI::Range(0.0, 1.0));
   subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")

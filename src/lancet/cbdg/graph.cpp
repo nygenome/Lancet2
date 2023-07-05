@@ -477,7 +477,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
 void Graph::RemoveLowCovNodes(const usize component_id) {
   // min_node_cov -> minimum coverage required for each node.
   // min_ratio_cov -> combined sample coverage * MIN_NODE_COV_RATIO for each node
-  const auto min_ratio_cov = static_cast<u32>(std::floor(mParams.mMinNodeCovRatio * mAverageCov));
+  const auto min_ratio_cov = static_cast<u32>(std::floor(mParams.mMinCovRatio * mAverageCov));
   const auto min_req_cov = std::max(mParams.mMinNodeCov, min_ratio_cov);
 
   std::vector<NodeID> nodes_to_remove;
@@ -552,29 +552,20 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
     kplus_ones.emplace_back(SlidingView(read.SeqView(), mCurrK + 1));
   }
 
-  mRefNodeIds.clear();
   mAverageCov = static_cast<f64>(nsample_bases) / static_cast<f64>(mRegion->Length());
   const absl::FixedArray<SeqNodes> added_nodes = AddToGraph(kplus_ones, labels, max_num_kmers);
+
+  mRefNodeIds.clear();
   const SeqNodes& ref_nodes = added_nodes[0];
   mRefNodeIds.reserve(ref_nodes.size());
   std::transform(ref_nodes.cbegin(), ref_nodes.cend(), std::back_inserter(mRefNodeIds),
                  [](const Node* rnode) -> NodeID { return rnode->Identifier(); });
 
   mate_mers.clear();
-
-  static constexpr u8 MIN_KMER_BASE_QUALITY = 20;
-  static const auto is_low_qual_base = [](const u8 base_qual) -> bool { return base_qual < MIN_KMER_BASE_QUALITY; };
-
   for (usize rd_idx = 0; rd_idx < mReads.size(); ++rd_idx) {
     const auto read_label = mReads[rd_idx].SrcLabel();
     const auto mm_label = fmt::format("{}{}", mReads[rd_idx].QnameView(), read_label.GetData());
-    const auto quals_view = SlidingView(mReads[rd_idx].QualView(), mCurrK);
-
-    for (usize kmer_idx = 0; kmer_idx < added_nodes[rd_idx + 1].size(); ++kmer_idx) {
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (std::ranges::any_of(quals_view[kmer_idx], is_low_qual_base)) continue;
-
-      auto* node = added_nodes[rd_idx + 1][kmer_idx];
+    for (auto* node : added_nodes[rd_idx + 1]) {
       auto mm_pair = std::make_pair(mm_label, node->Identifier());
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (mate_mers.contains(mm_pair)) return;
