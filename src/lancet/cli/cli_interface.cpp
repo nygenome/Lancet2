@@ -100,6 +100,9 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   auto& grph_prms = vb_prms.mGraphParams;
   auto& fltr_prms = vb_prms.mVariantParams;
 
+  static constexpr f64 MIN_TUMOR_VS_NORMAL_VAF_ODDS = 0.0;
+  static constexpr f64 MAX_TUMOR_VS_NORMAL_VAF_ODDS = 255.0;
+
   // Datasets
   subcmd->add_option("-n,--normal", rc_prms.mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
       ->required(true)
@@ -151,9 +154,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCov, "Min. coverage for nodes in the graph")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-cov-ratio", grph_prms.mMinCovRatio, "Min. node to window coverage ratio")
-      ->group("Parameters")
-      ->check(CLI::Range(0.0, 1.0));
   subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
@@ -171,17 +171,15 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNmlVaf, "Max. ALT frequency in normal")
       ->group("Filters")
       ->check(CLI::Range(0.0, 1.0));
-
   subcmd->add_option("--min-odds", fltr_prms.mMinOdds, "Min. VAF odds of tumor vs normal")
+      ->group("Filters")
+      ->check(CLI::Range(MIN_TUMOR_VS_NORMAL_VAF_ODDS, MAX_TUMOR_VS_NORMAL_VAF_ODDS));
+  subcmd->add_option("--min-fisher", fltr_prms.mMinFisher, "Min. phred scaled fisher score")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
   subcmd->add_option("--min-str-odds", fltr_prms.mMinStrOdds, "Min. VAF odds of tumor vs normal for STRs")
       ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
-
-  subcmd->add_option("--min-fisher", fltr_prms.mMinFisher, "Min. phred scaled fisher score")
-      ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
+      ->check(CLI::Range(MIN_TUMOR_VS_NORMAL_VAF_ODDS, MAX_TUMOR_VS_NORMAL_VAF_ODDS));
   subcmd->add_option("--min-str-fisher", fltr_prms.mMinStrFisher, "Min. phred scaled fisher score for STRs")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
