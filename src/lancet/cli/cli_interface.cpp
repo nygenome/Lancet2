@@ -208,8 +208,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
     // NOLINTEND(readability-braces-around-statements)
 
     LOG_INFO("Starting Lancet {}", LancetFullVersion())
-    LOG_INFO("Lancet Command line: {}", params->mFullCmdLine)
-
     PipelineRunner pipeline_runner(params);
     pipeline_runner.Run();
   });
