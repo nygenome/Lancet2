@@ -197,11 +197,8 @@ void PipelineRunner::Run() {
     fmt::print(runtime_stats_file, "#CHROMOSOME\tSTART_POSITION\tEND_POSITION\tRUNTIME_NS\tSTATUS\n");
   }
 
-  static constexpr f64 PRIOR_MEAN_NS = 1e9;
-  static constexpr f64 PRIOR_STD_DEV_NS = 5e8;
-  RemainingTimer remtimer(num_total_windows, PRIOR_MEAN_NS, PRIOR_STD_DEV_NS);
-
   usize idx_to_flush = 0;
+  RemainingTimer remtimer(num_total_windows);
   core::AsyncWorker::Result async_worker_result;
   moodycamel::ConsumerToken result_consumer_token(*recv_qptr);
 
