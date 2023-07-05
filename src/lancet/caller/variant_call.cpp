@@ -190,7 +190,8 @@ auto VariantCall::SomaticOddsRatio(const core::SampleInfo &curr, const PerSample
     }
   }
 
-  return curr_tmr_vaf / max_nml_vaf;
+  const auto odds_ratio = curr_tmr_vaf / max_nml_vaf;
+  return std::clamp(odds_ratio, 0.0, static_cast<f64>(hts::MAX_PHRED_SCORE));
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
