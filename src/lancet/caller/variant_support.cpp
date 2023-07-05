@@ -47,18 +47,6 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
 
-auto VariantSupport::AltStrandBiasScore() const -> u32 {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (TotalAltCov() == 0) return 0;
-
-  const auto total_alt_count = static_cast<f64>(TotalAltCov());
-  const auto min_alt_count = static_cast<f64>(std::min(mAltFwdQuals.size(), mAltRevQuals.size()));
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (min_alt_count == 0.0) return hts::MAX_PHRED_SCORE;
-
-  return hts::ErrorProbToPhred(min_alt_count / total_alt_count);
-}
-
 auto VariantSupport::MeanHaplotypeQualities() const -> std::array<u8, 2> {
   return {hts::ErrorProbToPhred(MeanErrorProbability(Allele::REF)),
           hts::ErrorProbToPhred(MeanErrorProbability(Allele::ALT))};

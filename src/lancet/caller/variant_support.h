@@ -37,9 +37,6 @@ class VariantSupport {
   /// Normalized Phred scaled genotype likelihoods for all possible genotype combinations
   [[nodiscard]] auto ComputePLs() const -> std::array<int, 3>;
 
-  /// Phred scaled probability of strand bias being present in the ref and alt alleles
-  [[nodiscard]] auto AltStrandBiasScore() const -> u32;
-
   /// Phred scaled probability of the REF and ALT allele
   [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<u8, 2>;
 
