@@ -20,20 +20,26 @@ using VariantID = u64;
 
 class VariantCall {
  public:
+  static constexpr f64 DEFAULT_MIN_ODDS = 5.0;
+  static constexpr f64 DEFAULT_MIN_STR_ODDS = 10.0;
+
+  static constexpr u32 DEFAULT_MIN_FISHER = 10;
+  static constexpr u32 DEFAULT_MIN_STR_FISHER = 30;
+
   static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
-  static constexpr f64 DEFAULT_MIN_ODDS_RATIO = 5.0;
-  
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
-  static constexpr u32 DEFAULT_MIN_FISHER_SCORE = 10;
 
   struct Params {
-    f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;
-    f64 mMinOddsRatio = DEFAULT_MIN_ODDS_RATIO;
+    f64 mMinOdds = DEFAULT_MIN_ODDS;
+    f64 mMinStrOdds = DEFAULT_MIN_STR_ODDS;
 
+    u32 mMinFisher = DEFAULT_MIN_FISHER;
+    u32 mMinStrFisher = DEFAULT_MIN_STR_FISHER;
+
+    f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;
     u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
     u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
-    u32 mMinFisherScore = DEFAULT_MIN_FISHER_SCORE;
   };
 
   using Samples = absl::Span<const core::SampleInfo>;
