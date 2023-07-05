@@ -284,9 +284,9 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
 ##FILTER=<ID=StrandBias,Description="ALT allele is not present on both forward and reverse strands">
 ##FILTER=<ID=LowOdds,Description="ALT frequency ratio in tumor vs normal is less than {MIN_ODDS_RATIO}">
-##FILTER=<ID=LowFisher,Description="Phred-scaled somatic likelihood score is less than {MIN_FISHER_SCORE}">
-##FILTER=<ID=LowStrOdds,Description="ALT frequency ratio in tumor vs normal is less than {MIN_STR_ODDS_RATIO}">
-##FILTER=<ID=LowStrFisher,Description="Phred-scaled somatic likelihood score is less than {MIN_STR_FISHER_SCORE}">
+##FILTER=<ID=LowFisher,Description="Phred-scaled fisher score is less than {MIN_FISHER_SCORE}">
+##FILTER=<ID=LowStrOdds,Description="ALT frequency ratio in tumor vs normal for STRs is less than {MIN_STR_ODDS_RATIO}">
+##FILTER=<ID=LowStrFisher,Description="Phred-scaled fisher score for STRs score is less than {MIN_STR_FISHER_SCORE}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
