@@ -9,8 +9,7 @@ namespace lancet::cli {
 
 class RemainingTimer {
  public:
-  RemainingTimer(usize num_iterations, f64 prior_mean, f64 prior_sd);
-
+  explicit RemainingTimer(usize num_iterations);
   void Update(const absl::Duration& loop_time);
   [[nodiscard]] auto EstimateRemaining() const -> absl::Duration;
 
