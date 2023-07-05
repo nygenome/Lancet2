@@ -63,7 +63,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto genotype_quality = static_cast<u32>(phred_likelihoods.at(second_smallest_index));
     const auto [ref_qual, alt_qual] = evidence->MeanHaplotypeQualities();
 
-    const auto alt_allele_frequency = evidence->AltFrequency();
+    const auto alt_frequency = evidence->AltFrequency();
     const auto alt_on_single_strand = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
     const auto odds_ratio = SomaticOddsRatio(sinfo, per_sample_evidence);
     const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
@@ -75,7 +75,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
-      if (!germline_mode && alt_allele_frequency > prms.mMaxNmlVaf) current_filters.emplace_back("HighNmlVaf");
+      if (!germline_mode && alt_frequency > prms.mMaxNmlVaf) current_filters.emplace_back("HighNmlVaf");
       if (germline_mode && genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
     }
@@ -92,6 +92,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     std::ranges::sort(current_filters);
     variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
     const auto sample_ft_field = current_filters.empty() ? "PASS" : absl::StrJoin(current_filters, ";");
+    const auto rounded_odds = static_cast<u32>(std::round(odds_ratio));
 
     // NOLINTBEGIN(readability-braces-around-statements)
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
@@ -100,9 +101,9 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
 
     mFormatFields.emplace_back(
         // GT:AD:ADF:ADR:DP:AAF:SOR:SFS:FT:HQ:GQ:PL
-        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{:.2f}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
+        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
-                    evidence->AltRevCount(), evidence->TotalSampleCov(), alt_allele_frequency, odds_ratio, fisher_score,
+                    evidence->AltRevCount(), evidence->TotalSampleCov(), alt_frequency, rounded_odds, fisher_score,
                     sample_ft_field, ref_qual, alt_qual, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
