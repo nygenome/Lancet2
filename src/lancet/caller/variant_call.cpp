@@ -25,8 +25,7 @@ namespace lancet::caller {
 VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samps, const Params &prms, const usize klen)
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele), mAltAllele(var->mAltAllele),
-      mVarLength(var->mAlleleLength), mSiteQuality(std::numeric_limits<u32>::max()), mCategory(var->mType) {
-  f64 max_nml_vaf = 0.0;
+      mVarLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType) {
   PerSampleEvidence per_sample_evidence;
   per_sample_evidence.reserve(supprts.size());
 
@@ -38,14 +37,13 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     }
 
     auto handle = supprts.extract(itr);
-    max_nml_vaf = std::max(max_nml_vaf, handle.mapped()->AltFrequency());
     per_sample_evidence.emplace(sinfo, std::move(handle.mapped()));
   }
 
   mFormatFields.reserve(samps.size() + 1);
   mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SBS:SSC:FT:GQ:PL");
 
-  // Strand Bias iff > 10 times likely to see ALT on one strand over the other
+  // Strand Bias if more than 10 times likely to see ALT on one strand over the other
   static constexpr u32 MAX_ALLOWED_STRAND_BIAS = 10;
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
@@ -70,8 +68,9 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto alt_allele_frequency = evidence->AltFrequency();
     const auto alt_strand_bias_score = evidence->AltStrandBiasScore();
     const auto fisher_score = SomaticScore(sinfo, per_sample_evidence);
+    const auto somatic_score = fisher_score > hts::MAX_PHRED_SCORE ? prms.mMinSomaticScore : fisher_score;
 
-    mSiteQuality = std::min(mSiteQuality, static_cast<u32>(ref_hom_pl));
+    mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<u32>(ref_hom_pl) : somatic_score);
     mTotalSampleCov += evidence->TotalSampleCov();
     current_filters.clear();
 
@@ -87,15 +86,13 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
-      if (max_nml_vaf != 0.0 && fisher_score < prms.mMinSomaticScore) current_filters.emplace_back("LowSomaticScore");
+      if (fisher_score < prms.mMinSomaticScore) current_filters.emplace_back("LowSomaticScore");
       // NOLINTEND(readability-braces-around-statements)
     }
 
     std::ranges::sort(current_filters);
     variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
     const auto sample_ft_field = current_filters.empty() ? "PASS" : absl::StrJoin(current_filters, ";");
-    const auto is_pass_somatic = sample_ft_field == "PASS" && sinfo.TagKind() == cbdg::Label::TUMOR;
-    const auto somatic_score = is_pass_somatic ? prms.mMinSomaticScore : fisher_score;
 
     // NOLINTBEGIN(readability-braces-around-statements)
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
@@ -144,6 +141,7 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
 
+  u32 max_nml_alt_cnt = 0;
   u32 current_tmr_alt = 0;
   u32 current_tmr_ref = 0;
   OnlineStats nml_alts;
@@ -160,8 +158,12 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
     if (sample_info.TagKind() == cbdg::Label::NORMAL) {
       nml_alts.Add(evidence->TotalAltCov());
       nml_refs.Add(evidence->TotalRefCov());
+      max_nml_alt_cnt = std::max(max_nml_alt_cnt, static_cast<u32>(evidence->TotalAltCov()));
     }
   }
+
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (max_nml_alt_cnt == 0 && current_tmr_alt > 0) return static_cast<u32>(hts::MAX_PHRED_SCORE) + 1;
 
   const auto cnt_tmr_alt = static_cast<int>(current_tmr_alt);
   const auto cnt_tmr_ref = static_cast<int>(current_tmr_ref);
