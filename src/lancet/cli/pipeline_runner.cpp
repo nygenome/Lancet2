@@ -293,7 +293,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
 ##FORMAT=<ID=AAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
-##FORMAT=<ID=SOR,Number=1,Type=Integer,Description="Rounded ALT ratio in tumor vs normal. 0 for normal sample(s)">
+##FORMAT=<ID=SOR,Number=1,Type=Integer,Description="ALT frequency ratio in tumor vs normal. 0 for normal sample(s)">
 ##FORMAT=<ID=SFS,Number=1,Type=Integer,Description="Phred-scaled somatic fisher exact score. 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Phred-scaled mean haplotype quality for REF and ALT alleles">
