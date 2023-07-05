@@ -34,7 +34,7 @@ void RegisterLancetLogger(Args&&... args) {
   }
 
   spdlog::default_logger_raw()->flush_on(spdlog::level::err);
-  spdlog::default_logger_raw()->set_pattern("%^%Y-%m-%dT%H:%M:%S%z | [%L] | %v%$");
+  spdlog::default_logger_raw()->set_pattern("%^%Y-%m-%dT%H:%M:%S | [%L] | %v%$");
   spdlog::default_logger_raw()->set_level(spdlog::level::info);
 }
 
