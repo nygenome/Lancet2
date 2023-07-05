@@ -283,8 +283,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
 ##FILTER=<ID=StrandBias,Description="ALT allele is not present on both forward and reverse strands">
-##FILTER=<ID=LowSomaticOdds,Description="ALT frequency ratio in tumor vs normal is less than {MIN_ODDS_RATIO}">
-##FILTER=<ID=LowSomaticFisher,Description="Phred-scaled somatic likelihood score is less than {MIN_FISHER_SCORE}">
+##FILTER=<ID=LowOdds,Description="ALT frequency ratio in tumor vs normal is less than {MIN_ODDS_RATIO}">
+##FILTER=<ID=LowFisher,Description="Phred-scaled somatic likelihood score is less than {MIN_FISHER_SCORE}">
+##FILTER=<ID=LowStrOdds,Description="ALT frequency ratio in tumor vs normal is less than {MIN_STR_ODDS_RATIO}">
+##FILTER=<ID=LowStrFisher,Description="Phred-scaled somatic likelihood score is less than {MIN_STR_FISHER_SCORE}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
@@ -325,8 +327,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       fmt::arg("MIN_NML_COV", params.mVariantBuilder.mVariantParams.mMinNmlCov),
       fmt::arg("MIN_TMR_COV", params.mVariantBuilder.mVariantParams.mMinTmrCov),
       fmt::arg("MAX_NML_VAF", params.mVariantBuilder.mVariantParams.mMaxNmlVaf),
-      fmt::arg("MIN_ODDS_RATIO", params.mVariantBuilder.mVariantParams.mMinOddsRatio),
-      fmt::arg("MIN_FISHER_SCORE", params.mVariantBuilder.mVariantParams.mMinFisherScore));
+      fmt::arg("MIN_ODDS_RATIO", params.mVariantBuilder.mVariantParams.mMinOdds),
+      fmt::arg("MIN_FISHER_SCORE", params.mVariantBuilder.mVariantParams.mMinFisher),
+      fmt::arg("MIN_STR_ODDS_RATIO", params.mVariantBuilder.mVariantParams.mMinStrOdds),
+      fmt::arg("MIN_STR_FISHER_SCORE", params.mVariantBuilder.mVariantParams.mMinStrFisher));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
   absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
