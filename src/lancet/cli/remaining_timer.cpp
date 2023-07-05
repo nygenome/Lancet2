@@ -26,7 +26,8 @@ auto RemainingTimer::EstimateRemaining() const -> absl::Duration {
 auto RemainingTimer::MeanRatePerSecond() const -> f64 {
   static constexpr f64 NS_TO_SECS = 1e-9;
   static constexpr f64 WINDOWS_PER_SECOND_CONVERTER = -1.0;
-  return std::pow(mRunStats.Mean() * NS_TO_SECS, WINDOWS_PER_SECOND_CONVERTER);
+  const auto ns_per_window = mRunStats.Mean() / static_cast<f64>(mNumThreads);
+  return std::pow(ns_per_window * NS_TO_SECS, WINDOWS_PER_SECOND_CONVERTER);
 }
 
 }  // namespace lancet::cli
