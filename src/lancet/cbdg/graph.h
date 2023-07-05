@@ -35,7 +35,7 @@ class Graph {
   static constexpr usize DEFAULT_MAX_KMER_LEN = 101;
   static constexpr usize MAX_ALLOWED_KMER_LEN = 255;
 
-  static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
+  static constexpr u32 DEFAULT_MIN_NODE_COV = 3;
   static constexpr u32 DEFAULT_MIN_REF_ANCHOR_COV = 5;
   static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e6;
 
