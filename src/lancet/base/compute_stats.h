@@ -6,6 +6,7 @@
 #include <concepts>
 #include <cstdlib>
 #include <limits>
+#include <numeric>
 
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
@@ -29,6 +30,12 @@ concept Number = std::integral<T> || std::floating_point<T>;
 class OnlineStats {
  public:
   OnlineStats() = default;
+
+  void SetPriorMean(const f64 mean) { mMoment1 = mean; }
+  void SetPriorStandardDeviation(const f64 std_dev) {
+    static constexpr f64 POWER_TWO = 2.0;
+    mMoment2 = std::pow(std_dev, POWER_TWO);
+  }
 
   template <Number T>
   void Add(const T value) {
