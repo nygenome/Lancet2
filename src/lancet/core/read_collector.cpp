@@ -62,21 +62,22 @@ inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
 
 namespace lancet::core {
 
-// NOLINTNEXTLINE(cert-err58-cpp)
-static const std::array<std::string, 6> FILL_SAM_TAGS = {"AS", "XS", "XT", "XA", "SA", "MD"};
-
 ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGermlineMode(false) {
   using hts::Extractor;
   using hts::Alignment::Fields::AUX_RGAUX;
+  using hts::Alignment::Fields::CIGAR_SEQ_QUAL;
 
   mSampleList = MakeSampleList(mParams);
   const auto no_ctgcheck = mParams.mNoCtgCheck;
+
+  const auto fields = mParams.mExtractPairs ? AUX_RGAUX : CIGAR_SEQ_QUAL;
+  const auto sam_tags = mParams.mExtractPairs ? std::vector<std::string>{"SA"} : std::vector<std::string>{};
 
   static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
 
   for (const auto& sinfo : mSampleList) {
-    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, no_ctgcheck);
+    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, fields, sam_tags, no_ctgcheck);
     mExtractors.emplace(sinfo, std::move(extractor));
   }
 }
@@ -204,7 +205,7 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
     using hts::Alignment::Fields::AUX_RGAUX;
     const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
-    hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, params.mNoCtgCheck);
+    hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, {"MD"}, params.mNoCtgCheck);
     extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : extractor) {
@@ -285,11 +286,11 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
 }
 
 auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64 {
-  using hts::Alignment::Fields::AUX_RGAUX;
+  using hts::Alignment::Fields::CIGAR_SEQ_QUAL;
   const auto need_pairs = mParams.mExtractPairs;
   const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
 
-  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, FILL_SAM_TAGS, true);
+  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, CIGAR_SEQ_QUAL, {}, true);
   extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
   static const auto summer = [&need_tier2, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {

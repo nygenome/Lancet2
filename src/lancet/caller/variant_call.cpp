@@ -127,7 +127,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
                          : mCategory == RawVariant::Type::MNP ? "MNP"sv
                                                               : "REF"sv;
 
-  const auto str_info = is_str ? fmt::format(";STR_INFO={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
+  const auto str_info = is_str ? fmt::format(";STR={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
   mInfoField = fmt::format("{};TYPE={};LEN={};KMER_LEN={}{}", vstate, vcategory, mVarLength, klen, str_info);
 }
 

@@ -278,7 +278,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMER_LEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
-##INFO=<ID=STR_INFO,Number=1,Type=String,Description="If variant is STR, lists length and motif. (format: LEN:MOTIF)">
+##INFO=<ID=STR,Number=1,Type=String,Description="If variant is near STR, lists length and motif. (format: LEN:MOTIF)">
 ##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {MIN_NML_COV}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
