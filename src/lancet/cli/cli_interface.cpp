@@ -157,7 +157,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-alt-quality", vb_prms.mMinAltQuality, "Min. phred quality supporting ALT allele")
+  subcmd->add_option("--min-alt-qual", vb_prms.mMinAltQuality, "Min. phred quality supporting ALT allele")
       ->group("Parameters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 
