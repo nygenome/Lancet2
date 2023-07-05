@@ -41,6 +41,7 @@ IncrementKmerAndRetry:
   while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
     mCurrK += 2;
     timer.Reset();
+    mAverageCov = 0.0;
     mSourceAndSinkIds = {0, 0};
 
     // NOLINTNEXTLINE(readability-braces-around-statements,cppcoreguidelines-avoid-goto)
@@ -336,7 +337,7 @@ auto Graph::FindSource(const usize component_id) const -> RefAnchor {
     if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
-    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinRefAnchorCov) {
+    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinAnchorCov) {
       continue;
     }
 
@@ -358,7 +359,7 @@ auto Graph::FindSink(const usize component_id) const -> RefAnchor {
     if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
-    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinRefAnchorCov) {
+    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinAnchorCov) {
       continue;
     }
 
@@ -474,25 +475,30 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
 }
 
 void Graph::RemoveLowCovNodes(const usize component_id) {
+  // min_node_cov -> minimum coverage required for each node.
+  // min_ratio_cov -> combined sample coverage * MIN_NODE_COV_RATIO for each node
+  const auto min_ratio_cov = static_cast<u32>(std::floor(mParams.mMinNodeCovRatio * mAverageCov));
+  const auto min_req_cov = std::max(mParams.mMinNodeCov, min_ratio_cov);
+
   std::vector<NodeID> nodes_to_remove;
   nodes_to_remove.reserve(mNodes.size());
 
-  std::ranges::for_each(
-      std::as_const(mNodes), [&nodes_to_remove, &component_id, this](NodeTable::const_reference item) {
-        const auto [source_id, sink_id] = this->mSourceAndSinkIds;
-        // NOLINTBEGIN(readability-braces-around-statements)
-        if (item.second->GetComponentId() != component_id) return;
-        if (item.first == source_id || item.first == sink_id) return;
-        // NOLINTEND(readability-braces-around-statements)
+  std::ranges::for_each(std::as_const(mNodes),
+                        [&nodes_to_remove, &component_id, &min_req_cov, this](NodeTable::const_reference item) {
+                          const auto [source_id, sink_id] = this->mSourceAndSinkIds;
+                          // NOLINTBEGIN(readability-braces-around-statements)
+                          if (item.second->GetComponentId() != component_id) return;
+                          if (item.first == source_id || item.first == sink_id) return;
+                          // NOLINTEND(readability-braces-around-statements)
 
-        const auto is_nml_singleton = item.second->NormalReadSupport() == 1;
-        const auto is_tmr_singleton = item.second->TumorReadSupport() == 1;
-        const auto total_sample_cov = item.second->TotalReadSupport();
+                          const auto is_nml_singleton = item.second->NormalReadSupport() == 1;
+                          const auto is_tmr_singleton = item.second->TumorReadSupport() == 1;
+                          const auto total_sample_cov = item.second->TotalReadSupport();
 
-        if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < this->mParams.mMinNodeCoverage) {
-          nodes_to_remove.emplace_back(item.first);
-        }
-      });
+                          if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < min_req_cov) {
+                            nodes_to_remove.emplace_back(item.first);
+                          }
+                        });
 
   if (!nodes_to_remove.empty()) {
     const auto region_str = mRegion->ToSamtoolsRegion();
@@ -526,6 +532,7 @@ void Graph::RemoveNodes(absl::Span<const NodeID> node_ids) {
 }
 
 void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
+  usize nsample_bases = 0;
   usize max_num_kmers = 0;
   std::vector<Label> labels;
   std::vector<SeqMers> kplus_ones;
@@ -539,12 +546,14 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
   // Add sample read k+1 sequence windows
   for (const auto& read : mReads) {
+    nsample_bases += read.Length();
     max_num_kmers += (read.Length() - mCurrK + 1);
     labels.emplace_back(read.TagKind());
     kplus_ones.emplace_back(SlidingView(read.SeqView(), mCurrK + 1));
   }
 
   mRefNodeIds.clear();
+  mAverageCov = static_cast<f64>(nsample_bases) / static_cast<f64>(mRegion->Length());
   const absl::FixedArray<SeqNodes> added_nodes = AddToGraph(kplus_ones, labels, max_num_kmers);
   const SeqNodes& ref_nodes = added_nodes[0];
   mRefNodeIds.reserve(ref_nodes.size());
@@ -552,18 +561,27 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
                  [](const Node* rnode) -> NodeID { return rnode->Identifier(); });
 
   mate_mers.clear();
+
+  static constexpr u8 MIN_KMER_BASE_QUALITY = 20;
+  static const auto is_low_qual_base = [](const u8 base_qual) -> bool { return base_qual < MIN_KMER_BASE_QUALITY; };
+
   for (usize rd_idx = 0; rd_idx < mReads.size(); ++rd_idx) {
     const auto read_label = mReads[rd_idx].SrcLabel();
     const auto mm_label = fmt::format("{}{}", mReads[rd_idx].QnameView(), read_label.GetData());
+    const auto quals_view = SlidingView(mReads[rd_idx].QualView(), mCurrK);
 
-    std::ranges::for_each(added_nodes[rd_idx + 1], [&mm_label, &mate_mers, &read_label](Node* node) {
+    for (usize kmer_idx = 0; kmer_idx < added_nodes[rd_idx + 1].size(); ++kmer_idx) {
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (std::ranges::any_of(quals_view[kmer_idx], is_low_qual_base)) continue;
+
+      auto* node = added_nodes[rd_idx + 1][kmer_idx];
       auto mm_pair = std::make_pair(mm_label, node->Identifier());
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (mate_mers.contains(mm_pair)) return;
 
       node->IncrementReadSupport(read_label);
       mate_mers.emplace(std::move(mm_pair));
-    });
+    }
   }
 }
 

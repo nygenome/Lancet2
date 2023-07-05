@@ -36,8 +36,9 @@ class Graph {
   static constexpr usize MAX_ALLOWED_KMER_LEN = 255;
 
   static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
-  static constexpr u32 DEFAULT_MIN_REF_ANCHOR_COV = 5;
+  static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 5;
   static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e6;
+  static constexpr f64 DEFAULT_MIN_NODE_COV_RATIO = 0.01;
 
   struct Params {
     std::filesystem::path mOutGraphsDir;
@@ -45,8 +46,9 @@ class Graph {
     usize mMinKmerLen = DEFAULT_MIN_KMER_LEN;
     usize mMaxKmerLen = DEFAULT_MAX_KMER_LEN;
 
-    u32 mMinNodeCoverage = DEFAULT_MIN_NODE_COV;
-    u32 mMinRefAnchorCov = DEFAULT_MIN_REF_ANCHOR_COV;
+    u32 mMinNodeCov = DEFAULT_MIN_NODE_COV;
+    u32 mMinAnchorCov = DEFAULT_MIN_ANCHOR_COV;
+    f64 mMinNodeCovRatio = DEFAULT_MIN_NODE_COV_RATIO;
   };
 
   Graph(Params params) : mParams(std::move(params)) {}
@@ -71,6 +73,7 @@ class Graph {
   NodeTable mNodes;
   Params mParams;
 
+  f64 mAverageCov = 0.0;
   std::vector<NodeID> mRefNodeIds;
   NodeIDPair mSourceAndSinkIds = {0, 0};
 

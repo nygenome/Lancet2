@@ -8,7 +8,6 @@
 #include <string>
 #include <thread>
 
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/types.h"
@@ -52,24 +51,6 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
 static constexpr auto APP_NAME_FMT_STR = "Lancet, {}\nMicrosssembly based somatic variant caller\n";
 
 namespace lancet::cli {
-
-namespace detail {
-
-struct ThreadCountValidator : public CLI::Validator {
-  ThreadCountValidator() {
-    name_ = "VALID_THREAD_COUNT";
-    func_ = [](const std::string& val) {
-      i64 num = 0;
-      absl::SimpleAtoi(val, &num);
-      static const auto max_threads = std::thread::hardware_concurrency();
-      return num < 1             ? std::string("thread count cannot be less than 1")
-             : num > max_threads ? std::string("thread count cannot be greater than physical cores")
-                                 : std::string();
-    };
-  }
-};
-
-}  // namespace detail
 
 CliInterface::CliInterface()
     : mCliApp(fmt::format(APP_NAME_FMT_STR, LancetFullVersion())), mParamsPtr(std::make_shared<CliParams>()) {
@@ -155,22 +136,27 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_WINDOW_LEN, core::WindowBuilder::MAX_ALLOWED_WINDOW_LEN));
 
   // Parameters
-  static const detail::ThreadCountValidator THREAD_COUNT_VALIDATOR;
   subcmd->add_option("-T,--num-threads", params->mNumWorkerThreads, "Number of additional async worker threads")
       ->group("Parameters")
-      ->check(THREAD_COUNT_VALIDATOR);
+      ->check(CLI::Range(u32(0), std::thread::hardware_concurrency()));
   subcmd->add_option("-k,--min-kmer", vb_prms.mGraphParams.mMinKmerLen, "Min. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN, cbdg::Graph::MAX_ALLOWED_KMER_LEN - 2));
   subcmd->add_option("-K,--max-kmer", vb_prms.mGraphParams.mMaxKmerLen, "Max. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN + 2, cbdg::Graph::MAX_ALLOWED_KMER_LEN));
-  subcmd->add_option("--min-anchor-cov", grph_prms.mMinRefAnchorCov, "Min. coverage for anchor nodes (source/sink)")
-      ->group("Parameters");
-  subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCoverage, "Min. coverage for nodes in the graph")
-      ->group("Parameters");
+  subcmd->add_option("--min-anchor-cov", grph_prms.mMinAnchorCov, "Min. coverage for anchor nodes (source/sink)")
+      ->group("Parameters")
+      ->check(CLI::Range(u32(1), std::numeric_limits<u32>::max()));
+  subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCov, "Min. coverage for nodes in the graph")
+      ->group("Parameters")
+      ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
+  subcmd->add_option("--min-node-cov-ratio", grph_prms.mMinNodeCovRatio, "Min. node to window coverage ratio")
+      ->group("Parameters")
+      ->check(CLI::Range(0.0, 1.0));
   subcmd->add_option("--max-win-cov", rc_prms.mMaxWinCov, "Max. combined window coverage before downsampling")
-      ->group("Parameters");
+      ->group("Parameters")
+      ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
   subcmd->add_option("--min-alt-quality", vb_prms.mMinAltQuality, "Min. phred quality supporting ALT allele")
       ->group("Parameters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
@@ -192,7 +178,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-str-odds", fltr_prms.mMinStrOdds, "Min. VAF odds of tumor vs normal for STRs")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
-  
+
   subcmd->add_option("--min-fisher", fltr_prms.mMinFisher, "Min. phred scaled fisher score")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
