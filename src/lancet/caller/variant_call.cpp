@@ -92,7 +92,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     std::ranges::sort(current_filters);
     variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
     const auto sample_ft_field = current_filters.empty() ? "PASS" : absl::StrJoin(current_filters, ";");
-    const auto rounded_odds = static_cast<u32>(std::round(odds_ratio));
+    const auto rounded_odds = static_cast<u32>(std::floor(odds_ratio));
 
     // NOLINTBEGIN(readability-braces-around-statements)
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
