@@ -275,10 +275,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 {CONTIG_HDR_LINES}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
-##INFO=<ID=CATEGORY,Number=1,Type=String,Description="Variant category. Possible values are SNV, INS, DEL and MNP">
+##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
-##INFO=<ID=KMERSIZE,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
-##INFO=<ID=STR,Number=1,Type=String,Description="If variant is STR, describes length and motif. (format: LEN:MOTIF)">
+##INFO=<ID=KMER_LEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
+##INFO=<ID=STR_INFO,Number=1,Type=String,Description="If variant is STR, lists length and motif. (format: LEN:MOTIF)">
 ##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {MIN_NML_COV}">
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
@@ -292,13 +292,13 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
-##FORMAT=<ID=AAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
-##FORMAT=<ID=SOR,Number=1,Type=Integer,Description="ALT frequency ratio in tumor vs normal. 0 for normal sample(s)">
+##FORMAT=<ID=VAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
+##FORMAT=<ID=AFR,Number=1,Type=Integer,Description="ALT frequency ratio in tumor vs normal. 0 for normal sample(s)">
 ##FORMAT=<ID=SFS,Number=1,Type=Integer,Description="Phred-scaled somatic fisher exact score. 0 for normal sample(s)">
 ##FORMAT=<ID=FT,Number=1,Type=String,Description="Sample genotype filters. PASS indicates sample passed all filters">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Phred-scaled mean haplotype quality for REF and ALT alleles">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality for the sample">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotype combinations">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotypes">
 )raw"sv;
   // clang-format on
 

@@ -35,7 +35,6 @@ class Graph {
   static constexpr usize DEFAULT_MAX_KMER_LEN = 101;
   static constexpr usize MAX_ALLOWED_KMER_LEN = 255;
 
-  static constexpr f64 DEFAULT_MIN_COV_RATIO = 0.01;
   static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
   static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 5;
   static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e6;
@@ -46,7 +45,6 @@ class Graph {
     usize mMinKmerLen = DEFAULT_MIN_KMER_LEN;
     usize mMaxKmerLen = DEFAULT_MAX_KMER_LEN;
 
-    f64 mMinCovRatio = DEFAULT_MIN_COV_RATIO;
     u32 mMinNodeCov = DEFAULT_MIN_NODE_COV;
     u32 mMinAnchorCov = DEFAULT_MIN_ANCHOR_COV;
   };
@@ -73,7 +71,6 @@ class Graph {
   NodeTable mNodes;
   Params mParams;
 
-  f64 mAverageCov = 0.0;
   std::vector<NodeID> mRefNodeIds;
   NodeIDPair mSourceAndSinkIds = {0, 0};
 
@@ -116,12 +113,7 @@ class Graph {
   // mateMer -> readName + sampleLabel, kmerHash
   using MateMer = std::pair<std::string, u64>;
   void BuildGraph(absl::flat_hash_set<MateMer>& mate_mers);
-
-  using SeqNodes = std::vector<Node*>;
-  using SeqLabels = absl::Span<const Label>;
-  using GraphNodes = absl::FixedArray<SeqNodes>;
-  using SeqKplusOnes = absl::Span<const SeqMers>;
-  [[nodiscard]] auto AddToGraph(SeqKplusOnes kplus_ones, SeqLabels labels, usize max_kmers) -> GraphNodes;
+  auto AddNodes(std::string_view sequence, Label label) -> std::vector<Node*>;
 
   [[nodiscard]] static auto CanonicalKmerHash(std::string_view seq) -> u64;
   [[nodiscard]] static auto HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool;
@@ -138,10 +130,11 @@ class Graph {
     FULLY_PRUNED_GRAPH = 7
   };
 
-  [[nodiscard]] static auto ToString(State state) -> std::string;
-  void WriteDot(State state, usize comp_id);
+  void WriteDot([[maybe_unused]] State state, usize comp_id);
 
 #ifdef LANCET_DEVELOP_MODE
+  [[nodiscard]] static auto ToString(State state) -> std::string;
+
   template <class... Args>
   constexpr inline void WriteDotDevelop(Args&&... args) {
     WriteDot(std::forward<Args>(args)...);

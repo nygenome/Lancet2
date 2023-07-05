@@ -41,7 +41,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:AAF:SOR:SFS:FT:HQ:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:VAF:AFR:SFS:FT:HQ:GQ:PL");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
@@ -84,9 +84,9 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
-      if (odds_ratio < prms.mMinOdds) current_filters.emplace_back("LowOdds");
+      if (!is_str && odds_ratio < prms.mMinOdds) current_filters.emplace_back("LowOdds");
       if (is_str && odds_ratio < prms.mMinStrOdds) current_filters.emplace_back("LowStrOdds");
-      if (fisher_score < prms.mMinFisher) current_filters.emplace_back("LowFisher");
+      if (!is_str && fisher_score < prms.mMinFisher) current_filters.emplace_back("LowFisher");
       if (is_str && fisher_score < prms.mMinStrFisher) current_filters.emplace_back("LowStrFisher");
       // NOLINTEND(readability-braces-around-statements)
     }
@@ -102,7 +102,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(
-        // GT:AD:ADF:ADR:DP:AAF:SOR:SFS:FT:HQ:GQ:PL
+        // GT:AD:ADF:ADR:DP:VAF:AFR:SFS:FT:HQ:GQ:PL
         fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{},{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
                     evidence->AltRevCount(), evidence->TotalSampleCov(), alt_frequency, rounded_odds, fisher_score,
@@ -127,8 +127,8 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
                          : mCategory == RawVariant::Type::MNP ? "MNP"sv
                                                               : "REF"sv;
 
-  const auto str_info = is_str ? fmt::format(";STR={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
-  mInfoField = fmt::format("{};CATEGORY={};LEN={};KMERSIZE={}{}", vstate, vcategory, mVarLength, klen, str_info);
+  const auto str_info = is_str ? fmt::format(";STR_INFO={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
+  mInfoField = fmt::format("{};TYPE={};LEN={};KMER_LEN={}{}", vstate, vcategory, mVarLength, klen, str_info);
 }
 
 auto VariantCall::AsVcfRecord() const -> std::string {
