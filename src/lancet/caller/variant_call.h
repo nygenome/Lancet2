@@ -23,7 +23,7 @@ class VariantCall {
   static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 10;
-  static constexpr u32 DEFAULT_MIN_SOMATIC_SCORE = 20;
+  static constexpr u32 DEFAULT_MIN_SOMATIC_SCORE = 30;
 
   struct Params {
     f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;

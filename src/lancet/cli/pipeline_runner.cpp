@@ -283,7 +283,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=HighNmlVaf,Description="ALT allele frequency in atleast one normal sample greater than {MAX_NML_VAF}">
 ##FILTER=<ID=StrandBias,Description="Phred-scaled strand bias score in ALT allele is greater than 10">
-##FILTER=<ID=LowSomaticScore,Description="Phred-scaled somatic likelihood score is less than {MIN_SOMATIC_SCORE}">
+##FILTER=<ID=LowSomatic,Description="Phred-scaled somatic likelihood score is less than {MIN_SOMATIC_SCORE}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">

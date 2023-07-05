@@ -68,9 +68,8 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto alt_allele_frequency = evidence->AltFrequency();
     const auto alt_strand_bias_score = evidence->AltStrandBiasScore();
     const auto fisher_score = SomaticScore(sinfo, per_sample_evidence);
-    const auto somatic_score = fisher_score > hts::MAX_PHRED_SCORE ? prms.mMinSomaticScore : fisher_score;
 
-    mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<u32>(ref_hom_pl) : somatic_score);
+    mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<u32>(ref_hom_pl) : fisher_score);
     mTotalSampleCov += evidence->TotalSampleCov();
     current_filters.clear();
 
@@ -86,7 +85,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (alt_strand_bias_score > MAX_ALLOWED_STRAND_BIAS) current_filters.emplace_back("StrandBias");
-      if (fisher_score < prms.mMinSomaticScore) current_filters.emplace_back("LowSomaticScore");
+      if (fisher_score < prms.mMinSomaticScore) current_filters.emplace_back("LowSomatic");
       // NOLINTEND(readability-braces-around-statements)
     }
 
@@ -104,7 +103,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
         fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{}:{}:{}:{}:{},{},{}", genotype, evidence->TotalRefCov(),
                     evidence->TotalAltCov(), evidence->RefFwdCount(), evidence->AltFwdCount(), evidence->RefRevCount(),
                     evidence->AltRevCount(), evidence->TotalSampleCov(), alt_allele_frequency, alt_strand_bias_score,
-                    somatic_score, sample_ft_field, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+                    fisher_score, sample_ft_field, genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
   }
 
   mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");
@@ -141,7 +140,6 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
 
-  u32 max_nml_alt_cnt = 0;
   u32 current_tmr_alt = 0;
   u32 current_tmr_ref = 0;
   OnlineStats nml_alts;
@@ -158,12 +156,8 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
     if (sample_info.TagKind() == cbdg::Label::NORMAL) {
       nml_alts.Add(evidence->TotalAltCov());
       nml_refs.Add(evidence->TotalRefCov());
-      max_nml_alt_cnt = std::max(max_nml_alt_cnt, static_cast<u32>(evidence->TotalAltCov()));
     }
   }
-
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (max_nml_alt_cnt == 0 && current_tmr_alt > 0) return static_cast<u32>(hts::MAX_PHRED_SCORE) + 1;
 
   const auto cnt_tmr_alt = static_cast<int>(current_tmr_alt);
   const auto cnt_tmr_ref = static_cast<int>(current_tmr_ref);
@@ -174,7 +168,7 @@ auto VariantCall::SomaticScore(const core::SampleInfo &curr, const PerSampleEvid
   const auto tmr_counts = Row{cnt_tmr_alt, cnt_tmr_ref};
   const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
   const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
-  return static_cast<u32>(hts::ErrorProbToPhred(result.mDiffProb));
+  return static_cast<u32>(hts::ErrorProbToPhred(result.mMoreProb));
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
