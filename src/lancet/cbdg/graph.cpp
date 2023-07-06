@@ -537,10 +537,10 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
   std::ranges::transform(ref_nodes, std::back_inserter(mRefNodeIds),
                          [](const Node* node) -> NodeID { return node->Identifier(); });
 
-  // Add support for only high quality kmers. If more than 50% of bases are low qual,
+  // Add support for only high quality kmers. If there is skew of bases with low qual,
   // then skip adding any read support for those kmers, so they can be removed later
   static constexpr f64 MIN_AGG_BQ = 20.0;
-  static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool { return Median(quals) < MIN_AGG_BQ; };
+  static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool { return Mean(quals) < MIN_AGG_BQ; };
 
   mate_mers.clear();
   for (const auto& read : mReads) {
