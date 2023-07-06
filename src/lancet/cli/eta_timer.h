@@ -1,5 +1,5 @@
-#ifndef SRC_LANCET_CLI_REMAINING_TIMER_H_
-#define SRC_LANCET_CLI_REMAINING_TIMER_H_
+#ifndef SRC_LANCET_CLI_ETA_TIMER_H_
+#define SRC_LANCET_CLI_ETA_TIMER_H_
 
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/timer.h"
@@ -7,12 +7,12 @@
 
 namespace lancet::cli {
 
-class RemainingTimer {
+class EtaTimer {
  public:
-  explicit RemainingTimer(usize num_iterations);
+  explicit EtaTimer(usize num_iterations);
 
   void Increment();
-  [[nodiscard]] auto EstimateRemaining() const -> absl::Duration;
+  [[nodiscard]] auto EstimatedEta() const -> absl::Duration;
   [[nodiscard]] auto MeanRatePerSecond() const -> f64;
 
  private:
@@ -24,4 +24,4 @@ class RemainingTimer {
 
 }  // namespace lancet::cli
 
-#endif  // SRC_LANCET_CLI_REMAINING_TIMER_H_
+#endif  // SRC_LANCET_CLI_ETA_TIMER_H_

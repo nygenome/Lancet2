@@ -27,7 +27,7 @@
 #include "lancet/base/logging.h"
 #include "lancet/base/timer.h"
 #include "lancet/base/version.h"
-#include "lancet/cli/remaining_timer.h"
+#include "lancet/cli/eta_timer.h"
 #include "lancet/core/async_worker.h"
 #include "lancet/core/variant_builder.h"
 #include "lancet/core/variant_store.h"
@@ -187,7 +187,7 @@ void PipelineRunner::Run() {
     return std::all_of(done_windows.cbegin(), last_itr, [](const bool is_window_done) { return is_window_done; });
   };
 
-  static const auto percent_windows_done = [&num_total_windows](const usize ndone) -> f64 {
+  static const auto percent_windows_completed = [&num_total_windows](const usize ndone) -> f64 {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
@@ -204,7 +204,7 @@ void PipelineRunner::Run() {
   auto stats = InitWindowStats();
   constexpr usize nbuffer_windows = 100;
   const auto &done_windows_counter = counters[0];
-  RemainingTimer remtimer(num_total_windows);
+  EtaTimer eta_timer(num_total_windows);
 
   // The atomic done_windows_counter can sometimes non-deterministically get to zero
   // before we fully mark the done_windows bool bitset as done. So we only use the
@@ -214,17 +214,17 @@ void PipelineRunner::Run() {
       continue;
     }
 
-    remtimer.Increment();
+    eta_timer.Increment();
     stats.at(async_worker_result.mStatus) += 1;
     done_windows[async_worker_result.mGenomeIdx] = true;
     const core::WindowPtr &curr_win = windows[async_worker_result.mGenomeIdx];
     const auto win_name = curr_win->ToSamtoolsRegion();
     const auto win_status = core::ToString(async_worker_result.mStatus);
     const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(100)));
-    const auto rem_runtime = absl::FormatDuration(absl::Trunc(remtimer.EstimateRemaining(), absl::Milliseconds(100)));
+    const auto rem_runtime = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Milliseconds(100)));
     const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
-             percent_windows_done(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
+             percent_windows_completed(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
              elapsed_time, rem_runtime, win_name, win_status, win_runtime)
 
     if (runtime_stats_file.is_open()) {
