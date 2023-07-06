@@ -84,8 +84,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
-      if (!is_str && odds_ratio < prms.mMinOdds) current_filters.emplace_back("LowOdds");
-      if (is_str && odds_ratio < prms.mMinStrOdds) current_filters.emplace_back("LowStrOdds");
+      if (odds_ratio < prms.mMinOddsRatio) current_filters.emplace_back("LowOddsRatio");
       if (!is_str && fisher_score < prms.mMinFisher) current_filters.emplace_back("LowFisher");
       if (is_str && fisher_score < prms.mMinStrFisher) current_filters.emplace_back("LowStrFisher");
       // NOLINTEND(readability-braces-around-statements)
