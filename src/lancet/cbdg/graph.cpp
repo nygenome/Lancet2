@@ -53,7 +53,6 @@ IncrementKmerAndRetry:
     LOG_TRACE("Done building graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
 
     RemoveLowCovNodes(0);
-    mNodes.rehash(0);
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
 
     const auto components = MarkConnectedComponents();
