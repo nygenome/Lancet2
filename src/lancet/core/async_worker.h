@@ -29,23 +29,23 @@ class AsyncWorker {
   using InputQueue = moodycamel::ConcurrentQueue<WindowPtr>;
   using OutputQueue = moodycamel::ConcurrentQueue<Result>;
 
-  using Input = std::shared_ptr<InputQueue>;
-  using Output = std::shared_ptr<OutputQueue>;
-  using Store = std::shared_ptr<VariantStore>;
-  using Builder = std::unique_ptr<VariantBuilder>;
-  using Params = std::shared_ptr<const VariantBuilder::Params>;
+  using InQueuePtr = std::shared_ptr<InputQueue>;
+  using OutQueuePtr = std::shared_ptr<OutputQueue>;
+  using VariantStorePtr = std::shared_ptr<VariantStore>;
+  using VariantBuilderPtr = std::unique_ptr<VariantBuilder>;
+  using BuilderParamsPtr = std::shared_ptr<const VariantBuilder::Params>;
 
-  AsyncWorker(Input in_queue, Output out_queue, Store vstore, Params prms)
-      : mInputPtr(std::move(in_queue)), mOutputPtr(std::move(out_queue)), mVariantStorePtr(std::move(vstore)),
-        mVariantBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))) {}
+  AsyncWorker(InQueuePtr in_queue, OutQueuePtr out_queue, VariantStorePtr vstore, BuilderParamsPtr prms)
+      : mInPtr(std::move(in_queue)), mOutPtr(std::move(out_queue)), mStorePtr(std::move(vstore)),
+        mBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))) {}
 
   void Process(std::stop_token stop_token);
 
  private:
-  Input mInputPtr;
-  Output mOutputPtr;
-  Store mVariantStorePtr;
-  Builder mVariantBuilderPtr;
+  InQueuePtr mInPtr;
+  OutQueuePtr mOutPtr;
+  VariantStorePtr mStorePtr;
+  VariantBuilderPtr mBuilderPtr;
 };
 
 }  // namespace lancet::core
