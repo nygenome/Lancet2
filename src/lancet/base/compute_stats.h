@@ -31,12 +31,6 @@ class OnlineStats {
  public:
   OnlineStats() = default;
 
-  void SetPriorMean(const f64 mean) { mMoment1 = mean; }
-  void SetPriorStandardDeviation(const f64 std_dev) {
-    static constexpr f64 POWER_TWO = 2.0;
-    mMoment2 = std::pow(std_dev, POWER_TWO);
-  }
-
   template <Number T>
   void Add(const T value) {
     const auto sample = static_cast<f64>(value);
