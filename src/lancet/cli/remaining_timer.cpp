@@ -9,6 +9,7 @@ RemainingTimer::RemainingTimer(const usize num_iterations) : mNumTotal(num_itera
 void RemainingTimer::Increment() {
   mNumDone++;
   mRunStats.Add(absl::ToInt64Nanoseconds(mProgressTimer.Runtime()));
+  mProgressTimer.Reset();
 }
 
 auto RemainingTimer::EstimateRemaining() const -> absl::Duration {
