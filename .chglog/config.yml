@@ -5,13 +5,22 @@ info:
   repository_url: https://github.com/nygenome/Lancet2
 options:
   commits:
-    # filters:
-    #   Type: []
+    filters:
+      Type:
+        - feat
+        - fix
+        - perf
+        - chore
   commit_groups:
-    # title_maps: []
+    title_maps:
+      feat: New Features
+      fix: Bug Fixes
+      perf: Performance Improvements
+      chore: Maintenance/Refactoring
   header:
-    pattern: "^(.*)$"
+    pattern: "^(\\w*)\\:\\s(.*)$"
     pattern_maps:
+      - Type
       - Subject
   notes:
     keywords:
