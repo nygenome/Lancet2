@@ -128,9 +128,7 @@ target_include_directories(lancet_cli PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(lancet_cli PUBLIC lancet_core CLI11)
 set_target_properties(lancet_cli PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
-set(LANCET_MAIN_CPP "${CMAKE_BINARY_DIR}/generated/lancet_main.cpp")
-configure_file(src/lancet/main.cpp.inc "${LANCET_MAIN_CPP}" @ONLY)
-add_executable(Lancet2 ${LANCET_MAIN_CPP})
+add_executable(Lancet2 src/lancet/main.cpp)
 target_include_directories(Lancet2 PRIVATE "${CMAKE_SOURCE_DIR}")
 target_link_libraries(Lancet2 PRIVATE lancet_cli absl::symbolize
 		absl::failure_signal_handler absl::cleanup mimalloc-static)
