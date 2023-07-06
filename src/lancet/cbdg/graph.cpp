@@ -16,6 +16,7 @@
 #include "lancet/base/sliding.h"
 #include "lancet/base/timer.h"
 #include "lancet/cbdg/max_flow.h"
+#include "lancet/hts/fisher_exact.h"
 #include "spdlog/fmt/fmt.h"
 #include "spdlog/fmt/ostr.h"
 
@@ -537,10 +538,15 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
   std::ranges::transform(ref_nodes, std::back_inserter(mRefNodeIds),
                          [](const Node* node) -> NodeID { return node->Identifier(); });
 
-  // Add support for only high quality kmers. If there is skew of bases with low qual,
+  // Expected errors = floor(err_sum) https://www.drive5.com/usearch/manual/exp_errs.html
+  // See https://doi.org/10.1093/bioinformatics/btv401 for proof on expected errors
+  // Add support for only high quality kmers. If the expected error is > MAX_AGG_ERR,
   // then skip adding any read support for those kmers, so they can be removed later
-  static constexpr f64 MIN_AGG_BQ = 20.0;
-  static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool { return Mean(quals) < MIN_AGG_BQ; };
+  static const auto error_summer = [](const f64 sum, const u8 bql) -> f64 { return sum + hts::PhredToErrorProb(bql); };
+  static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool {
+    const f64 expected_errors = std::floor(std::accumulate(quals.cbegin(), quals.cend(), 0.0, error_summer));
+    return static_cast<i64>(expected_errors) > 0;
+  };
 
   mate_mers.clear();
   for (const auto& read : mReads) {
