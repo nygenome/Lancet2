@@ -105,8 +105,8 @@ void LogWindowStats(const WindowStats &stats) {
 }  // namespace
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
-void PipelineWorker(std::stop_token stop_token, AsyncWorker::Input inq, AsyncWorker::Output outq,
-                    AsyncWorker::Store vstore, AsyncWorker::Params prms) {
+void PipelineWorker(std::stop_token stop_token, AsyncWorker::InQueuePtr inq, AsyncWorker::OutQueuePtr outq,
+                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr prms) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 #ifndef LANCET_DEVELOP_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
