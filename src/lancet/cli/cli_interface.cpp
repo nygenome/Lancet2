@@ -102,7 +102,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
 
   static constexpr f64 MIN_TUMOR_VS_NORMAL_VAF_ODDS = 0.0;
   static constexpr f64 MAX_TUMOR_VS_NORMAL_VAF_ODDS = 255.0;
-  static const int MAX_NUM_THREADS = static_cast<int>(std::thread::hardware_concurrency()) * 2;
+  static const int MAX_NUM_THREADS = static_cast<int>(std::thread::hardware_concurrency());
 
   // Datasets
   subcmd->add_option("-n,--normal", rc_prms.mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
