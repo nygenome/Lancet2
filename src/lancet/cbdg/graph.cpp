@@ -34,6 +34,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   std::vector<usize> anchor_start_idxs;
   absl::flat_hash_set<MateMer> mate_mers;
 
+  static constexpr usize DEFAULT_EST_NUM_NODES = 32768;
   static constexpr usize DEFAULT_MIN_ANCHOR_LENGTH = 150;
   static constexpr f64 DEFAULT_PCT_NODES_NEEDED = 10.0;
 
@@ -45,6 +46,7 @@ IncrementKmerAndRetry:
     mCurrK += 2;
     timer.Reset();
     mSourceAndSinkIds = {0, 0};
+    mNodes.reserve(DEFAULT_EST_NUM_NODES);
 
     // NOLINTNEXTLINE(readability-braces-around-statements,cppcoreguidelines-avoid-goto)
     if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK)) goto IncrementKmerAndRetry;
@@ -54,6 +56,7 @@ IncrementKmerAndRetry:
     LOG_TRACE("Done building graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
 
     RemoveLowCovNodes(0);
+    mNodes.rehash(0);
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
 
     const auto components = MarkConnectedComponents();
