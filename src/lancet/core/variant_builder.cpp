@@ -1,5 +1,6 @@
 #include "lancet/core/variant_builder.h"
 
+#include <numeric>
 #include <thread>
 #include <utility>
 

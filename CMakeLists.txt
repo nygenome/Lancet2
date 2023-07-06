@@ -64,7 +64,7 @@ add_library(lancet_base STATIC src/lancet/base/version.h
 		src/lancet/base/logging.h src/lancet/base/rev_comp.h
 		src/lancet/base/compute_stats.h src/lancet/base/sliding.h
 		src/lancet/base/downsampler.h src/lancet/base/timer.h
-		src/lancet/base/hash.h src/lancet/base/hash.cpp
+		src/lancet/base/hash.cpp src/lancet/base/hash.h
 		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
 		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)
 target_link_libraries(lancet_base PRIVATE wyhash MurmurHash3 absl::flat_hash_set
@@ -73,18 +73,19 @@ target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE
 set_target_properties(lancet_base PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_hts STATIC
+		src/lancet/hts/bgzf_ostream.cpp src/lancet/hts/bgzf_ostream.h
+		src/lancet/hts/phred_quality.cpp src/lancet/hts/phred_quality.h
+		src/lancet/hts/fisher_exact.cpp src/lancet/hts/fisher_exact.h
 		src/lancet/hts/reference.cpp src/lancet/hts/reference.h
 		src/lancet/hts/cigar_unit.h src/lancet/hts/aux_tag.h
 		src/lancet/hts/alignment.cpp src/lancet/hts/alignment.h
 		src/lancet/hts/iterator.cpp src/lancet/hts/iterator.h
-		src/lancet/hts/extractor.cpp src/lancet/hts/extractor.h
-		src/lancet/hts/bgzf_ostream.cpp src/lancet/hts/bgzf_ostream.h
-		src/lancet/hts/fisher_exact.cpp src/lancet/hts/fisher_exact.h)
+		src/lancet/hts/extractor.cpp src/lancet/hts/extractor.h)
 add_dependencies(lancet_hts htslib)
 set_target_properties(lancet_hts PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::flat_hash_set ${LIB_HTS}
+target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::fixed_array absl::flat_hash_set ${LIB_HTS}
 		PRIVATE absl::flat_hash_map INTERFACE BZip2::BZip2 LibLZMA::LibLZMA zlibstatic libdeflate_static)
 
 add_library(lancet_cbdg STATIC src/lancet/cbdg/label.h

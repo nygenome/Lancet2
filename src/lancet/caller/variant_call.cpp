@@ -9,6 +9,7 @@
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
 #include "lancet/hts/fisher_exact.h"
+#include "lancet/hts/phred_quality.h"
 #include "spdlog/fmt/fmt.h"
 
 namespace {

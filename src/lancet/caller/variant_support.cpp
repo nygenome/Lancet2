@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <ranges>
 
 #include "boost/math/distributions/binomial.hpp"
-#include "lancet/hts/fisher_exact.h"
+#include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {
 
