@@ -8,6 +8,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "lancet/base/assert.h"
+#include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/repeat.h"
@@ -536,11 +537,10 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
   std::ranges::transform(ref_nodes, std::back_inserter(mRefNodeIds),
                          [](const Node* node) -> NodeID { return node->Identifier(); });
 
-  // Add support for only high quality kmers
-  static constexpr u8 MIN_KMER_BASE_QUALITY = 20;
-  static const auto is_low_qual_kmer = [](absl::Span<const u8> kmer_qual) -> bool {
-    return std::ranges::any_of(kmer_qual, [](const u8 bql) -> bool { return bql < MIN_KMER_BASE_QUALITY; });
-  };
+  // Add support for only high quality kmers. If more than 50% of bases are low qual,
+  // then skip adding any read support for those kmers, so they can be removed later
+  static constexpr f64 MIN_AGG_BQ = 20.0;
+  static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool { return Median(quals) < MIN_AGG_BQ; };
 
   mate_mers.clear();
   for (const auto& read : mReads) {
