@@ -102,6 +102,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
 
   static constexpr f64 MIN_TUMOR_VS_NORMAL_VAF_ODDS = 0.0;
   static constexpr f64 MAX_TUMOR_VS_NORMAL_VAF_ODDS = 255.0;
+  static const int MAX_NUM_THREADS = static_cast<int>(std::thread::hardware_concurrency()) * 2;
 
   // Datasets
   subcmd->add_option("-n,--normal", rc_prms.mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
@@ -141,7 +142,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   // Parameters
   subcmd->add_option("-T,--num-threads", params->mNumWorkerThreads, "Number of additional async worker threads")
       ->group("Parameters")
-      ->check(CLI::Range(u32(0), std::thread::hardware_concurrency() * 2));
+      ->check(CLI::Range(0, MAX_NUM_THREADS));
   subcmd->add_option("-k,--min-kmer", vb_prms.mGraphParams.mMinKmerLen, "Min. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN, cbdg::Graph::MAX_ALLOWED_KMER_LEN - 2));

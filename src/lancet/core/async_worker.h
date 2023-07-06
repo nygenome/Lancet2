@@ -2,7 +2,6 @@
 #define SRC_LANCET_CORE_ASYNC_WORKER_H_
 
 #include <array>
-#include <atomic>
 #include <memory>
 #include <stop_token>
 #include <utility>
@@ -36,12 +35,9 @@ class AsyncWorker {
   using Builder = std::unique_ptr<VariantBuilder>;
   using Params = std::shared_ptr<const VariantBuilder::Params>;
 
-  using AtomicCounter = std::shared_ptr<std::atomic_size_t>;
-  using DoneAndWaitingCounts = std::array<AtomicCounter, 2>;
-
-  AsyncWorker(Input in_queue, Output out_queue, Store vstore, Params prms, DoneAndWaitingCounts cntrs)
+  AsyncWorker(Input in_queue, Output out_queue, Store vstore, Params prms)
       : mInputPtr(std::move(in_queue)), mOutputPtr(std::move(out_queue)), mVariantStorePtr(std::move(vstore)),
-        mVariantBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))), mCounters(std::move(cntrs)) {}
+        mVariantBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))) {}
 
   void Process(std::stop_token stop_token);
 
@@ -50,7 +46,6 @@ class AsyncWorker {
   Output mOutputPtr;
   Store mVariantStorePtr;
   Builder mVariantBuilderPtr;
-  DoneAndWaitingCounts mCounters;
 };
 
 }  // namespace lancet::core
