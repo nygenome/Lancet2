@@ -134,7 +134,7 @@ PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(s
 void PipelineRunner::Run() {
   Timer timer;
   static thread_local const auto tid = std::this_thread::get_id();
-  LOG_INFO("Starting main thread {:#x} to run Lancet variant calling pipeline", absl::Hash<std::thread::id>()(tid))
+  LOG_INFO("Started main thread {:#x} to run Lancet variant calling pipeline", absl::Hash<std::thread::id>()(tid))
 
   ValidateAndPopulateParams();
   if (!mParamsPtr->mVariantBuilder.mOutGraphsDir.empty()) {
@@ -157,7 +157,7 @@ void PipelineRunner::Run() {
 
   output_vcf << BuildVcfHeader(*mParamsPtr);
   const auto windows = BuildWindows(*mParamsPtr);
-  LOG_INFO("Processing {} windows with {} VariantBuilder thread(s)", windows.size(), mParamsPtr->mNumWorkerThreads)
+  LOG_INFO("Processing {} window(s) with {} VariantBuilder thread(s)", windows.size(), mParamsPtr->mNumWorkerThreads)
 
   const auto num_total_windows = windows.size();
   static absl::FixedArray<bool> done_windows(num_total_windows);
@@ -223,9 +223,9 @@ void PipelineRunner::Run() {
     const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(100)));
     const auto rem_runtime = absl::FormatDuration(absl::Trunc(remtimer.EstimateRemaining(), absl::Milliseconds(100)));
     const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
-    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f} windows/sec | {} done with {} in {}",
+    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
              percent_windows_done(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
-             elapsed_time, rem_runtime, remtimer.MeanRatePerSecond(), win_name, win_status, win_runtime)
+             elapsed_time, rem_runtime, win_name, win_status, win_runtime)
 
     if (runtime_stats_file.is_open()) {
       // BED file positions are 0-based half closed-open interval
