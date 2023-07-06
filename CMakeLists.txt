@@ -120,7 +120,7 @@ target_link_libraries(lancet_core PUBLIC lancet_caller absl::synchronization con
 set_target_properties(lancet_core PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 add_library(lancet_cli STATIC src/lancet/cli/cli_params.h
-		src/lancet/cli/remaining_timer.cpp src/lancet/cli/remaining_timer.h
+		src/lancet/cli/eta_timer.cpp src/lancet/cli/eta_timer.h
 		src/lancet/cli/pipeline_runner.cpp src/lancet/cli/pipeline_runner.h
 		src/lancet/cli/cli_interface.cpp src/lancet/cli/cli_interface.h)
 target_include_directories(lancet_cli PUBLIC "${CMAKE_SOURCE_DIR}/src")
