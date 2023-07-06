@@ -527,10 +527,6 @@ void Graph::RemoveNodes(absl::Span<const NodeID> node_ids) {
 }
 
 void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
-  static constexpr usize ESTIMATED_NUM_NODES = 32768;
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mNodes.capacity() < ESTIMATED_NUM_NODES) mNodes.reserve(ESTIMATED_NUM_NODES);
-
   mRefNodeIds.clear();
   const auto ref_nodes = AddNodes(mRegion->SeqView(), Label::REFERENCE);
   mRefNodeIds.reserve(ref_nodes.size());
