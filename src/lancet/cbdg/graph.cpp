@@ -49,7 +49,7 @@ IncrementKmerAndRetry:
 
     mNodes.clear();
     BuildGraph(mate_mers);
-    LOG_TRACE("Built graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
+    LOG_TRACE("Done building graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
 
     RemoveLowCovNodes(0);
     mNodes.rehash(0);
@@ -69,7 +69,7 @@ IncrementKmerAndRetry:
       const auto sink = FindSink(comp_id);
 
       if (!source.mFoundAnchor || !sink.mFoundAnchor || source.mAnchorId == sink.mAnchorId) {
-        LOG_TRACE("Skipping comp{} in graph for {} because source and sink were not found", comp_id, reg_str)
+        LOG_TRACE("Skipping comp{} in graph for {} because source/sink was not found", comp_id, reg_str)
         continue;
       }
 
@@ -77,7 +77,7 @@ IncrementKmerAndRetry:
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH) continue;
 
-      LOG_TRACE("Found {}bp anchor for {} comp={} with k={}", current_anchor_length, reg_str, comp_id, mCurrK)
+      LOG_TRACE("Found {}bp ref anchor for {} comp={} with k={}", current_anchor_length, reg_str, comp_id, mCurrK)
 
       std::vector<std::string> haplotypes;
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
@@ -85,7 +85,7 @@ IncrementKmerAndRetry:
       WriteDotDevelop(FOUND_REF_ANCHORS, comp_id);
 
       if (HasCycle()) {
-        LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
+        LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
         goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
       }
 
@@ -99,7 +99,7 @@ IncrementKmerAndRetry:
       WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
 
       if (HasCycle()) {
-        LOG_TRACE("Graph cycle found for {} comp={} with k={}", reg_str, comp_id, mCurrK)
+        LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
         goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
       }
 
@@ -497,7 +497,7 @@ void Graph::RemoveLowCovNodes(const usize component_id) {
 
   if (!remove_nids.empty()) {
     const auto region_str = mRegion->ToSamtoolsRegion();
-    LOG_TRACE("Removing {:.4f}% (or) {} low coverage nodes for {} in comp{} with k={}",
+    LOG_TRACE("Removing {:.4f}% (or) {} low cov nodes for {} in comp{} with k={}",
               100.0 * (static_cast<f64>(remove_nids.size()) / static_cast<f64>(mNodes.size())), remove_nids.size(),
               region_str, component_id, mCurrK)
 
@@ -527,7 +527,7 @@ void Graph::RemoveNodes(absl::Span<const NodeID> node_ids) {
 }
 
 void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
-  static constexpr usize ESTIMATED_NUM_NODES = 16384;
+  static constexpr usize ESTIMATED_NUM_NODES = 32768;
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mNodes.capacity() < ESTIMATED_NUM_NODES) mNodes.reserve(ESTIMATED_NUM_NODES);
 

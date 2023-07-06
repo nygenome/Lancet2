@@ -115,7 +115,7 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
   const auto nregs = mInputRegions.size();
   const auto window_len = static_cast<i64>(mParams.mWindowLength);
   const auto pct_olap = static_cast<i64>(mParams.mPercentOverlap);
-  LOG_INFO("Processing {} input region(s) to build {}bp moving windows with {}% overlap", nregs, window_len, pct_olap)
+  LOG_INFO("Using {} input region(s) to build {}bp moving windows with {}% overlap", nregs, window_len, pct_olap)
 
   const auto step_size = StepSize(mParams);
   absl::flat_hash_set<WindowPtr> uniq_windows;

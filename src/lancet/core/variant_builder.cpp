@@ -22,7 +22,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   const auto region = window->AsRegionPtr();
   const auto reg_str = region->ToSamtoolsRegion();
   static thread_local const auto tid = absl::Hash<std::thread::id>()(std::this_thread::get_id());
-  LOG_DEBUG("Starting to process window {} in thread {:#x}", reg_str, tid)
+  LOG_DEBUG("Processing window {} in thread {:#x}", reg_str, tid)
 
   if (static_cast<usize>(std::ranges::count(window->SeqView(), 'N')) == window->Length()) {
     LOG_DEBUG("Skipping window {} since it has only N bases in reference", reg_str)
@@ -43,7 +43,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     return {};
   }
 
-  LOG_DEBUG("Collecting sample reads for window {}", reg_str)
+  LOG_DEBUG("Collecting all available sample reads for window {}", reg_str)
   const auto rc_result = mReadCollector.CollectRegionResult(*region);
   const absl::Span<const cbdg::Read> reads = absl::MakeConstSpan(rc_result.mSampleReads);
   const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);
@@ -73,21 +73,21 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   const auto &vprms = mParamsPtr->mVariantParams;
 
   for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
-    const auto nseqs = component_haplotypes[idx].size();
+    const auto nhaps = component_haplotypes[idx].size();
     const auto anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
     const std::vector<std::string> &comp_haps = component_haplotypes[idx];
-    LOG_DEBUG("Building MSA for graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
+    LOG_DEBUG("Building MSA for graph component {} from window {} with {} haplotypes", idx, reg_str, nhaps)
 
     const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
     const caller::MsaBuilder msa_builder(ref_and_alt_haps, MakeGfaPath(*window, idx));
     const caller::VariantSet vset(msa_builder, *window, anchor_start);
 
     if (vset.IsEmpty()) {
-      LOG_DEBUG("No variants found in graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
+      LOG_DEBUG("No variants found in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
       continue;
     }
 
-    LOG_DEBUG("Found variant(s) in graph component {} from window {} with {} sequences", idx, reg_str, nseqs)
+    LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
     for (auto &&[var, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset, mParamsPtr->mMinAltQuality)) {
       variants.emplace_back(std::make_unique<caller::VariantCall>(var, std::move(evidence), samples, vprms, dbg_klen));
     }
@@ -100,7 +100,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   mCurrentCode = StatusCode::FOUND_GENOTYPED_VARIANT;
-  LOG_DEBUG("Genotyped variant(s) for window {} by re-aligning sample reads", reg_str)
+  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", variants.size(), reg_str)
   return variants;
 }
 
