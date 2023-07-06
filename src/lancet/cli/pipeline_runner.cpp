@@ -214,18 +214,20 @@ void PipelineRunner::Run() {
       continue;
     }
 
-    eta_timer.Increment();
     stats.at(async_worker_result.mStatus) += 1;
     done_windows[async_worker_result.mGenomeIdx] = true;
     const core::WindowPtr &curr_win = windows[async_worker_result.mGenomeIdx];
     const auto win_name = curr_win->ToSamtoolsRegion();
     const auto win_status = core::ToString(async_worker_result.mStatus);
+
+    eta_timer.Increment();
+    const auto num_completed = num_total_windows - done_windows_counter->load(std::memory_order_acquire);
     const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
     const auto rem_runtime = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
     const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
+    
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
-             percent_windows_completed(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
-             elapsed_time, rem_runtime, win_name, win_status, win_runtime)
+             percent_windows_completed(num_completed), elapsed_time, rem_runtime, win_name, win_status, win_runtime)
 
     if (runtime_stats_file.is_open()) {
       // BED file positions are 0-based half closed-open interval
