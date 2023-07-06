@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numeric>
 #include <ranges>
 #include <string>
 #include <utility>

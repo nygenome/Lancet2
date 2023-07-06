@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <deque>
 #include <fstream>
+#include <numeric>
 
 #include "absl/hash/hash.h"
 #include "absl/strings/str_join.h"
@@ -16,7 +17,7 @@
 #include "lancet/base/sliding.h"
 #include "lancet/base/timer.h"
 #include "lancet/cbdg/max_flow.h"
-#include "lancet/hts/fisher_exact.h"
+#include "lancet/hts/phred_quality.h"
 #include "spdlog/fmt/fmt.h"
 #include "spdlog/fmt/ostr.h"
 

@@ -1,6 +1,7 @@
 #include "lancet/caller/variant_set.h"
 
 #include <algorithm>
+#include <numeric>
 #include <string>
 #include <utility>
 

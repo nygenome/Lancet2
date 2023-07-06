@@ -32,11 +32,8 @@ class BgzfStreambuf : public std::streambuf {
   void Close();
 
   auto uflow() -> int override;
-
   auto underflow() -> int override;
-
   auto overflow(int dat = EOF) -> int override;  // NOLINT
-
   auto xsputn(const char* data, std::streamsize len) -> std::streamsize override;
 
  private:
