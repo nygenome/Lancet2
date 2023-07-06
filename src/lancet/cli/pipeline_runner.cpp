@@ -220,8 +220,8 @@ void PipelineRunner::Run() {
     const core::WindowPtr &curr_win = windows[async_worker_result.mGenomeIdx];
     const auto win_name = curr_win->ToSamtoolsRegion();
     const auto win_status = core::ToString(async_worker_result.mStatus);
-    const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(100)));
-    const auto rem_runtime = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Milliseconds(100)));
+    const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
+    const auto rem_runtime = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
     const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
              percent_windows_completed(num_total_windows - done_windows_counter->load(std::memory_order_acquire)),
