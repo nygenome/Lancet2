@@ -141,7 +141,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   // Parameters
   subcmd->add_option("-T,--num-threads", params->mNumWorkerThreads, "Number of additional async worker threads")
       ->group("Parameters")
-      ->check(CLI::Range(u32(0), std::thread::hardware_concurrency()));
+      ->check(CLI::Range(u32(0), std::thread::hardware_concurrency() * 2));
   subcmd->add_option("-k,--min-kmer", vb_prms.mGraphParams.mMinKmerLen, "Min. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN, cbdg::Graph::MAX_ALLOWED_KMER_LEN - 2));
