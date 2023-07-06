@@ -78,8 +78,10 @@ void VariantStore::ExtractKeysAndDumpToStream(absl::Span<const Key> keys, std::o
   std::ranges::sort(variants, [](const Value &lhs, const Value &rhs) -> bool { return *lhs < *rhs; });
   std::ranges::for_each(variants, [&out](const Value &item) { fmt::print(out, "{}\n", item->AsVcfRecord()); });
 
-  out.flush();
-  LOG_DEBUG("Flushed {} variants from store to output VCF file", variants.size())
+  if (!variants.empty()) {
+    out.flush();
+    LOG_DEBUG("Flushed {} variants from store to output VCF file", variants.size())
+  }
 }
 
 }  // namespace lancet::core
