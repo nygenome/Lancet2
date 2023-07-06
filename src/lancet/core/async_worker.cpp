@@ -20,33 +20,24 @@ void AsyncWorker::Process(std::stop_token stop_token) {
   Timer timer;
   usize num_done = 0;
   auto window_ptr = std::make_shared<Window>();
-  auto& [done_counts, waiting_counts] = mCounters;
-
   moodycamel::ConsumerToken consumer_token(*mInputPtr);
   const moodycamel::ProducerToken producer_token(*mOutputPtr);
 
-  while (waiting_counts->load(std::memory_order_acquire) != 0) {
+  while (true) {
     // Check if stop is requested for this thread by the RunMain/caller thread
-    if (stop_token.stop_requested()) {
-      LOG_DEBUG("Quitting AsyncWorker thread {:#x} after processing {} windows", tid, num_done)
-      return;
-    }
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (stop_token.stop_requested()) break;
 
     // Get the next available unprocessed window from the RunMain/caller thread
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (!mInputPtr->try_dequeue(consumer_token, window_ptr)) continue;
 
-    waiting_counts->fetch_add(-1, std::memory_order_release);
     timer.Reset();
-
     auto variants = mVariantBuilderPtr->ProcessWindow(std::const_pointer_cast<const Window>(window_ptr));
     mVariantStorePtr->AddVariants(std::move(variants));
 
     const auto status_code = mVariantBuilderPtr->CurrentStatus();
-    auto result = Result{.mGenomeIdx = window_ptr->GenomeIndex(), .mRuntime = timer.Runtime(), .mStatus = status_code};
-
-    mOutputPtr->enqueue(producer_token, result);
-    done_counts->fetch_add(-1, std::memory_order_release);
+    mOutputPtr->enqueue(producer_token, Result{window_ptr->GenomeIndex(), timer.Runtime(), status_code});
     num_done++;
   }
 

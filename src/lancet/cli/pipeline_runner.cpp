@@ -1,7 +1,6 @@
 #include "lancet/cli/pipeline_runner.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -106,15 +105,14 @@ void LogWindowStats(const WindowStats &stats) {
 }  // namespace
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
-void PipelineWorker(std::stop_token stop_token, AsyncWorker::Input in_qptr, AsyncWorker::Output out_qptr,
-                    AsyncWorker::Store vstore, AsyncWorker::Params prms, AsyncWorker::DoneAndWaitingCounts cntrs) {
+void PipelineWorker(std::stop_token stop_token, AsyncWorker::Input inq, AsyncWorker::Output outq,
+                    AsyncWorker::Store vstore, AsyncWorker::Params prms) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 #ifndef LANCET_DEVELOP_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
 #endif
-  auto worker = std::make_unique<AsyncWorker>(std::move(in_qptr), std::move(out_qptr), std::move(vstore),
-                                              std::move(prms), std::move(cntrs));
+  auto worker = std::make_unique<AsyncWorker>(std::move(inq), std::move(outq), std::move(vstore), std::move(prms));
   return worker->Process(std::move(stop_token));
 }
 
@@ -176,11 +174,8 @@ void PipelineRunner::Run() {
   worker_threads.reserve(mParamsPtr->mNumWorkerThreads);
   const auto varstore = std::make_shared<core::VariantStore>();
   const auto vb_params = std::make_shared<const core::VariantBuilder::Params>(mParamsPtr->mVariantBuilder);
-  const AsyncWorker::DoneAndWaitingCounts counters({std::make_shared<std::atomic_size_t>(num_total_windows),
-                                                    std::make_shared<std::atomic_size_t>(num_total_windows)});
-
   for (usize idx = 0; idx < mParamsPtr->mNumWorkerThreads; ++idx) {
-    worker_threads.emplace_back(PipelineWorker, send_qptr, recv_qptr, varstore, vb_params, counters);
+    worker_threads.emplace_back(PipelineWorker, send_qptr, recv_qptr, varstore, vb_params);
   }
 
   static const auto all_windows_upto_idx_done = [](const usize window_idx) -> bool {
@@ -199,22 +194,20 @@ void PipelineRunner::Run() {
   }
 
   usize idx_to_flush = 0;
+  usize num_completed = 0;
   core::AsyncWorker::Result async_worker_result;
   moodycamel::ConsumerToken result_consumer_token(*recv_qptr);
 
   auto stats = InitWindowStats();
   constexpr usize nbuffer_windows = 100;
-  const auto &done_windows_counter = counters[0];
   EtaTimer eta_timer(num_total_windows);
 
-  // The atomic done_windows_counter can sometimes non-deterministically get to zero
-  // before we fully mark the done_windows bool bitset as done. So we only use the
-  // count of set bits in the done_windows bitset to break out of try_dequeue loop
-  while (std::ranges::count(done_windows, false) != 0) {
+  while (num_completed != num_total_windows) {
     if (!recv_qptr->try_dequeue(result_consumer_token, async_worker_result)) {
       continue;
     }
 
+    num_completed++;
     stats.at(async_worker_result.mStatus) += 1;
     done_windows[async_worker_result.mGenomeIdx] = true;
     const core::WindowPtr &curr_win = windows[async_worker_result.mGenomeIdx];
@@ -222,7 +215,6 @@ void PipelineRunner::Run() {
     const auto win_status = core::ToString(async_worker_result.mStatus);
 
     eta_timer.Increment();
-    const auto num_completed = num_total_windows - done_windows_counter->load(std::memory_order_acquire);
     const auto elapsed_rt = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
     const auto rem_rt = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
     const auto win_rt = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
@@ -243,7 +235,9 @@ void PipelineRunner::Run() {
     }
   }
 
+  std::ranges::for_each(worker_threads, std::mem_fn(&std::jthread::request_stop));
   std::ranges::for_each(worker_threads, std::mem_fn(&std::jthread::join));
+
 #ifndef LANCET_DEVELOP_MODE
   if (this->mParamsPtr->mEnableCpuProfiling) {
     ProfilerStop();
