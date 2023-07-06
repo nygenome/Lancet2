@@ -134,7 +134,7 @@ PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(s
 void PipelineRunner::Run() {
   Timer timer;
   static thread_local const auto tid = std::this_thread::get_id();
-  LOG_INFO("Started main thread {:#x} to run Lancet variant calling pipeline", absl::Hash<std::thread::id>()(tid))
+  LOG_INFO("Using main thread {:#x} to synchronize variant calling pipeline", absl::Hash<std::thread::id>()(tid))
 
   ValidateAndPopulateParams();
   if (!mParamsPtr->mVariantBuilder.mOutGraphsDir.empty()) {

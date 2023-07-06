@@ -80,7 +80,7 @@ void VariantStore::ExtractKeysAndDumpToStream(absl::Span<const Key> keys, std::o
 
   if (!variants.empty()) {
     out.flush();
-    LOG_DEBUG("Flushed {} variants from store to output VCF file", variants.size())
+    LOG_DEBUG("Flushed {} variant(s) from VariantStore to output VCF file", variants.size())
   }
 }
 
