@@ -13,7 +13,7 @@ class EtaTimer {
 
   void Increment();
   [[nodiscard]] auto EstimatedEta() const -> absl::Duration;
-  [[nodiscard]] auto MeanRatePerSecond() const -> f64;
+  [[nodiscard]] auto RatePerSecond() const -> f64;
 
  private:
   usize mNumDone = 0;

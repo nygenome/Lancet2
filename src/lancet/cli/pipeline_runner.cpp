@@ -187,7 +187,7 @@ void PipelineRunner::Run() {
     return std::all_of(done_windows.cbegin(), last_itr, [](const bool is_window_done) { return is_window_done; });
   };
 
-  static const auto percent_windows_completed = [&num_total_windows](const usize ndone) -> f64 {
+  static const auto percent_done = [&num_total_windows](const usize ndone) -> f64 {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
@@ -222,12 +222,12 @@ void PipelineRunner::Run() {
 
     eta_timer.Increment();
     const auto num_completed = num_total_windows - done_windows_counter->load(std::memory_order_acquire);
-    const auto elapsed_time = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
-    const auto rem_runtime = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
-    const auto win_runtime = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
-    
-    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} | {} done with {} in {}",
-             percent_windows_completed(num_completed), elapsed_time, rem_runtime, win_name, win_status, win_runtime)
+    const auto elapsed_rt = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
+    const auto rem_rt = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
+    const auto win_rt = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
+
+    LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
+             percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
 
     if (runtime_stats_file.is_open()) {
       // BED file positions are 0-based half closed-open interval
