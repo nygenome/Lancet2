@@ -6,8 +6,7 @@ project(lancet LANGUAGES C CXX
 		DESCRIPTION "Micro-assembly based somatic variant caller")
 
 # https://gitlab.kitware.com/cmake/cmake/-/issues/16716
-set(PROJECT_VERSION "2.0.0.rc2")
-
+set(PROJECT_VERSION "2.1.0")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
 option(LANCET_BENCHMARKS "Builds the Lancet benchmarks executable" "OFF")
 option(LANCET_BUILD_STATIC "Build a statically linked Lancet executable" "ON")
