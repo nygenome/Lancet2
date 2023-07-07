@@ -20,7 +20,8 @@ namespace lancet::caller {
 
 class Genotyper {
  public:
-  Genotyper();
+  enum class Preset { ShortRead, LongReadONT };
+  Genotyper(Preset preset = Preset::ShortRead);
 
   void SetNumSamples(const usize num_samples) { mNumSamples = num_samples; }
   void SetIsGermlineMode(const bool is_germline_mode) { mIsGermlineMode = is_germline_mode; }
