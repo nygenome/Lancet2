@@ -13,4 +13,4 @@ function generate_tag() {
 }
 
 gcloud builds submit --project nygc-comp-s-fd4e --timeout=60m \
-  --tag "us-central1-docker.pkg.dev/nygc-app-c-148c/lancet-public/lancet2:$(generate_tag)"
+  --tag "us-central1-docker.pkg.dev/nygc-app-c-148c/lancet-public/lancet:$(generate_tag)"
