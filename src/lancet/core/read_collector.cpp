@@ -86,7 +86,7 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sample_reads;
   absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mates;
-  const auto max_sample_cov = mParams.mMaxWinCov / static_cast<f64>(mSampleList.size());
+  const auto max_sample_cov = mParams.mMaxSampleCov;
 
   for (auto& sinfo : mSampleList) {
     u64 num_reads = 0;

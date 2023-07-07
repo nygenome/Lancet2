@@ -22,7 +22,7 @@ namespace lancet::core {
 
 class ReadCollector {
  public:
-  static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 1000.0;
+  static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 500.0;
 
   struct Params {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
@@ -30,7 +30,7 @@ class ReadCollector {
     std::vector<std::filesystem::path> mNormalPaths;
     std::vector<std::filesystem::path> mTumorPaths;
 
-    f64 mMaxWinCov = DEFAULT_MAX_WINDOW_COVERAGE;
+    f64 mMaxSampleCov = DEFAULT_MAX_WINDOW_COVERAGE;
     bool mNoCtgCheck = false;
     bool mExtractPairs = false;
     // NOLINTEND(misc-non-private-member-variables-in-classes)
