@@ -28,11 +28,12 @@ inline void FreeMinimap2Alignment(mm_reg1_t* regs, const int num_regs) {
 
 namespace lancet::caller {
 
-Genotyper::Genotyper() {
+Genotyper::Genotyper(const Preset preset) {
   // 0 -> no info, 1 -> error, 2 -> warning, 3 -> debug
+  // set default parameters first before seeting preset parameters
   mm_verbose = 1;
   mm_set_opt(nullptr, mIndexingOpts.get(), mMappingOpts.get());
-  mm_set_opt("sr", mIndexingOpts.get(), mMappingOpts.get());
+  mm_set_opt(preset == Preset::ShortRead ? "sr" : "map-ont", mIndexingOpts.get(), mMappingOpts.get());
   mMappingOpts->flag |= MM_F_CIGAR | MM_F_OUT_CS;
   mMappingOpts->best_n = 1;
 }
