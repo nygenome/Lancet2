@@ -25,7 +25,7 @@ class VariantCall {
   static constexpr f64 DEFAULT_MIN_ODDS_RATIO = 10.0;
 
   static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
-  static constexpr u32 DEFAULT_MIN_TUMOR_COV = 20;
+  static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 20;
 
   struct Params {
