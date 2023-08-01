@@ -4,14 +4,6 @@ include(ProcessorCount)
 ProcessorCount(NumCores)
 find_program(MAKE_EXE NAMES gmake nmake make REQUIRED)
 
-message(STATUS "Setting up library dependencies required for the build")
-function(message)
-	if (NOT MESSAGE_QUIET)
-		_message(${ARGN})
-	endif ()
-endfunction()
-
-set(MESSAGE_QUIET ON)
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON)
 
 set(MI_SECURE ON)
@@ -24,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG a0299fa SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG f6acd47 SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -36,7 +28,7 @@ if (NOT abseil_POPULATED)
 	include(${abseil_SOURCE_DIR}/absl/copts/AbseilConfigureCopts.cmake)
 endif ()
 
-FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.11.0 SYSTEM)
+FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.12.0 SYSTEM)
 FetchContent_MakeAvailable(spdlog)
 
 FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.3.2 SYSTEM)
@@ -107,8 +99,8 @@ set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(LIB_HTS "${HTSLIB_ROOT_DIR}/libhts.a")
 set(HTSLIB_CONFIG_PARAMS ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(htslib
-		URL https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
-		URL_MD5 ff47f4b09e5202cebc3f80e7e02c7728 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+		URL https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
+		URL_MD5 a692cf593dd08d51243043e52dbda99b PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
 		SOURCE_DIR ${HTSLIB_ROOT_DIR} BUILD_IN_SOURCE 1 INSTALL_COMMAND ""
 		BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static BUILD_BYPRODUCTS ${LIB_HTS}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_htslib.sh ${HTSLIB_CONFIG_PARAMS}
@@ -151,9 +143,9 @@ FetchContent_MakeAvailable(boost_math)
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
-	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.3.2")
-	set(CATCH_MD5c "39762707976cb30c301b3762c55a58e6")
-	set(CATCH_MD5h "e68fa70a3fece7c6de62f224900a9d23")
+	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.4.0")
+	set(CATCH_MD5c "b4ee03064bf6be8f41313df1649ff7a9")
+	set(CATCH_MD5h "b9e33e9a8198294a87b64dcf641dee16")
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.cpp" EXPECTED_MD5 ${CATCH_MD5c})
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.hpp" "${CATCH_ROOT}/catch_amalgamated.hpp" EXPECTED_MD5 ${CATCH_MD5h})
 	add_library(Catch2 STATIC "${CATCH_ROOT}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.hpp")
@@ -171,5 +163,3 @@ if (LANCET_BENCHMARKS)
 	FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.8.2 SYSTEM)
 	FetchContent_MakeAvailable(benchmark)
 endif ()
-
-unset(MESSAGE_QUIET)
