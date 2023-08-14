@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG f6acd47 SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 861e53c SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -137,7 +137,7 @@ set(spoa_optimize_for_native OFF)
 FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 08957f6 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
-FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.82.0 SYSTEM)
+FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.83.0 SYSTEM)
 FetchContent_MakeAvailable(boost_math)
 
 if (LANCET_TESTS)
