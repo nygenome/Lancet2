@@ -1,6 +1,7 @@
 #include "lancet/cli/pipeline_runner.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -204,6 +205,8 @@ void PipelineRunner::Run() {
 
   while (num_completed != num_total_windows) {
     if (!recv_qptr->try_dequeue(result_consumer_token, async_worker_result)) {
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(1s);
       continue;
     }
 
