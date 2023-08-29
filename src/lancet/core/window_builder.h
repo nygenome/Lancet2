@@ -14,12 +14,12 @@ namespace lancet::core {
 
 class WindowBuilder {
  public:
-  static constexpr u32 DEFAULT_PCT_OVERLAP = 50;
-  static constexpr u32 DEFAULT_WINDOW_LENGTH = 1000;
+  static constexpr u32 DEFAULT_PCT_OVERLAP = 20;
+  static constexpr u32 DEFAULT_WINDOW_LENGTH = 500;
   static constexpr u32 DEFAULT_REGION_PADDING = 500;
 
-  static constexpr u32 MIN_ALLOWED_PCT_OVERLAP = 50;
-  static constexpr u32 MAX_ALLOWED_PCT_OVERLAP = 90;
+  static constexpr u32 MIN_ALLOWED_PCT_OVERLAP = 20;
+  static constexpr u32 MAX_ALLOWED_PCT_OVERLAP = 80;
   static constexpr u32 MIN_ALLOWED_WINDOW_LEN = 500;
   static constexpr u32 MAX_ALLOWED_WINDOW_LEN = 5000;
   static constexpr u32 MAX_ALLOWED_REGION_PAD = 1000;
