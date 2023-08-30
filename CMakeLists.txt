@@ -140,11 +140,11 @@ endif ()
 
 # Helpful links for profiling – https://github.com/google/pprof
 # https://gperftools.github.io/gperftools/cpuprofile.html
-if (${CMAKE_BUILD_TYPE} MATCHES Release)
-	add_dependencies(lancet_cli gperftools)
-	target_include_directories(lancet_cli SYSTEM PRIVATE ${GPERFTOOLS_INC_DIR})
-	target_link_libraries(lancet_cli PRIVATE ${LIB_PROFILER})
-endif ()
+#if (${CMAKE_BUILD_TYPE} MATCHES Release)
+#	add_dependencies(lancet_cli gperftools)
+#	target_include_directories(lancet_cli SYSTEM PRIVATE ${GPERFTOOLS_INC_DIR})
+#	target_link_libraries(lancet_cli PRIVATE ${LIB_PROFILER})
+#endif ()
 
 # Helpful links to run tests
 # https://github.com/catchorg/Catch2/blob/v3.3.2/docs/Readme.md
