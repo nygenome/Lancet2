@@ -6,7 +6,9 @@ project(lancet LANGUAGES C CXX
 		DESCRIPTION "Micro-assembly based somatic variant caller")
 
 # https://gitlab.kitware.com/cmake/cmake/-/issues/16716
-set(PROJECT_VERSION "2.1.0")
+include(cmake/version.cmake)
+set(PROJECT_VERSION ${LANCET2_GIT_TAG})
+message(STATUS "Lancet v${PROJECT_VERSION}")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
 option(LANCET_BENCHMARKS "Builds the Lancet benchmarks executable" "OFF")
 option(LANCET_BUILD_STATIC "Build a statically linked Lancet executable" "ON")
@@ -55,7 +57,6 @@ find_package(LibLZMA REQUIRED)
 
 include(cmake/cpu_family.cmake)
 include(cmake/defaults.cmake)
-include(cmake/version.cmake)
 include(cmake/dependencies.cmake)
 
 add_library(lancet_base STATIC src/lancet/base/version.h
