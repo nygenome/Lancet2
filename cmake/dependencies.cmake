@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 861e53c SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG f6fc4ef SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -125,15 +125,15 @@ set(GPERFTOOLS_INC_DIR "${GPERFTOOLS_ROOT_DIR}/include")
 set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
 set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
 ExternalProject_Add(gperftools
-		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.11/gperftools-2.11.tar.gz
-		URL_MD5 e8df824ad932c2aa3f6680aafde76123 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR}
+		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.12/gperftools-2.12.tar.gz
+		URL_MD5 2e418eeabaa54bd9ecb4d6f26236c699 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR}
 		BUILD_IN_SOURCE 1 INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_gperftools.sh ${GPERFTOOLS_CONFIG_PARAMS}
 		BUILD_BYPRODUCTS ${LIB_PROFILER} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
 
 set(spoa_optimize_for_native OFF)
-FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 08957f6 SYSTEM)
+FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 36c68b2 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
 FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.83.0 SYSTEM)
