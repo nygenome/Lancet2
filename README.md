@@ -7,6 +7,11 @@
 [![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?mLabel=Documentation&style=flat)](https://nygenome.github.io/Lancet2)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
+## Docker builds
+* [Docker images](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet) are available for every tagged release.
+* Please note that the public docker image requires [Cascade Lake CPU](https://en.wikichip.org/wiki/intel/microarchitectures/cascade_lake) or newer.
+* If needed, users can build an image for any 64-bit Linux machine using the [Dockerfile](Dockerfile)
+
 ## Installation
 
 ### Pre-requisites to compile from source
