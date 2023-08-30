@@ -14,9 +14,9 @@
 #include <thread>
 #include <utility>
 
-#ifndef LANCET_DEVELOP_MODE
-#include "gperftools/profiler.h"
-#endif
+// #ifndef LANCET_DEVELOP_MODE
+// #include "gperftools/profiler.h"
+// #endif
 
 #include "absl/container/btree_map.h"
 #include "absl/container/fixed_array.h"
@@ -110,10 +110,10 @@ void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken 
                     AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
                     AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
-#ifndef LANCET_DEVELOP_MODE
+  // #ifndef LANCET_DEVELOP_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
-#endif
+  // if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
+  // #endif
   auto worker =
       std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore), std::move(params));
   return worker->Process(std::move(stop_token), *in_token);
@@ -122,15 +122,13 @@ void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken 
 namespace lancet::cli {
 
 PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(std::move(params)) {
-#ifndef LANCET_DEVELOP_MODE
-  if (mParamsPtr->mEnableCpuProfiling) {
-    setenv("CPUPROFILE_PER_THREAD_TIMERS", "1", 1);
-    setenv("CPUPROFILE_FREQUENCY", "1000", 1);
-    const auto timestamp = absl::FormatTime("%Y%m%d%ET%H%M%S", absl::Now(), absl::LocalTimeZone());
-    const auto fname = fmt::format("Lancet.cpu_profile.{}.bin", timestamp);
-    ProfilerStart(fname.c_str());
-  }
-#endif
+  // #ifndef LANCET_DEVELOP_MODE
+  //   setenv("CPUPROFILE_PER_THREAD_TIMERS", "1", 1);
+  //   setenv("CPUPROFILE_FREQUENCY", "10000", 1);
+  //   const auto timestamp = absl::FormatTime("%Y%m%d%ET%H%M%S", absl::Now(), absl::LocalTimeZone());
+  //   const auto fname = fmt::format("Lancet.cpu_profile.{}.bin", timestamp);
+  //   ProfilerStart(fname.c_str());
+  // #endif
 }
 
 void PipelineRunner::Run() {
@@ -242,12 +240,10 @@ void PipelineRunner::Run() {
   std::ranges::for_each(worker_threads, std::mem_fn(&std::jthread::request_stop));
   std::ranges::for_each(worker_threads, std::mem_fn(&std::jthread::join));
 
-#ifndef LANCET_DEVELOP_MODE
-  if (this->mParamsPtr->mEnableCpuProfiling) {
-    ProfilerStop();
-    ProfilerFlush();
-  }
-#endif
+  // #ifndef LANCET_DEVELOP_MODE
+  //   ProfilerStop();
+  //   ProfilerFlush();
+  // #endif
 
   varstore->FlushAllVariantsInStore(output_vcf);
   runtime_stats_file.close();

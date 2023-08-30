@@ -26,9 +26,6 @@ class CliParams {
 
   usize mNumWorkerThreads = 2;
   bool mEnableVerboseLogging = false;
-#ifndef LANCET_DEVELOP_MODE
-  bool mEnableCpuProfiling = false;
-#endif
 
   core::WindowBuilder::Params mWindowBuilder;
   core::VariantBuilder::Params mVariantBuilder;

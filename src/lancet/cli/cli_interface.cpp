@@ -22,7 +22,7 @@ inline auto MakeCmdLine(const int argc, const char** argv) -> std::string {
   std::string result;
   static constexpr usize LINUX_MAX_CMDLINE_LENGTH = 2097152;
   result.reserve(LINUX_MAX_CMDLINE_LENGTH);
-  absl::StrAppend(&result, argv[0]);           // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  absl::StrAppend(&result, argv[0]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (auto idx = 1; idx < argc; ++idx) {
     absl::StrAppend(&result, " ", argv[idx]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   }
@@ -184,9 +184,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
 
   // Feature flags
   subcmd->add_flag("--verbose", params->mEnableVerboseLogging, "Turn on verbose logging")->group("Flags");
-#ifndef LANCET_DEVELOP_MODE
-  subcmd->add_flag("--cpu-profile", params->mEnableCpuProfiling, "Turn on CPU profiling")->group("Flags");
-#endif
   subcmd->add_flag("--extract-pairs", rc_prms.mExtractPairs, "Extract all useful read pairs")->group("Flags");
   subcmd->add_flag("--no-active-region", vb_prms.mSkipActiveRegion, "Force assemble all windows")->group("Flags");
   subcmd->add_flag("--no-contig-check", rc_prms.mNoCtgCheck, "Skip contig check with reference")->group("Flags");
