@@ -39,7 +39,7 @@ class AsyncWorker {
       : mInPtr(std::move(in_queue)), mOutPtr(std::move(out_queue)), mStorePtr(std::move(vstore)),
         mBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))) {}
 
-  void Process(std::stop_token stop_token);
+  void Process(std::stop_token stop_token, const moodycamel::ProducerToken& in_token);
 
  private:
   InQueuePtr mInPtr;
