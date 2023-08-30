@@ -575,11 +575,13 @@ auto Graph::AddNodes(std::string_view sequence, const Label label) -> std::vecto
     const auto seq1 = absl::ClippedSubstr(kplus_ones[mer_idx], 0, mCurrK);
     const auto seq2 = absl::ClippedSubstr(kplus_ones[mer_idx], 1, mCurrK);
 
-    const auto left_id = CanonicalKmerHash(seq1);
-    const auto right_id = CanonicalKmerHash(seq2);
+    auto left_mer = Kmer(seq1);
+    auto right_mer = Kmer(seq2);
+    const auto left_id = left_mer.Identifier();
+    const auto right_id = right_mer.Identifier();
 
-    mNodes.try_emplace(left_id, std::make_unique<Node>(seq1, label));
-    mNodes.try_emplace(right_id, std::make_unique<Node>(seq2, label));
+    mNodes.try_emplace(left_id, std::make_unique<Node>(std::move(left_mer), label));
+    mNodes.try_emplace(right_id, std::make_unique<Node>(std::move(right_mer), label));
 
     auto& first = mNodes.at(left_id);
     auto& second = mNodes.at(right_id);
@@ -596,11 +598,6 @@ auto Graph::AddNodes(std::string_view sequence, const Label label) -> std::vecto
   }
 
   return result;
-}
-
-auto Graph::CanonicalKmerHash(std::string_view seq) -> u64 {
-  auto rc_seq = RevComp(seq);
-  return seq < rc_seq ? HashStr64(seq) : HashStr64(rc_seq);
 }
 
 auto Graph::HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool {

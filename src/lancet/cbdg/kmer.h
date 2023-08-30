@@ -2,11 +2,11 @@
 #define SRC_LANCET_CBDG_KMER_H_
 
 #include <array>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/container/fixed_array.h"
-#include "absl/strings/cord.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
 
@@ -34,27 +34,20 @@ class Kmer {
 
   void Merge(const Kmer& other, EdgeKind conn_kind, usize currk);
 
-  [[nodiscard]] auto Identifier() const noexcept -> u64 { return mIdentifier; }
-  [[nodiscard]] auto Length() const -> usize;
   [[nodiscard]] auto SignFor(Ordering order) const noexcept -> Sign;
   [[nodiscard]] auto SequenceFor(Ordering order) const -> std::string;
-  [[nodiscard]] auto CordDataFor(Ordering order) const -> absl::Cord;
 
-  [[nodiscard]] auto IsEmpty() const noexcept -> bool {
-    return mDfltSeq.empty() && mOppoSeq.empty() && mIdentifier == 0;
-  }
-
+  [[nodiscard]] auto Identifier() const noexcept -> u64 { return mIdentifier; }
+  [[nodiscard]] auto Length() const -> usize { return mDfltSeq.length(); }
+  [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mDfltSeq.empty() && mIdentifier == 0; }
   friend auto operator==(const Kmer& lhs, const Kmer& rhs) noexcept -> bool { return lhs.mDfltSeq == rhs.mDfltSeq; }
   friend auto operator!=(const Kmer& lhs, const Kmer& rhs) noexcept -> bool { return !(rhs == lhs); }
 
  private:
   Sign mDfltSign = Sign::PLUS;
   u64 mIdentifier = 0;
-  absl::Cord mDfltSeq;
-  absl::Cord mOppoSeq;
+  std::string mDfltSeq;
 };
-
-[[nodiscard]] auto SlidingKmers(std::string_view seq, usize window) -> absl::FixedArray<Kmer>;
 
 [[nodiscard]] static inline auto MakeFwdEdgeKind(const std::array<Kmer::Sign, 2>& sign_pair) -> EdgeKind {
   const auto [src_sign, dst_sign] = sign_pair;
