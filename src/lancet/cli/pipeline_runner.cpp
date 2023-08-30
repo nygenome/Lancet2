@@ -188,12 +188,6 @@ void PipelineRunner::Run() {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
-  std::ofstream runtime_stats_file;
-  if (!mParamsPtr->mRunStats.empty()) {
-    runtime_stats_file.open(mParamsPtr->mRunStats, std::ios::trunc);
-    fmt::print(runtime_stats_file, "#CHROMOSOME\tSTART_POSITION\tEND_POSITION\tRUNTIME_NS\tSTATUS\n");
-  }
-
   usize idx_to_flush = 0;
   usize num_completed = 0;
   core::AsyncWorker::Result async_worker_result;
@@ -225,12 +219,6 @@ void PipelineRunner::Run() {
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
              percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
 
-    // BED file positions are 0-based half closed-open interval
-    if (runtime_stats_file.is_open()) {
-      fmt::print(runtime_stats_file, "{}\t{}\t{}\t{}\t{}\n", curr_win->ChromName(), curr_win->StartPos1() - 1,
-                 curr_win->EndPos1(), absl::ToInt64Nanoseconds(async_worker_result.mRuntime), win_status);
-    }
-
     if (all_windows_upto_idx_done(idx_to_flush + nbuffer_windows)) {
       varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
       idx_to_flush++;
@@ -246,7 +234,6 @@ void PipelineRunner::Run() {
   // #endif
 
   varstore->FlushAllVariantsInStore(output_vcf);
-  runtime_stats_file.close();
   output_vcf.Close();
 
   LogWindowStats(stats);

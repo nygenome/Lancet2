@@ -189,9 +189,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_flag("--no-contig-check", rc_prms.mNoCtgCheck, "Skip contig check with reference")->group("Flags");
 
   // Optional
-  subcmd->add_option("--runtime-stats", params->mRunStats, "Output text file with per window runtime & status")
-      ->check(CLI::NonexistentPath | CLI::ExistingFile)
-      ->group("Optional");
   subcmd->add_option("--graphs-dir", vb_prms.mOutGraphsDir, "Output directory to write per window graphs")
       ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
