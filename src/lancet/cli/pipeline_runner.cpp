@@ -106,15 +106,17 @@ void LogWindowStats(const WindowStats &stats) {
 }  // namespace
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
-void PipelineWorker(std::stop_token stop_token, AsyncWorker::InQueuePtr inq, AsyncWorker::OutQueuePtr outq,
-                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr prms) {
+void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken *in_token,
+                    AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
+                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 #ifndef LANCET_DEVELOP_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
 #endif
-  auto worker = std::make_unique<AsyncWorker>(std::move(inq), std::move(outq), std::move(vstore), std::move(prms));
-  return worker->Process(std::move(stop_token));
+  auto worker =
+      std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore), std::move(params));
+  return worker->Process(std::move(stop_token), *in_token);
 }
 
 namespace lancet::cli {
@@ -176,7 +178,7 @@ void PipelineRunner::Run() {
   const auto varstore = std::make_shared<core::VariantStore>();
   const auto vb_params = std::make_shared<const core::VariantBuilder::Params>(mParamsPtr->mVariantBuilder);
   for (usize idx = 0; idx < mParamsPtr->mNumWorkerThreads; ++idx) {
-    worker_threads.emplace_back(PipelineWorker, send_qptr, recv_qptr, varstore, vb_params);
+    worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params);
   }
 
   static const auto all_windows_upto_idx_done = [](const usize window_idx) -> bool {
@@ -225,11 +227,10 @@ void PipelineRunner::Run() {
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
              percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
 
+    // BED file positions are 0-based half closed-open interval
     if (runtime_stats_file.is_open()) {
-      // BED file positions are 0-based half closed-open interval
       fmt::print(runtime_stats_file, "{}\t{}\t{}\t{}\t{}\n", curr_win->ChromName(), curr_win->StartPos1() - 1,
                  curr_win->EndPos1(), absl::ToInt64Nanoseconds(async_worker_result.mRuntime), win_status);
-      runtime_stats_file.flush();
     }
 
     if (all_windows_upto_idx_done(idx_to_flush + nbuffer_windows)) {
