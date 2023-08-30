@@ -115,7 +115,6 @@ class Graph {
   void BuildGraph(absl::flat_hash_set<MateMer>& mate_mers);
   auto AddNodes(std::string_view sequence, Label label) -> std::vector<Node*>;
 
-  [[nodiscard]] static auto CanonicalKmerHash(std::string_view seq) -> u64;
   [[nodiscard]] static auto HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool;
   [[nodiscard]] static auto RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
 

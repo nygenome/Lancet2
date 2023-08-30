@@ -35,6 +35,22 @@ inline auto MatchesOneOfTwo(std::string_view result, const std::array<std::strin
   return (result == values[0]) || (result == values[1]);
 }
 
+[[nodiscard]] inline auto SlidingKmers(std::string_view seq, const usize window) -> absl::FixedArray<Kmer> {
+  if (seq.length() < window) {
+    return absl::FixedArray<Kmer>(0);
+  }
+
+  const auto end_position = seq.length() - window;
+  absl::FixedArray<Kmer> result(end_position + 1);
+
+  for (usize offset = 0; offset <= end_position; ++offset) {
+    result[offset] = Kmer(absl::ClippedSubstr(seq, offset, window));
+    LANCET_ASSERT(result[offset].Length() == window)
+  }
+
+  return result;
+}
+
 }  // namespace
 
 static constexpr auto NUM_RANDOM_ITERATIONS = 100;

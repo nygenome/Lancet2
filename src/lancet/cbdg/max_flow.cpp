@@ -4,7 +4,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
-#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "lancet/base/assert.h"
 
 namespace lancet::cbdg {
@@ -110,19 +110,23 @@ auto MaxFlow::BuildNextWalk() -> std::optional<Walk> {
 }
 
 auto MaxFlow::BuildSequence(WalkView walk) const -> Result {
-  absl::Cord merged_seq;
   LANCET_ASSERT(!walk.empty())
+
+  usize total_seq_len = 0;
+  std::vector<std::string> uniq_seqs;
+  uniq_seqs.reserve(walk.size() + 1);
 
   constexpr auto dflt_order = Kmer::Ordering::DEFAULT;
   constexpr auto oppo_order = Kmer::Ordering::OPPOSITE;
   auto ordering = walk[0].SrcSign() == Kmer::Sign::PLUS ? dflt_order : oppo_order;
 
   for (const auto &conn : walk) {
-    if (merged_seq.empty()) {
+    if (uniq_seqs.empty()) {
       const auto src_itr = mGraph->find(conn.SrcId());
       LANCET_ASSERT(src_itr != mGraph->end())
       LANCET_ASSERT(src_itr->second != nullptr)
-      merged_seq.Append(src_itr->second->CordDataFor(ordering));
+      uniq_seqs.emplace_back(src_itr->second->SequenceFor(ordering));
+      total_seq_len += uniq_seqs.back().length();
     }
 
     const auto dst_itr = mGraph->find(conn.DstId());
@@ -130,15 +134,23 @@ auto MaxFlow::BuildSequence(WalkView walk) const -> Result {
     LANCET_ASSERT(dst_itr->second != nullptr)
 
     ordering = conn.DstSign() == Kmer::Sign::PLUS ? dflt_order : oppo_order;
-    const auto dst_cord = dst_itr->second->CordDataFor(ordering);
-    const auto uniq_seq_len = dst_cord.size() - mCurrentK + 1;
-    merged_seq.Append(dst_cord.Subcord(mCurrentK - 1, uniq_seq_len));
+    const auto dst_seq = dst_itr->second->SequenceFor(ordering);
+    const auto uniq_seq_len = dst_seq.size() - mCurrentK + 1;
+    uniq_seqs.emplace_back(dst_seq.substr(mCurrentK - 1, uniq_seq_len));
+    total_seq_len += uniq_seqs.back().length();
   }
 
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (merged_seq.empty()) return std::nullopt;
+  if (uniq_seqs.empty()) return std::nullopt;
 
-  return std::string(merged_seq);
+  std::string merged_seq;
+  merged_seq.reserve(total_seq_len);
+  for (const auto &item : uniq_seqs) {
+    absl::StrAppend(&merged_seq, item);
+  }
+
+  LANCET_ASSERT(merged_seq.length() == total_seq_len)
+  return merged_seq;
 }
 
 void MaxFlow::PopulateWalkableEdgesInDirection(const Node *src, Kmer::Sign dir) {

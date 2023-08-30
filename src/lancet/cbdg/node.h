@@ -21,7 +21,7 @@ class Node {
   using EdgeSet = absl::flat_hash_set<Edge>;
 
   Node() = default;
-  Node(std::string_view seq, Label label) : mKmer(seq), mLabel(label) {}
+  Node(Kmer&& mer, Label label) : mKmer(std::move(mer)), mLabel(label) {}
 
   void AddLabel(const Label& label);
   void IncrementReadSupport(const Label& label);
@@ -65,7 +65,6 @@ class Node {
 
   [[nodiscard]] auto SignFor(const Kmer::Ordering ord) const noexcept -> Kmer::Sign { return mKmer.SignFor(ord); }
   [[nodiscard]] auto SequenceFor(const Kmer::Ordering ord) const -> std::string { return mKmer.SequenceFor(ord); }
-  [[nodiscard]] auto CordDataFor(const Kmer::Ordering ord) const -> absl::Cord { return mKmer.CordDataFor(ord); }
 
   void Merge(const Node& other, EdgeKind conn_kind, usize currk);
 
