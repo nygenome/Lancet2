@@ -21,7 +21,6 @@ class CliParams {
   std::string mFullCmdLine;
   std::filesystem::path mOutVcfGz;
   std::filesystem::path mBedFile;
-  std::filesystem::path mRunStats;
   std::vector<std::string> mInRegions;
 
   usize mNumWorkerThreads = 2;
