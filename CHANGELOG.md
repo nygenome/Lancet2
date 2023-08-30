@@ -1,6 +1,14 @@
 
+<a name="v2.3.0"></a>
+## [v2.3.0](https://github.com/nygenome/Lancet2/compare/v2.2.0...v2.3.0) (2023-08-30)
+
+### Performance Improvements
+
+* optimize graph build by removing cord, turn off secure mimalloc
+
+
 <a name="v2.2.0"></a>
-## [v2.2.0](https://github.com/nygenome/Lancet2/compare/v2.1.0...v2.2.0) (2023-08-29)
+## [v2.2.0](https://github.com/nygenome/Lancet2/compare/v2.1.0...v2.2.0) (2023-08-30)
 
 ### Bug Fixes
 
@@ -8,6 +16,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.2.0
 * remove redundant flag from run config
 * remove runtime stats option
 * comment out profiling code from release build
