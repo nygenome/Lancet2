@@ -2,7 +2,7 @@ defaults:
   run:
     working-directory: website
 
-name: Update Website
+name: Update documentation
 on:
   push:
     branches:
