@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - website/**
+      - .github/workflows/update_docs.yml
 
 jobs:
   Update-Website:
