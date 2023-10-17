@@ -39,6 +39,8 @@ class Graph {
   static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 5;
   static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e6;
 
+  static constexpr u16 DEFAULT_KMER_STEP_LEN = 2;
+
   struct Params {
     std::filesystem::path mOutGraphsDir;
 
@@ -47,6 +49,8 @@ class Graph {
 
     u32 mMinNodeCov = DEFAULT_MIN_NODE_COV;
     u32 mMinAnchorCov = DEFAULT_MIN_ANCHOR_COV;
+
+    u16 mKmerStepLen = DEFAULT_KMER_STEP_LEN;
   };
 
   Graph(Params params) : mParams(std::move(params)) {}

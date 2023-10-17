@@ -149,6 +149,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("-K,--max-kmer", vb_prms.mGraphParams.mMaxKmerLen, "Max. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN + 2, cbdg::Graph::MAX_ALLOWED_KMER_LEN));
+  subcmd->add_option("-s,--kmer-step", vb_prms.mGraphParams.mKmerStepLen, "Kmer step length to try for graph nodes")
+      ->group("Parameters")
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+      ->check(CLI::IsMember({2, 4, 6, 8, 10}));
   subcmd->add_option("--min-anchor-cov", grph_prms.mMinAnchorCov, "Min. coverage for anchor nodes (source/sink)")
       ->group("Parameters")
       ->check(CLI::Range(u32(1), std::numeric_limits<u32>::max()));
