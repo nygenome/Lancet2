@@ -101,6 +101,8 @@ IncrementKmerAndRetry:
       WriteDotDevelop(SECOND_COMPRESSION, comp_id);
       RemoveTips(comp_id);
       WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
+      RemoveShortLinks(comp_id);
+      WriteDotDevelop(SHORT_LINK_REMOVAL, comp_id);
 
       if (HasCycle()) {
         LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
@@ -330,6 +332,42 @@ void Graph::RemoveTips(const usize component_id) {
   if (total_tips > 0) {
     const auto region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removed {} tips for {} in comp{} with k={}", total_tips, region_str, component_id, mCurrK)
+  }
+}
+
+void Graph::RemoveShortLinks(const usize component_id) {
+  std::vector<NodeID> nids_to_remove;
+  nids_to_remove.reserve(mNodes.size());
+
+  std::ranges::for_each(std::as_const(mNodes), [&nids_to_remove, &component_id, this](NodeTable::const_reference item) {
+    const auto [source_id, sink_id] = this->mSourceAndSinkIds;
+    // NOLINTBEGIN(readability-braces-around-statements)
+    if (item.second->GetComponentId() != component_id) return;
+    if (item.first == source_id || item.first == sink_id) return;
+    // NOLINTEND(readability-braces-around-statements)
+    //
+
+    const auto degree = item.second->NumOutEdges();
+    const auto uniq_seq_len = item.second->SeqLength() - this->mCurrK + 1;
+    if (degree < 2 || uniq_seq_len >= 2 || item.second->TotalReadSupport() >= 2) {
+      return;
+    }
+
+    const auto node_seq = item.second->SequenceFor(Kmer::Ordering::DEFAULT);
+    const auto str_qry = FindStr(node_seq, this->mCurrK - 1);
+    // do not remove short-links within STRs: small bubbles are normal in STRs
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (!str_qry.mFoundStr) nids_to_remove.emplace_back(item.first);
+  });
+
+  if (!nids_to_remove.empty()) {
+    const auto region_str = mRegion->ToSamtoolsRegion();
+    LOG_TRACE("Removing {:.4f}% (or) {} short link nodes for {} in comp{} with k={}",
+              100.0 * (static_cast<f64>(nids_to_remove.size()) / static_cast<f64>(mNodes.size())),
+              nids_to_remove.size(), region_str, component_id, mCurrK)
+
+    RemoveNodes(absl::MakeConstSpan(nids_to_remove));
+    CompressGraph(component_id);
   }
 }
 
