@@ -113,16 +113,17 @@ VariantSet::VariantSet(const MsaBuilder &bldr, const core::Window &win, const us
       msa_variant.mRefAllele = std::move(ref_allele);
       msa_variant.mAltAllele = std::move(alt_allele);
 
-      auto itr = mResultVariants.find(msa_variant);
-      if (itr == mResultVariants.end()) {
+      if (!mResultVariants.contains(msa_variant)) {
         msa_variant.mHapStart0Idxs.emplace(REF_HAP_IDX, start_ref0);
         msa_variant.mHapStart0Idxs.emplace(alt_hap_idx, start_alt0);
         msa_variant.mStrResult = FindStr(alt_sequence, start_alt0);
         mResultVariants.emplace(std::move(msa_variant));
       } else {
-        itr->mHapStart0Idxs.emplace(alt_hap_idx, start_alt0);
+        RawVariant tmp_variant = mResultVariants.extract(msa_variant).value();
+        tmp_variant.mHapStart0Idxs.emplace(alt_hap_idx, start_alt0);
         // NOLINTNEXTLINE(readability-braces-around-statements)
-        if (!itr->mStrResult.mFoundStr) itr->mStrResult = FindStr(alt_sequence, start_alt0);
+        if (!tmp_variant.mStrResult.mFoundStr) tmp_variant.mStrResult = FindStr(alt_sequence, start_alt0);
+        mResultVariants.emplace(std::move(tmp_variant));
       }
     }
   }
