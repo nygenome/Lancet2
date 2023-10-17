@@ -88,6 +88,7 @@ class Graph {
   [[nodiscard]] auto IsPotentialBuddyEdge(const Node& src, const Edge& conn) const -> bool;
 
   void RemoveTips(usize component_id);
+  void RemoveShortLinks(usize component_id);
 
   struct RefAnchor {
     enum Kind : bool { SOURCE = true, SINK = false };
