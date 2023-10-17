@@ -39,7 +39,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   static constexpr f64 DEFAULT_PCT_NODES_NEEDED = 10.0;
 
   const auto reg_str = mRegion->ToSamtoolsRegion();
-  mCurrK = mParams.mMinKmerLen - 2;
+  mCurrK = mParams.mMinKmerLen - mParams.mKmerStepLen;
 
 IncrementKmerAndRetry:
   while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
