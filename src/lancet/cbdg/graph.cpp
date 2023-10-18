@@ -349,7 +349,7 @@ void Graph::RemoveShortLinks(const usize component_id) {
 
     const auto degree = item.second->NumOutEdges();
     const auto uniq_seq_len = item.second->SeqLength() - this->mCurrK + 1;
-    if (degree < 2 || uniq_seq_len >= 2 || item.second->TotalReadSupport() >= 2) {
+    if (degree < 2 || uniq_seq_len >= 1 || item.second->TotalReadSupport() >= 2) {
       return;
     }
 
