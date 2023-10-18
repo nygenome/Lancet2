@@ -176,7 +176,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-odds-ratio", fltr_prms.mMinOddsRatio, "Min. VAF odds in tumor vs normal")
       ->group("Filters")
       ->check(CLI::Range(MIN_TUMOR_VS_NORMAL_VAF_ODDS, MAX_TUMOR_VS_NORMAL_VAF_ODDS));
-  subcmd->add_option("--min-fisher", fltr_prms.mMinFisher, "Min. phred scaled fisher score")
+  subcmd->add_option("--min-snv-fisher", fltr_prms.mMinSnvFisher, "Min. phred scaled fisher score for SNVs")
+      ->group("Filters")
+      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
+  subcmd->add_option("--min-indel-fisher", fltr_prms.mMinInDelFisher, "Min. phred scaled fisher score for InDels")
       ->group("Filters")
       ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
   subcmd->add_option("--min-str-fisher", fltr_prms.mMinStrFisher, "Min. phred scaled fisher score for STRs")
