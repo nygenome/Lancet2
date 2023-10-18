@@ -207,12 +207,12 @@ auto VariantSet::HasNoFlankGaps(const Alignment &aln_view, const StartAndEnd &vr
 
   for (usize idx = start_idx; idx < vrange[0]; ++idx) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (ref_aln[idx] == alt_aln[idx]) return false;
+    if (ref_aln[idx] != alt_aln[idx]) return false;
   }
 
   for (usize idx = end_idx; idx > vrange[1]; --idx) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (ref_aln[idx] == alt_aln[idx]) return false;
+    if (ref_aln[idx] != alt_aln[idx]) return false;
   }
 
   return true;
