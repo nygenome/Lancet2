@@ -179,7 +179,7 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
 
       // Check to make sure that range_start doesn't go below start gaps
       // Ensure each variant range has atleast 3 matches on both flanks
-      if ((range_start >= start_gaps) && HasNoFlankGaps(aln_view, StartAndEnd{range_start, range_end})) {
+      if ((range_start >= start_gaps) && HasFlankMatches(aln_view, StartAndEnd{range_start, range_end})) {
         mismatch_ranges.emplace_back(StartAndEnd{range_start, range_end});
       }
 
@@ -194,7 +194,7 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
   return mismatch_ranges;
 }
 
-auto VariantSet::HasNoFlankGaps(const Alignment &aln_view, const StartAndEnd &vrange) -> bool {
+auto VariantSet::HasFlankMatches(const Alignment &aln_view, const StartAndEnd &vrange) -> bool {
   static constexpr usize MIN_FLANK_NON_GAPS = 3;
 
   const auto [ref_aln, alt_aln] = aln_view;
