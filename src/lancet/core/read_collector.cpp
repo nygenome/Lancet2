@@ -71,14 +71,12 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
   mSampleList = MakeSampleList(mParams);
   const auto no_ctgcheck = mParams.mNoCtgCheck;
 
-  const auto fields = mParams.mExtractPairs ? AUX_RGAUX : CIGAR_SEQ_QUAL;
-  const auto sam_tags = mParams.mExtractPairs ? std::vector<std::string>{"SA"} : std::vector<std::string>{};
-
+  const auto sam_tags = std::vector<std::string>{"SA", "AS", "XS"};
   static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
 
   for (const auto& sinfo : mSampleList) {
-    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, fields, sam_tags, no_ctgcheck);
+    auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, sam_tags, no_ctgcheck);
     mExtractors.emplace(sinfo, std::move(extractor));
   }
 }
@@ -206,7 +204,7 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
     using hts::Alignment::Fields::AUX_RGAUX;
     const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
-    hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, {"MD"}, params.mNoCtgCheck);
+    hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, {"MD", "AS", "XS"}, params.mNoCtgCheck);
     extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : extractor) {
@@ -287,11 +285,11 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
 }
 
 auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64 {
-  using hts::Alignment::Fields::CIGAR_SEQ_QUAL;
+  using hts::Alignment::Fields::AUX_RGAUX;
   const auto need_pairs = mParams.mExtractPairs;
   const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
 
-  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, CIGAR_SEQ_QUAL, {}, true);
+  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, {"AS", "XS"}, true);
   extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
   static const auto summer = [&need_tier2, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {
@@ -311,20 +309,21 @@ auto ReadCollector::FailsTier1Check(const hts::Alignment& aln) -> bool {
 
 auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
   static constexpr u8 DEFAULT_MIN_READ_MAP_QUAL = 20;
-  return aln.Flag().IsMapped() && aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL;
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  // if (aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL) return true;
+  if (aln.Flag().IsMapped() && aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL) {
+    return true;
+  }
 
   // AS: Alignment score
   // XS: Suboptimal alignment score
-  // static constexpr i64 DEFAULT_MIN_READ_AS_XS_DIFF = 5;
-  // if (aln.HasTag("AS") && aln.HasTag("XS")) {
-  //  const auto as_tag = aln.GetTag<i64>("AS").value();
-  //  const auto xs_tag = aln.GetTag<i64>("XS").value();
-  //  if (std::abs(as_tag - xs_tag) < DEFAULT_MIN_READ_AS_XS_DIFF) {
-  //    return true;
-  //  }
-  //}
+  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.1;
+  if (aln.HasTag("AS") && aln.HasTag("XS")) {
+    const auto as_tag = aln.GetTag<i64>("AS").value();
+    const auto xs_tag = aln.GetTag<i64>("XS").value();
+    const auto higher_ten_pct = static_cast<f64>(std::max(as_tag, xs_tag)) * DEFAULT_MIN_READ_AS_XS_PCT_DIFF;
+    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < higher_ten_pct) {
+      return true;
+    }
+  }
 
   // XT type: Unique/Repeat/N/Mate-sw
   // XT:A:M (one-mate recovered) means that one of the pairs is uniquely mapped and the other isn't
@@ -334,6 +333,8 @@ auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
   // MapQ is computed for the read pair. XT is determined from a single read.
   // XA -- BWA (Illumina): alternative hits; format: (chr,pos,CIGAR,NM;)
   // return aln.HasTag("XT") || aln.HasTag("XA");
+
+  return false;
 }
 
 auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleInfo> {
