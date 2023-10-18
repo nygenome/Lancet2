@@ -81,12 +81,14 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     }
 
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
+      using RawVariant::Type::SNV;
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
       if (odds_ratio < prms.mMinOddsRatio) current_filters.emplace_back("LowOddsRatio");
-      if (!is_str && fisher_score < prms.mMinFisher) current_filters.emplace_back("LowFisher");
       if (is_str && fisher_score < prms.mMinStrFisher) current_filters.emplace_back("LowStrFisher");
+      if (mCategory != SNV && fisher_score < prms.mMinInDelFisher) current_filters.emplace_back("LowIndelFisher");
+      if (mCategory == SNV && fisher_score < prms.mMinSnvFisher) current_filters.emplace_back("LowSnvFisher");
       // NOLINTEND(readability-braces-around-statements)
     }
 

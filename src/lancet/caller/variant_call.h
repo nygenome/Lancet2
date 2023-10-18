@@ -20,7 +20,8 @@ using VariantID = u64;
 
 class VariantCall {
  public:
-  static constexpr u32 DEFAULT_MIN_FISHER = 10;
+  static constexpr u32 DEFAULT_MIN_SNV_FISHER = 10;
+  static constexpr u32 DEFAULT_MIN_INDEL_FISHER = 20;
   static constexpr u32 DEFAULT_MIN_STR_FISHER = 30;
   static constexpr f64 DEFAULT_MIN_ODDS_RATIO = 10.0;
 
@@ -28,7 +29,8 @@ class VariantCall {
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 20;
 
   struct Params {
-    u32 mMinFisher = DEFAULT_MIN_FISHER;
+    u32 mMinSnvFisher = DEFAULT_MIN_SNV_FISHER;
+    u32 mMinInDelFisher = DEFAULT_MIN_INDEL_FISHER;
     u32 mMinStrFisher = DEFAULT_MIN_STR_FISHER;
     f64 mMinOddsRatio = DEFAULT_MIN_ODDS_RATIO;
 

@@ -195,15 +195,15 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
 }
 
 auto VariantSet::HasFlankMatches(const Alignment &aln_view, const StartAndEnd &vrange) -> bool {
-  static constexpr usize MIN_FLANK_NON_GAPS = 3;
+  static constexpr usize MIN_FLANK_MATCHES = 3;
 
   const auto [ref_aln, alt_aln] = aln_view;
   const auto aln_size = ref_aln.size();
   LANCET_ASSERT(ref_aln.size() == aln_size)
   LANCET_ASSERT(alt_aln.size() == aln_size)
 
-  const auto start_idx = vrange[0] >= MIN_FLANK_NON_GAPS ? vrange[0] - MIN_FLANK_NON_GAPS : 0;
-  const auto end_idx = (vrange[1] + MIN_FLANK_NON_GAPS) <= aln_size ? vrange[1] + MIN_FLANK_NON_GAPS : aln_size;
+  const auto start_idx = vrange[0] >= MIN_FLANK_MATCHES ? vrange[0] - MIN_FLANK_MATCHES : 0;
+  const auto end_idx = (vrange[1] + MIN_FLANK_MATCHES) <= aln_size ? vrange[1] + MIN_FLANK_MATCHES : aln_size;
 
   for (usize idx = start_idx; idx < vrange[0]; ++idx) {
     // NOLINTNEXTLINE(readability-braces-around-statements)

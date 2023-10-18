@@ -274,7 +274,8 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
 ##FILTER=<ID=StrandBias,Description="ALT allele is not present on both forward and reverse strands">
 ##FILTER=<ID=LowOddsRatio,Description="ALT frequency ratio in tumor vs normal is less than {MIN_ODDS_RATIO}">
-##FILTER=<ID=LowFisher,Description="Phred-scaled somatic fisher score is less than {MIN_FISHER}">
+##FILTER=<ID=LowSnvFisher,Description="Phred-scaled somatic fisher score is less than {MIN_SNV_FISHER}">
+##FILTER=<ID=LowIndelFisher,Description="Phred-scaled somatic fisher score for InDels is less than {MIN_INDEL_FISHER}">
 ##FILTER=<ID=LowStrFisher,Description="Phred-scaled somatic fisher score for STRs score is less than {MIN_STR_FISHER}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
@@ -316,7 +317,8 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       fmt::arg("MIN_NML_COV", params.mVariantBuilder.mVariantParams.mMinNmlCov),
       fmt::arg("MIN_TMR_COV", params.mVariantBuilder.mVariantParams.mMinTmrCov),
       fmt::arg("MIN_ODDS_RATIO", params.mVariantBuilder.mVariantParams.mMinOddsRatio),
-      fmt::arg("MIN_FISHER", params.mVariantBuilder.mVariantParams.mMinFisher),
+      fmt::arg("MIN_SNV_FISHER", params.mVariantBuilder.mVariantParams.mMinSnvFisher),
+      fmt::arg("MIN_INDEL_FISHER", params.mVariantBuilder.mVariantParams.mMinInDelFisher),
       fmt::arg("MIN_STR_FISHER", params.mVariantBuilder.mVariantParams.mMinStrFisher));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
