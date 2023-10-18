@@ -315,7 +315,7 @@ auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
 
   // AS: Alignment score
   // XS: Suboptimal alignment score
-  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.3;
+  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.1;
   if (aln.HasTag("AS") && aln.HasTag("XS")) {
     const auto as_tag = aln.GetTag<i64>("AS").value();
     const auto xs_tag = aln.GetTag<i64>("XS").value();

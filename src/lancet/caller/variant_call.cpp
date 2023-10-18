@@ -74,7 +74,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     current_filters.clear();
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      const auto max_nml_vaf = is_str ? 0.01 : 0.1;
+      const auto max_nml_vaf = is_str ? 0.01 : prms.mMaxNmlVaf;
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
       if (!germline_mode && alt_frequency > max_nml_vaf) current_filters.emplace_back("HighNmlVaf");
