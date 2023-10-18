@@ -219,7 +219,7 @@ auto VariantSet::HasFlankMatches(const Alignment &aln_view, const StartAndEnd &v
 }
 
 auto VariantSet::CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap {
-  static constexpr usize MIN_ENDS_GOOD_MATCH = 5;
+  static constexpr usize MIN_ENDS_GOOD_MATCH = 11;
 
   static const auto skips_before_good_start = [](const usize prev_skips, const std::string_view aln) -> usize {
     usize curr_skips = 0;
