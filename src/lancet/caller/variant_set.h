@@ -47,7 +47,7 @@ class VariantSet {
   using VarRanges = std::vector<StartAndEnd>;
   using Alignment = std::array<std::string_view, 2>;
   [[nodiscard]] static auto FindVariationRanges(const Alignment& aln_view, const EndsGap& gap_counts) -> VarRanges;
-  [[nodiscard]] static auto HasNoFlankGaps(const Alignment& aln_view, const StartAndEnd& vrange) -> bool;
+  [[nodiscard]] static auto HasFlankMatches(const Alignment& aln_view, const StartAndEnd& vrange) -> bool;
   [[nodiscard]] static auto CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap;
 };
 
