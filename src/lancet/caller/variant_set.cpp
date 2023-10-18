@@ -178,8 +178,8 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
       }
 
       // Check to make sure that range_start doesn't go below start gaps
-      // Ensure each variant range has atleast 11 matches on both flanks
-      if ((range_start >= start_gaps) && HasFlankMatches(aln_view, StartAndEnd{range_start, range_end})) {
+      // Ensure each variant range has atleast 11 non-gaps on both flanks
+      if ((range_start >= start_gaps) && HasNoFlankGaps(aln_view, StartAndEnd{range_start, range_end})) {
         mismatch_ranges.emplace_back(StartAndEnd{range_start, range_end});
       }
 
@@ -194,25 +194,25 @@ auto VariantSet::FindVariationRanges(const Alignment &aln_view, const EndsGap &g
   return mismatch_ranges;
 }
 
-auto VariantSet::HasFlankMatches(const Alignment &aln_view, const StartAndEnd &vrange) -> bool {
-  static constexpr usize MIN_FLANK_GOOD_MATCH = 5;
+auto VariantSet::HasNoFlankGaps(const Alignment &aln_view, const StartAndEnd &vrange) -> bool {
+  static constexpr usize MIN_FLANK_NON_GAPS = 11;
 
   const auto [ref_aln, alt_aln] = aln_view;
   const auto aln_size = ref_aln.size();
   LANCET_ASSERT(ref_aln.size() == aln_size)
   LANCET_ASSERT(alt_aln.size() == aln_size)
 
-  const auto start_idx = vrange[0] >= MIN_FLANK_GOOD_MATCH ? vrange[0] - MIN_FLANK_GOOD_MATCH : 0;
-  const auto end_idx = (vrange[1] + MIN_FLANK_GOOD_MATCH) <= aln_size ? vrange[1] + MIN_FLANK_GOOD_MATCH : aln_size;
+  const auto start_idx = vrange[0] >= MIN_FLANK_NON_GAPS ? vrange[0] - MIN_FLANK_NON_GAPS : 0;
+  const auto end_idx = (vrange[1] + MIN_FLANK_NON_GAPS) <= aln_size ? vrange[1] + MIN_FLANK_NON_GAPS : aln_size;
 
   for (usize idx = start_idx; idx < vrange[0]; ++idx) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (ref_aln[idx] != alt_aln[idx]) return false;
+    if ((ref_aln[idx] == ALN_GAP) || (alt_aln[idx] == ALN_GAP)) return false;
   }
 
   for (usize idx = end_idx; idx > vrange[1]; --idx) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (ref_aln[idx] != alt_aln[idx]) return false;
+    if ((ref_aln[idx] == ALN_GAP) || (alt_aln[idx] == ALN_GAP)) return false;
   }
 
   return true;
