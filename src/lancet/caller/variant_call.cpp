@@ -74,19 +74,19 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     current_filters.clear();
 
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      const auto max_nml_vaf = is_str ? 0.01 : prms.mMaxNmlVaf;
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
-      if (!germline_mode && alt_frequency > max_nml_vaf) current_filters.emplace_back("HighNmlVaf");
+      if (!germline_mode && alt_frequency > prms.mMaxNmlVaf) current_filters.emplace_back("HighNmlVaf");
       if (germline_mode && genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
       // NOLINTEND(readability-braces-around-statements)
     }
 
     if (sinfo.TagKind() == cbdg::Label::TUMOR) {
+      const auto min_odds_ratio = is_str ? 20.0 : prms.mMinOddsRatio;
       // NOLINTBEGIN(readability-braces-around-statements)
       if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
       if (genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
-      if (odds_ratio < prms.mMinOddsRatio) current_filters.emplace_back("LowOddsRatio");
+      if (odds_ratio < min_odds_ratio) current_filters.emplace_back("LowOddsRatio");
       if (!is_str && fisher_score < prms.mMinFisher) current_filters.emplace_back("LowFisher");
       if (is_str && fisher_score < prms.mMinStrFisher) current_filters.emplace_back("LowStrFisher");
       // NOLINTEND(readability-braces-around-statements)
