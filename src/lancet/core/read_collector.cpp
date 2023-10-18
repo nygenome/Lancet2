@@ -315,12 +315,12 @@ auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
 
   // AS: Alignment score
   // XS: Suboptimal alignment score
-  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.05;
+  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.01;
   if (aln.HasTag("AS") && aln.HasTag("XS")) {
     const auto as_tag = aln.GetTag<i64>("AS").value();
     const auto xs_tag = aln.GetTag<i64>("XS").value();
     const auto higher_ten_pct = static_cast<f64>(std::max(as_tag, xs_tag)) * DEFAULT_MIN_READ_AS_XS_PCT_DIFF;
-    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < higher_ten_pct) {
+    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < std::ceil(higher_ten_pct)) {
       return true;
     }
   }
