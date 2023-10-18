@@ -24,7 +24,6 @@ class VariantCall {
   static constexpr u32 DEFAULT_MIN_STR_FISHER = 30;
   static constexpr f64 DEFAULT_MIN_ODDS_RATIO = 10.0;
 
-  static constexpr f64 DEFAULT_MAX_NML_VAF = 0.10;
   static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
   static constexpr u32 DEFAULT_MIN_NORMAL_COV = 20;
 
@@ -33,7 +32,6 @@ class VariantCall {
     u32 mMinStrFisher = DEFAULT_MIN_STR_FISHER;
     f64 mMinOddsRatio = DEFAULT_MIN_ODDS_RATIO;
 
-    f64 mMaxNmlVaf = DEFAULT_MAX_NML_VAF;
     u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
     u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
   };

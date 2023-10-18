@@ -173,10 +173,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")
       ->group("Filters")
       ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_TUMOR_COV, std::numeric_limits<u32>::max()));
-  subcmd->add_option("--max-nml-vaf", fltr_prms.mMaxNmlVaf, "Max. ALT frequency in normal")
-      ->group("Filters")
-      ->check(CLI::Range(0.0, 1.0));
-  subcmd->add_option("--min-odds-ratio", fltr_prms.mMinOddsRatio, "Min. VAF odds of tumor vs normal")
+  subcmd->add_option("--min-odds-ratio", fltr_prms.mMinOddsRatio, "Min. VAF odds in tumor vs normal")
       ->group("Filters")
       ->check(CLI::Range(MIN_TUMOR_VS_NORMAL_VAF_ODDS, MAX_TUMOR_VS_NORMAL_VAF_ODDS));
   subcmd->add_option("--min-fisher", fltr_prms.mMinFisher, "Min. phred scaled fisher score")
