@@ -183,28 +183,29 @@ auto Genotyper::AlnInfo::FindIdentityRanges() const -> RefQryIdentityRanges {
 
 auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
                                         const StartEndIndices& allele_span) const -> std::optional<usize> {
-  // First, find if the variant allele range is contained within any of the ref/haplotype match ranges
-  // Second, check if 100% of the qry is contained within the variant allele i.e variant longer than read
-  // If either of these two scenarios happen, we return the start idx in read which supports variant
-
   const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
   const auto [var_allele_start, var_allele_end] = allele_span;
+  const auto one_third_read_length = static_cast<usize>(0.30 * f64(mQryLen));
   LANCET_ASSERT(hap_identity_ranges.size() == read_identity_ranges.size())
 
   for (usize idx = 0; idx < hap_identity_ranges.size(); ++idx) {
     const auto [aln_hap_match_start, aln_hap_match_end] = hap_identity_ranges[idx];
     const auto [read_match_start, read_match_end] = read_identity_ranges[idx];
-    // Check if alignment has exact match with variant allele within it
+
+    // For genotyping small variant alleles, where variant is within read matches
+    // Check if variant allele is contained within the alignment match span
     if (aln_hap_match_start < var_allele_start && aln_hap_match_end > var_allele_end) {
       const auto allele_to_hap_match_start_diff = var_allele_start - aln_hap_match_start;
       return read_match_start + allele_to_hap_match_start_diff;
     }
 
-    // Check if 100% of alignment length is contained within variant allele span
-    // This will only happen if variant is longer than the read length itself
-    const auto full_read_match = (read_match_end - read_match_start) == mQryLen && mGcIden == 1.0;
-    if (full_read_match && var_allele_start <= aln_hap_match_start && var_allele_end >= aln_hap_match_end) {
-      return read_identity_ranges[idx][0];
+    // For genotyping longer variant alleles, where read matches are within variant
+    // Check if atleast 30% of the read matches the haplotype sequence exactly and
+    // the entire match portion of the read lies within the variant allele span
+    // This will usually only happen for long alleles or greater then read length.
+    const auto partial_read_hap_match = (read_match_end - read_match_start) >= one_third_read_length;
+    if (partial_read_hap_match && var_allele_start <= aln_hap_match_start && var_allele_end >= aln_hap_match_end) {
+      return read_match_start;
     }
   }
 
