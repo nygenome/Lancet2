@@ -1,6 +1,70 @@
 
+<a name="v2.4.0"></a>
+## [v2.4.0](https://github.com/nygenome/Lancet2/compare/v2.3.0...v2.4.0) (2023-10-19)
+
+### Bug Fixes
+
+* update vcf header text
+* simplify and remove max normal filter
+* resolve typo in if statement
+* reduce flank to 3 exact match
+* remove str specific filter
+* check for non gap alignment of flanks instead of match
+* reduce AS/XS diff to 1 percent
+* reduce AS/XS diff to 5 percent
+* reduce AS/XS diff to 10 percent
+* increase min difference between AS and XS
+* use same value for ends and flank match
+* revert back remove short link
+* reduce min uniq seq len before trim links
+* resolve bug which fails to compile with latest btree
+* resolve bug in pre loop value
+* increment kmer len by cli step len value
+* re-run docs action on change in config
+
+### Maintenance/Refactoring
+
+* rename function
+* set ends non gap len to 11
+* revert back run config
+* update deps
+* rename actions config
+* remove and re-add yml to debug
+* Update github-action-deploy.yml
+* add styles.module.css
+* Add back index.module.css
+* Add docker info to README
+* auto-use git tag version
+
+### New Features
+
+* genotype insertions where read is not fully contained
+* change default kmer min, max and step
+* add indel specific fisher score threshold
+* add strict normal vaf filter for STRs
+* double min odds ratio for str variants
+* use 1% nml vaf threshold in STR
+* add AS/XS filter with 10% difference threshold
+* add flank match check to improve precision
+* add back short link removal with very lenient params
+* add back AS-XS, XT/XA tag read filters
+* add kmer step size cli flag
+
+### Reverts
+
+* feat: add back AS-XS, XT/XA tag read filters
+
+### Pull Requests
+
+* Merge pull request [#8](https://github.com/nygenome/Lancet2/issues/8) from nygenome/web_docs
+
+
 <a name="v2.3.0"></a>
 ## [v2.3.0](https://github.com/nygenome/Lancet2/compare/v2.2.0...v2.3.0) (2023-08-30)
+
+### Maintenance/Refactoring
+
+* Bump version to v2.3.0
 
 ### Performance Improvements
 
