@@ -31,15 +31,15 @@ class Graph {
   using RegionPtr = std::shared_ptr<const hts::Reference::Region>;
   using ReadList = absl::Span<const Read>;
 
-  static constexpr usize DEFAULT_MIN_KMER_LEN = 11;
-  static constexpr usize DEFAULT_MAX_KMER_LEN = 101;
+  static constexpr usize DEFAULT_MIN_KMER_LEN = 31;
+  static constexpr usize DEFAULT_MAX_KMER_LEN = 133;
   static constexpr usize MAX_ALLOWED_KMER_LEN = 255;
 
   static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
   static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 5;
   static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1e6;
 
-  static constexpr u16 DEFAULT_KMER_STEP_LEN = 2;
+  static constexpr u16 DEFAULT_KMER_STEP_LEN = 4;
 
   struct Params {
     std::filesystem::path mOutGraphsDir;
@@ -88,7 +88,6 @@ class Graph {
   [[nodiscard]] auto IsPotentialBuddyEdge(const Node& src, const Edge& conn) const -> bool;
 
   void RemoveTips(usize component_id);
-  void RemoveShortLinks(usize component_id);
 
   struct RefAnchor {
     enum Kind : bool { SOURCE = true, SINK = false };
