@@ -261,10 +261,14 @@ auto Genotyper::AlnInfo::FindNonIndelChunks() const -> NonIndelChunks {
                                             StartEndIndices{curr_qry_idx, curr_qry_idx}};
     }
 
-    // Only INSERTION possible
-    curr_qry_idx += len;
+    if (cig_op == hts::CigarOp::INSERTION) {
+      curr_qry_idx += len;
+      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx, curr_ref_idx},
+                                            StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
+    }
+
     return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx, curr_ref_idx},
-                                          StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
+                                          StartEndIndices{curr_qry_idx, curr_qry_idx}};
   };
 
   for (usize idx = 0; idx < cig_ops.size(); ++idx) {
