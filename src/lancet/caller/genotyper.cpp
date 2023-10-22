@@ -8,6 +8,7 @@
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
+#include "lancet/hts/cigar_unit.h"
 #include "mmpriv.h"
 
 namespace {
@@ -89,7 +90,8 @@ auto Genotyper::AlnInfo::IsFullQueryMatch() const noexcept -> bool {
 
 void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const VariantSet& called_variants) const {
   const auto curr_allele = mHapIdx == REF_HAP_IDX ? Allele::REF : Allele::ALT;
-  const auto hap_and_rd_identity_ranges = FindIdentityRanges();
+  const auto identity_ranges = FindIdentityRanges();
+  const auto non_indel_chunks = FindNonIndelChunks();
 
   for (const auto& variant : called_variants) {
     // If read has already been counted as support for this variant as support
@@ -99,8 +101,8 @@ void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const Variant
 
     const auto al_start = variant.mHapStart0Idxs.at(mHapIdx);
     const auto al_len = std::max(variant.mRefAllele.length(), variant.mAltAllele.length());
-    const auto allele_range = StartEndIndices({al_start, al_start + al_len - 1});
-    const auto rd_start_idx_supporting_allele = FindQueryStart(hap_and_rd_identity_ranges, allele_range);
+    const auto al_range = StartEndIndices({al_start, al_start + al_len - 1});
+    const auto rd_start_idx_supporting_allele = FindQueryStartForAllele(identity_ranges, non_indel_chunks, al_range);
     if (rd_start_idx_supporting_allele) {
       auto qstart_strand = std::make_pair(rd_start_idx_supporting_allele.value(), curr_allele);
       supports.emplace(&variant, std::move(qstart_strand));
@@ -181,8 +183,124 @@ auto Genotyper::AlnInfo::FindIdentityRanges() const -> RefQryIdentityRanges {
   return RefQryIdentityRanges({ref_iden_ranges, qry_iden_ranges});
 }
 
-auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
-                                        const StartEndIndices& allele_span) const -> std::optional<usize> {
+auto Genotyper::AlnInfo::FindNonIndelChunks() const -> NonIndelChunks {
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (mCsTag.empty()) return NonIndelChunks{};
+
+  NonIndelChunks result_chunks;
+  result_chunks.reserve(mCsTag.length());
+
+  // Example CS Tag --> `:6-ata:10+gtc:4*at:3`
+  // IDENTITY = ':', MISMATCH = '*', INSERTION = '+', DELETION = '-'
+  usize parsed_number = 0;
+  std::string op_len_data;
+  std::vector<hts::CigarOp> cig_ops;
+  std::vector<usize> cig_lens;
+
+  const auto parse_operation_length = [&op_len_data, &parsed_number, &cig_lens]() {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (op_len_data.empty()) return;
+
+    if (absl::SimpleAtoi(op_len_data, &parsed_number)) {
+      cig_lens.push_back(parsed_number);
+    } else {
+      cig_lens.push_back(op_len_data.length());
+    }
+  };
+
+  for (const char token : mCsTag) {
+    switch (token) {
+      case ':':
+        parse_operation_length();
+        cig_ops.emplace_back(hts::CigarOp::ALIGNMENT_MATCH);
+        op_len_data.clear();
+        break;
+
+      case '-':
+        parse_operation_length();
+        cig_ops.emplace_back(hts::CigarOp::DELETION);
+        op_len_data.clear();
+        break;
+
+      case '+':
+        parse_operation_length();
+        cig_ops.emplace_back(hts::CigarOp::INSERTION);
+        op_len_data.clear();
+        break;
+
+      case '*':
+        parse_operation_length();
+        cig_ops.emplace_back(hts::CigarOp::SEQUENCE_MISMATCH);
+        op_len_data.clear();
+        break;
+
+      default:
+        op_len_data.push_back(token);
+        break;
+    }
+  }
+
+  // Parse the last operation length
+  parse_operation_length();
+
+  auto curr_ref_idx = static_cast<usize>(mRefStart);
+  auto curr_qry_idx = static_cast<usize>(mQryStart);
+  LANCET_ASSERT(cig_ops.size() == cig_lens.size())
+
+  const auto update_ref_qry_idxs = [&curr_ref_idx, &curr_qry_idx](const hts::CigarOp cig_op, const usize len) {
+    if (cig_op == hts::CigarOp::ALIGNMENT_MATCH || cig_op == hts::CigarOp::SEQUENCE_MISMATCH) {
+      curr_ref_idx += len;
+      curr_qry_idx += len;
+      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx - len, curr_ref_idx},
+                                            StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
+    }
+
+    if (cig_op == hts::CigarOp::DELETION) {
+      curr_ref_idx += len;
+      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx - len, curr_ref_idx},
+                                            StartEndIndices{curr_qry_idx, curr_qry_idx}};
+    }
+
+    if (cig_op == hts::CigarOp::INSERTION) {
+      curr_qry_idx += len;
+      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx, curr_ref_idx},
+                                            StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
+    }
+  };
+
+  for (usize idx = 0; idx < cig_ops.size(); ++idx) {
+    // Skip adding indel chunks to the result chunks
+    if (cig_ops[idx] == hts::CigarOp::INSERTION || cig_ops[idx] == hts::CigarOp::DELETION) {
+      update_ref_qry_idxs(cig_ops[idx], cig_lens[idx]);
+      continue;
+    }
+
+    const auto is_match = cig_ops[idx] == hts::CigarOp::ALIGNMENT_MATCH;
+    const auto [ref_range, qry_range] = update_ref_qry_idxs(cig_ops[idx], cig_lens[idx]);
+
+    if (result_chunks.empty()) {
+      result_chunks.emplace_back(RefQryAlnChunk{ref_range, qry_range, is_match ? cig_lens[idx] : 0});
+      continue;
+    }
+
+    // If previous operation is non indel, then add to previous existing chunk, instead of creating a new one
+    if (cig_ops[idx - 1] == hts::CigarOp::ALIGNMENT_MATCH || cig_ops[idx - 1] == hts::CigarOp::SEQUENCE_MISMATCH) {
+      result_chunks.back().mRefRange[1] = ref_range[1];
+      result_chunks.back().mQryRange[1] = qry_range[1];
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (is_match) result_chunks.back().mNumExactMatches += cig_lens[idx];
+      continue;
+    }
+
+    result_chunks.emplace_back(RefQryAlnChunk{ref_range, qry_range, is_match ? cig_lens[idx] : 0});
+  }
+
+  return result_chunks;
+}
+
+auto Genotyper::AlnInfo::FindQueryStartForAllele(const RefQryIdentityRanges& ref_qry_equal_ranges,
+                                                 const NonIndelChunks& ref_qry_non_indel_ranges,
+                                                 const StartEndIndices& allele_span) const -> std::optional<usize> {
   const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
   const auto [var_allele_start, var_allele_end] = allele_span;
   const auto one_third_read_length = static_cast<usize>(0.30 * f64(mQryLen));
@@ -206,6 +324,35 @@ auto Genotyper::AlnInfo::FindQueryStart(const RefQryIdentityRanges& ref_qry_equa
     const auto partial_read_hap_match = (read_match_end - read_match_start) >= one_third_read_length;
     if (partial_read_hap_match && var_allele_start <= aln_hap_match_start && var_allele_end >= aln_hap_match_end) {
       return read_match_start;
+    }
+  }
+
+  static constexpr usize LONG_ALLELE_THRESHOLD = 50;
+  static constexpr f64 MIN_REQUIRED_MATCH_PERCENT = 0.9;
+  const auto var_length = var_allele_end - var_allele_start + 1;
+
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (var_length < LONG_ALLELE_THRESHOLD) return std::nullopt;
+
+  // If long allele, allow fuzzy comparison of read & allele. i.e Match & Mismatch
+  const auto min_needed_matches = static_cast<usize>(static_cast<f64>(var_length) * MIN_REQUIRED_MATCH_PERCENT);
+
+  for (const auto& non_indel_chunk : ref_qry_non_indel_ranges) {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (non_indel_chunk.mNumExactMatches < min_needed_matches) continue;
+
+    const auto [aln_hap_non_indel_start, aln_hap_non_indel_end] = non_indel_chunk.mRefRange;
+    const auto [read_non_indel_start, read_non_indel_end] = non_indel_chunk.mQryRange;
+
+    // Check if variant allele is contained within the alignment non indel span
+    if (aln_hap_non_indel_start < var_allele_start && aln_hap_non_indel_end > var_allele_end) {
+      const auto allele_to_hap_non_indel_start_diff = var_allele_start - aln_hap_non_indel_start;
+      return read_non_indel_start + allele_to_hap_non_indel_start_diff;
+    }
+
+    // Check if alignment non indel span is contained within variant allele
+    if (var_allele_start <= aln_hap_non_indel_start && var_allele_end >= aln_hap_non_indel_end) {
+      return read_non_indel_start;
     }
   }
 

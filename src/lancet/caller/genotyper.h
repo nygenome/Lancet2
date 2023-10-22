@@ -56,12 +56,23 @@ class Genotyper {
 
    private:
     using StartEndIndices = std::array<usize, 2>;
-    using IdentityRanges = std::vector<StartEndIndices>;
-    using RefQryIdentityRanges = std::array<IdentityRanges, 2>;
+    using IntervalRanges = std::vector<StartEndIndices>;
 
+    struct RefQryAlnChunk {
+      StartEndIndices mRefRange = {0, 0};
+      StartEndIndices mQryRange = {0, 0};
+      usize mNumExactMatches = 0;
+    };
+
+    using RefQryIdentityRanges = std::array<IntervalRanges, 2>;
     [[nodiscard]] auto FindIdentityRanges() const -> RefQryIdentityRanges;
-    [[nodiscard]] auto FindQueryStart(const RefQryIdentityRanges& ref_qry_equal_ranges,
-                                      const StartEndIndices& allele_span) const -> std::optional<usize>;
+
+    using NonIndelChunks = std::vector<RefQryAlnChunk>;
+    [[nodiscard]] auto FindNonIndelChunks() const -> NonIndelChunks;
+
+    [[nodiscard]] auto FindQueryStartForAllele(const RefQryIdentityRanges& ref_qry_equal_ranges,
+                                               const NonIndelChunks& ref_qry_non_indel_ranges,
+                                               const StartEndIndices& allele_span) const -> std::optional<usize>;
   };
 
  private:
