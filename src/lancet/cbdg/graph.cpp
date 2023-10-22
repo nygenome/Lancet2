@@ -42,7 +42,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   mCurrK = mParams.mMinKmerLen - mParams.mKmerStepLen;
 
 IncrementKmerAndRetry:
-  while (per_comp_haplotypes.empty() && mCurrK < mParams.mMaxKmerLen) {
+  while (per_comp_haplotypes.empty() && (mCurrK + mParams.mKmerStepLen) <= mParams.mMaxKmerLen) {
     mCurrK += mParams.mKmerStepLen;
     timer.Reset();
     mSourceAndSinkIds = {0, 0};
