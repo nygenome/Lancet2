@@ -1,4 +1,23 @@
 
+<a name="v2.5.0"></a>
+## [v2.5.0](https://github.com/nygenome/Lancet2/compare/v2.4.0...v2.5.0) (2023-10-23)
+
+### Bug Fixes
+
+* reserve vector length before use
+* return untouched ref and qry
+* resolve typo in logic
+
+### Maintenance/Refactoring
+
+* ensure we don't go over max kmer len
+* update deps
+
+### New Features
+
+* add fuzzy matching for genotyping long indels
+
+
 <a name="v2.4.0"></a>
 ## [v2.4.0](https://github.com/nygenome/Lancet2/compare/v2.3.0...v2.4.0) (2023-10-19)
 
@@ -24,6 +43,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.4.0
 * rename function
 * set ends non gap len to 11
 * revert back run config
