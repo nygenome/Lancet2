@@ -196,6 +196,8 @@ auto Genotyper::AlnInfo::FindNonIndelChunks() const -> NonIndelChunks {
   std::string op_len_data;
   std::vector<hts::CigarOp> cig_ops;
   std::vector<usize> cig_lens;
+  cig_ops.reserve(mCsTag.length());
+  cig_lens.reserve(mCsTag.length());
 
   const auto parse_operation_length = [&op_len_data, &parsed_number, &cig_lens]() {
     // NOLINTNEXTLINE(readability-braces-around-statements)
