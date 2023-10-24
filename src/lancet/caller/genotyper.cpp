@@ -342,8 +342,10 @@ auto Genotyper::AlnInfo::FindQueryStartForAllele(const RefQryIdentityRanges& ref
 
   for (const auto& non_indel_chunk : ref_qry_non_indel_ranges) {
     const auto chunk_len = static_cast<f64>(non_indel_chunk.mQryRange[1] - non_indel_chunk.mQryRange[0] + 1);
-    const auto min_needed_matches = static_cast<usize>(chunk_len * MIN_REQUIRED_MATCH_PERCENT);
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (chunk_len < static_cast<f64>(one_third_read_length)) continue;
 
+    const auto min_needed_matches = static_cast<usize>(std::ceil(chunk_len * MIN_REQUIRED_MATCH_PERCENT));
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (non_indel_chunk.mNumExactMatches < min_needed_matches) continue;
 
