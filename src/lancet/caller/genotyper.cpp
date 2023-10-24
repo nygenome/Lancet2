@@ -339,8 +339,9 @@ auto Genotyper::AlnInfo::FindQueryStartForAllele(const RefQryIdentityRanges& ref
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (var_length < LONG_ALLELE_THRESHOLD) return std::nullopt;
 
-  // If long allele, allow fuzzy comparison of read & allele. i.e Match & Mismatch
-  const auto min_needed_matches = static_cast<usize>(static_cast<f64>(var_length) * MIN_REQUIRED_MATCH_PERCENT);
+  // If long allele, allow fuzzy comparison of read & allele. i.e Match & Mismatch. upto 10% of aligned mismatches
+  const auto min_var_read = std::min(var_length, mQryLen);
+  const auto min_needed_matches = static_cast<usize>(static_cast<f64>(min_var_read) * MIN_REQUIRED_MATCH_PERCENT);
 
   for (const auto& non_indel_chunk : ref_qry_non_indel_ranges) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
