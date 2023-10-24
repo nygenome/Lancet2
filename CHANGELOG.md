@@ -1,4 +1,18 @@
 
+<a name="v2.6.0"></a>
+## [v2.6.0](https://github.com/nygenome/Lancet2/compare/v2.5.0...v2.6.0) (2023-10-24)
+
+### Bug Fixes
+
+* ensure min chunk length for fuzzy matching
+* use 90% of chunk length for fuzzy match cutoff
+* count longer indels better with using min of var and read len
+
+### Maintenance/Refactoring
+
+* remove extra commands in version extract
+
+
 <a name="v2.5.0"></a>
 ## [v2.5.0](https://github.com/nygenome/Lancet2/compare/v2.4.0...v2.5.0) (2023-10-23)
 
@@ -10,6 +24,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.5.0
 * ensure we don't go over max kmer len
 * update deps
 
