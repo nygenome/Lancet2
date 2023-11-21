@@ -9,7 +9,7 @@
     </inspection_tool>
     <inspection_tool class="ClangTidy" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
       <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES">
-        <option name="clangTidyChecks" value="-*,abseil-*,bugprone-*,cert-*,cppcoreguidelines-*,modernize-*,performance-*,llvm-include-order,llvm-namespace-comment,misc-*,-misc-misleading-bidirectional,-misc-no-recursion,readability-*,-readability-function-cognitive-complexity" />
+        <option name="clangTidyChecks" value="-*,abseil-*,cert-*,llvm-include-order,llvm-namespace-comment,bugprone-*,cppcoreguidelines-*,misc-*,modernize-*,performance-*,readability-*" />
       </scope>
       <option name="clangTidyChecks" value="-*,abseil-*,bugprone-*,cert-*,cppcoreguidelines-*,modernize-*,performance-*,readability-*,llvm-header-guard,llvm-include-order,llvm-namespace-comment,misc-*,-misc-unused-parameters,-misc-unused-alias-decls,-misc-misleading-identifier,-misc-unused-using-decls,-misc-misleading-bidirectional,-misc-static-assert,-misc-non-private-member-variables-in-classes" />
     </inspection_tool>
