@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 0378614 SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG db5c799 SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -62,11 +62,11 @@ if (NOT concurrentqueue_POPULATED)
 endif ()
 
 set(ROARING_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/roaring")
-set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v1.3.0")
+set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v2.0.4")
 file(MAKE_DIRECTORY "${ROARING_ROOT}")
-file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "a9440ccdb38715aac83fca86dc4809d0")
-file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "fe2b2d24d80c4df5f8dfdf6138564426")
-file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "b141f2f268d067e522eed161f480c714")
+file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "989e3bc22b0ae4cb76bd5ae95d4518e3")
+file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "23ee576a75a99592ca81fbd95100f6b8")
+file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "468a55d4ee267b74637872e7ef20165e")
 add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
 target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
 
@@ -133,7 +133,7 @@ ExternalProject_Add(gperftools
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
 
 set(spoa_optimize_for_native OFF)
-FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 1ab9ab0 SYSTEM)
+FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG fd3a5c5 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
 FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.83.0 SYSTEM)
