@@ -1,4 +1,16 @@
 
+<a name="v2.7.0"></a>
+## [v2.7.0](https://github.com/nygenome/Lancet2/compare/v2.6.0...v2.7.0) (2023-11-22)
+
+### Bug Fixes
+
+* make downsampling more predictable
+
+### Maintenance/Refactoring
+
+* update deps
+
+
 <a name="v2.6.0"></a>
 ## [v2.6.0](https://github.com/nygenome/Lancet2/compare/v2.5.0...v2.6.0) (2023-10-24)
 
@@ -10,6 +22,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.6.0
 * remove extra commands in version extract
 
 
