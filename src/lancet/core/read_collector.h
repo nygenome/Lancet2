@@ -10,7 +10,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
-#include "lancet/base/downsampler.h"
 #include "lancet/base/hash.h"
 #include "lancet/base/types.h"
 #include "lancet/cbdg/read.h"
@@ -62,11 +61,8 @@ class ReadCollector {
 
   Params mParams;
   bool mIsGermlineMode;
-  Downsampler mDownsampler;
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
-
-  [[nodiscard]] auto EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64;
 
   [[nodiscard]] static auto FailsTier1Check(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto FailsTier2Check(const hts::Alignment& aln) -> bool;
