@@ -59,11 +59,11 @@ include(cmake/cpu_family.cmake)
 include(cmake/defaults.cmake)
 include(cmake/dependencies.cmake)
 
-add_library(lancet_base STATIC src/lancet/base/version.h
+add_library(lancet_base STATIC
+		src/lancet/base/version.h src/lancet/base/timer.h
 		src/lancet/base/types.h src/lancet/base/assert.h
 		src/lancet/base/logging.h src/lancet/base/rev_comp.h
 		src/lancet/base/compute_stats.h src/lancet/base/sliding.h
-		src/lancet/base/downsampler.h src/lancet/base/timer.h
 		src/lancet/base/hash.cpp src/lancet/base/hash.h
 		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
 		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)

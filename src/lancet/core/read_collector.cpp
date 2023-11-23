@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <numeric>
+#include <random>
 #include <ranges>
 #include <string>
 #include <utility>
@@ -83,21 +84,20 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sample_reads;
+  std::vector<Read> tmp_reads;
   absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mates;
-  const auto max_sample_cov = mParams.mMaxSampleCov;
+  const auto max_sample_bases = mParams.mMaxSampleCov * static_cast<f64>(region.Length());
+  static const auto base_summer = [](const u64 sum, const Read& read) -> u64 { return sum + read.Length(); };
 
   for (auto& sinfo : mSampleList) {
     u64 num_reads = 0;
     u64 num_bases = 0;
+    tmp_reads.clear();
     expected_mates.clear();
 
     const AlnAndRefPaths aln_refs{sinfo.Path(), mParams.mRefPath};
     const auto sample_name = std::string(sinfo.SampleName());
-    const auto est_sample_cov = EstimateCoverage(sinfo, region);
     const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
-
-    const auto pct_to_sample = est_sample_cov > max_sample_cov ? ((max_sample_cov * 100.0) / est_sample_cov) : 100.0;
-    mDownsampler.SetPercentToSample(pct_to_sample);
 
     auto& extractor = mExtractors.at(sinfo);
     extractor->SetRegionToExtract(region.ToSamtoolsRegion());
@@ -106,12 +106,11 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       // NOLINTBEGIN(readability-braces-around-statements)
       if (FailsTier1Check(aln)) continue;
       if ((is_tumor_sample || mIsGermlineMode) && FailsTier2Check(aln)) continue;
-      if (!mDownsampler.ShouldSample()) continue;
       // NOLINTEND(readability-braces-around-statements)
 
       num_reads += 1;
       num_bases += aln.Length();
-      sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+      tmp_reads.emplace_back(aln, sample_name, sinfo.TagKind());
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (!mParams.mExtractPairs) continue;
@@ -135,8 +134,18 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     }
 
     if (!mParams.mExtractPairs || expected_mates.empty()) {
-      sinfo.SetNumReads(num_reads);
-      sinfo.SetNumBases(num_bases);
+      const auto bases_per_read = static_cast<f64>(num_bases) / static_cast<f64>(num_reads);
+      const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
+      const auto expected_reads = num_reads > max_reads_to_sample ? max_reads_to_sample : num_reads;
+
+      std::shuffle(tmp_reads.begin(), tmp_reads.end(), std::default_random_engine());  // NOLINT
+      const auto read_end_position = tmp_reads.begin() + static_cast<i64>(expected_reads);
+
+      sample_reads.insert(sample_reads.end(), tmp_reads.begin(), read_end_position);
+      const auto expected_bases = std::accumulate(tmp_reads.begin(), read_end_position, 0, base_summer);
+
+      sinfo.SetNumReads(expected_reads);
+      sinfo.SetNumBases(expected_bases);
       sinfo.CalculateMeanCov(region.Length());
       continue;
     }
@@ -159,15 +168,25 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
 
         num_reads += 1;
         num_bases += aln.Length();
-        sample_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+        tmp_reads.emplace_back(aln, sample_name, sinfo.TagKind());
         expected_mates.erase(itr);
       }
 
       rev_mate_regions.pop_back();
     }
 
-    sinfo.SetNumReads(num_reads);
-    sinfo.SetNumBases(num_bases);
+    const auto bases_per_read = static_cast<f64>(num_bases) / static_cast<f64>(num_reads);
+    const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
+    const auto expected_reads = num_reads > max_reads_to_sample ? max_reads_to_sample : num_reads;
+
+    std::shuffle(tmp_reads.begin(), tmp_reads.end(), std::default_random_engine());  // NOLINT
+    const auto read_end_position = tmp_reads.begin() + static_cast<i64>(expected_reads);
+
+    sample_reads.insert(sample_reads.end(), tmp_reads.begin(), read_end_position);
+    const auto expected_bases = std::accumulate(tmp_reads.begin(), read_end_position, 0, base_summer);
+
+    sinfo.SetNumReads(expected_reads);
+    sinfo.SetNumBases(expected_bases);
     sinfo.CalculateMeanCov(region.Length());
   }
 
@@ -282,24 +301,6 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
   std::ranges::transform(sinfo_list, std::back_inserter(results),
                          [](const SampleInfo& item) -> std::string { return std::string(item.SampleName()); });
   return results;
-}
-
-auto ReadCollector::EstimateCoverage(const SampleInfo& sinfo, const Region& region) const -> f64 {
-  using hts::Alignment::Fields::AUX_RGAUX;
-  const auto need_pairs = mParams.mExtractPairs;
-  const auto need_tier2 = sinfo.TagKind() == cbdg::Label::TUMOR || mIsGermlineMode;
-
-  hts::Extractor extractor(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, {"AS", "XS"}, true);
-  extractor.SetRegionToExtract(region.ToSamtoolsRegion());
-
-  static const auto summer = [&need_tier2, &need_pairs, &region](const u64 sum, const hts::Alignment& aln) -> u64 {
-    const auto fails_filters = FailsTier1Check(aln) || (need_tier2 && FailsTier2Check(aln));
-    const auto need_pair_len = need_pairs && !aln.MateOverlapsRegion(region);
-    return fails_filters ? sum : need_pair_len ? sum + aln.Length() + aln.Length() : sum + aln.Length();
-  };
-
-  const u64 num_bases = std::accumulate(extractor.begin(), extractor.end(), 0, summer);
-  return static_cast<f64>(num_bases) / static_cast<f64>(region.Length());
 }
 
 auto ReadCollector::FailsTier1Check(const hts::Alignment& aln) -> bool {
