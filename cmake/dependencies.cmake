@@ -92,7 +92,7 @@ else ()
 	set(WITH_OPTIM ON)
 	set(WITH_NATIVE_INSTRUCTIONS ON)
 endif ()
-FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.4 SYSTEM)
+FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.5 SYSTEM)
 FetchContent_MakeAvailable(zlib-ng)
 
 set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
