@@ -49,8 +49,8 @@
     <inspection_tool class="NotImplementedFunctions" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
       <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES" />
     </inspection_tool>
-    <inspection_tool class="OCInconsistentNaming" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
-      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="TEXT_STYLE_SUGGESTION" />
+    <inspection_tool class="OCInconsistentNaming" enabled="false" level="INFORMATION" enabled_by_default="false" editorAttributes="INFORMATION_ATTRIBUTES">
+      <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="false" editorAttributes="TEXT_STYLE_SUGGESTION" />
     </inspection_tool>
     <inspection_tool class="OCUnusedConcept" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
       <scope name="Project Source Files" level="TEXT ATTRIBUTES" enabled="true" editorAttributes="CONSIDERATION_ATTRIBUTES" />

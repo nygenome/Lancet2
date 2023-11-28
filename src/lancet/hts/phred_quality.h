@@ -7,7 +7,7 @@ namespace lancet::hts {
 
 static constexpr u8 MAX_PHRED_SCORE = 255;
 [[nodiscard]] auto PhredToErrorProb(u32 phred_score) -> f64;
-[[nodiscard]] auto ErrorProbToPhred(f64 prob) -> u8;
+[[nodiscard]] auto ErrorProbToPhred(f64 prob) -> f64;
 
 }  // namespace lancet::hts
 

@@ -83,16 +83,19 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 }
 
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
-  std::vector<Read> sample_reads;
-  std::vector<Read> tmp_reads;
+  std::vector<Read> sampled_reads;
+  std::vector<Read> all_reads;
   absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mates;
   const auto max_sample_bases = mParams.mMaxSampleCov * static_cast<f64>(region.Length());
   static const auto base_summer = [](const u64 sum, const Read& read) -> u64 { return sum + read.Length(); };
 
   for (auto& sinfo : mSampleList) {
-    u64 num_reads = 0;
-    u64 num_bases = 0;
-    tmp_reads.clear();
+    u64 num_pass_reads = 0;
+    u64 num_pass_bases = 0;
+    u64 num_total_reads = 0;
+    u64 num_total_bases = 0;
+
+    all_reads.clear();
     expected_mates.clear();
 
     const AlnAndRefPaths aln_refs{sinfo.Path(), mParams.mRefPath};
@@ -103,14 +106,17 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     extractor->SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : *extractor) {
+      num_total_reads += 1;
+      num_total_bases += aln.Length();
+
       // NOLINTBEGIN(readability-braces-around-statements)
       if (FailsTier1Check(aln)) continue;
       if ((is_tumor_sample || mIsGermlineMode) && FailsTier2Check(aln)) continue;
       // NOLINTEND(readability-braces-around-statements)
 
-      num_reads += 1;
-      num_bases += aln.Length();
-      tmp_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+      num_pass_reads += 1;
+      num_pass_bases += aln.Length();
+      all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (!mParams.mExtractPairs) continue;
@@ -133,64 +139,55 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       if (!newly_added) expected_mates.erase(itr);
     }
 
-    if (!mParams.mExtractPairs || expected_mates.empty()) {
-      const auto bases_per_read = static_cast<f64>(num_bases) / static_cast<f64>(num_reads);
-      const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
-      const auto expected_reads = num_reads > max_reads_to_sample ? max_reads_to_sample : num_reads;
+    if (!expected_mates.empty() && mParams.mExtractPairs) {
+      auto rev_mate_regions = RevSortMateRegions(expected_mates);
+      while (!expected_mates.empty()) {
+        const auto& [rname, minfo] = rev_mate_regions.back();
+        if (!expected_mates.contains(rname)) {
+          rev_mate_regions.pop_back();
+          continue;
+        }
 
-      std::shuffle(tmp_reads.begin(), tmp_reads.end(), std::default_random_engine());  // NOLINT
-      const auto read_end_position = tmp_reads.begin() + static_cast<i64>(expected_reads);
+        const auto mate_reg_spec = MakeRegSpec(minfo, extractor.get());
+        extractor->SetRegionToExtract(mate_reg_spec);
 
-      sample_reads.insert(sample_reads.end(), tmp_reads.begin(), read_end_position);
-      const auto expected_bases = std::accumulate(tmp_reads.begin(), read_end_position, 0, base_summer);
+        for (const auto& aln : *extractor) {
+          const auto itr = expected_mates.find(aln.QnameView());
+          // NOLINTNEXTLINE(readability-braces-around-statements)
+          if (itr == expected_mates.end()) continue;
 
-      sinfo.SetNumReads(expected_reads);
-      sinfo.SetNumBases(expected_bases);
-      sinfo.CalculateMeanCov(region.Length());
-      continue;
-    }
+          num_total_reads += 1;
+          num_total_bases += aln.Length();
 
-    auto rev_mate_regions = RevSortMateRegions(expected_mates);
-    while (!expected_mates.empty()) {
-      const auto& [rname, minfo] = rev_mate_regions.back();
-      if (!expected_mates.contains(rname)) {
+          num_pass_reads += 1;
+          num_pass_bases += aln.Length();
+
+          all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+          expected_mates.erase(itr);
+        }
+
         rev_mate_regions.pop_back();
-        continue;
       }
-
-      const auto mate_reg_spec = MakeRegSpec(minfo, extractor.get());
-      extractor->SetRegionToExtract(mate_reg_spec);
-
-      for (const auto& aln : *extractor) {
-        const auto itr = expected_mates.find(aln.QnameView());
-        // NOLINTNEXTLINE(readability-braces-around-statements)
-        if (itr == expected_mates.end()) continue;
-
-        num_reads += 1;
-        num_bases += aln.Length();
-        tmp_reads.emplace_back(aln, sample_name, sinfo.TagKind());
-        expected_mates.erase(itr);
-      }
-
-      rev_mate_regions.pop_back();
     }
 
-    const auto bases_per_read = static_cast<f64>(num_bases) / static_cast<f64>(num_reads);
+    const auto bases_per_read = static_cast<f64>(num_pass_bases) / static_cast<f64>(num_pass_reads);
     const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
-    const auto expected_reads = num_reads > max_reads_to_sample ? max_reads_to_sample : num_reads;
+    const auto sampled_read_count = num_pass_reads > max_reads_to_sample ? max_reads_to_sample : num_pass_reads;
 
-    std::shuffle(tmp_reads.begin(), tmp_reads.end(), std::default_random_engine());  // NOLINT
-    const auto read_end_position = tmp_reads.begin() + static_cast<i64>(expected_reads);
+    std::shuffle(all_reads.begin(), all_reads.end(), std::default_random_engine());  // NOLINT
+    const auto read_end_position = all_reads.begin() + static_cast<i64>(sampled_read_count);
 
-    sample_reads.insert(sample_reads.end(), tmp_reads.begin(), read_end_position);
-    const auto expected_bases = std::accumulate(tmp_reads.begin(), read_end_position, 0, base_summer);
+    sampled_reads.insert(sampled_reads.end(), all_reads.begin(), read_end_position);
+    const auto sampled_base_count = std::accumulate(all_reads.begin(), read_end_position, 0, base_summer);
 
-    sinfo.SetNumReads(expected_reads);
-    sinfo.SetNumBases(expected_bases);
-    sinfo.CalculateMeanCov(region.Length());
+    sinfo.SetNumSampledReads(sampled_read_count);
+    sinfo.SetNumSampledBases(sampled_base_count);
+    sinfo.CalculateMeanSampledCov(region.Length());
+    sinfo.CalculateMeanTotalCov(num_total_bases, region.Length());
+    sinfo.CalculatePassReadsFraction(num_pass_reads, num_total_reads);
   }
 
-  std::ranges::sort(sample_reads, [](const Read& lhs, const Read& rhs) -> bool {
+  std::ranges::sort(sampled_reads, [](const Read& lhs, const Read& rhs) -> bool {
     // NOLINTBEGIN(readability-braces-around-statements)
     if (lhs.TagKind() != rhs.TagKind()) return static_cast<u8>(lhs.TagKind()) < static_cast<u8>(rhs.TagKind());
     if (lhs.SampleName() != rhs.SampleName()) return lhs.SampleName() < rhs.SampleName();
@@ -200,7 +197,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     // NOLINTEND(readability-braces-around-statements)
   });
 
-  return {.mSampleReads = std::move(sample_reads), .mSampleList = mSampleList};
+  return {.mSampleReads = std::move(sampled_reads), .mSampleList = mSampleList};
 }
 
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
