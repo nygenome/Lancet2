@@ -1,6 +1,20 @@
 
+<a name="v2.8.1"></a>
+## [v2.8.1](https://github.com/nygenome/Lancet2/compare/v2.8.0...v2.8.1) (2023-11-28)
+
+### Bug Fixes
+
+* resolve typo in version inc
+* update vcf header for clarity
+* remove rounding in phred
+
+
 <a name="v2.8.0"></a>
 ## [v2.8.0](https://github.com/nygenome/Lancet2/compare/v2.7.0...v2.8.0) (2023-11-28)
+
+### Maintenance/Refactoring
+
+* Bump version to v2.8.0
 
 ### New Features
 
