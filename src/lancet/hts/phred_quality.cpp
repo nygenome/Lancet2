@@ -96,7 +96,7 @@ auto ErrorProbToPhred(f64 prob) -> f64 {
   if (prob == 1.0) return 0;                // NOLINT(readability-braces-around-statements)
   if (prob == 0.0) return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
   static constexpr f64 PHRED_MULTIPLIER = -10.0;
-  return std::round(PHRED_MULTIPLIER * std::log10(prob));
+  return PHRED_MULTIPLIER * std::log10(prob);
 }
 
 }  // namespace lancet::hts
