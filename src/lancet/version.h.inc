@@ -3,7 +3,7 @@
 
 namespace lancet {
 
-constexpr auto VersionTag = "v@LANCET2_GIT_TAG@";
+constexpr auto VersionTag = "@LANCET2_GIT_TAG@";
 constexpr auto GitBranch = "@LANCET2_GIT_BRANCH@";
 constexpr auto GitRevision = "@LANCET2_GIT_REVISION@";
 
