@@ -282,8 +282,8 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
-##FORMAT=<ID=WDC,Number=1,Type=Float,Description="Downsampled read depth in the local window around the variant">
-##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Total read depth in the local window around the variant">
+##FORMAT=<ID=WDC,Number=1,Type=Float,Description="Downsampled pass read depth in the local window around the variant">
+##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Total raw read depth in the local window around the variant">
 ##FORMAT=<ID=PRF,Number=1,Type=Float,Description="Fraction of total reads in the window that pass quality filters">
 ##FORMAT=<ID=VAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
 ##FORMAT=<ID=AFR,Number=1,Type=Float,Description="ALT frequency ratio in tumor vs normal. 0 for normal sample(s)">
