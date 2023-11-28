@@ -38,7 +38,7 @@ class VariantSupport {
   [[nodiscard]] auto ComputePLs() const -> std::array<int, 3>;
 
   /// Phred scaled probability of the REF and ALT allele
-  [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<u8, 2>;
+  [[nodiscard]] auto MeanHaplotypeQualities() const -> std::array<f64, 2>;
 
  private:
   using Qualities = std::vector<u8>;

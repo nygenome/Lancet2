@@ -49,7 +49,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   const absl::Span<const cbdg::Read> reads = absl::MakeConstSpan(rc_result.mSampleReads);
   const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);
 
-  const auto total_cov = SampleInfo::TotalMeanCov(samples, window->Length());
+  const auto total_cov = SampleInfo::CombinedSampledCov(samples, window->Length());
   if (total_cov < static_cast<f64>(mParamsPtr->mGraphParams.mMinAnchorCov)) {
     LOG_DEBUG("Skipping window {} since it has only {:.2f}x total sample coverage", reg_str, total_cov)
     mCurrentCode = StatusCode::SKIPPED_INACTIVE_REGION;

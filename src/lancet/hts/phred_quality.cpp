@@ -1,6 +1,5 @@
 #include "lancet/hts/phred_quality.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -93,12 +92,11 @@ auto PhredToErrorProb(u32 phred_score) -> f64 {
   return LUT_PHRED_TO_ERROR_PROB.at(idx);
 }
 
-auto ErrorProbToPhred(f64 prob) -> u8 {
+auto ErrorProbToPhred(f64 prob) -> f64 {
   if (prob == 1.0) return 0;                // NOLINT(readability-braces-around-statements)
   if (prob == 0.0) return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
   static constexpr f64 PHRED_MULTIPLIER = -10.0;
-  const auto value = std::round(PHRED_MULTIPLIER * std::log10(prob));
-  return static_cast<u8>(std::clamp(value, f64(0), f64(MAX_PHRED_SCORE)));
+  return std::round(PHRED_MULTIPLIER * std::log10(prob));
 }
 
 }  // namespace lancet::hts

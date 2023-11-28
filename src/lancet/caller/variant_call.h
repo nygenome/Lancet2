@@ -82,7 +82,7 @@ class VariantCall {
   std::string mAltAllele;
 
   i64 mVarLength;
-  u32 mSiteQuality;
+  f64 mSiteQuality;
   RawVariant::State mState;
   RawVariant::Type mCategory;
 
@@ -98,7 +98,7 @@ class VariantCall {
   using PerSampleEvidence = absl::flat_hash_map<const core::SampleInfo, std::unique_ptr<VariantSupport>,
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
-  [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> u32;
+  [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
   [[nodiscard]] static auto SomaticOddsRatio(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
   [[nodiscard]] static auto FirstAndSecondSmallestIndices(const std::array<int, 3>& pls) -> std::array<usize, 2>;
 };
