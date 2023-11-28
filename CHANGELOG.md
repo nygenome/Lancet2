@@ -1,4 +1,12 @@
 
+<a name="v2.8.0"></a>
+## [v2.8.0](https://github.com/nygenome/Lancet2/compare/v2.7.0...v2.8.0) (2023-11-28)
+
+### New Features
+
+* Add window level FMT fields and convert Int to Float
+
+
 <a name="v2.7.0"></a>
 ## [v2.7.0](https://github.com/nygenome/Lancet2/compare/v2.6.0...v2.7.0) (2023-11-22)
 
@@ -8,6 +16,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.7.0
 * update deps
 
 
