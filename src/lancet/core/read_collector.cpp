@@ -72,7 +72,8 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
   mSampleList = MakeSampleList(mParams);
   const auto no_ctgcheck = mParams.mNoCtgCheck;
 
-  const auto sam_tags = std::vector<std::string>{"SA", "AS", "XS"};
+  const auto sam_tags =
+      mParams.mExtractPairs ? std::vector<std::string>{"SA", "AS", "XS"} : std::vector<std::string>{"AS", "XS"};
   static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
 
@@ -100,7 +101,6 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
 
     const AlnAndRefPaths aln_refs{sinfo.Path(), mParams.mRefPath};
     const auto sample_name = std::string(sinfo.SampleName());
-    const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
 
     auto& extractor = mExtractors.at(sinfo);
     extractor->SetRegionToExtract(region.ToSamtoolsRegion());
@@ -110,8 +110,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       num_total_bases += aln.Length();
 
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (FailsTier1Check(aln)) continue;
-      if ((is_tumor_sample || mIsGermlineMode) && FailsTier2Check(aln)) continue;
+      if (FailsAlnFilterCheck(aln)) continue;
       // NOLINTEND(readability-braces-around-statements)
 
       num_pass_reads += 1;
@@ -129,7 +128,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       }
 
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (aln.Flag().IsMateUnmapped() || FailsTier2Check(aln)) continue;
+      if (aln.Flag().IsMateUnmapped()) continue;
       if (aln.Flag().IsMappedProperPair() && !aln.HasTag("SA")) continue;
       // NOLINTEND(readability-braces-around-statements)
 
@@ -174,7 +173,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
     const auto sampled_read_count = num_pass_reads > max_reads_to_sample ? max_reads_to_sample : num_pass_reads;
 
-    std::shuffle(all_reads.begin(), all_reads.end(), std::default_random_engine());  // NOLINT
+    std::shuffle(all_reads.begin(), all_reads.end(), std::default_random_engine(0));  // NOLINT
     const auto read_end_position = all_reads.begin() + static_cast<i64>(sampled_read_count);
 
     sampled_reads.insert(sampled_reads.end(), all_reads.begin(), read_end_position);
@@ -208,9 +207,6 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
   std::vector<u32> genome_positions;     // softclip genome positions for single alignment
 
   const auto sample_list = MakeSampleList(params);
-  static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
-  const auto is_germline_mode = std::ranges::all_of(sample_list, is_normal);
-
   for (const auto& sinfo : sample_list) {
     genome_positions.clear();
     mismatches.clear();
@@ -219,14 +215,12 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
     softclips.clear();
 
     using hts::Alignment::Fields::AUX_RGAUX;
-    const auto is_tumor_sample = sinfo.TagKind() == cbdg::Label::TUMOR;
     hts::Extractor extractor(sinfo.Path(), params.mRefPath, AUX_RGAUX, {"MD", "AS", "XS"}, params.mNoCtgCheck);
     extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : extractor) {
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (FailsTier1Check(aln) || aln.Flag().IsUnmapped()) continue;
-      if ((is_tumor_sample || is_germline_mode) && FailsTier2Check(aln)) continue;
+      if (FailsAlnFilterCheck(aln) || aln.Flag().IsUnmapped()) continue;
       // NOLINTEND(readability-braces-around-statements)
 
       if (aln.HasTag("MD")) {
@@ -300,25 +294,20 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
   return results;
 }
 
-auto ReadCollector::FailsTier1Check(const hts::Alignment& aln) -> bool {
+auto ReadCollector::FailsAlnFilterCheck(const hts::Alignment& aln) -> bool {
   const auto bflag = aln.Flag();
-  return bflag.IsQcFail() || bflag.IsDuplicate() || (bflag.IsMapped() && aln.MapQual() == 0);
-}
-
-auto ReadCollector::FailsTier2Check(const hts::Alignment& aln) -> bool {
   static constexpr u8 DEFAULT_MIN_READ_MAP_QUAL = 20;
-  if (aln.Flag().IsMapped() && aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL) {
+  if (bflag.IsQcFail() || bflag.IsDuplicate() || (bflag.IsMapped() && aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL)) {
     return true;
   }
 
-  // AS: Alignment score
-  // XS: Suboptimal alignment score
+  // AS: Alignment score; XS: Suboptimal alignment score
   static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.01;
   if (aln.HasTag("AS") && aln.HasTag("XS")) {
     const auto as_tag = aln.GetTag<i64>("AS").value();
     const auto xs_tag = aln.GetTag<i64>("XS").value();
-    const auto higher_ten_pct = static_cast<f64>(std::max(as_tag, xs_tag)) * DEFAULT_MIN_READ_AS_XS_PCT_DIFF;
-    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < std::ceil(higher_ten_pct)) {
+    const auto higher_one_pct = static_cast<f64>(std::max(as_tag, xs_tag)) * DEFAULT_MIN_READ_AS_XS_PCT_DIFF;
+    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < std::ceil(higher_one_pct)) {
       return true;
     }
   }

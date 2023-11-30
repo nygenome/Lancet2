@@ -64,9 +64,7 @@ class ReadCollector {
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
 
-  [[nodiscard]] static auto FailsTier1Check(const hts::Alignment& aln) -> bool;
-  [[nodiscard]] static auto FailsTier2Check(const hts::Alignment& aln) -> bool;
-
+  [[nodiscard]] static auto FailsAlnFilterCheck(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto MakeSampleList(const Params& params) -> std::vector<SampleInfo>;
 
   using MateNameAndLocation = std::pair<std::string, hts::Alignment::MateInfo>;
