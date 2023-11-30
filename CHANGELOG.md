@@ -1,4 +1,17 @@
 
+<a name="v2.8.2"></a>
+## [v2.8.2](https://github.com/nygenome/Lancet2/compare/v2.8.1...v2.8.2) (2023-11-30)
+
+### Maintenance/Refactoring
+
+* update dockerfile
+* update dependencies and remove v prefix
+
+### New Features
+
+* use same read filters for tumor and normal
+
+
 <a name="v2.8.1"></a>
 ## [v2.8.1](https://github.com/nygenome/Lancet2/compare/v2.8.0...v2.8.1) (2023-11-28)
 
@@ -7,6 +20,10 @@
 * resolve typo in version inc
 * update vcf header for clarity
 * remove rounding in phred
+
+### Maintenance/Refactoring
+
+* Bump version to v2.8.1
 
 
 <a name="v2.8.0"></a>
