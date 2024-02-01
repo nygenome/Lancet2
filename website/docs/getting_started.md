@@ -29,24 +29,29 @@ To check for a successful install:
 lancet2 --version
 ```
 
-### Requirements & Dependencies
+### Prerequisites to compile from source
 
-* CMake >= 3.14.x
-* C++ compiler with support for ISO C++17 standard
-* zlib, bzip2, liblzma, cURL and OpenSSL (Needed to build htslib)
+* Linux
+* x86-64
+* CMake (3.25 or greater)
+* GCC (12.x or greater)
+* BZip2
+* LibLZMA
+* Git
+* Make
 
 ### Docker
 
 Pre-built docker images for Lancet2 are available [here](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet). Note that the public docker image requires [Cascade Lake CPU](https://en.wikichip.org/wiki/intel/microarchitectures/cascade_lake) or newer
 
-You can also build a new image from the Dockerfile provided in the repository:
+You can also build a new image from the Dockerfile provided in the repository.
 
 ## Basic Usage
 
 Here is a basic run of the Lancet tool from the newly created build directory:
 
 ```bash
-lancet2 pipeline \
+Lancet2 pipeline \
     -t /path/to/tumor.bam \
     -n /path/to/normal.bam \
     -r /path/to/ref.fasta \
