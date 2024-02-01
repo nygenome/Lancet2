@@ -37,15 +37,9 @@ lancet2 --version
 
 ### Docker
 
-Pre-built docker images for Lancet2 are available [here](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet)
+Pre-built docker images for Lancet2 are available [here](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet). Note that the public docker image requires [Cascade Lake CPU](https://en.wikichip.org/wiki/intel/microarchitectures/cascade_lake) or newer
 
 You can also build a new image from the Dockerfile provided in the repository:
-
-```bash
-git clone https://github.com/nygenome/Lancet2.git && cd Lancet2
-docker build --platform linux/amd64 -t lancet2 -f docker/gcc.Dockerfile .
-docker run --platform linux/amd64 -it lancet2 lancet2 --version
-```
 
 ## Basic Usage
 
