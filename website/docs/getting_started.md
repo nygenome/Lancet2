@@ -37,12 +37,7 @@ lancet2 --version
 
 ### Docker
 
-Pre-build docker images for Lancet2 are available on [DockerHub](https://hub.docker.com/r/rmusunuri/lancet2)
-
-```bash
-docker pull rmusunuri/lancet2:gcc
-docker run rmusunuri/lancet2:gcc lancet2 --version
-```
+Pre-built docker images for Lancet2 are available [here](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet)
 
 You can also build a new image from the Dockerfile provided in the repository:
 
@@ -50,14 +45,6 @@ You can also build a new image from the Dockerfile provided in the repository:
 git clone https://github.com/nygenome/Lancet2.git && cd Lancet2
 docker build --platform linux/amd64 -t lancet2 -f docker/gcc.Dockerfile .
 docker run --platform linux/amd64 -it lancet2 lancet2 --version
-```
-
-### Singularity/Apptainer
-
-To build a [Singularity/Apptainer](https://apptainer.org/) container directly from the DockerHub images use the following command
-
-```bash
-singularity build lancet2.sif docker://rmusunuri/lancet2:gcc
 ```
 
 ## Basic Usage
