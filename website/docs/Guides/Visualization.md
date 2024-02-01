@@ -17,6 +17,11 @@ dot -Tpdf -o example_file.pdf example_file.dot
 
 The above command will create a example_file.pdf file that shows the graph. For large graphs, Adobe Acrobat Reader may have troubles rendering the graph in which case we recommend opening the PDF file using the "Preview" image viewer software available in MacOS.
 
+Below are examples of different levels of debruijn graphs that can be produced from Lancet2 outputs:
+(a) Raw: ![raw_dot](../../static/img/raw_dot.png)
+(b) Compressed: ![compressed_dot](../../static/img/compressed_dot.png)
+(c) Fully pruned: ![final_dot](../../static/img/final_dot.png)
+
 ## GFA graphs
 The generated gfa files can be viewed using the [Bandage-NG](https://github.com/asl/BandageNG) program.
 
