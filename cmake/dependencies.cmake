@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG db5c799 SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 14b8a4e SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -28,29 +28,11 @@ if (NOT abseil_POPULATED)
 	include(${abseil_SOURCE_DIR}/absl/copts/AbseilConfigureCopts.cmake)
 endif ()
 
-FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.12.0 SYSTEM)
+FetchContent_Declare(spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v1.13.0 SYSTEM)
 FetchContent_MakeAvailable(spdlog)
 
-FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.3.2 SYSTEM)
+FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git GIT_TAG v2.4.1 SYSTEM)
 FetchContent_MakeAvailable(cli11)
-
-FetchContent_Declare(wyhash GIT_REPOSITORY https://github.com/wangyi-fudan/wyhash.git GIT_TAG 77e50f2 SYSTEM)
-FetchContent_GetProperties(wyhash)
-if (NOT wyhash_POPULATED)
-	FetchContent_Populate(wyhash)
-	add_library(wyhash INTERFACE)
-	target_include_directories(wyhash SYSTEM INTERFACE "${wyhash_SOURCE_DIR}")
-endif ()
-
-set(MRMR3_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3")
-set(MRMR3_H "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.h")
-set(MRMR3_CPP "${CMAKE_CURRENT_BINARY_DIR}/_deps/MurmurHash3/MurmurHash3.cpp")
-set(MRMR3_URL "https://raw.githubusercontent.com/aappleby/smhasher/master/src")
-file(MAKE_DIRECTORY "${MRMR3_ROOT}")
-file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.cpp" "${MRMR3_CPP}" EXPECTED_MD5 "3425d5e59cb3df3c6c5e31c7094d9aa6")
-file(DOWNLOAD "${MRMR3_URL}/MurmurHash3.h" "${MRMR3_H}" EXPECTED_MD5 "73aad07ed2b324775d23d2a29cd12f8f")
-add_library(MurmurHash3 STATIC "${MRMR3_CPP}" "${MRMR3_H}")
-target_include_directories(MurmurHash3 SYSTEM PUBLIC "${MRMR3_ROOT}")
 
 set(CONCURRENTQUEUE_GIT_REPO "https://github.com/cameron314/concurrentqueue.git")
 FetchContent_Declare(concurrentqueue GIT_REPOSITORY ${CONCURRENTQUEUE_GIT_REPO} GIT_TAG v1.0.4 SYSTEM)
@@ -62,11 +44,11 @@ if (NOT concurrentqueue_POPULATED)
 endif ()
 
 set(ROARING_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/roaring")
-set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v2.0.4")
+set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v2.1.2")
 file(MAKE_DIRECTORY "${ROARING_ROOT}")
-file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "989e3bc22b0ae4cb76bd5ae95d4518e3")
-file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "23ee576a75a99592ca81fbd95100f6b8")
-file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "468a55d4ee267b74637872e7ef20165e")
+file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "1f7a7f66f478f5bb18e8ec58ae4b818d")
+file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "ea2cc4651a48579e1557b69782c78fbb")
+file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "a8d1a1d85b19b9fc00686505496d8a33")
 add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
 target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
 
@@ -92,15 +74,15 @@ else ()
 	set(WITH_OPTIM ON)
 	set(WITH_NATIVE_INSTRUCTIONS ON)
 endif ()
-FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.5 SYSTEM)
+FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.6 SYSTEM)
 FetchContent_MakeAvailable(zlib-ng)
 
 set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(LIB_HTS "${HTSLIB_ROOT_DIR}/libhts.a")
 set(HTSLIB_CONFIG_PARAMS ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(htslib
-		URL https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
-		URL_MD5 a692cf593dd08d51243043e52dbda99b PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+		URL https://github.com/samtools/htslib/releases/download/1.19.1/htslib-1.19.1.tar.bz2
+		URL_MD5 f9b2f75e1e9ec6cc5c1e204d56fbee9e PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
 		SOURCE_DIR ${HTSLIB_ROOT_DIR} BUILD_IN_SOURCE 1 INSTALL_COMMAND ""
 		BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static BUILD_BYPRODUCTS ${LIB_HTS}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_htslib.sh ${HTSLIB_CONFIG_PARAMS}
@@ -125,26 +107,26 @@ set(GPERFTOOLS_INC_DIR "${GPERFTOOLS_ROOT_DIR}/include")
 set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
 set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
 ExternalProject_Add(gperftools
-		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.13/gperftools-2.13.tar.gz
-		URL_MD5 4e218a40a354748c50d054c285caaae8 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR}
+		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.15/gperftools-2.15.tar.gz
+		URL_MD5 0c16898d428c6f2694c1ea9e6525de8f PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR}
 		BUILD_IN_SOURCE 1 INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_gperftools.sh ${GPERFTOOLS_CONFIG_PARAMS}
 		BUILD_BYPRODUCTS ${LIB_PROFILER} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
 
 set(spoa_optimize_for_native OFF)
-FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG fd3a5c5 SYSTEM)
+FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 73f7a25 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
-FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.83.0 SYSTEM)
+FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.84.0 SYSTEM)
 FetchContent_MakeAvailable(boost_math)
 
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
-	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.4.0")
-	set(CATCH_MD5c "b4ee03064bf6be8f41313df1649ff7a9")
-	set(CATCH_MD5h "b9e33e9a8198294a87b64dcf641dee16")
+	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.5.2")
+	set(CATCH_MD5c "ef068b553001c49ec0d570f245344545")
+	set(CATCH_MD5h "5225a0477a07299ac48df4a8f479b144")
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.cpp" EXPECTED_MD5 ${CATCH_MD5c})
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.hpp" "${CATCH_ROOT}/catch_amalgamated.hpp" EXPECTED_MD5 ${CATCH_MD5h})
 	add_library(Catch2 STATIC "${CATCH_ROOT}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.hpp")

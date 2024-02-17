@@ -67,7 +67,7 @@ add_library(lancet_base STATIC
 		src/lancet/base/hash.cpp src/lancet/base/hash.h
 		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
 		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)
-target_link_libraries(lancet_base PRIVATE wyhash MurmurHash3 absl::flat_hash_set
+target_link_libraries(lancet_base PRIVATE absl::flat_hash_set
 		PUBLIC spdlog::spdlog absl::span absl::fixed_array absl::strings absl::time)
 target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/generated")
 set_target_properties(lancet_base PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
