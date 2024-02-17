@@ -1,5 +1,7 @@
 #include "lancet/base/hash.h"
 
+#include <string_view>
+
 #include "absl/hash/internal/city.h"
 
 auto HashStr64(std::string_view str) -> u64 {

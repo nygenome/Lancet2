@@ -2,8 +2,10 @@
 
 #include <bit>
 #include <memory>
+#include <string_view>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/types/span.h"
 #include "lancet/base/assert.h"
 
 // Based off of https://github.com/Daniel-Liu-c0deb0t/triple_accel/blob/master/src/hamming.rs

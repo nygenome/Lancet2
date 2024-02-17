@@ -1,6 +1,7 @@
 #include "lancet/base/find_str.h"
 
 #include <array>
+#include <string_view>
 
 #include "lancet/base/assert.h"
 
