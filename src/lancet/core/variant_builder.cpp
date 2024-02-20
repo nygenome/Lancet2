@@ -70,9 +70,6 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   WindowResults variants;
-  const auto dbg_klen = mDebruijnGraph.CurrentK();
-  const auto &vprms = mParamsPtr->mVariantParams;
-
   for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
     const auto nhaps = component_haplotypes[idx].size();
     const auto anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
@@ -89,8 +86,9 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     }
 
     LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
-    for (auto &&[var, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset, mParamsPtr->mMinAltQuality)) {
-      variants.emplace_back(std::make_unique<caller::VariantCall>(var, std::move(evidence), samples, vprms, dbg_klen));
+    for (auto &&[variant, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
+      variants.emplace_back(std::make_unique<caller::VariantCall>(
+          variant, std::move(evidence), samples, mParamsPtr->mVariantParams, mDebruijnGraph.CurrentK()));
     }
   }
 

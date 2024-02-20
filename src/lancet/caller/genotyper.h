@@ -31,7 +31,7 @@ class Genotyper {
 
   using PerSampleVariantEvidence = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
   using Result = absl::flat_hash_map<const RawVariant*, PerSampleVariantEvidence>;
-  [[nodiscard]] auto Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset, u32 min_alt_qual) -> Result;
+  [[nodiscard]] auto Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result;
 
   class AlnInfo {
    public:
@@ -102,7 +102,7 @@ class Genotyper {
   [[nodiscard]] auto AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo>;
 
   using SupportsInfo = AlnInfo::SupportsInfo;
-  static void AddToTable(Result& rslt, const cbdg::Read& read, const SupportsInfo& supports, u8 min_alt_qual);
+  static void AddToTable(Result& rslt, const cbdg::Read& read, const SupportsInfo& supports);
 };
 
 }  // namespace lancet::caller

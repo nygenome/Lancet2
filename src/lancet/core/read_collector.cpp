@@ -109,13 +109,16 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       num_total_reads += 1;
       num_total_bases += aln.Length();
 
+      const auto bflag = aln.Flag();
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (FailsAlnFilterCheck(aln)) continue;
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) continue;
       // NOLINTEND(readability-braces-around-statements)
 
-      num_pass_reads += 1;
-      num_pass_bases += aln.Length();
       all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+      if (all_reads.back().PassesAlnFilters()) {
+        num_pass_reads += 1;
+        num_pass_bases += aln.Length();
+      }
 
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (!mParams.mExtractPairs) continue;
@@ -158,10 +161,12 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
           num_total_reads += 1;
           num_total_bases += aln.Length();
 
-          num_pass_reads += 1;
-          num_pass_bases += aln.Length();
-
           all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+          if (all_reads.back().PassesAlnFilters()) {
+            num_pass_reads += 1;
+            num_pass_bases += aln.Length();
+          }
+
           expected_mates.erase(itr);
         }
 
@@ -187,6 +192,9 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   }
 
   std::ranges::sort(sampled_reads, [](const Read& lhs, const Read& rhs) -> bool {
+    if (lhs.PassesAlnFilters() != rhs.PassesAlnFilters()) {
+      return static_cast<int>(lhs.PassesAlnFilters()) > static_cast<int>(rhs.PassesAlnFilters());
+    }
     // NOLINTBEGIN(readability-braces-around-statements)
     if (lhs.TagKind() != rhs.TagKind()) return static_cast<u8>(lhs.TagKind()) < static_cast<u8>(rhs.TagKind());
     if (lhs.SampleName() != rhs.SampleName()) return lhs.SampleName() < rhs.SampleName();
@@ -219,8 +227,9 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
     extractor.SetRegionToExtract(region.ToSamtoolsRegion());
 
     for (const auto& aln : extractor) {
+      const auto bflag = aln.Flag();
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (FailsAlnFilterCheck(aln) || aln.Flag().IsUnmapped()) continue;
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) continue;
       // NOLINTEND(readability-braces-around-statements)
 
       if (aln.HasTag("MD")) {
@@ -292,36 +301,6 @@ auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std
   std::ranges::transform(sinfo_list, std::back_inserter(results),
                          [](const SampleInfo& item) -> std::string { return std::string(item.SampleName()); });
   return results;
-}
-
-auto ReadCollector::FailsAlnFilterCheck(const hts::Alignment& aln) -> bool {
-  const auto bflag = aln.Flag();
-  static constexpr u8 DEFAULT_MIN_READ_MAP_QUAL = 20;
-  if (bflag.IsQcFail() || bflag.IsDuplicate() || (bflag.IsMapped() && aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL)) {
-    return true;
-  }
-
-  // AS: Alignment score; XS: Suboptimal alignment score
-  static constexpr f64 DEFAULT_MIN_READ_AS_XS_PCT_DIFF = 0.01;
-  if (aln.HasTag("AS") && aln.HasTag("XS")) {
-    const auto as_tag = aln.GetTag<i64>("AS").value();
-    const auto xs_tag = aln.GetTag<i64>("XS").value();
-    const auto higher_one_pct = static_cast<f64>(std::max(as_tag, xs_tag)) * DEFAULT_MIN_READ_AS_XS_PCT_DIFF;
-    if (static_cast<f64>(std::abs(as_tag - xs_tag)) < std::ceil(higher_one_pct)) {
-      return true;
-    }
-  }
-
-  // XT type: Unique/Repeat/N/Mate-sw
-  // XT:A:M (one-mate recovered) means that one of the pairs is uniquely mapped and the other isn't
-  // Heng Li: If the read itself is a repeat and can't be mapped without relying on its mate, you
-  // see "XT:Z:R". Nonetheless, the mapping quality is not necessarily zero. When its mate can be
-  // mapped unambiguously, the read can still be mapped confidently and thus assigned a high mapQ.
-  // MapQ is computed for the read pair. XT is determined from a single read.
-  // XA -- BWA (Illumina): alternative hits; format: (chr,pos,CIGAR,NM;)
-  // return aln.HasTag("XT") || aln.HasTag("XA");
-
-  return false;
 }
 
 auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleInfo> {

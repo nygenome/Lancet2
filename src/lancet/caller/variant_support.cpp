@@ -11,7 +11,10 @@
 
 namespace lancet::caller {
 
-void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 quality) {
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 base_qual,
+                                 const u8 map_qual, const u8 aln_diff_score) {
+  // NOLINTEND(bugprone-easily-swappable-parameters)
   const auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
   const auto itr = name_hashes.find(rname_hash);
   // NOLINTNEXTLINE(readability-braces-around-statements)
@@ -20,13 +23,28 @@ void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, cons
   switch (allele) {
     case Allele::REF:
       mRefNameHashes.emplace(rname_hash, strand);
-      strand == Strand::FWD ? mRefFwdQuals.emplace_back(quality) : mRefRevQuals.emplace_back(quality);
+      mRefMapQuals.emplace_back(map_qual);
+      mRefAlnDiffScores.emplace_back(aln_diff_score);
+      strand == Strand::FWD ? mRefFwdBaseQuals.emplace_back(base_qual) : mRefRevBaseQuals.emplace_back(base_qual);
       break;
     default:
       mAltNameHashes.emplace(rname_hash, strand);
-      strand == Strand::FWD ? mAltFwdQuals.emplace_back(quality) : mAltRevQuals.emplace_back(quality);
+      mAltMapQuals.emplace_back(map_qual);
+      mAltAlnDiffScores.emplace_back(aln_diff_score);
+      strand == Strand::FWD ? mAltFwdBaseQuals.emplace_back(base_qual) : mAltRevBaseQuals.emplace_back(base_qual);
       break;
   }
+
+  std::ranges::sort(mRefFwdBaseQuals);
+  std::ranges::sort(mRefRevBaseQuals);
+  std::ranges::sort(mAltFwdBaseQuals);
+  std::ranges::sort(mAltRevBaseQuals);
+
+  std::ranges::sort(mRefMapQuals);
+  std::ranges::sort(mAltMapQuals);
+
+  std::ranges::sort(mRefAlnDiffScores);
+  std::ranges::sort(mAltAlnDiffScores);
 }
 
 auto VariantSupport::AltFrequency() const -> f64 {
@@ -48,9 +66,32 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
 
-auto VariantSupport::MeanHaplotypeQualities() const -> std::array<f64, 2> {
-  return {hts::ErrorProbToPhred(MeanErrorProbability(Allele::REF)),
-          hts::ErrorProbToPhred(MeanErrorProbability(Allele::ALT))};
+auto VariantSupport::AlleleQualityStats() const -> QualStats {
+  std::vector<u8> ref_quals;
+  std::vector<u8> alt_quals;
+  ref_quals.reserve(mRefFwdBaseQuals.size() + mRefRevBaseQuals.size());
+  alt_quals.reserve(mAltFwdBaseQuals.size() + mAltRevBaseQuals.size());
+
+  std::ranges::for_each(mRefFwdBaseQuals, [&ref_quals](const u8 bqual) { ref_quals.push_back(bqual); });
+  std::ranges::for_each(mRefRevBaseQuals, [&ref_quals](const u8 bqual) { ref_quals.push_back(bqual); });
+  std::ranges::for_each(mAltFwdBaseQuals, [&alt_quals](const u8 bqual) { alt_quals.push_back(bqual); });
+  std::ranges::for_each(mAltRevBaseQuals, [&alt_quals](const u8 bqual) { alt_quals.push_back(bqual); });
+
+  std::ranges::sort(ref_quals);
+  std::ranges::sort(alt_quals);
+
+  return {.ref_alt_medians = {MedianOfSortedVector(ref_quals), MedianOfSortedVector(alt_quals)},
+          .ref_alt_ranges = {RangeOfSortedVector(ref_quals), RangeOfSortedVector(alt_quals)}};
+}
+
+auto VariantSupport::MappingQualityStats() const -> QualStats {
+  return {.ref_alt_medians = {MedianOfSortedVector(mRefMapQuals), MedianOfSortedVector(mAltMapQuals)},
+          .ref_alt_ranges = {RangeOfSortedVector(mRefMapQuals), RangeOfSortedVector(mAltMapQuals)}};
+}
+
+auto VariantSupport::AlnDiffScoreStats() const -> QualStats {
+  return {.ref_alt_medians = {MedianOfSortedVector(mRefAlnDiffScores), MedianOfSortedVector(mAltAlnDiffScores)},
+          .ref_alt_ranges = {RangeOfSortedVector(mRefAlnDiffScores), RangeOfSortedVector(mAltAlnDiffScores)}};
 }
 
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
@@ -59,8 +100,8 @@ auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   if (TotalSampleCov() == 0) return ZERO_COV_ERR_PROB;
 
   const auto total_allele_cov = allele == Allele::REF ? TotalRefCov() : TotalAltCov();
-  const auto data = allele == Allele::REF ? std::array<absl::Span<const u8>, 2>{mRefFwdQuals, mRefRevQuals}
-                                          : std::array<absl::Span<const u8>, 2>{mAltFwdQuals, mAltRevQuals};
+  const auto data = allele == Allele::REF ? std::array<absl::Span<const u8>, 2>{mRefFwdBaseQuals, mRefRevBaseQuals}
+                                          : std::array<absl::Span<const u8>, 2>{mAltFwdBaseQuals, mAltRevBaseQuals};
 
   const auto quals = std::ranges::join_view(data);
   static const auto summer = [](const f64 sum, const u8 bql) { return sum + hts::PhredToErrorProb(bql); };
@@ -123,6 +164,15 @@ auto VariantSupport::ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> 
   const auto pl_hom_alt = std::ceil(hom_alt_phred - min_phred);
 
   return {static_cast<int>(pl_hom_ref), static_cast<int>(pl_het_alt), static_cast<int>(pl_hom_alt)};
+}
+
+auto VariantSupport::MedianOfSortedVector(absl::Span<const u8> data) -> u8 {
+  const auto size = data.length();
+  return data.empty() ? 0 : (size % 2 == 0) ? (data[size / 2 - 1] + data[size / 2]) / 2 : data[size / 2];
+}
+
+auto VariantSupport::RangeOfSortedVector(absl::Span<const u8> data) -> u8 {
+  return data.size() < 2 ? 0 : data[data.size() - 1] - data[0];
 }
 
 }  // namespace lancet::caller

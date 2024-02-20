@@ -162,9 +162,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--max-sample-cov", rc_prms.mMaxSampleCov, "Max. per sample coverage before downsampling")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-alt-qual", vb_prms.mMinAltQuality, "Min. phred quality supporting ALT allele")
-      ->group("Parameters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 
   // Filters
   subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")
