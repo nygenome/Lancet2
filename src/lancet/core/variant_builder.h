@@ -26,7 +26,6 @@ class VariantBuilder {
 
     cbdg::Graph::Params mGraphParams;
     ReadCollector::Params mRdCollParams;
-    caller::VariantCall::Params mVariantParams;
   };
 
   VariantBuilder(std::shared_ptr<const Params> params);

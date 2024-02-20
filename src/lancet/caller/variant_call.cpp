@@ -23,10 +23,10 @@ namespace {
 
 namespace lancet::caller {
 
-VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samps, const Params &prms, const usize klen)
+VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samps, const usize kmerlen)
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele), mAltAllele(var->mAltAllele),
-      mVarLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType) {
+      mVariantLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType) {
   PerSampleEvidence per_sample_evidence;
   per_sample_evidence.reserve(supprts.size());
 
@@ -42,15 +42,13 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:AFR:SFS:AQM:AQR:MQM:MQR:ASDM:ASDR:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:AQM:AQR:MQM:MQR:ASDM:ASDR:GQ:PL");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
 
   bool alt_seen_in_normal = false;
   bool alt_seen_in_tumor = false;
-  std::vector<std::string> current_filters;
-  absl::btree_set<std::string> variant_site_filters;
   const auto is_str = var->mStrResult.mFoundStr;
 
   for (const auto &sinfo : samps) {
@@ -76,35 +74,10 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     const auto [rasd_range, aasd_range] = aln_score_stats.ref_alt_ranges;
 
     const auto alt_allele_freq = evidence->AltFrequency();
-    const auto alt_on_single_strand = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
-    const auto tn_alt_odds_ratio = SomaticOddsRatio(sinfo, per_sample_evidence);
     const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
 
     mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<f64>(ref_hom_pl) : fisher_score);
     mTotalSampleCov += evidence->TotalSampleCov();
-    current_filters.clear();
-
-    if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      // NOLINTBEGIN(readability-braces-around-statements)
-      if (evidence->TotalSampleCov() < prms.mMinNmlCov) current_filters.emplace_back("LowNmlCov");
-      if (germline_mode && genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
-      // NOLINTEND(readability-braces-around-statements)
-    }
-
-    if (sinfo.TagKind() == cbdg::Label::TUMOR) {
-      using RawVariant::Type::SNV;
-      // NOLINTBEGIN(readability-braces-around-statements)
-      if (evidence->TotalSampleCov() < prms.mMinTmrCov) current_filters.emplace_back("LowTmrCov");
-      if (genotype != REF_HOM && alt_on_single_strand) current_filters.emplace_back("StrandBias");
-      if (tn_alt_odds_ratio < prms.mMinOddsRatio) current_filters.emplace_back("LowOddsRatio");
-      if (is_str && fisher_score < prms.mMinStrFisher) current_filters.emplace_back("LowStrFisher");
-      if (mCategory != SNV && fisher_score < prms.mMinInDelFisher) current_filters.emplace_back("LowIndelFisher");
-      if (mCategory == SNV && fisher_score < prms.mMinSnvFisher) current_filters.emplace_back("LowSnvFisher");
-      // NOLINTEND(readability-braces-around-statements)
-    }
-
-    std::ranges::sort(current_filters);
-    variant_site_filters.insert(current_filters.cbegin(), current_filters.cend());
 
     // NOLINTBEGIN(readability-braces-around-statements)
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::NORMAL) alt_seen_in_normal = true;
@@ -112,24 +85,22 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(fmt::format(
-        "{GT}:{REF_AD},{ALT_AD}:{REF_ADF},{ALT_ADF}:{REF_ADR},{ALT_ADR}:{DP}:{WDC:.2f}:{WTC:.2f}:{PRF:.2f}:"
-        "{VAF:.2f}:{AFR:.2f}:{SFS:.2f}:{REF_AQM},{ALT_AQM}:{REF_AQR},{ALT_AQR}:{REF_MQM},{ALT_MQM}:{REF_"
-        "MQR},{ALT_MQR}:{REF_ASDM},{ALT_ASDM}:{REF_ASDR},{ALT_ASDR}:{GQ}:{PL1},{PL2},{PL3}",
-        fmt::arg("GT", genotype), fmt::arg("REF_AD", evidence->TotalRefCov()),
-        fmt::arg("ALT_AD", evidence->TotalAltCov()), fmt::arg("REF_ADF", evidence->RefFwdCount()),
-        fmt::arg("ALT_ADF", evidence->AltFwdCount()), fmt::arg("REF_ADR", evidence->RefRevCount()),
-        fmt::arg("ALT_ADR", evidence->AltRevCount()), fmt::arg("DP", evidence->TotalSampleCov()),
-        fmt::arg("WDC", sinfo.MeanSampledCov()), fmt::arg("WTC", sinfo.MeanTotalCov()),
-        fmt::arg("PRF", sinfo.PassReadsFraction()), fmt::arg("VAF", alt_allele_freq),
-        fmt::arg("AFR", tn_alt_odds_ratio), fmt::arg("SFS", fisher_score), fmt::arg("REF_AQM", raq_median),
-        fmt::arg("ALT_AQM", aaq_median), fmt::arg("REF_AQR", raq_range), fmt::arg("ALT_AQR", aaq_range),
-        fmt::arg("REF_MQM", rmq_median), fmt::arg("ALT_MQM", amq_median), fmt::arg("REF_MQR", rmq_range),
-        fmt::arg("ALT_MQR", amq_range), fmt::arg("REF_ASDM", rasd_median), fmt::arg("ALT_ASDM", aasd_median),
-        fmt::arg("REF_ASDR", rasd_range), fmt::arg("ALT_ASDR", aasd_range), fmt::arg("GQ", genotype_quality),
-        fmt::arg("PL1", ref_hom_pl), fmt::arg("PL2", het_alt_pl), fmt::arg("PL3", alt_hom_pl)));
+        "{GT}:{R_AD},{A_AD}:{R_ADF},{A_ADF}:{R_ADR},{A_ADR}:{DP}:{WDC:.2f}:{WTC:.2f}:{PRF:.2f}:{VAF:.2f}:"
+        "{R_AQM},{A_AQM}:{R_AQR},{A_AQR}:{R_MQM},{A_MQM}:{R_MQR},{A_MQR}:{R_ASDM},{A_ASDM}:{R_ASDR},{A_ASDR}:"
+        "{GQ}:{HOM_REF_PL},{HET_ALT_PL},{HOM_ALT_PL}",
+        fmt::arg("GT", genotype), fmt::arg("R_AD", evidence->TotalRefCov()), fmt::arg("A_AD", evidence->TotalAltCov()),
+        fmt::arg("R_ADF", evidence->RefFwdCount()), fmt::arg("A_ADF", evidence->AltFwdCount()),
+        fmt::arg("R_ADR", evidence->RefRevCount()), fmt::arg("A_ADR", evidence->AltRevCount()),
+        fmt::arg("DP", evidence->TotalSampleCov()), fmt::arg("WDC", sinfo.MeanSampledCov()),
+        fmt::arg("WTC", sinfo.MeanTotalCov()), fmt::arg("PRF", sinfo.PassReadsFraction()),
+        fmt::arg("VAF", alt_allele_freq), fmt::arg("R_AQM", raq_median), fmt::arg("A_AQM", aaq_median),
+        fmt::arg("R_AQR", raq_range), fmt::arg("A_AQR", aaq_range), fmt::arg("R_MQM", rmq_median),
+        fmt::arg("A_MQM", amq_median), fmt::arg("R_MQR", rmq_range), fmt::arg("A_MQR", amq_range),
+        fmt::arg("R_ASDM", rasd_median), fmt::arg("A_ASDM", aasd_median), fmt::arg("R_ASDR", rasd_range),
+        fmt::arg("A_ASDR", aasd_range), fmt::arg("GQ", genotype_quality), fmt::arg("HOM_REF_PL", ref_hom_pl),
+        fmt::arg("HET_ALT_PL", het_alt_pl), fmt::arg("HOM_ALT_PL", alt_hom_pl)));
   }
 
-  mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");
   mState = alt_seen_in_normal && alt_seen_in_tumor ? RawVariant::State::SHARED
            : alt_seen_in_normal                    ? RawVariant::State::NORMAL
            : alt_seen_in_tumor                     ? RawVariant::State::TUMOR
@@ -148,15 +119,15 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
                                                               : "REF"sv;
 
   const auto str_info = is_str ? fmt::format(";STR={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
-  mInfoField = fmt::format("{};TYPE={};LEN={};KMER_LEN={}{}", vstate, vcategory, mVarLength, klen, str_info);
+  mInfoField = fmt::format("{};TYPE={};LENGTH={};KMERLEN={}{}", vstate, vcategory, mVariantLength, kmerlen, str_info);
 }
 
 auto VariantCall::AsVcfRecord() const -> std::string {
-  auto vcf_record = fmt::format("{}\t{}\t.\t{}\t{}\t{:.4f}\t{}\t{}\t{}", mChromName, mStartPos1, mRefAllele, mAltAllele,
-                                mSiteQuality, mFilterField, mInfoField, absl::StrJoin(mFormatFields, "\t"));
-
   // No newline. caller of this method will add new line if needed
-  return vcf_record;
+  return fmt::format("{CHROM}\t{POS}\t.\t{REF}\t{ALT}\t{QUAL:.2f}\t.\t{INFO}\t{FORMAT}", fmt::arg("CHROM", mChromName),
+                     fmt::arg("POS", mStartPos1), fmt::arg("REF", mRefAllele), fmt::arg("ALT", mAltAllele),
+                     fmt::arg("QUAL", mSiteQuality), fmt::arg("INFO", mInfoField),
+                     fmt::arg("FORMAT", absl::StrJoin(mFormatFields, "\t")));
 }
 
 auto VariantCall::SomaticFisherScore(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> f64 {
@@ -192,29 +163,6 @@ auto VariantCall::SomaticFisherScore(const core::SampleInfo &curr, const PerSamp
   const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
   const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
   return hts::ErrorProbToPhred(result.mMoreProb);
-}
-
-auto VariantCall::SomaticOddsRatio(const core::SampleInfo &curr, const PerSampleEvidence &supports) -> f64 {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
-
-  f64 max_nml_vaf = std::numeric_limits<f64>::min();
-  f64 curr_tmr_vaf = std::numeric_limits<f64>::min();
-
-  for (const auto &[sample_info, evidence] : supports) {
-    // Ignore other tumor samples even if present
-    if (sample_info.SampleName() == curr.SampleName()) {
-      curr_tmr_vaf = evidence->AltFrequency();
-      continue;
-    }
-
-    if (sample_info.TagKind() == cbdg::Label::NORMAL) {
-      max_nml_vaf = std::max(max_nml_vaf, evidence->AltFrequency());
-    }
-  }
-
-  const auto odds_ratio = curr_tmr_vaf / max_nml_vaf;
-  return std::clamp(odds_ratio, 0.0, static_cast<f64>(hts::MAX_PHRED_SCORE));
 }
 
 auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {

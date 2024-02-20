@@ -20,34 +20,16 @@ using VariantID = u64;
 
 class VariantCall {
  public:
-  static constexpr u32 DEFAULT_MIN_SNV_FISHER = 10;
-  static constexpr u32 DEFAULT_MIN_INDEL_FISHER = 20;
-  static constexpr u32 DEFAULT_MIN_STR_FISHER = 30;
-  static constexpr f64 DEFAULT_MIN_ODDS_RATIO = 10.0;
-
-  static constexpr u32 DEFAULT_MIN_TUMOR_COV = 10;
-  static constexpr u32 DEFAULT_MIN_NORMAL_COV = 20;
-
-  struct Params {
-    u32 mMinSnvFisher = DEFAULT_MIN_SNV_FISHER;
-    u32 mMinInDelFisher = DEFAULT_MIN_INDEL_FISHER;
-    u32 mMinStrFisher = DEFAULT_MIN_STR_FISHER;
-    f64 mMinOddsRatio = DEFAULT_MIN_ODDS_RATIO;
-
-    u32 mMinTmrCov = DEFAULT_MIN_TUMOR_COV;
-    u32 mMinNmlCov = DEFAULT_MIN_NORMAL_COV;
-  };
-
   using Samples = absl::Span<const core::SampleInfo>;
   using Supports = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  VariantCall(const RawVariant* var, Supports&& supprts, Samples samps, const Params& prms, usize klen);
+  VariantCall(const RawVariant* var, Supports&& supprts, Samples samps, usize kmerlen);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
   [[nodiscard]] auto StartPos1() const -> usize { return mStartPos1; }
   [[nodiscard]] auto RefAllele() const -> std::string_view { return mRefAllele; }
   [[nodiscard]] auto AltAllele() const -> std::string_view { return mAltAllele; }
-  [[nodiscard]] auto Length() const -> i64 { return mVarLength; }
+  [[nodiscard]] auto Length() const -> i64 { return mVariantLength; }
   [[nodiscard]] auto Quality() const -> u8 { return mSiteQuality; }
   [[nodiscard]] auto State() const -> RawVariant::State { return mState; }
   [[nodiscard]] auto Category() const -> RawVariant::Type { return mCategory; }
@@ -67,7 +49,7 @@ class VariantCall {
     if (lhs.mStartPos1 != rhs.mStartPos1) return lhs.mStartPos1 < rhs.mStartPos1;
     if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
     if (lhs.mAltAllele != rhs.mAltAllele) return lhs.mAltAllele < rhs.mAltAllele;
-    if (lhs.mVarLength != rhs.mVarLength) return lhs.mVarLength < rhs.mVarLength;
+    if (lhs.mVariantLength != rhs.mVariantLength) return lhs.mVariantLength < rhs.mVariantLength;
     return static_cast<i8>(lhs.mCategory) < static_cast<i8>(rhs.mCategory);
     // NOLINTEND(readability-braces-around-statements)
   }
@@ -81,12 +63,11 @@ class VariantCall {
   std::string mRefAllele;
   std::string mAltAllele;
 
-  i64 mVarLength;
+  i64 mVariantLength;
   f64 mSiteQuality;
   RawVariant::State mState;
   RawVariant::Type mCategory;
 
-  std::string mFilterField;
   std::string mInfoField;
   std::vector<std::string> mFormatFields;
 
@@ -99,7 +80,6 @@ class VariantCall {
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
   [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
-  [[nodiscard]] static auto SomaticOddsRatio(const core::SampleInfo& curr, const PerSampleEvidence& supports) -> f64;
   [[nodiscard]] static auto FirstAndSecondSmallestIndices(const std::array<int, 3>& pls) -> std::array<usize, 2>;
 };
 

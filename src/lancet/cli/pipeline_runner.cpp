@@ -267,16 +267,9 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
-##INFO=<ID=LEN,Number=1,Type=Integer,Description="Variant length in base pairs">
-##INFO=<ID=KMER_LEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
+##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
+##INFO=<ID=KMERLEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##INFO=<ID=STR,Number=1,Type=String,Description="If variant is near STR, lists length and motif. (format: LEN:MOTIF)">
-##FILTER=<ID=LowNmlCov,Description="Total read depth in atleast one normal sample less than {MIN_NML_COV}">
-##FILTER=<ID=LowTmrCov,Description="Total read depth in atleast one tumor sample less than {MIN_TMR_COV}">
-##FILTER=<ID=StrandBias,Description="ALT allele is not present on both forward and reverse strands">
-##FILTER=<ID=LowOddsRatio,Description="ALT frequency ratio in tumor vs normal is less than {MIN_ODDS_RATIO}">
-##FILTER=<ID=LowSnvFisher,Description="Phred-scaled somatic fisher score is less than {MIN_SNV_FISHER}">
-##FILTER=<ID=LowIndelFisher,Description="Phred-scaled somatic fisher score for InDels is less than {MIN_INDEL_FISHER}">
-##FILTER=<ID=LowStrFisher,Description="Phred-scaled somatic fisher score for STRs score is less than {MIN_STR_FISHER}">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
@@ -286,8 +279,6 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Window read depth before downsampling and read filters">
 ##FORMAT=<ID=PRF,Number=1,Type=Float,Description="Fraction of reads in the window that pass read quality filters">
 ##FORMAT=<ID=VAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
-##FORMAT=<ID=AFR,Number=1,Type=Float,Description="ALT frequency ratio in tumor vs normal. 0 for normal sample(s)">
-##FORMAT=<ID=SFS,Number=1,Type=Float,Description="Phred-scaled somatic fisher score. 0 for normal sample(s)">
 ##FORMAT=<ID=AQM,Number=2,Type=Integer,Description="Median of the allele base quality for REF and ALT alleles">
 ##FORMAT=<ID=AQR,Number=2,Type=Integer,Description="Range of the allele base quality for REF and ALT alleles">
 ##FORMAT=<ID=MQM,Number=2,Type=Integer,Description="Median of the read mapping quality for REF and ALT alleles">
@@ -320,13 +311,7 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
       fstr_hdr, fmt::arg("RUN_TIMESTAMP", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone())),
       fmt::arg("FULL_VERSION_TAG", LancetFullVersion()), fmt::arg("FULL_COMMAND_USED", params.mFullCmdLine),
       fmt::arg("REFERENCE_PATH", params.mVariantBuilder.mRdCollParams.mRefPath.string()),
-      fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines),
-      fmt::arg("MIN_NML_COV", params.mVariantBuilder.mVariantParams.mMinNmlCov),
-      fmt::arg("MIN_TMR_COV", params.mVariantBuilder.mVariantParams.mMinTmrCov),
-      fmt::arg("MIN_ODDS_RATIO", params.mVariantBuilder.mVariantParams.mMinOddsRatio),
-      fmt::arg("MIN_SNV_FISHER", params.mVariantBuilder.mVariantParams.mMinSnvFisher),
-      fmt::arg("MIN_INDEL_FISHER", params.mVariantBuilder.mVariantParams.mMinInDelFisher),
-      fmt::arg("MIN_STR_FISHER", params.mVariantBuilder.mVariantParams.mMinStrFisher));
+      fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
   absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
