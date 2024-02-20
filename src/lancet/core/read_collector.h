@@ -43,8 +43,8 @@ class ReadCollector {
   explicit ReadCollector(Params params);
 
   struct Result {
-    std::vector<Read> mSampleReads;
-    std::vector<SampleInfo> mSampleList;
+    std::vector<Read> mSampleReads{};
+    std::vector<SampleInfo> mSampleList{};
   };
 
   [[nodiscard]] auto CollectRegionResult(const Region& region) -> Result;
@@ -64,7 +64,6 @@ class ReadCollector {
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
 
-  [[nodiscard]] static auto FailsAlnFilterCheck(const hts::Alignment& aln) -> bool;
   [[nodiscard]] static auto MakeSampleList(const Params& params) -> std::vector<SampleInfo>;
 
   using MateNameAndLocation = std::pair<std::string, hts::Alignment::MateInfo>;

@@ -19,12 +19,10 @@ class VariantBuilder {
  public:
   static constexpr u32 MIN_PHRED_SCORE = 0;
   static constexpr u32 MAX_PHRED_SCORE = 255;
-  static constexpr u32 DEFAULT_MIN_ALT_QUAL = 20;
 
   struct Params {
     bool mSkipActiveRegion = false;
     std::filesystem::path mOutGraphsDir;
-    u32 mMinAltQuality = DEFAULT_MIN_ALT_QUAL;
 
     cbdg::Graph::Params mGraphParams;
     ReadCollector::Params mRdCollParams;

@@ -42,7 +42,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:AFR:SFS:AQ:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:AFR:SFS:AQM:AQR:MQM:MQR:ASDM:ASDR:GQ:PL");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
@@ -62,7 +62,18 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
 
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
     const auto genotype_quality = static_cast<u32>(phred_likelihoods.at(second_smallest_index));
-    const auto [ref_allele_qual, alt_allele_qual] = evidence->MeanHaplotypeQualities();
+
+    const auto allele_qual_stats = evidence->AlleleQualityStats();
+    const auto [raq_median, aaq_median] = allele_qual_stats.ref_alt_medians;
+    const auto [raq_range, aaq_range] = allele_qual_stats.ref_alt_ranges;
+
+    const auto mapping_qual_stats = evidence->MappingQualityStats();
+    const auto [rmq_median, amq_median] = mapping_qual_stats.ref_alt_medians;
+    const auto [rmq_range, amq_range] = mapping_qual_stats.ref_alt_ranges;
+
+    const auto aln_score_stats = evidence->AlnDiffScoreStats();
+    const auto [rasd_median, aasd_median] = aln_score_stats.ref_alt_medians;
+    const auto [rasd_range, aasd_range] = aln_score_stats.ref_alt_ranges;
 
     const auto alt_allele_freq = evidence->AltFrequency();
     const auto alt_on_single_strand = evidence->AltFwdCount() == 0 || evidence->AltRevCount() == 0;
@@ -100,14 +111,22 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supprts, Samples samp
     if (genotype != REF_HOM && sinfo.TagKind() == cbdg::Label::TUMOR) alt_seen_in_tumor = true;
     // NOLINTEND(readability-braces-around-statements)
 
-    mFormatFields.emplace_back(
-        // GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:AFR:SFS:AQ:GQ:PL
-        fmt::format("{}:{},{}:{},{}:{},{}:{}:{:.4f}:{:.4f}:{:.4f}:{:.4f}:{:.4f}:{:.4f}:{:.4f},{:.4f}:{}:{},{},{}",
-                    genotype, evidence->TotalRefCov(), evidence->TotalAltCov(), evidence->RefFwdCount(),
-                    evidence->AltFwdCount(), evidence->RefRevCount(), evidence->AltRevCount(),
-                    evidence->TotalSampleCov(), sinfo.MeanSampledCov(), sinfo.MeanTotalCov(), sinfo.PassReadsFraction(),
-                    alt_allele_freq, tn_alt_odds_ratio, fisher_score, ref_allele_qual, alt_allele_qual,
-                    genotype_quality, ref_hom_pl, het_alt_pl, alt_hom_pl));
+    mFormatFields.emplace_back(fmt::format(
+        "{GT}:{REF_AD},{ALT_AD}:{REF_ADF},{ALT_ADF}:{REF_ADR},{ALT_ADR}:{DP}:{WDC:.2f}:{WTC:.2f}:{PRF:.2f}:"
+        "{VAF:.2f}:{AFR:.2f}:{SFS:.2f}:{REF_AQM},{ALT_AQM}:{REF_AQR},{ALT_AQR}:{REF_MQM},{ALT_MQM}:{REF_"
+        "MQR},{ALT_MQR}:{REF_ASDM},{ALT_ASDM}:{REF_ASDR},{ALT_ASDR}:{GQ}:{PL1},{PL2},{PL3}",
+        fmt::arg("GT", genotype), fmt::arg("REF_AD", evidence->TotalRefCov()),
+        fmt::arg("ALT_AD", evidence->TotalAltCov()), fmt::arg("REF_ADF", evidence->RefFwdCount()),
+        fmt::arg("ALT_ADF", evidence->AltFwdCount()), fmt::arg("REF_ADR", evidence->RefRevCount()),
+        fmt::arg("ALT_ADR", evidence->AltRevCount()), fmt::arg("DP", evidence->TotalSampleCov()),
+        fmt::arg("WDC", sinfo.MeanSampledCov()), fmt::arg("WTC", sinfo.MeanTotalCov()),
+        fmt::arg("PRF", sinfo.PassReadsFraction()), fmt::arg("VAF", alt_allele_freq),
+        fmt::arg("AFR", tn_alt_odds_ratio), fmt::arg("SFS", fisher_score), fmt::arg("REF_AQM", raq_median),
+        fmt::arg("ALT_AQM", aaq_median), fmt::arg("REF_AQR", raq_range), fmt::arg("ALT_AQR", aaq_range),
+        fmt::arg("REF_MQM", rmq_median), fmt::arg("ALT_MQM", amq_median), fmt::arg("REF_MQR", rmq_range),
+        fmt::arg("ALT_MQR", amq_range), fmt::arg("REF_ASDM", rasd_median), fmt::arg("ALT_ASDM", aasd_median),
+        fmt::arg("REF_ASDR", rasd_range), fmt::arg("ALT_ASDR", aasd_range), fmt::arg("GQ", genotype_quality),
+        fmt::arg("PL1", ref_hom_pl), fmt::arg("PL2", het_alt_pl), fmt::arg("PL3", alt_hom_pl)));
   }
 
   mFilterField = variant_site_filters.empty() ? "PASS" : absl::StrJoin(variant_site_filters, ";");

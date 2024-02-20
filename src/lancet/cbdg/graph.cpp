@@ -549,6 +549,9 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
   mate_mers.clear();
   for (const auto& read : mReads) {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (!read.PassesAlnFilters()) continue;
+
     usize offset = 0;
     auto added_nodes = AddNodes(read.SeqView(), mCurrK + 1);
     const auto qname_label = fmt::format("{}{}", read.QnameView(), read.SrcLabel().GetData());
