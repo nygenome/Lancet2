@@ -98,7 +98,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   auto& vb_prms = params->mVariantBuilder;
   auto& rc_prms = vb_prms.mRdCollParams;
   auto& grph_prms = vb_prms.mGraphParams;
-  auto& fltr_prms = vb_prms.mVariantParams;
 
   static constexpr f64 MIN_TUMOR_VS_NORMAL_VAF_ODDS = 0.0;
   static constexpr f64 MAX_TUMOR_VS_NORMAL_VAF_ODDS = 255.0;
@@ -162,26 +161,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--max-sample-cov", rc_prms.mMaxSampleCov, "Max. per sample coverage before downsampling")
       ->group("Parameters")
       ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-
-  // Filters
-  subcmd->add_option("--min-nml-cov", fltr_prms.mMinNmlCov, "Min. normal coverage")
-      ->group("Filters")
-      ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_NORMAL_COV, std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-tmr-cov", fltr_prms.mMinTmrCov, "Min. tumor coverage")
-      ->group("Filters")
-      ->check(CLI::Range(caller::VariantCall::DEFAULT_MIN_TUMOR_COV, std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-odds-ratio", fltr_prms.mMinOddsRatio, "Min. VAF odds in tumor vs normal")
-      ->group("Filters")
-      ->check(CLI::Range(MIN_TUMOR_VS_NORMAL_VAF_ODDS, MAX_TUMOR_VS_NORMAL_VAF_ODDS));
-  subcmd->add_option("--min-snv-fisher", fltr_prms.mMinSnvFisher, "Min. phred scaled fisher score for SNVs")
-      ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
-  subcmd->add_option("--min-indel-fisher", fltr_prms.mMinInDelFisher, "Min. phred scaled fisher score for InDels")
-      ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
-  subcmd->add_option("--min-str-fisher", fltr_prms.mMinStrFisher, "Min. phred scaled fisher score for STRs")
-      ->group("Filters")
-      ->check(CLI::Range(core::VariantBuilder::MIN_PHRED_SCORE, core::VariantBuilder::MAX_PHRED_SCORE));
 
   // Feature flags
   subcmd->add_flag("--verbose", params->mEnableVerboseLogging, "Turn on verbose logging")->group("Flags");
