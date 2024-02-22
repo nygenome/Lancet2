@@ -97,6 +97,11 @@ class VariantSupport {
     const auto sz_ref = refs.size();
     const auto sz_alt = alts.size();
 
+    const auto min_ref = refs.empty() ? 0 : static_cast<int>(refs[0]);
+    const auto min_alt = alts.empty() ? 0 : static_cast<int>(alts[0]);
+    const auto max_ref = refs.empty() ? 0 : static_cast<int>(refs[sz_ref - 1]);
+    const auto max_alt = alts.empty() ? 0 : static_cast<int>(alts[sz_alt - 1]);
+
     const auto ref_median = refs.empty()        ? 0.0
                             : (sz_ref % 2 == 0) ? (refs[sz_ref / 2 - 1] + refs[sz_ref / 2]) / 2.0
                                                 : refs[sz_ref / 2];
@@ -109,14 +114,14 @@ class VariantSupport {
     const auto alt_mad = alts.empty() ? 0.0 : boost::math::statistics::median_absolute_deviation(alts, alt_median);
 
     return {
-        .refMinVal = refs.empty() ? 0 : static_cast<int>(refs[0]),
+        .refMinVal = min_ref,
         .refMedian = static_cast<int>(std::round(ref_median)),
-        .refMaxVal = refs.empty() ? 0 : static_cast<int>(refs[sz_ref - 1]),
+        .refMaxVal = max_ref,
         .refMADVal = static_cast<int>(std::round(ref_mad)),
 
-        .altMinVal = alts.empty() ? 0 : static_cast<int>(alts[0]),
+        .altMinVal = min_alt,
         .altMedian = static_cast<int>(std::round(alt_median)),
-        .altMaxVal = alts.empty() ? 0 : static_cast<int>(alts[sz_alt - 1]),
+        .altMaxVal = max_alt,
         .altMADVal = static_cast<int>(std::round(alt_mad)),
     };
   }
