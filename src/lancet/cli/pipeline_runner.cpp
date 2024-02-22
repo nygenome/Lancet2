@@ -266,10 +266,12 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 {CONTIG_HDR_LINES}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
+##INFO=<ID=STR,Number=0,Type=Flag,Description="Variant ALT seen near an identified STR site">
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERLEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
-##INFO=<ID=STR,Number=1,Type=String,Description="If variant is near STR, lists length and motif. (format: LEN:MOTIF)">
+##INFO=<ID=STR_LEN,Number=1,Type=Integer,Description="If variant ALT is near STR, lists length of the STR unit">
+##INFO=<ID=STR_MOTIF,Number=1,Type=String,Description="If variant ALT is near STR, lists motif of the STR unit">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
