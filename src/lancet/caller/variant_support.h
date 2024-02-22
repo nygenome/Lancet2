@@ -116,7 +116,7 @@ class VariantSupport {
 
         .altMinVal = alts.empty() ? 0 : static_cast<int>(alts[0]),
         .altMedian = static_cast<int>(std::round(alt_median)),
-        .altMaxVal = alts.empty() ? 0 : static_cast<int>(alts[sz_ref - 1]),
+        .altMaxVal = alts.empty() ? 0 : static_cast<int>(alts[sz_alt - 1]),
         .altMADVal = static_cast<int>(std::round(alt_mad)),
     };
   }
