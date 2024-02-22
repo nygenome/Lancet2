@@ -1,7 +1,6 @@
 #include "lancet/caller/variant_support.h"
 
 #include <algorithm>
-#include <cmath>
 #include <limits>
 #include <numeric>
 #include <ranges>
@@ -34,17 +33,6 @@ void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, cons
       strand == Strand::FWD ? mAltFwdBaseQuals.emplace_back(base_qual) : mAltRevBaseQuals.emplace_back(base_qual);
       break;
   }
-
-  std::ranges::sort(mRefFwdBaseQuals);
-  std::ranges::sort(mRefRevBaseQuals);
-  std::ranges::sort(mAltFwdBaseQuals);
-  std::ranges::sort(mAltRevBaseQuals);
-
-  std::ranges::sort(mRefMapQuals);
-  std::ranges::sort(mAltMapQuals);
-
-  std::ranges::sort(mRefAlnDiffScores);
-  std::ranges::sort(mAltAlnDiffScores);
 }
 
 auto VariantSupport::AltFrequency() const -> f64 {
@@ -66,32 +54,26 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
 
-auto VariantSupport::AlleleQualityStats() const -> QualStats {
-  std::vector<u8> ref_quals;
-  std::vector<u8> alt_quals;
-  ref_quals.reserve(mRefFwdBaseQuals.size() + mRefRevBaseQuals.size());
-  alt_quals.reserve(mAltFwdBaseQuals.size() + mAltRevBaseQuals.size());
+auto VariantSupport::AlleleQualityStats() const -> Statistics {
+  std::vector<u8> refs;
+  refs.reserve(mRefFwdBaseQuals.size() + mRefRevBaseQuals.size());
+  std::ranges::for_each(mRefFwdBaseQuals, [&refs](const u8 bqual) { refs.push_back(bqual); });
+  std::ranges::for_each(mRefRevBaseQuals, [&refs](const u8 bqual) { refs.push_back(bqual); });
 
-  std::ranges::for_each(mRefFwdBaseQuals, [&ref_quals](const u8 bqual) { ref_quals.push_back(bqual); });
-  std::ranges::for_each(mRefRevBaseQuals, [&ref_quals](const u8 bqual) { ref_quals.push_back(bqual); });
-  std::ranges::for_each(mAltFwdBaseQuals, [&alt_quals](const u8 bqual) { alt_quals.push_back(bqual); });
-  std::ranges::for_each(mAltRevBaseQuals, [&alt_quals](const u8 bqual) { alt_quals.push_back(bqual); });
+  std::vector<u8> alts;
+  alts.reserve(mAltFwdBaseQuals.size() + mAltRevBaseQuals.size());
+  std::ranges::for_each(mAltFwdBaseQuals, [&alts](const u8 bqual) { alts.push_back(bqual); });
+  std::ranges::for_each(mAltRevBaseQuals, [&alts](const u8 bqual) { alts.push_back(bqual); });
 
-  std::ranges::sort(ref_quals);
-  std::ranges::sort(alt_quals);
-
-  return {.ref_alt_medians = {MedianOfSortedVector(ref_quals), MedianOfSortedVector(alt_quals)},
-          .ref_alt_ranges = {RangeOfSortedVector(ref_quals), RangeOfSortedVector(alt_quals)}};
+  return BuildStats(absl::MakeConstSpan(refs), absl::MakeConstSpan(alts));
 }
 
-auto VariantSupport::MappingQualityStats() const -> QualStats {
-  return {.ref_alt_medians = {MedianOfSortedVector(mRefMapQuals), MedianOfSortedVector(mAltMapQuals)},
-          .ref_alt_ranges = {RangeOfSortedVector(mRefMapQuals), RangeOfSortedVector(mAltMapQuals)}};
+auto VariantSupport::MappingQualityStats() const -> Statistics {
+  return BuildStats(absl::MakeConstSpan(mRefMapQuals), absl::MakeConstSpan(mAltMapQuals));
 }
 
-auto VariantSupport::AlnDiffScoreStats() const -> QualStats {
-  return {.ref_alt_medians = {MedianOfSortedVector(mRefAlnDiffScores), MedianOfSortedVector(mAltAlnDiffScores)},
-          .ref_alt_ranges = {RangeOfSortedVector(mRefAlnDiffScores), RangeOfSortedVector(mAltAlnDiffScores)}};
+auto VariantSupport::AlnDiffScoreStats() const -> Statistics {
+  return BuildStats(absl::MakeConstSpan(mRefAlnDiffScores), absl::MakeConstSpan(mAltAlnDiffScores));
 }
 
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
@@ -164,15 +146,6 @@ auto VariantSupport::ConvertGtProbsToPls(const std::array<f64, 3>& gt_probs) -> 
   const auto pl_hom_alt = std::ceil(hom_alt_phred - min_phred);
 
   return {static_cast<int>(pl_hom_ref), static_cast<int>(pl_het_alt), static_cast<int>(pl_hom_alt)};
-}
-
-auto VariantSupport::MedianOfSortedVector(absl::Span<const u8> data) -> u8 {
-  const auto size = data.length();
-  return data.empty() ? 0 : (size % 2 == 0) ? (data[size / 2 - 1] + data[size / 2]) / 2 : data[size / 2];
-}
-
-auto VariantSupport::RangeOfSortedVector(absl::Span<const u8> data) -> u8 {
-  return data.size() < 2 ? 0 : data[data.size() - 1] - data[0];
 }
 
 }  // namespace lancet::caller

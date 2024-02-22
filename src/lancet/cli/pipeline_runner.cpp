@@ -279,12 +279,12 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Window read depth before downsampling and read filters">
 ##FORMAT=<ID=PRF,Number=1,Type=Float,Description="Fraction of reads in the window that pass read quality filters">
 ##FORMAT=<ID=VAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
-##FORMAT=<ID=AQM,Number=2,Type=Integer,Description="Median of the allele base quality for REF and ALT alleles">
-##FORMAT=<ID=AQR,Number=2,Type=Integer,Description="Range of the allele base quality for REF and ALT alleles">
-##FORMAT=<ID=MQM,Number=2,Type=Integer,Description="Median of the read mapping quality for REF and ALT alleles">
-##FORMAT=<ID=MQR,Number=2,Type=Integer,Description="Range of the read mapping quality for REF and ALT alleles">
-##FORMAT=<ID=ASDM,Number=2,Type=Integer,Description="Median of the alignment score difference for REF and ALT alleles">
-##FORMAT=<ID=ASDR,Number=2,Type=Integer,Description="Range of the alignment score difference for REF and ALT alleles">
+##FORMAT=<ID=RAQS,Number=4,Type=Integer,Description="REF allele quality stats - Min, Median, Max, MAD">
+##FORMAT=<ID=AAQS,Number=4,Type=Integer,Description="ALT allele quality stats - Min, Median, Max, MAD">
+##FORMAT=<ID=RMQS,Number=4,Type=Integer,Description="REF mapping quality stats - Min, Median, Max, MAD">
+##FORMAT=<ID=AMQS,Number=4,Type=Integer,Description="ALT mapping quality stats - Min, Median, Max, MAD">
+##FORMAT=<ID=RAPDS,Number=4,Type=Integer,Description="REF aln scores pct difference stats - Min, Median, Max, MAD">
+##FORMAT=<ID=AAPDS,Number=4,Type=Integer,Description="ALT aln scores pct difference stats - Min, Median, Max, MAD">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality for the sample">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotypes">
 )raw"sv;
