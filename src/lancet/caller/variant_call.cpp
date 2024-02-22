@@ -137,8 +137,9 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
                          : mCategory == RawVariant::Type::MNP ? "MNP"sv
                                                               : "REF"sv;
 
-  const auto str_info = is_str ? fmt::format(";STR={}{}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "";
-  mInfoField = fmt::format("{};TYPE={};LENGTH={};KMERLEN={}{}", vstate, vcategory, mVariantLength, kmerlen, str_info);
+  mInfoField = fmt::format(
+      "{};{}TYPE={};LENGTH={};KMERLEN={}{}", vstate, is_str ? "STR;"sv : ""sv, vcategory, mVariantLength, kmerlen,
+      is_str ? fmt::format(";STR_LEN={};STR_MOTIF={}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "");
 }
 
 auto VariantCall::AsVcfRecord() const -> std::string {
