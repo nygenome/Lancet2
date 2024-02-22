@@ -22,7 +22,7 @@ class VariantCall {
  public:
   using Samples = absl::Span<const core::SampleInfo>;
   using Supports = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  VariantCall(const RawVariant* var, Supports&& supprts, Samples samps, usize kmerlen);
+  VariantCall(const RawVariant* var, Supports&& supports, Samples samps, usize kmerlen);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
