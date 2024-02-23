@@ -19,7 +19,7 @@ namespace lancet::hts {
 Extractor::Extractor(std::filesystem::path aln_file, const Reference& ref, const Alignment::Fields fields,
                      absl::Span<const std::string> tags, const bool skip_ref_contig_check)
     : mFieldsNeeded(fields), mBamCramPath(std::move(aln_file)), mTagsNeeded(tags.cbegin(), tags.cend()) {
-  hts_set_log_level(HTS_LOG_OFF);
+  hts_set_log_level(HTS_LOG_ERROR);
   const auto bc_path = mBamCramPath.string();
 
   mFilePtr = InitHtsFile(bc_path.c_str());

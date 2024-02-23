@@ -14,7 +14,7 @@ extern "C" {
 namespace lancet::hts {
 
 Reference::Reference(std::filesystem::path reference) : mFastaPath(std::move(reference)) {
-  hts_set_log_level(HTS_LOG_OFF);
+  hts_set_log_level(HTS_LOG_ERROR);
   mFastaIndex = FastaIndex(fai_load3(mFastaPath.c_str(), nullptr, nullptr, 0));
   if (mFastaIndex == nullptr) {
     const auto fname = mFastaPath.filename().string();
