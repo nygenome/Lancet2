@@ -4,7 +4,6 @@ import argparse
 import logging
 import math
 import pickle
-import sys
 import urllib.request
 
 import pysam
@@ -220,15 +219,12 @@ def main(raw_vcf_path):
     logging.info("Done applying machine learning model to the variants dataframe")
 
     logging.info("Writing final filtered and scored output VCF")
-    highest_qual = phred_score(sys.float_info.min)
     invcf = pysam.VariantFile(raw_vcf_path)
     outvcf = pysam.VariantFile("-", "w", header=invcf.header)
 
     idx_ml_model = -1
     for v in tqdm.tqdm(invcf):
         if v.info.get("NORMAL", False):
-            v.qual = highest_qual
-            outvcf.write(v)
             continue
 
         idx_ml_model += 1
@@ -237,11 +233,10 @@ def main(raw_vcf_path):
         score = phred_score(sorted(probs[idx_ml_model])[0])
         is_pass_variant = preds[idx_ml_model]
 
-        v.qual = score
         if is_pass_variant and score >= 20:
+            v.qual = score
             v.filter.add("PASS")
-
-        outvcf.write(v)
+            outvcf.write(v)
 
     invcf.close()
     outvcf.close()
