@@ -207,15 +207,17 @@ def main(raw_vcf_path):
     dt_fmt = "%Y-%m-%d %H:%M:%S"
     logging.basicConfig(format=msg_fmt, level=logging.INFO, datefmt=dt_fmt)
 
-    logging.info("Making somatic variants dataframe to be evaluated")
+    logging.info("Building SHARED/TUMOR variants dataframe for further evaluation")
     variants = make_somatic_variant_list(raw_vcf_path)
+    logging.info(f"Done building dataframe with {len(variants)} SHARED/TUMOR variants")
 
-    logging.info("Loading somatic machine learning model")
+    logging.info("Loading somatic machine learning model into memory")
     ml_model = download_and_load_model(SOMATIC_URL)
 
     logging.info("Applying machine learning model to the variants dataframe")
     preds = ml_model.predict(variants)
     probs = ml_model.predict_proba(variants)
+    logging.info("Done applying machine learning model to the variants dataframe")
 
     logging.info("Writing final filtered and scored output VCF")
     highest_qual = phred_score(sys.float_info.min)
@@ -237,7 +239,7 @@ def main(raw_vcf_path):
 
         v.qual = score
         if is_pass_variant and score >= 20:
-            v.qual = "PASS"
+            v.filter.add("PASS")
 
         outvcf.write(v)
 
