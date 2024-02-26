@@ -1,9 +1,33 @@
 
+<a name="v2.8.3"></a>
+## [v2.8.3](https://github.com/nygenome/Lancet2/compare/v2.8.2...v2.8.3) (2024-02-23)
+
+### Bug Fixes
+
+* compute min and max before changing for mad
+* resolve typo
+
+### Maintenance/Refactoring
+
+* allow logging htslib errors
+* make minor imports
+* update cmake version in dockerfile
+* update deps & remove extra hash deps
+
+### New Features
+
+* expand str info into flag, unit length and motif
+* expand stats by adding min, max and median abs. deviation
+* remove vcf filters & post call filtering to incorporate ML filtering
+* use low qual reads for GTing & vcf stats but not for graph
+
+
 <a name="v2.8.2"></a>
 ## [v2.8.2](https://github.com/nygenome/Lancet2/compare/v2.8.1...v2.8.2) (2023-11-30)
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.8.2
 * update dockerfile
 * update dependencies and remove v prefix
 
