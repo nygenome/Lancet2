@@ -228,12 +228,11 @@ def main(raw_vcf_path):
             continue
 
         idx_ml_model += 1
-        # Use lowest probablity class of machine learning binary
-        # classification as error probability for phred score
-        score = phred_score(sorted(probs[idx_ml_model])[0])
         is_pass_variant = preds[idx_ml_model]
-        if is_pass_variant and score >= 5:
-            v.qual = score
+        if is_pass_variant:
+            # Use lowest probablity class of machine learning binary
+            # classification as error probability for phred score
+            v.qual = phred_score(sorted(probs[idx_ml_model])[0])
             v.filter.add("PASS")
             outvcf.write(v)
 
