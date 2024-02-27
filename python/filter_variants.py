@@ -232,8 +232,7 @@ def main(raw_vcf_path):
         # classification as error probability for phred score
         score = phred_score(sorted(probs[idx_ml_model])[0])
         is_pass_variant = preds[idx_ml_model]
-
-        if is_pass_variant and score >= 20:
+        if is_pass_variant:
             v.qual = score
             v.filter.add("PASS")
             outvcf.write(v)
