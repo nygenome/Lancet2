@@ -30,15 +30,15 @@ def build_variant_data(variant, normal_sample_idx=0, tumor_sample_idx=1):
     REF = 0
     ALT = 1
 
+    nml_depth = smpls[NML]["DP"]
     nml_ref_cnt = smpls[NML]["AD"][REF]
     nml_fwd_ref_cnt = smpls[NML]["ADF"][REF]
-
     nml_alt_cnt = smpls[NML]["AD"][ALT]
     nml_fwd_alt_cnt = smpls[NML]["ADF"][ALT]
 
+    tmr_depth = smpls[TMR]["DP"]
     tmr_ref_cnt = smpls[TMR]["AD"][REF]
     tmr_fwd_ref_cnt = smpls[TMR]["ADF"][REF]
-
     tmr_alt_cnt = smpls[TMR]["AD"][ALT]
     tmr_fwd_alt_cnt = smpls[TMR]["ADF"][ALT]
 
@@ -62,19 +62,15 @@ def build_variant_data(variant, normal_sample_idx=0, tumor_sample_idx=1):
         # STR_MOTIF_LENGTH
         len(variant.info.get("STR_MOTIF", "")),
         # NORMAL_DEPTH
-        smpls[NML]["DP"],
-        # NORMAL_REF_COUNT
-        nml_ref_cnt,
-        # NORMAL_ALT_COUNT
-        nml_alt_cnt,
+        nml_depth,
+        # NORMAL_ALT_COUNT_BY_DEPTH
+        0 if nml_depth == 0 else nml_alt_cnt / nml_depth,
         # NORMAL_REF_PCT_STRAND_IMBALANCE
         round(abs((0.5 - (0.5 if nml_ref_cnt == 0 else nml_fwd_ref_cnt / nml_ref_cnt)) * 100), 2),
         # NORMAL_ALT_PCT_STRAND_IMBALANCE
         round(abs((0.5 - (0.5 if nml_alt_cnt == 0 else nml_fwd_alt_cnt / nml_alt_cnt)) * 100), 2),
         # NORMAL_PCT_FAIL_READS_IN_WINDOW
         round(100 - (100 * smpls[NML]["PRF"]), 2),
-        # NORMAL_VAF
-        smpls[NML]["VAF"],
         # NORMAL_REF_ALLELE_QUALITY_MINIMUM
         smpls[NML]["RAQS"][0],
         # NORMAL_ALT_ALLELE_QUALITY_MINIMUM
@@ -124,19 +120,15 @@ def build_variant_data(variant, normal_sample_idx=0, tumor_sample_idx=1):
         # NORMAL_ALT_ALN_PCT_DIFF_ABSDEV
         smpls[NML]["AAPDS"][3],
         # TUMOR_DEPTH
-        smpls[TMR]["DP"],
-        # TUMOR_REF_COUNT
-        tmr_ref_cnt,
-        # TUMOR_ALT_COUNT
-        tmr_alt_cnt,
+        tmr_depth,
+        # TUMOR_ALT_COUNT_BY_DEPTH
+        0 if tmr_depth == 0 else tmr_alt_cnt / tmr_depth,
         # TUMOR_REF_PCT_STRAND_IMBALANCE
         round(abs((0.5 - (0.5 if tmr_ref_cnt == 0 else tmr_fwd_ref_cnt / tmr_ref_cnt)) * 100), 2),
         # TUMOR_ALT_PCT_STRAND_IMBALANCE
         round(abs((0.5 - (0.5 if tmr_alt_cnt == 0 else tmr_fwd_alt_cnt / tmr_alt_cnt)) * 100), 2),
         # TUMOR_PCT_FAIL_READS_IN_WINDOW
         round(100 - (100 * smpls[TMR]["PRF"]), 2),
-        # TUMOR_VAF
-        smpls[TMR]["VAF"],
         # TUMOR_REF_ALLELE_QUALITY_MINIMUM
         smpls[TMR]["RAQS"][0],
         # TUMOR_ALT_ALLELE_QUALITY_MINIMUM
@@ -185,6 +177,8 @@ def build_variant_data(variant, normal_sample_idx=0, tumor_sample_idx=1):
         smpls[TMR]["RAPDS"][3],
         # TUMOR_ALT_ALN_PCT_DIFF_ABSDEV
         smpls[TMR]["AAPDS"][3],
+        # "TUMOR_NORMAL_VAF_ABSDIFF"
+        abs(smpls[TMR]["VAF"] - smpls[NML]["VAF"]),
     ]
 
     return data
