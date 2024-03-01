@@ -92,7 +92,7 @@ class SampleInfo {
   }
 
   void CalculatePassReadsFraction(const u64 pass, const u64 total) {
-    mPassReadsFraction = static_cast<f64>(pass) / static_cast<f64>(total);
+    mPassReadsFraction = total == 0 ? 0 : static_cast<f64>(pass) / static_cast<f64>(total);
   }
 };
 
