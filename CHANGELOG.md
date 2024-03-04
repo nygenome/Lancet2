@@ -1,6 +1,30 @@
 
+<a name="v2.8.4"></a>
+## [v2.8.4](https://github.com/nygenome/Lancet2/compare/v2.8.3...v2.8.4) (2024-03-04)
+
+### Bug Fixes
+
+* Handle case when no reads in window
+* handle potential math domain error
+* use only class without score
+* resolve bug in pysam api usage and add some log msgs
+
+### Maintenance/Refactoring
+
+* temporarily remove score cutoff
+* update conda env deps
+
+### New Features
+
+* use only hq reads to genotype variants
+* update ml model features in apply script
+* set qual >=5 i.e. ~70% probability of somatic as cutoff
+* only output PASS variants to stdout vcf
+* add script to apply somatic ML filtering model
+
+
 <a name="v2.8.3"></a>
-## [v2.8.3](https://github.com/nygenome/Lancet2/compare/v2.8.2...v2.8.3) (2024-02-23)
+## [v2.8.3](https://github.com/nygenome/Lancet2/compare/v2.8.2...v2.8.3) (2024-02-25)
 
 ### Bug Fixes
 
@@ -9,6 +33,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.8.3
 * allow logging htslib errors
 * make minor imports
 * update cmake version in dockerfile
