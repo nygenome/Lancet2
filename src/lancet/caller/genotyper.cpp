@@ -63,6 +63,9 @@ auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& v
   };
 
   for (const auto& read : reads) {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (!read.PassesAlnFilters()) continue;
+
     read_supports.clear();
     auto alns_to_all_haps = AlignRead(read);
     std::ranges::sort(alns_to_all_haps, by_descending_identity_and_score);
