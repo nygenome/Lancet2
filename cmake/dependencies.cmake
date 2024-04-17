@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.2 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 14b8a4e SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG e304ff5 SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -43,21 +43,12 @@ if (NOT concurrentqueue_POPULATED)
 	target_include_directories(concurrentqueue SYSTEM INTERFACE "${concurrentqueue_SOURCE_DIR}")
 endif ()
 
-set(ROARING_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/roaring")
-set(ROARING_URL "https://github.com/RoaringBitmap/CRoaring/releases/download/v2.1.2")
-file(MAKE_DIRECTORY "${ROARING_ROOT}")
-file(DOWNLOAD "${ROARING_URL}/roaring.c" "${ROARING_ROOT}/roaring.c" EXPECTED_MD5 "1f7a7f66f478f5bb18e8ec58ae4b818d")
-file(DOWNLOAD "${ROARING_URL}/roaring.h" "${ROARING_ROOT}/roaring.h" EXPECTED_MD5 "ea2cc4651a48579e1557b69782c78fbb")
-file(DOWNLOAD "${ROARING_URL}/roaring.hh" "${ROARING_ROOT}/roaring.hh" EXPECTED_MD5 "a8d1a1d85b19b9fc00686505496d8a33")
-add_library(RoaringBitmap STATIC "${ROARING_ROOT}/roaring.c" "${ROARING_ROOT}/roaring.h" "${ROARING_ROOT}/roaring.hh")
-target_include_directories(RoaringBitmap SYSTEM PUBLIC "${ROARING_ROOT}")
-
 set(LIBDEFLATE_BUILD_STATIC_LIB ON)
 set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
 set(LIBDEFLATE_BUILD_GZIP OFF)
 set(LIBDEFLATE_BUILD_TESTS OFF)
 set(LIBDEFLATE_USE_SHARED_LIB OFF)
-FetchContent_Declare(libdeflate GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git GIT_TAG v1.19 SYSTEM)
+FetchContent_Declare(libdeflate GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git GIT_TAG v1.20 SYSTEM)
 FetchContent_MakeAvailable(libdeflate)
 
 set(ZLIB_COMPAT ON)
@@ -81,8 +72,8 @@ set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(LIB_HTS "${HTSLIB_ROOT_DIR}/libhts.a")
 set(HTSLIB_CONFIG_PARAMS ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(htslib
-		URL https://github.com/samtools/htslib/releases/download/1.19.1/htslib-1.19.1.tar.bz2
-		URL_MD5 f9b2f75e1e9ec6cc5c1e204d56fbee9e PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+		URL https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
+		URL_MD5 127cbea4e9a8c084fb09c3fd24bd825d PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
 		SOURCE_DIR ${HTSLIB_ROOT_DIR} BUILD_IN_SOURCE 1 INSTALL_COMMAND ""
 		BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static BUILD_BYPRODUCTS ${LIB_HTS}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_htslib.sh ${HTSLIB_CONFIG_PARAMS}
@@ -94,8 +85,8 @@ set(MM2_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/minimap2")
 set(LIB_MM2 "${MM2_ROOT_DIR}/libminimap2.a")
 set(MM2_BUILD_PARAMS ${MM2_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(minimap2
-		URL https://github.com/lh3/minimap2/releases/download/v2.26/minimap2-2.26.tar.bz2
-		URL_MD5 b55b69773f07b15ceae9a6b86d907c78 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+		URL https://github.com/lh3/minimap2/releases/download/v2.28/minimap2-2.28.tar.bz2
+		URL_MD5 600bd8d2d9f365d8c5dc6bc38b89ee8c PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
 		SOURCE_DIR ${MM2_ROOT_DIR} BUILD_IN_SOURCE 1 CONFIGURE_COMMAND "" INSTALL_COMMAND ""
 		BUILD_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/build_minimap2.sh ${MM2_BUILD_PARAMS}
 		BUILD_BYPRODUCTS ${LIB_MM2} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
@@ -108,8 +99,9 @@ set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
 set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
 ExternalProject_Add(gperftools
 		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.15/gperftools-2.15.tar.gz
-		URL_MD5 0c16898d428c6f2694c1ea9e6525de8f PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR}
-		BUILD_IN_SOURCE 1 INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
+		URL_MD5 0c16898d428c6f2694c1ea9e6525de8f
+		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR} BUILD_IN_SOURCE 1
+		INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_gperftools.sh ${GPERFTOOLS_CONFIG_PARAMS}
 		BUILD_BYPRODUCTS ${LIB_PROFILER} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
@@ -124,9 +116,9 @@ FetchContent_MakeAvailable(boost_math)
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
-	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.5.2")
-	set(CATCH_MD5c "ef068b553001c49ec0d570f245344545")
-	set(CATCH_MD5h "5225a0477a07299ac48df4a8f479b144")
+	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.5.4")
+	set(CATCH_MD5c "2268b80ff1b1a43c8972155e1bda7e92")
+	set(CATCH_MD5h "9a8026dd4fa98771bd2d8ab5053fd740")
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.cpp" EXPECTED_MD5 ${CATCH_MD5c})
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.hpp" "${CATCH_ROOT}/catch_amalgamated.hpp" EXPECTED_MD5 ${CATCH_MD5h})
 	add_library(Catch2 STATIC "${CATCH_ROOT}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.hpp")
