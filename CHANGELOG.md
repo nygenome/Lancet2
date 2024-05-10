@@ -1,4 +1,20 @@
 
+<a name="v2.8.5"></a>
+## [v2.8.5](https://github.com/nygenome/Lancet2/compare/v2.8.4...v2.8.5) (2024-05-10)
+
+### Maintenance/Refactoring
+
+* update cmake version and use gcc14 for docker build
+* update dependencies
+* update Dockerfile
+* update dependencies
+* add pyproject toml details
+
+### New Features
+
+* update python deps and filter_variants script to use latest model
+
+
 <a name="v2.8.4"></a>
 ## [v2.8.4](https://github.com/nygenome/Lancet2/compare/v2.8.3...v2.8.4) (2024-03-04)
 
@@ -11,6 +27,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.8.4
 * temporarily remove score cutoff
 * update conda env deps
 
