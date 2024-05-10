@@ -1,12 +1,12 @@
-FROM gcc:13 AS builder
+FROM gcc:14 AS builder
 LABEL maintainer="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 
 RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get upgrade --yes --no-install-recommends && \
     apt-get install --yes --no-install-recommends ca-certificates libbz2-dev liblzma-dev git make unzip wget && \
-    wget -cq "https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-linux-x86_64.sh" && \
+    wget -cq "https://github.com/Kitware/CMake/releases/download/v3.29.3/cmake-3.29.3-linux-x86_64.sh" && \
     wget -cq "https://github.com/ninja-build/ninja/releases/download/v1.12.0/ninja-linux.zip" && \
-    /bin/bash "cmake-3.29.2-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
-    unzip -d /usr/bin ninja-linux.zip && rm -f cmake-3.29.2-linux-x86_64.sh ninja-linux.zip
+    /bin/bash "cmake-3.29.3-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
+    unzip -d /usr/bin ninja-linux.zip && rm -f cmake-3.29.3-linux-x86_64.sh ninja-linux.zip
 
 ARG BUILD_ARCH="cascadelake"
 RUN DEBIAN_FRONTEND="noninteractive" git clone https://github.com/nygenome/Lancet2.git && cd Lancet2 && mkdir build && \
