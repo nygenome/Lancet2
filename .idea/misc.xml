@@ -6,6 +6,9 @@
     <option name="pathToExecutable" value="/opt/homebrew/Caskroom/miniforge/base/bin/black" />
     <option name="sdkName" value="filter_lancet2" />
   </component>
+  <component name="CMakePythonSetting">
+    <option name="pythonIntegrationState" value="YES" />
+  </component>
   <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
   <component name="CidrRootsConfiguration">
     <libraryRoots>
