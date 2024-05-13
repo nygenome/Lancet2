@@ -1,29 +1,40 @@
 #include "lancet/cbdg/graph.h"
 
 #include <algorithm>
+#include <cmath>
 #include <deque>
+#include <filesystem>
 #include <fstream>
+#include <ios>
+#include <iterator>
+#include <memory>
 #include <numeric>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "absl/hash/hash.h"
-#include "absl/strings/str_join.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/compute_stats.h"
-#include "lancet/base/hash.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/repeat.h"
-#include "lancet/base/rev_comp.h"
 #include "lancet/base/sliding.h"
 #include "lancet/base/timer.h"
+#include "lancet/base/types.h"
+#include "lancet/cbdg/edge.h"
+#include "lancet/cbdg/kmer.h"
 #include "lancet/cbdg/max_flow.h"
+#include "lancet/cbdg/node.h"
 #include "lancet/hts/phred_quality.h"
-#include "spdlog/fmt/fmt.h"
-#include "spdlog/fmt/ostr.h"
+#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/ostream.h"
 
 namespace lancet::cbdg {
 
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result {
   mReads = reads;
   mRegion = std::move(region);
@@ -38,6 +49,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   static constexpr usize DEFAULT_MIN_ANCHOR_LENGTH = 150;
   static constexpr f64 DEFAULT_PCT_NODES_NEEDED = 10.0;
 
+  // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
   const auto reg_str = mRegion->ToSamtoolsRegion();
   mCurrK = mParams.mMinKmerLen - mParams.mKmerStepLen;
 
@@ -131,6 +143,8 @@ IncrementKmerAndRetry:
 
   static const auto summer = [](const u64 sum, const auto& comp_haps) -> u64 { return sum + comp_haps.size() - 1; };
   const auto num_asm_haps = std::accumulate(per_comp_haplotypes.cbegin(), per_comp_haplotypes.cend(), 0, summer);
+
+  // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
   const auto human_rt = timer.HumanRuntime();
 
   LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", num_asm_haps, reg_str, mCurrK, human_rt)
@@ -150,6 +164,7 @@ void Graph::CompressGraph(const usize component_id) {
   }
 
   if (!remove_nids.empty()) {
+    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
     const auto region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Compressed {} nodes for {} in comp{} with k={}", remove_nids.size(), region_str, component_id, mCurrK)
     // NOLINTNEXTLINE(readability-braces-around-statements)
@@ -328,6 +343,7 @@ void Graph::RemoveTips(const usize component_id) {
   }
 
   if (total_tips > 0) {
+    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
     const auto region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removed {} tips for {} in comp{} with k={}", total_tips, region_str, component_id, mCurrK)
   }
@@ -391,6 +407,7 @@ auto Graph::HasCycle() const -> bool {
   return cycle_found;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void Graph::HasCycle(const Node& node, NodeIdSet& traversed, bool& found_cycle, usize& recursion_depth) const {
   const auto node_default_sign = node.SignFor(Kmer::Ordering::DEFAULT);
   traversed.insert(node.Identifier());
@@ -500,6 +517,7 @@ void Graph::RemoveLowCovNodes(const usize component_id) {
   });
 
   if (!remove_nids.empty()) {
+    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
     const auto region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removing {:.4f}% (or) {} low cov nodes for {} in comp{} with k={}",
               100.0 * (static_cast<f64>(remove_nids.size()) / static_cast<f64>(mNodes.size())), remove_nids.size(),
@@ -654,9 +672,10 @@ void Graph::WriteDot([[maybe_unused]] State state, usize comp_id) {
 
   const auto out_path = mParams.mOutGraphsDir / "dbg_graph" / fname;
   std::filesystem::create_directories(mParams.mOutGraphsDir / "dbg_graph");
-  return SerializeToDot(mNodes, out_path, comp_id, {mSourceAndSinkIds.cbegin(), mSourceAndSinkIds.cend()});
+  SerializeToDot(mNodes, out_path, comp_id, {mSourceAndSinkIds.cbegin(), mSourceAndSinkIds.cend()});
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void Graph::SerializeToDot(const NodeTable& graph, const std::filesystem::path& out_path, const usize comp_id,
                            const NodeIdSet& nodes_highlight, const EdgeSet& edges_highlight,
                            const NodeIdSet& nodes_background, const EdgeSet& edges_background) {
@@ -680,12 +699,14 @@ edge [color=gray,fontsize=8,fontcolor=floralwhite,len=3,fixedsize=false,headclip
     const auto rev_oppo_seq = std::string(oppo_seq.crbegin(), oppo_seq.crend());
     const auto sign_dflt = item.second->SignFor(Kmer::Ordering::DEFAULT) == Kmer::Sign::PLUS ? '+' : '-';
     const auto is_background_node = nodes_background.contains(item.first);
+    // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
     const auto fill_color = is_background_node                     ? "darkgray"sv
                             : nodes_highlight.contains(item.first) ? "orchid"sv
                             : item.second->IsShared()              ? "steelblue"sv
                             : item.second->IsTumorOnly()           ? "indianred"sv
                             : item.second->IsNormalOnly()          ? "mediumseagreen"sv
                                                                    : "lightblue"sv;
+    // NOLINTEND(readability-avoid-nested-conditional-operator)
 
     fmt::print(out_handle, R"raw({} [shape=circle fillcolor={} label="{}\n{}\n {}:{}\nlength={}\ncoverage={}"]
 )raw",

@@ -1,16 +1,23 @@
 #include "lancet/caller/variant_call.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iterator>
+#include <memory>
+#include <string_view>
+#include <utility>
 
-#include "absl/container/btree_set.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
+#include "lancet/base/types.h"
+#include "lancet/caller/raw_variant.h"
+#include "lancet/cbdg/label.h"
 #include "lancet/hts/fisher_exact.h"
 #include "lancet/hts/phred_quality.h"
-#include "spdlog/fmt/fmt.h"
+#include "spdlog/fmt/bundled/core.h"
+#include "variant_support.h"
 
 namespace {
 
@@ -23,6 +30,7 @@ namespace {
 
 namespace lancet::caller {
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,cppcoreguidelines-rvalue-reference-param-not-moved)
 VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples samps, const usize kmerlen)
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele), mAltAllele(var->mAltAllele),
@@ -120,6 +128,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
         fmt::arg("HOM_REF_PL", ref_hom_pl), fmt::arg("HET_ALT_PL", het_alt_pl), fmt::arg("HOM_ALT_PL", alt_hom_pl)));
   }
 
+  // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
   mState = alt_seen_in_normal && alt_seen_in_tumor ? RawVariant::State::SHARED
            : alt_seen_in_normal                    ? RawVariant::State::NORMAL
            : alt_seen_in_tumor                     ? RawVariant::State::TUMOR
@@ -136,6 +145,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
                          : mCategory == RawVariant::Type::DEL ? "DEL"sv
                          : mCategory == RawVariant::Type::MNP ? "MNP"sv
                                                               : "REF"sv;
+  // NOLINTEND(readability-avoid-nested-conditional-operator)
 
   mInfoField = fmt::format(
       "{};{}TYPE={};LENGTH={};KMERLEN={}{}", vstate, is_str ? "STR;"sv : ""sv, vcategory, mVariantLength, kmerlen,
@@ -190,6 +200,7 @@ auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -
   const auto smallest_idx = static_cast<usize>(std::distance(pls.cbegin(), min_itr));
 
   const auto second_min_comparator = [&min_itr](const int lhs, const int rhs) -> bool {
+    // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
     return (lhs == *min_itr) ? false : (rhs == *min_itr) ? true : lhs < rhs;
   };
 

@@ -7,6 +7,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/assert.h"
+#include "lancet/base/types.h"
 
 // Based off of https://github.com/Daniel-Liu-c0deb0t/triple_accel/blob/master/src/hamming.rs
 auto HammingDistWord64(std::string_view first, std::string_view second) -> usize {

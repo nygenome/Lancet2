@@ -2,16 +2,27 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <ios>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
-#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+#include "absl/types/span.h"
 #include "lancet/base/logging.h"
-#include "spdlog/fmt/fmt.h"
+#include "lancet/base/types.h"
+#include "lancet/core/window.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::core {
 

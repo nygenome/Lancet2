@@ -9,7 +9,7 @@
 
 #include "lancet/base/types.h"
 #include "lancet/hts/reference.h"
-#include "spdlog/fmt/fmt.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::core {
 

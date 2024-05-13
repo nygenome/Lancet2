@@ -1,15 +1,28 @@
 #include "lancet/caller/genotyper.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdlib>
+#include <memory>
+#include <optional>
 #include <string_view>
+#include <utility>
+#include <vector>
+
+extern "C" {
+#include "minimap.h"
+#include "mmpriv.h"
+}
 
 #include "absl/strings/numbers.h"
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
+#include "lancet/base/types.h"
+#include "lancet/caller/variant_set.h"
+#include "lancet/caller/variant_support.h"
 #include "lancet/hts/cigar_unit.h"
-#include "mmpriv.h"
 
 namespace {
 
@@ -183,6 +196,7 @@ auto Genotyper::AlnInfo::FindIdentityRanges() const -> RefQryIdentityRanges {
   return RefQryIdentityRanges({ref_iden_ranges, qry_iden_ranges});
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto Genotyper::AlnInfo::FindNonIndelChunks() const -> NonIndelChunks {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mCsTag.empty()) return NonIndelChunks{};

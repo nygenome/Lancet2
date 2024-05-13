@@ -4,30 +4,25 @@
 #include <array>
 #include <string>
 #include <string_view>
-#include <utility>
 
-#include "absl/container/fixed_array.h"
-#include "absl/types/span.h"
 #include "lancet/base/types.h"
 
 namespace lancet::cbdg {
 
-enum class EdgeKind : u64 { PLUS_PLUS = 0, PLUS_MINUS = 1, MINUS_PLUS = 2, MINUS_MINUS = 3 };
+enum class EdgeKind : u8 { PLUS_PLUS = 0, PLUS_MINUS = 1, MINUS_PLUS = 2, MINUS_MINUS = 3 };
 
 class Kmer {
  public:
   // Default sequence is lexicographically lower than opposite sequence
   enum class Ordering : bool { DEFAULT = true, OPPOSITE = false };
-  [[nodiscard]] static inline auto RevOrdering(const Ordering ord) -> Ordering {
+  [[nodiscard]] static auto RevOrdering(const Ordering ord) -> Ordering {
     return ord == Ordering::DEFAULT ? Ordering::OPPOSITE : Ordering::DEFAULT;
   }
 
   //  PLUS -> default seq in original orientation of the source read
   // MINUS -> default seq in rev_comp orientation of the source read
   enum class Sign : bool { PLUS = true, MINUS = false };
-  [[nodiscard]] static inline auto RevSign(const Sign sign) -> Sign {
-    return sign == Sign::PLUS ? Sign::MINUS : Sign::PLUS;
-  }
+  [[nodiscard]] static auto RevSign(const Sign sign) -> Sign { return sign == Sign::PLUS ? Sign::MINUS : Sign::PLUS; }
 
   Kmer() = default;
   explicit Kmer(std::string_view seq);

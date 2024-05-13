@@ -5,14 +5,15 @@
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
+#include <functional>
 #include <memory>
 #include <numeric>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 
 // #ifndef LANCET_DEVELOP_MODE
 // #include "gperftools/profiler.h"
@@ -24,20 +25,27 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "concurrentqueue.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/timer.h"
+#include "lancet/base/types.h"
 #include "lancet/base/version.h"
+#include "lancet/cli/cli_params.h"
 #include "lancet/cli/eta_timer.h"
 #include "lancet/core/async_worker.h"
+#include "lancet/core/read_collector.h"
 #include "lancet/core/variant_builder.h"
 #include "lancet/core/variant_store.h"
+#include "lancet/core/window.h"
 #include "lancet/core/window_builder.h"
+#include "lancet/hts/alignment.h"
 #include "lancet/hts/bgzf_ostream.h"
 #include "lancet/hts/extractor.h"
 #include "lancet/hts/reference.h"
-#include "spdlog/fmt/fmt.h"
-#include "spdlog/fmt/ostr.h"
+#include "spdlog/fmt/bundled/core.h"
 
 using lancet::core::AsyncWorker;
 using lancet::core::VariantBuilder;
@@ -116,7 +124,7 @@ void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken 
   // #endif
   auto worker =
       std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore), std::move(params));
-  return worker->Process(std::move(stop_token), *in_token);
+  worker->Process(std::move(stop_token), *in_token);
 }
 
 namespace lancet::cli {

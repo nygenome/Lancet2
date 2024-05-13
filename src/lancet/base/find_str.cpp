@@ -4,7 +4,9 @@
 #include <string_view>
 
 #include "lancet/base/assert.h"
+#include "lancet/base/types.h"
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto FindStr(std::string_view seq, usize pos, const StrParams& params) -> StrResult {
   StrResult result{.mFoundStr = false, .mStrLen = 0, .mStrMotif = ""};
 

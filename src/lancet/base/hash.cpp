@@ -3,6 +3,7 @@
 #include <string_view>
 
 #include "absl/hash/internal/city.h"
+#include "lancet/base/types.h"
 
 auto HashStr64(std::string_view str) -> u64 {
   // NOLINTNEXTLINE(abseil-no-internal-dependencies)

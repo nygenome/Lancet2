@@ -5,22 +5,27 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
+
+extern "C" {
+#include "minimap.h"
+}
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
+#include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_set.h"
 #include "lancet/caller/variant_support.h"
 #include "lancet/cbdg/read.h"
-#include "minimap.h"
 
 namespace lancet::caller {
 
 class Genotyper {
  public:
-  enum class Preset { ShortRead, LongReadONT };
+  enum class Preset : u8 { ShortRead, LongReadONT };
   Genotyper(Preset preset = Preset::ShortRead);
 
   void SetNumSamples(const usize num_samples) { mNumSamples = num_samples; }

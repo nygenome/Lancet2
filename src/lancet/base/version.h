@@ -1,8 +1,10 @@
 #ifndef SRC_LANCET_BASE_VERSION_H_
 #define SRC_LANCET_BASE_VERSION_H_
 
+#include <string>
+
 #include "lancet_version.h"
-#include "spdlog/fmt/fmt.h"
+#include "spdlog/fmt/bundled/core.h"
 
 static constexpr auto LANCET_VERSION_TAG = lancet::VersionTag;
 static constexpr auto LANCET_GIT_BRANCH = lancet::GitBranch;

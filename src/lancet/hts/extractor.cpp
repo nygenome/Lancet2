@@ -1,18 +1,33 @@
 #include "lancet/hts/extractor.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <functional>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 extern "C" {
 #include "htslib/cram.h"
+#include "htslib/hts.h"
+#include "htslib/hts_expr.h"
 #include "htslib/hts_log.h"
+#include "htslib/sam.h"
 }
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/strip.h"
+#include "absl/types/span.h"
 #include "lancet/base/logging.h"
-#include "spdlog/fmt/fmt.h"
+#include "lancet/base/types.h"
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/reference.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::hts {
 
@@ -54,9 +69,7 @@ void Extractor::SetRegionToExtract(const std::string& region_spec) {
   }
 }
 
-void Extractor::SetRegionToExtract(const Reference::Region& region) {
-  return SetRegionToExtract(region.ToSamtoolsRegion());
-}
+void Extractor::SetRegionToExtract(const Reference::Region& region) { SetRegionToExtract(region.ToSamtoolsRegion()); }
 
 void Extractor::SetRegionBatchToExtract(absl::Span<std::string> region_specs) {
   std::vector<char*> regarray;
@@ -76,7 +89,7 @@ void Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region> regi
   regspecs.reserve(regions.size());
   std::transform(regions.cbegin(), regions.cend(), std::back_inserter(regspecs),
                  std::mem_fn(&Reference::Region::ToSamtoolsRegion));
-  return SetRegionBatchToExtract(absl::MakeSpan(regspecs));
+  SetRegionBatchToExtract(absl::MakeSpan(regspecs));
 }
 
 void Extractor::SetNumThreads(const int nthreads) {

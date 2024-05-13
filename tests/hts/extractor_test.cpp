@@ -1,6 +1,12 @@
 #include "lancet/hts/extractor.h"
 
+#include <filesystem>
+#include <iterator>
+#include <stdexcept>
+
 #include "catch_amalgamated.hpp"
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/reference.h"
 #include "lancet_test_config.h"
 
 using namespace lancet::hts;
@@ -94,6 +100,7 @@ TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][E
     Extractor cram_extractor(tumor_cram_path, ref);
     cram_extractor.SetRegionBatchToExtract(regions);
     cram_extractor.SetFilterExpression("invalid");
+    // NOLINTNEXTLINE(bugprone-unused-return-value)
     CHECK_THROWS_AS(std::distance(cram_extractor.begin(), cram_extractor.end()), std::runtime_error);
   }
 
@@ -101,6 +108,7 @@ TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][E
     Extractor bam_extractor(tumor_bam_path, ref);
     bam_extractor.SetRegionBatchToExtract(regions);
     bam_extractor.SetFilterExpression("invalid");
+    // NOLINTNEXTLINE(bugprone-unused-return-value)
     CHECK_THROWS_AS(std::distance(bam_extractor.begin(), bam_extractor.end()), std::runtime_error);
   }
 }

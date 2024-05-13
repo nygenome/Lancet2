@@ -3,12 +3,24 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <functional>
+#include <iterator>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
-#include "absl/strings/numbers.h"
+#include "cigar_unit.h"
+
+extern "C" {
+#include "htslib/sam.h"
+}
+
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
-#include "spdlog/fmt/fmt.h"
+#include "lancet/base/types.h"
+#include "lancet/hts/aux_tag.h"
+#include "lancet/hts/reference.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::hts {
 
@@ -49,7 +61,7 @@ void Alignment::PopulateRequestedFields(bam1_t* aln, const Fields fields, const 
   PopulateCigarSeqQual(aln);
   if (fields == Alignment::Fields::CIGAR_SEQ_QUAL) return;  // NOLINT(readability-braces-around-statements)
 
-  return PopulateAuxRgAux(aln, fill_tags);
+  PopulateAuxRgAux(aln, fill_tags);
 }
 
 void Alignment::PopulateCoreQname(bam1_t* aln) {
@@ -168,6 +180,7 @@ auto Alignment::ToString(const Reference& ref) const -> std::string {
   const auto mate_chrom = ref.FindChromByIndex(mMateChromIdx);
 
   const auto both_chroms_same = chrom.ok() && mate_chrom.ok() && chrom->Name() == mate_chrom->Name();
+  // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
   const auto rnext = both_chroms_same ? "=" : mate_chrom.ok() ? mate_chrom->Name() : "*";
 
   std::string fastq_quality;

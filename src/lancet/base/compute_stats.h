@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
@@ -14,7 +15,7 @@
 namespace detail {
 
 template <std::floating_point T1 = f64, std::floating_point T2 = f64>
-inline static constexpr auto AlmostEq(T1 first, T2 second) -> bool {
+static constexpr auto AlmostEq(T1 first, T2 second) -> bool {
   const auto IsSecondLowPrec = std::numeric_limits<T1>::epsilon() > std::numeric_limits<T2>::epsilon();
   const auto Aval = IsSecondLowPrec ? first : static_cast<T2>(first);
   const auto Bval = IsSecondLowPrec ? static_cast<T1>(second) : second;

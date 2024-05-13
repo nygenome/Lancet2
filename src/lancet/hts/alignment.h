@@ -7,10 +7,12 @@
 #include <vector>
 
 extern "C" {
+#include "htslib/hts.h"
 #include "htslib/sam.h"
 }
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
@@ -22,7 +24,7 @@ namespace lancet::hts {
 
 class Alignment {
  public:
-  enum class Fields : int {
+  enum class Fields : u16 {
     CORE_QNAME = SAM_QNAME | SAM_FLAG | SAM_RNAME | SAM_POS | SAM_MAPQ | SAM_RNEXT | SAM_PNEXT | SAM_TLEN,
     SEQ_QUAL = CORE_QNAME | SAM_SEQ | SAM_QUAL,
     CIGAR_SEQ_QUAL = SEQ_QUAL | SAM_CIGAR,

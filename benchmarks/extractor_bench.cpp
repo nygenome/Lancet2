@@ -1,8 +1,9 @@
-#include <algorithm>
-#include <type_traits>
+#include <vector>
 
 #include "benchmark/benchmark.h"
+#include "lancet/hts/alignment.h"
 #include "lancet/hts/extractor.h"
+#include "lancet/hts/reference.h"
 #include "lancet_benchmark_config.h"
 
 namespace {
@@ -13,7 +14,7 @@ void ExtractorCramCoreQname(benchmark::State& state) {
   for ([[maybe_unused]] auto _ : state) {
     const Reference ref(Hg38Reference);
     Extractor extractor(TumorCram, ref, Alignment::Fields::CORE_QNAME);
-    extractor.SetNumThreads(static_cast<int>(state.threads()));
+    extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
   }
@@ -47,7 +48,7 @@ void ExtractorBamCoreQname(benchmark::State& state) {
   for ([[maybe_unused]] auto _ : state) {
     const Reference ref(Hg38Reference);
     Extractor extractor(TumorBam, ref, Alignment::Fields::CORE_QNAME);
-    extractor.SetNumThreads(static_cast<int>(state.threads()));
+    extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
     ;
@@ -60,7 +61,7 @@ void ExtractorBamCigarSeqQual(benchmark::State& state) {
   for ([[maybe_unused]] auto _ : state) {
     const Reference ref(Hg38Reference);
     Extractor extractor(TumorBam, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
-    extractor.SetNumThreads(static_cast<int>(state.threads()));
+    extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
   }
@@ -72,7 +73,7 @@ void ExtractorBamAuxRgaux(benchmark::State& state) {
   for ([[maybe_unused]] auto _ : state) {
     const Reference ref(Hg38Reference);
     Extractor extractor(TumorBam, ref, Alignment::Fields::AUX_RGAUX, {"RG", "MC", "NM", "SA", "XS", "MD", "AS"});
-    extractor.SetNumThreads(static_cast<int>(state.threads()));
+    extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
   }

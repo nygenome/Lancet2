@@ -1,14 +1,12 @@
 #include "lancet/core/async_worker.h"
 
-#include <thread>
+#include <stop_token>
 
-#include "absl/hash/hash.h"
+#include "concurrentqueue.h"
 #include "lancet/base/logging.h"
-#include "lancet/base/repeat.h"
-#include "lancet/base/sliding.h"
 #include "lancet/base/timer.h"
-#include "lancet/caller/msa_builder.h"
-#include "lancet/caller/variant_set.h"
+#include "lancet/base/types.h"
+#include "lancet/core/window.h"
 
 namespace lancet::core {
 

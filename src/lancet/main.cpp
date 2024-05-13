@@ -5,7 +5,9 @@
 #include "absl/debugging/symbolize.h"
 #include "lancet/base/logging.h"
 #include "lancet/cli/cli_interface.h"
-#include "mimalloc-override.h"
+#include "mimalloc-override.h"  // NOLINT(misc-include-cleaner)
+#include "mimalloc.h"
+#include "spdlog/spdlog.h"
 
 auto main(const int argc, const char** argv) -> int {
   // Initialize the symbolizer to get a human-readable stack trace

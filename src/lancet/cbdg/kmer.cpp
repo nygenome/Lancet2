@@ -1,10 +1,12 @@
 #include "lancet/cbdg/kmer.h"
 
-#include <array>
+#include <string>
+#include <utility>
 
 #include "absl/strings/string_view.h"
 #include "lancet/base/hash.h"
 #include "lancet/base/rev_comp.h"
+#include "lancet/base/types.h"
 
 namespace {
 

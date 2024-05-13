@@ -1,6 +1,11 @@
 #include "lancet/hts/reference.h"
 
+#include <filesystem>
+#include <optional>
+
+#include "absl/status/status.h"
 #include "catch_amalgamated.hpp"
+#include "lancet/base/types.h"
 #include "lancet_test_config.h"
 
 using namespace lancet::hts;
@@ -12,6 +17,7 @@ TEST_CASE("Reference::Reference()", "[lancet][hts][Reference]") {
   CHECK(Reference(ref_path).FastaPath() == ref_path);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Reference::ListChroms()", "[lancet][hts][Reference]") {
   const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
   const auto chromosomes = ref.ListChroms();

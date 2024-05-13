@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "lancet/base/types.h"
@@ -11,7 +12,6 @@
 #include "lancet/cbdg/graph.h"
 #include "lancet/core/read_collector.h"
 #include "lancet/core/window.h"
-#include "lancet/hts/reference.h"
 
 namespace lancet::core {
 
@@ -30,15 +30,15 @@ class VariantBuilder {
 
   VariantBuilder(std::shared_ptr<const Params> params);
 
-  enum class StatusCode : int {
-    UNKNOWN = -1,
+  enum class StatusCode : u8 {
+    UNKNOWN = 0,
 
-    SKIPPED_NONLY_REF_BASES = 0,
-    SKIPPED_REF_REPEAT_SEEN = 1,
-    SKIPPED_INACTIVE_REGION = 2,
-    SKIPPED_NOASM_HAPLOTYPE = 3,
-    MISSING_NO_MSA_VARIANTS = 4,
-    FOUND_GENOTYPED_VARIANT = 5
+    SKIPPED_NONLY_REF_BASES = 1,
+    SKIPPED_REF_REPEAT_SEEN = 2,
+    SKIPPED_INACTIVE_REGION = 3,
+    SKIPPED_NOASM_HAPLOTYPE = 4,
+    MISSING_NO_MSA_VARIANTS = 5,
+    FOUND_GENOTYPED_VARIANT = 6
   };
 
   [[nodiscard]] auto CurrentStatus() const noexcept -> StatusCode { return mCurrentCode; }

@@ -2,13 +2,15 @@
 #define SRC_LANCET_HTS_BGZF_OSTREAM_H_
 
 #include <filesystem>
+#include <ios>
 #include <ostream>
 #include <streambuf>
-#include <string>
 
 extern "C" {
 #include "htslib/bgzf.h"
 }
+
+#include "lancet/base/types.h"
 
 namespace lancet::hts {
 
@@ -17,7 +19,7 @@ namespace detail {
 class BgzfStreambuf : public std::streambuf {
  public:
   // NOLINTBEGIN(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
-  std::filesystem::path mFileName;
+  std::filesystem::path mFileName{};
   // NOLINTEND(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
 
   BgzfStreambuf() = default;
@@ -44,7 +46,7 @@ class BgzfStreambuf : public std::streambuf {
 
 }  // namespace detail
 
-enum class BgzfFormat { UNSPECIFIED, GFF, BED, VCF };
+enum class BgzfFormat : u8 { UNSPECIFIED, GFF, BED, VCF };
 
 class BgzfOstream : public std::ostream {
  public:

@@ -6,6 +6,9 @@
 
 #include "lancet/base/types.h"
 #include "spdlog/async.h"
+#include "spdlog/async_logger.h"
+#include "spdlog/common.h"
+#include "spdlog/logger.h"
 #include "spdlog/sinks/sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
@@ -16,15 +19,15 @@ static constexpr auto LOGGER_NAME = "LANCET_LOG";
 
 template <typename Logger = spdlog::async_logger, typename Sink = spdlog::sinks::stderr_color_sink_mt, class... Args>
 void RegisterLancetLogger(Args&&... args) {
-  static_assert(std::is_base_of<spdlog::logger, Logger>::value, "Logger must have base of spdlog::logger");
-  static_assert(std::is_base_of<spdlog::sinks::sink, Sink>::value, "Sink must implement spdlog::sinks::sink interface");
+  static_assert(std::is_base_of_v<spdlog::logger, Logger>, "Logger must have base of spdlog::logger");
+  static_assert(std::is_base_of_v<spdlog::sinks::sink, Sink>, "Sink must implement spdlog::sinks::sink interface");
 
   // Already registered logger previously, so we can return early
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (spdlog::default_logger_raw()->name() == LOGGER_NAME) return;
 
   auto sink = std::make_shared<Sink>(std::forward<Args>(args)...);
-  if constexpr (std::is_same<spdlog::async_logger, Logger>::value) {
+  if constexpr (std::is_same_v<spdlog::async_logger, Logger>) {
     constexpr usize qsize = 32768;
     spdlog::init_thread_pool(qsize, 1);
     constexpr auto policy = spdlog::async_overflow_policy::block;

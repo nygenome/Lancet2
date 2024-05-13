@@ -1,6 +1,7 @@
 #ifndef SRC_LANCET_CLI_ETA_TIMER_H_
 #define SRC_LANCET_CLI_ETA_TIMER_H_
 
+#include "absl/time/time.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/timer.h"
 #include "lancet/base/types.h"

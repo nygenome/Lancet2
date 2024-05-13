@@ -2,10 +2,9 @@
 #define SRC_LANCET_CLI_PIPELINE_RUNNER_H_
 
 #include <memory>
-#include <vector>
+#include <string>
 
 #include "lancet/cli/cli_params.h"
-#include "lancet/core/window.h"
 
 namespace lancet::cli {
 

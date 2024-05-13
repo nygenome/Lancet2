@@ -1,10 +1,12 @@
 #include "lancet/base/repeat.h"
 
+#include <array>
 #include <random>
 #include <string>
 #include <string_view>
 
 #include "catch_amalgamated.hpp"
+#include "lancet/base/types.h"
 
 namespace {
 
@@ -16,10 +18,11 @@ inline auto GenerateRandomDnaSequence() -> std::string {
 
   static constexpr usize SEQ_LENGTH = 5000;
   std::uniform_int_distribution<usize> base_chooser(0, 3);
-  std::string result(SEQ_LENGTH, 'N');
+  std::string result;
+  result.reserve(SEQ_LENGTH);
 
   for (usize idx = 0; idx < SEQ_LENGTH; ++idx) {
-    result[idx] = BASES.at(base_chooser(generator));
+    result.push_back(BASES.at(base_chooser(generator)));
   }
 
   return result;
@@ -27,6 +30,7 @@ inline auto GenerateRandomDnaSequence() -> std::string {
 
 }  // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can calculate hamming distance correctly for random strings", "[lancet][base][repeat]") {
   static constexpr usize NUM_ITERATIONS = 1000;
 

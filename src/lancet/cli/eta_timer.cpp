@@ -2,6 +2,9 @@
 
 #include <cmath>
 
+#include "absl/time/time.h"
+#include "lancet/base/types.h"
+
 namespace lancet::cli {
 
 EtaTimer::EtaTimer(const usize num_iterations) : mNumTotal(num_iterations) {}

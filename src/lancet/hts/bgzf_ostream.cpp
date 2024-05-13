@@ -1,9 +1,11 @@
 #include "lancet/hts/bgzf_ostream.h"
 
 #include <cstdio>
-#include <utility>
+#include <filesystem>
+#include <ios>
 
 extern "C" {
+#include "htslib/bgzf.h"
 #include "htslib/tbx.h"
 }
 

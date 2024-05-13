@@ -1,11 +1,9 @@
 #ifndef SRC_LANCET_CORE_ASYNC_WORKER_H_
 #define SRC_LANCET_CORE_ASYNC_WORKER_H_
 
-#include <array>
 #include <memory>
 #include <stop_token>
 #include <utility>
-#include <vector>
 
 #include "absl/time/time.h"
 #include "concurrentqueue.h"

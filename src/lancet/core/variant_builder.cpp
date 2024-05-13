@@ -1,15 +1,27 @@
 #include "lancet/core/variant_builder.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <memory>
 #include <numeric>
+#include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "absl/hash/hash.h"
+#include "absl/types/span.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/repeat.h"
 #include "lancet/base/sliding.h"
+#include "lancet/base/types.h"
 #include "lancet/caller/msa_builder.h"
+#include "lancet/caller/variant_call.h"
 #include "lancet/caller/variant_set.h"
+#include "lancet/cbdg/read.h"
+#include "lancet/core/sample_info.h"
+#include "lancet/core/window.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::core {
 

@@ -12,6 +12,7 @@
 
 extern "C" {
 #include "htslib/faidx.h"
+#include "htslib/hts.h"
 }
 
 #include "absl/status/statusor.h"

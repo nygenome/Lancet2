@@ -2,19 +2,25 @@
 
 #include <unistd.h>
 
+#include <cstdio>
 #include <cstdlib>
-#include <exception>
+#include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <thread>
 
+#include "CLI/CLI.hpp"
 #include "absl/strings/str_cat.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/types.h"
 #include "lancet/base/version.h"
+#include "lancet/cbdg/graph.h"
 #include "lancet/cli/pipeline_runner.h"
-#include "spdlog/fmt/fmt.h"
-#include "spdlog/fmt/ostr.h"
+#include "lancet/core/window_builder.h"
+#include "spdlog/common.h"
+#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/ostream.h"
 
 namespace {
 

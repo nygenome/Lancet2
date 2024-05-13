@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 
 extern "C" {
 #include "htslib/hts.h"
@@ -72,7 +71,7 @@ class Extractor {
   [[nodiscard]] auto end() -> Iterator;
 
   [[nodiscard]] auto ChromName(i32 chrom_index) const -> std::string;
-  [[nodiscard]] inline auto SampleName() const noexcept -> std::string { return mSampleName; }
+  [[nodiscard]] auto SampleName() const noexcept -> std::string { return mSampleName; }
 
  private:
   using HtsFile = std::unique_ptr<htsFile, detail::HtsFileDeleter>;

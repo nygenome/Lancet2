@@ -1,11 +1,21 @@
 #include "lancet/caller/variant_set.h"
 
 #include <algorithm>
+#include <array>
+#include <iterator>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
+#include "absl/types/span.h"
 #include "lancet/base/assert.h"
+#include "lancet/base/find_str.h"
+#include "lancet/base/types.h"
+#include "lancet/caller/msa_builder.h"
+#include "lancet/caller/raw_variant.h"
+#include "lancet/core/window.h"
 
 static constexpr char ALN_GAP = '-';
 static constexpr usize REF_HAP_IDX = 0;
@@ -45,6 +55,7 @@ inline auto GetAlleleLength(const std::array<std::string_view, 2> ref_alt, const
   const auto ref_len = static_cast<i64>(ref.length());
   const auto alt_len = static_cast<i64>(alt.length());
   const auto diff = alt_len - ref_len;
+  // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
   return vtype == RawVariant::Type::SNV ? 1 : diff == 0 ? alt_len : diff;
 }
 

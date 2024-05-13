@@ -2,8 +2,9 @@
 #define SRC_LANCET_CBDG_NODE_H_
 
 #include <array>
-#include <string_view>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_set.h"
 #include "lancet/base/types.h"

@@ -5,10 +5,10 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_support.h"
@@ -30,7 +30,7 @@ class VariantCall {
   [[nodiscard]] auto RefAllele() const -> std::string_view { return mRefAllele; }
   [[nodiscard]] auto AltAllele() const -> std::string_view { return mAltAllele; }
   [[nodiscard]] auto Length() const -> i64 { return mVariantLength; }
-  [[nodiscard]] auto Quality() const -> u8 { return mSiteQuality; }
+  [[nodiscard]] auto Quality() const -> f64 { return mSiteQuality; }
   [[nodiscard]] auto State() const -> RawVariant::State { return mState; }
   [[nodiscard]] auto Category() const -> RawVariant::Type { return mCategory; }
 

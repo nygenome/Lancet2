@@ -1,5 +1,9 @@
 #include "lancet/hts/iterator.h"
 
+extern "C" {
+#include "htslib/sam.h"
+}
+
 #include <stdexcept>
 
 namespace lancet::hts {
@@ -22,6 +26,7 @@ auto Iterator::operator++(int) -> Iterator {
   return old_val;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void Iterator::FetchNextAlignment() {
   const auto next_result = sam_itr_next(mRawFilePtr, mRawItrPtr, mRawAlnPtr);
   if (next_result < -1) {
@@ -31,16 +36,18 @@ void Iterator::FetchNextAlignment() {
   if (next_result == -1) {
     // No more data in hts_itr. We clear all fields in alignment so
     // that we match with end() Iterator during comparison
-    return mParsedAln.ClearAllFields();
+    mParsedAln.ClearAllFields();
+    return;
   }
 
   if (PassesFilter()) {
     // Read passed all filters provided in the filter expression
-    return mParsedAln.PopulateRequestedFields(mRawAlnPtr, mFieldsNeeded, mTagsNeeded);
+    mParsedAln.PopulateRequestedFields(mRawAlnPtr, mFieldsNeeded, mTagsNeeded);
+    return;
   }
 
   // Alignment did not pass filters, go fetch next alignment
-  return FetchNextAlignment();
+  FetchNextAlignment();
 }
 
 auto Iterator::PassesFilter() const -> bool {

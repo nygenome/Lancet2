@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "absl/base/thread_annotations.h"

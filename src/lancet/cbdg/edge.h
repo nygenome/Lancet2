@@ -1,6 +1,7 @@
 #ifndef SRC_LANCET_CBDG_EDGE_H_
 #define SRC_LANCET_CBDG_EDGE_H_
 
+#include <array>
 #include <utility>
 
 #include "lancet/base/types.h"
@@ -21,16 +22,14 @@ class Edge {
   [[nodiscard]] auto SrcSign() const noexcept -> Kmer::Sign { return SplitIntoSignPair(mEdgeKind)[0]; }
   [[nodiscard]] auto DstSign() const noexcept -> Kmer::Sign { return SplitIntoSignPair(mEdgeKind)[1]; }
 
-  [[nodiscard]] inline auto IsSelfLoop() const noexcept -> bool { return mSrcId == mDstId; }
-  [[nodiscard]] inline auto IsSelfMirror() const noexcept -> bool {
+  [[nodiscard]] auto IsSelfLoop() const noexcept -> bool { return mSrcId == mDstId; }
+  [[nodiscard]] auto IsSelfMirror() const noexcept -> bool {
     // Any 2 nodes connected to each other have 2 unique edges connecting them. src --> dst and dst --> src
     // The only exception to this rule are self-loops with +- or -+ edge, where there is only one edge.
     return IsSelfLoop() && (mEdgeKind == EdgeKind::PLUS_MINUS || mEdgeKind == EdgeKind::MINUS_PLUS);
   }
 
-  [[nodiscard]] inline auto MirrorEdge() const noexcept -> Edge {
-    return Edge({mDstId, mSrcId}, RevEdgeKind(mEdgeKind));
-  }
+  [[nodiscard]] auto MirrorEdge() const noexcept -> Edge { return Edge({mDstId, mSrcId}, RevEdgeKind(mEdgeKind)); }
 
   template <typename HashState>
   friend auto AbslHashValue(HashState hash_state, const Edge& edge) -> HashState {

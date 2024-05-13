@@ -1,10 +1,18 @@
 #include "lancet/core/variant_store.h"
 
 #include <algorithm>
+#include <iterator>
+#include <ostream>
 #include <utility>
+#include <vector>
 
+#include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "lancet/base/logging.h"
+#include "lancet/caller/raw_variant.h"
+#include "spdlog/fmt/bundled/ostream.h"
 #include "spdlog/fmt/ostr.h"
+#include "window.h"
 
 namespace lancet::core {
 

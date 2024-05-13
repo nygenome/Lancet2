@@ -1,12 +1,10 @@
 #ifndef SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 #define SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 
+#include <algorithm>
 #include <array>
 #include <cmath>
-#include <ranges>
-#include <string>
-#include <string_view>
-#include <utility>
+#include <concepts>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -28,14 +26,14 @@ class VariantSupport {
 
   void AddEvidence(u32 rname_hash, Allele allele, Strand strand, u8 base_qual, u8 map_qual, u8 aln_diff_score);
 
-  [[nodiscard]] inline auto RefFwdCount() const noexcept -> usize { return mRefFwdBaseQuals.size(); }
-  [[nodiscard]] inline auto RefRevCount() const noexcept -> usize { return mRefRevBaseQuals.size(); }
-  [[nodiscard]] inline auto AltFwdCount() const noexcept -> usize { return mAltFwdBaseQuals.size(); }
-  [[nodiscard]] inline auto AltRevCount() const noexcept -> usize { return mAltRevBaseQuals.size(); }
+  [[nodiscard]] auto RefFwdCount() const noexcept -> usize { return mRefFwdBaseQuals.size(); }
+  [[nodiscard]] auto RefRevCount() const noexcept -> usize { return mRefRevBaseQuals.size(); }
+  [[nodiscard]] auto AltFwdCount() const noexcept -> usize { return mAltFwdBaseQuals.size(); }
+  [[nodiscard]] auto AltRevCount() const noexcept -> usize { return mAltRevBaseQuals.size(); }
 
-  [[nodiscard]] inline auto TotalRefCov() const noexcept -> usize { return RefFwdCount() + RefRevCount(); }
-  [[nodiscard]] inline auto TotalAltCov() const noexcept -> usize { return AltFwdCount() + AltRevCount(); }
-  [[nodiscard]] inline auto TotalSampleCov() const noexcept -> usize { return TotalRefCov() + TotalAltCov(); }
+  [[nodiscard]] auto TotalRefCov() const noexcept -> usize { return RefFwdCount() + RefRevCount(); }
+  [[nodiscard]] auto TotalAltCov() const noexcept -> usize { return AltFwdCount() + AltRevCount(); }
+  [[nodiscard]] auto TotalSampleCov() const noexcept -> usize { return TotalRefCov() + TotalAltCov(); }
 
   [[nodiscard]] auto AltFrequency() const -> f64;
 
@@ -63,19 +61,19 @@ class VariantSupport {
   using Qualities = std::vector<u8>;
   using ReadNames = absl::flat_hash_map<u32, Strand>;
 
-  ReadNames mRefNameHashes{};
-  ReadNames mAltNameHashes{};
+  ReadNames mRefNameHashes;
+  ReadNames mAltNameHashes;
 
-  Qualities mRefFwdBaseQuals{};
-  Qualities mRefRevBaseQuals{};
-  Qualities mAltFwdBaseQuals{};
-  Qualities mAltRevBaseQuals{};
+  Qualities mRefFwdBaseQuals;
+  Qualities mRefRevBaseQuals;
+  Qualities mAltFwdBaseQuals;
+  Qualities mAltRevBaseQuals;
 
-  Qualities mRefMapQuals{};
-  Qualities mAltMapQuals{};
+  Qualities mRefMapQuals;
+  Qualities mAltMapQuals;
 
-  Qualities mRefAlnDiffScores{};
-  Qualities mAltAlnDiffScores{};
+  Qualities mRefAlnDiffScores;
+  Qualities mAltAlnDiffScores;
 
   [[nodiscard]] auto MeanErrorProbability(Allele allele) const -> f64;
   [[nodiscard]] auto BinomialSuccessRatios() const -> std::array<f64, 2>;
@@ -102,6 +100,7 @@ class VariantSupport {
     const auto max_ref = refs.empty() ? 0 : static_cast<int>(refs[sz_ref - 1]);
     const auto max_alt = alts.empty() ? 0 : static_cast<int>(alts[sz_alt - 1]);
 
+    // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
     const auto ref_median = refs.empty()        ? 0.0
                             : (sz_ref % 2 == 0) ? (refs[sz_ref / 2 - 1] + refs[sz_ref / 2]) / 2.0
                                                 : refs[sz_ref / 2];
@@ -109,6 +108,7 @@ class VariantSupport {
     const auto alt_median = alts.empty()        ? 0.0
                             : (sz_alt % 2 == 0) ? (alts[sz_alt / 2 - 1] + alts[sz_alt / 2]) / 2.0
                                                 : alts[sz_alt / 2];
+    // NOLINTEND(readability-avoid-nested-conditional-operator)
 
     const auto ref_mad = refs.empty() ? 0.0 : boost::math::statistics::median_absolute_deviation(refs, ref_median);
     const auto alt_mad = alts.empty() ? 0.0 : boost::math::statistics::median_absolute_deviation(alts, alt_median);

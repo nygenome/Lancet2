@@ -1,7 +1,6 @@
 #ifndef SRC_LANCET_CBDG_GRAPH_H_
 #define SRC_LANCET_CBDG_GRAPH_H_
 
-#include <array>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -10,13 +9,12 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
-#include "lancet/base/find_str.h"
-#include "lancet/base/sliding.h"
 #include "lancet/base/types.h"
+#include "lancet/cbdg/edge.h"
+#include "lancet/cbdg/kmer.h"
 #include "lancet/cbdg/label.h"
 #include "lancet/cbdg/node.h"
 #include "lancet/cbdg/read.h"
@@ -122,7 +120,7 @@ class Graph {
   [[nodiscard]] static auto HasExactOrApproxRepeat(std::string_view seq, usize window) -> bool;
   [[nodiscard]] static auto RefAnchorLength(const RefAnchor& source, const RefAnchor& sink, usize currk) -> usize;
 
-  enum State {
+  enum State : u8 {
     FIRST_LOW_COV_REMOVAL = 0,
     FOUND_REF_ANCHORS = 1,
     FIRST_COMPRESSION = 2,
@@ -144,7 +142,8 @@ class Graph {
   }
 #else
   template <class... Args>
-  constexpr inline void WriteDotDevelop([[maybe_unused]] Args&&... args) {}
+  // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
+  constexpr void WriteDotDevelop([[maybe_unused]] Args&&... /*unused*/) {}
 #endif
 
   static void SerializeToDot(const NodeTable& graph, const std::filesystem::path& out_path, usize comp_id = 0,

@@ -1,11 +1,16 @@
 #include "lancet/cbdg/max_flow.h"
 
 #include <algorithm>
+#include <optional>
+#include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/strings/str_cat.h"
 #include "lancet/base/assert.h"
+#include "lancet/cbdg/graph.h"
+#include "lancet/cbdg/kmer.h"
+#include "lancet/cbdg/node.h"
 
 namespace lancet::cbdg {
 

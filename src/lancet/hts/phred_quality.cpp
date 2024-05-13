@@ -3,6 +3,8 @@
 #include <array>
 #include <cmath>
 
+#include "lancet/base/types.h"
+
 namespace lancet::hts {
 
 // clang-format off

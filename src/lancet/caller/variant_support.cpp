@@ -1,11 +1,16 @@
 #include "lancet/caller/variant_support.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
 #include <numeric>
 #include <ranges>
+#include <vector>
 
+#include "absl/types/span.h"
 #include "boost/math/distributions/binomial.hpp"
+#include "lancet/base/types.h"
 #include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {

@@ -1,12 +1,16 @@
 #include "lancet/cbdg/kmer.h"
 
+#include <absl/strings/string_view.h>
+
 #include <array>
 #include <random>
 #include <ranges>
 #include <string>
+#include <string_view>
 
 #include "absl/container/fixed_array.h"
 #include "catch_amalgamated.hpp"
+#include "lancet/base/assert.h"
 #include "lancet/base/rev_comp.h"
 #include "lancet/base/sliding.h"
 #include "lancet/base/types.h"
@@ -56,6 +60,7 @@ inline auto MatchesOneOfTwo(std::string_view result, const std::array<std::strin
 static constexpr auto NUM_RANDOM_ITERATIONS = 100;
 static constexpr auto DFLT_ORD = Kmer::Ordering::DEFAULT;
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
   static constexpr auto SEQ_LEN = 151;
   static constexpr auto KMER_SIZE = 11;
@@ -158,6 +163,7 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
   }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
   for (usize idx = 0; idx < NUM_RANDOM_ITERATIONS; ++idx) {
     static constexpr usize LONG_SEQ_LEN = 1024;

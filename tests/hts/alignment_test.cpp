@@ -1,5 +1,13 @@
+#include "lancet/hts/alignment.h"
+
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
 #include "catch_amalgamated.hpp"
+#include "lancet/base/types.h"
 #include "lancet/hts/extractor.h"
+#include "lancet/hts/reference.h"
 #include "lancet_test_config.h"
 
 using namespace lancet::hts;
@@ -77,6 +85,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Alignment]") {
   const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
   const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);

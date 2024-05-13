@@ -1,19 +1,18 @@
 #ifndef SRC_LANCET_CORE_READ_COLLECTOR_H_
 #define SRC_LANCET_CORE_READ_COLLECTOR_H_
 
+#include <array>
 #include <filesystem>
 #include <memory>
-#include <string_view>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/types/span.h"
-#include "lancet/base/hash.h"
 #include "lancet/base/types.h"
 #include "lancet/cbdg/read.h"
 #include "lancet/core/sample_info.h"
+#include "lancet/hts/alignment.h"
 #include "lancet/hts/extractor.h"
 #include "lancet/hts/reference.h"
 
@@ -43,8 +42,8 @@ class ReadCollector {
   explicit ReadCollector(Params params);
 
   struct Result {
-    std::vector<Read> mSampleReads{};
-    std::vector<SampleInfo> mSampleList{};
+    std::vector<Read> mSampleReads;
+    std::vector<SampleInfo> mSampleList;
   };
 
   [[nodiscard]] auto CollectRegionResult(const Region& region) -> Result;

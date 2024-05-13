@@ -5,7 +5,7 @@
 #include <source_location>
 #include <stdexcept>
 
-#include "spdlog/fmt/fmt.h"
+#include "spdlog/fmt/bundled/core.h"
 #endif
 
 #ifdef LANCET_DEVELOP_MODE

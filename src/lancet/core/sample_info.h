@@ -1,7 +1,6 @@
 #ifndef SRC_LANCET_CORE_SAMPLE_INFO_H_
 #define SRC_LANCET_CORE_SAMPLE_INFO_H_
 
-#include <algorithm>
 #include <filesystem>
 #include <numeric>
 #include <string>
@@ -35,7 +34,7 @@ class SampleInfo {
     static const auto summer = [](const u64 sum, const SampleInfo& sinfo) -> u64 {
       return sum + sinfo.NumSampledBases();
     };
-    
+
     const u64 total_bases = std::accumulate(samples.cbegin(), samples.cend(), 0, summer);
     return static_cast<f64>(total_bases) / static_cast<f64>(ref_len);
   }

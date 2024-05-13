@@ -15,10 +15,12 @@ extern "C" {
 }
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
-#include "spdlog/fmt/fmt.h"
+#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 namespace lancet::hts {
 
@@ -92,6 +94,8 @@ class AuxTag {
 
     const auto tag_type = static_cast<char>(*data);
     mIsSigned = (tag_type != 'C' && tag_type != 'S' && tag_type != 'I');
+
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case)
     switch (tag_type) {
       case 'A':
         // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
@@ -123,6 +127,7 @@ class AuxTag {
         const auto tag_subtype = static_cast<char>(data[1]);
         mIsSigned = (tag_subtype != 'C' && tag_subtype != 'S' && tag_subtype != 'I');
 
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case)
         switch (tag_subtype) {
           case 'c':
           case 'C':
@@ -144,12 +149,12 @@ class AuxTag {
 
   template <typename ResultType>
   static constexpr void StaticAssertResultType() {
-    constexpr auto is_char = std::is_same<char, ResultType>::value;
-    constexpr auto is_int_64 = std::is_same<i64, ResultType>::value;
-    constexpr auto is_float_64 = std::is_same<f64, ResultType>::value;
-    constexpr auto is_string_view = std::is_same<std::string_view, ResultType>::value;
-    constexpr auto is_span_int_64 = std::is_same<absl::Span<const i64>, ResultType>::value;
-    constexpr auto is_span_float_64 = std::is_same<absl::Span<const f64>, ResultType>::value;
+    constexpr auto is_char = std::is_same_v<char, ResultType>;
+    constexpr auto is_int_64 = std::is_same_v<i64, ResultType>;
+    constexpr auto is_float_64 = std::is_same_v<f64, ResultType>;
+    constexpr auto is_string_view = std::is_same_v<std::string_view, ResultType>;
+    constexpr auto is_span_int_64 = std::is_same_v<absl::Span<const i64>, ResultType>;
+    constexpr auto is_span_float_64 = std::is_same_v<absl::Span<const f64>, ResultType>;
 
     static_assert(is_char || is_int_64 || is_float_64 || is_string_view || is_span_int_64 || is_span_float_64,
                   "AuxData's Value ResultType must be one of the following types - char, int64_t, double, "
@@ -157,7 +162,7 @@ class AuxTag {
   }
 
   template <typename ResultType>
-  [[nodiscard]] static inline auto MakeInvalidTypeStatus(const std::array<char, 2> tag_name) -> absl::Status {
+  [[nodiscard]] static auto MakeInvalidTypeStatus(const std::array<char, 2> tag_name) -> absl::Status {
     const std::string_view name_view(tag_name.data(), 2);
     return {absl::StatusCode::kInvalidArgument,
             fmt::format("Tag {} does not have data with type {}", name_view, typeid(ResultType).name())};
@@ -201,7 +206,7 @@ class AuxTag {
     }
   }
 
-  [[nodiscard]] inline auto FormatToSamAux() const noexcept -> std::string {
+  [[nodiscard]] auto FormatToSamAux() const noexcept -> std::string {
     if (mCharData != MISSING_CHAR) {
       return fmt::format("{}:A:{}", std::string_view(mTagName.data(), 2), static_cast<char>(mCharData));
     }

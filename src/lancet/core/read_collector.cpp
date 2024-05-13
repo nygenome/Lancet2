@@ -1,19 +1,24 @@
 #include "lancet/core/read_collector.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <numeric>
+#include <cstdlib>
 #include <random>
-#include <ranges>
 #include <string>
-#include <utility>
+#include <string_view>
 
 #include "absl/container/btree_map.h"
 #include "absl/strings/ascii.h"
+#include "absl/types/span.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/compute_stats.h"
-#include "spdlog/fmt/fmt.h"
+#include "lancet/base/types.h"
+#include "lancet/cbdg/label.h"
+#include "lancet/core/sample_info.h"
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/cigar_unit.h"
+#include "lancet/hts/extractor.h"
+#include "lancet/hts/reference.h"
+#include "spdlog/fmt/bundled/format.h"
 
 using CountMap = absl::btree_map<u32, u32>;
 

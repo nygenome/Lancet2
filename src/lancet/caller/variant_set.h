@@ -2,11 +2,11 @@
 #define SRC_LANCET_CALLER_VARIANT_SET_H_
 
 #include <array>
-#include <memory>
 #include <string_view>
 #include <vector>
 
 #include "absl/container/btree_set.h"
+#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/msa_builder.h"
 #include "lancet/caller/raw_variant.h"

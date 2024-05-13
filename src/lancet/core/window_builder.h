@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/core/window.h"
 #include "lancet/hts/reference.h"

@@ -1,7 +1,13 @@
 #include "lancet/cbdg/node.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iterator>
+#include <vector>
+
+#include "lancet/base/types.h"
+#include "lancet/cbdg/kmer.h"
 
 namespace {
 

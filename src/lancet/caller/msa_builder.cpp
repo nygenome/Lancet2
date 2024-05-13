@@ -2,10 +2,18 @@
 
 #include <algorithm>
 #include <fstream>
-#include <utility>
+#include <functional>
+#include <ios>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
 
-#include "spdlog/fmt/fmt.h"
-#include "spdlog/fmt/ostr.h"
+#include "absl/types/span.h"
+#include "lancet/base/types.h"
+#include "spdlog/fmt/bundled/ostream.h"
+#include "spoa/alignment_engine.hpp"
 
 namespace {
 
@@ -80,7 +88,7 @@ void MsaBuilder::WriteGfa(const FsPath& out_path, const spoa::Graph& graph) {
   for (u32 seq_idx = 0; seq_idx < graph.sequences().size(); ++seq_idx) {
     fmt::print(out_handle, "P\t{}{}\t", seq_idx == 0 ? "ref" : "hap", seq_idx);
 
-    std::vector<std::uint32_t> path;
+    std::vector<u32> path;
     const spoa::Graph::Node* current_node = graph.sequences()[seq_idx];
     while (current_node != nullptr) {
       path.emplace_back(current_node->id + 1);

@@ -2,14 +2,25 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
+#include <optional>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 extern "C" {
+#include "htslib/faidx.h"
+#include "htslib/hts.h"
 #include "htslib/hts_log.h"
 }
 
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "spdlog/fmt/fmt.h"
+#include "lancet/base/types.h"
+#include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::hts {
 
