@@ -44,9 +44,7 @@ Extractor::Extractor(std::filesystem::path aln_file, const Reference& ref, const
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (!skip_ref_contig_check) HeaderContigsCheck(mHdrPtr.get(), ref);
 
-  mSampleName = ParseSampleName(mHdrPtr.get(), bc_path);
   SetDefaultHtsOpts(mFilePtr.get(), ref, bc_path);
-
   mIdxPtr = InitHtsIdx(mFilePtr.get(), bc_path);
   mItrPtr = InitHtsItr(mIdxPtr.get(), bc_path);
   mAlnPtr = InitSamAln(bc_path);

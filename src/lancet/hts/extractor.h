@@ -71,7 +71,7 @@ class Extractor {
   [[nodiscard]] auto end() -> Iterator;
 
   [[nodiscard]] auto ChromName(i32 chrom_index) const -> std::string;
-  [[nodiscard]] auto SampleName() const noexcept -> std::string { return mSampleName; }
+  [[nodiscard]] auto SampleName() const -> std::string { return ParseSampleName(mHdrPtr.get(), mBamCramPath.string()); }
 
  private:
   using HtsFile = std::unique_ptr<htsFile, detail::HtsFileDeleter>;
@@ -87,7 +87,6 @@ class Extractor {
   HtsItr mItrPtr = nullptr;
   HtsFilt mFiltrPtr = nullptr;
   SamAln mAlnPtr = nullptr;
-  std::string mSampleName;
   Alignment::Fields mFieldsNeeded;
   std::filesystem::path mBamCramPath;
   absl::flat_hash_set<std::string> mTagsNeeded;

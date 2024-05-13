@@ -1,11 +1,19 @@
 #include "lancet/core/read_collector.h"
 
+#include <absl/container/flat_hash_map.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <numeric>
 #include <random>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/container/btree_map.h"
 #include "absl/strings/ascii.h"
@@ -18,7 +26,7 @@
 #include "lancet/hts/cigar_unit.h"
 #include "lancet/hts/extractor.h"
 #include "lancet/hts/reference.h"
-#include "spdlog/fmt/bundled/format.h"
+#include "spdlog/fmt/bundled/core.h"
 
 using CountMap = absl::btree_map<u32, u32>;
 
@@ -88,6 +96,7 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
   }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sampled_reads;
   std::vector<Read> all_reads;
@@ -212,6 +221,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   return {.mSampleReads = std::move(sampled_reads), .mSampleList = mSampleList};
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
   absl::btree_map<u32, u32> mismatches;  // genome position -> number of mismatches at position
   absl::btree_map<u32, u32> insertions;  // genome position -> number of insertions at position

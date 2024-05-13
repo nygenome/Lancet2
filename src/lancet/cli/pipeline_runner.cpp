@@ -1,7 +1,7 @@
 #include "lancet/cli/pipeline_runner.h"
 
 #include <algorithm>
-#include <chrono>
+#include <chrono>  // NOLINT(misc-include-cleaner)
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>

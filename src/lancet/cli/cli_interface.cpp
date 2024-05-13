@@ -16,6 +16,7 @@
 #include "lancet/base/types.h"
 #include "lancet/base/version.h"
 #include "lancet/cbdg/graph.h"
+#include "lancet/cli/cli_params.h"
 #include "lancet/cli/pipeline_runner.h"
 #include "lancet/core/window_builder.h"
 #include "spdlog/common.h"
