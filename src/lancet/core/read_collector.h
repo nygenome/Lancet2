@@ -20,7 +20,7 @@ namespace lancet::core {
 
 class ReadCollector {
  public:
-  static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 500.0;
+  static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 1000.0;
 
   struct Params {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
