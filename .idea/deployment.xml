@@ -4,15 +4,14 @@
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="lancet-dev01-gcc12 (e79b4d6a-cc93-4c87-bbd1-e2df71a247cf)">
+      <paths name="lancet-dev02-gcc13 (e79b4d6a-cc93-4c87-bbd1-e2df71a247cf)">
         <serverdata>
           <mappings>
-            <mapping deploy="Lancet2" local="$PROJECT_DIR$" />
+            <mapping deploy="Lancet" local="$PROJECT_DIR$" />
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
-            <excludedPath path="/Lancet2/data" />
           </excludedPaths>
         </serverdata>
       </paths>

@@ -2,8 +2,8 @@
 <project version="4">
   <component name="CMakeSharedSettings">
     <configurations>
-      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" TOOLCHAIN_NAME="lancet-dev01-gcc12" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON -DLANCET_BENCHMARKS=ON" BUILD_OPTIONS="-- -v" />
-      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" TOOLCHAIN_NAME="lancet-dev01-gcc12" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON" BUILD_OPTIONS="-- -v" />
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" TOOLCHAIN_NAME="lancet-dev02-gcc13" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON -DLANCET_BENCHMARKS=ON" BUILD_OPTIONS="-- -v" />
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" TOOLCHAIN_NAME="lancet-dev02-gcc13" GENERATION_OPTIONS="-G Ninja -DLANCET_TESTS=ON" BUILD_OPTIONS="-- -v" />
     </configurations>
   </component>
 </project>

@@ -74,7 +74,7 @@
     <inspection_tool class="CheckXmlFileWithXercesValidator" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="ClangTidy" enabled="true" level="INFORMATION" enabled_by_default="true" editorAttributes="INFORMATION_ATTRIBUTES">
       <scope name="Project Source Files" level="WARNING" enabled="true" editorAttributes="WARNING_ATTRIBUTES">
-        <option name="clangTidyChecks" value="-*,abseil-*,cert-*,cppcoreguidelines-*,performance-*,llvm-include-order,llvm-namespace-comment,bugprone-*,misc-*,modernize-*,readability-*" />
+        <option name="clangTidyChecks" value="-*,abseil-*,cppcoreguidelines-*,performance-*,llvm-include-order,llvm-namespace-comment,misc-*,bugprone-*,cert-*,modernize-*,readability-*" />
       </scope>
       <option name="clangTidyChecks" value="-*,abseil-*,bugprone-*,cert-*,cppcoreguidelines-*,modernize-*,performance-*,readability-*,llvm-header-guard,llvm-include-order,llvm-namespace-comment,misc-*,-misc-unused-parameters,-misc-unused-alias-decls,-misc-misleading-identifier,-misc-unused-using-decls,-misc-misleading-bidirectional,-misc-static-assert,-misc-non-private-member-variables-in-classes" />
     </inspection_tool>
@@ -144,6 +144,7 @@
     <inspection_tool class="CssUnresolvedCustomProperty" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="CssUnusedSymbol" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="CustomRegExpInspection" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="CyclicJobDependency" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="CyclomaticComplexityJS" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="m_limit" value="10" />
     </inspection_tool>
@@ -311,6 +312,7 @@
     <inspection_tool class="HttpClientUnresolvedAuthId" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="HttpClientUnresolvedVariable" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="HttpRequestContentLengthIsIgnored" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="HttpRequestCustomHttpMethodInspection" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="HttpRequestEnvironmentAuthConfigurationValidationInspection" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="HttpRequestPlaceholder" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="HttpRequestRequestSeparatorJsonBodyInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
@@ -328,6 +330,7 @@
     <inspection_tool class="IgnoreIncorrectEntry" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="IgnoreRelativeEntry" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="IgnoreSyntaxEntry" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="IllegalJobDependency" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="ImplicitTypeConversion" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="BITS" value="1720" />
       <option name="FLAG_EXPLICIT_CONVERSION" value="true" />
@@ -932,6 +935,7 @@
     <inspection_tool class="UnreachableCode" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnreachableCodeJS" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnresolvedReference" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="UnsatisfiedRequirementInspection" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="UnterminatedStatementJS" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="ignoreSemicolonAtEndOfBlock" value="true" />
     </inspection_tool>
