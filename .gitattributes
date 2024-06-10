@@ -82,4 +82,3 @@ makefile text
 *.exe binary
 *.out binary
 *.app binary
-python/somatic_ebm.lancet_6ef7ba445a.v1.pkl filter=lfs diff=lfs merge=lfs -text
