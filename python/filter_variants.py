@@ -4,17 +4,14 @@ import argparse
 import logging
 import math
 import pickle
-import urllib.request
 
 import pysam
 import tqdm
 
-SOMATIC_URL = "https://storage.cloud.google.com/lancet-ml-models/somatic_ebm.lancet_6ef7ba445a.v1.pkl"
 
-
-def download_and_load_model(link):
-    with urllib.request.urlopen(link) as response:
-        return pickle.loads(response.read())
+def load_model(path):
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 
 def pct_strand_imbalance(combined_cnt, fwd_strand_cnt):
@@ -86,7 +83,7 @@ def phred_score(error_probability):
     return round(-10 * math.log10(error_probability), 2)
 
 
-def main(raw_vcf_path):
+def main(raw_vcf_path, model_path):
     # Setup basic logging configuration
     msg_fmt = "%(asctime)s | %(levelname)s | %(message)s"
     dt_fmt = "%Y-%m-%d %H:%M:%S"
@@ -99,7 +96,7 @@ def main(raw_vcf_path):
     logging.info(f"Done building dataframe with {len(df)} variants")
 
     logging.info("Loading somatic ML model into memory")
-    ml_model = download_and_load_model(SOMATIC_URL)
+    ml_model = load_model(model_path)
     logging.info("Done loading somatic ML model into memory")
 
     logging.info("Applying somatic ML model to the variants dataframe")
@@ -112,11 +109,20 @@ def main(raw_vcf_path):
     outvcf = pysam.VariantFile("-", "w", header=invcf.header)
 
     for idx, v in tqdm.tqdm(enumerate(invcf)):
+        class_scores = probabilities[idx]
+        error_probability = sorted(class_scores)[0]
+        score = phred_score(error_probability)
         is_pass_variant = predictions[idx]
-        if is_pass_variant:
-            class_scores = probabilities[idx]
-            err_prob = sorted(class_scores)[0]
-            v.qual = phred_score(err_prob)
+
+        is_snv = len(v.ref) == 1 and len(v.alts[0]) == 1
+        if is_pass_variant and is_snv and score >= 10:
+            v.qual = score
+            v.filter.add("PASS")
+            outvcf.write(v)
+
+        is_indel = len(v.ref) != 1 or len(v.alts[0]) != 1
+        if is_pass_variant and is_indel and score >= 15:
+            v.qual = score
             v.filter.add("PASS")
             outvcf.write(v)
 
@@ -128,5 +134,6 @@ def main(raw_vcf_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="filter_variants.py", description="Filter and score Lancet2 variants")
     parser.add_argument("lancet_raw_vcf", help="Path to raw lancet VCF to be filtered")
+    parser.add_argument("ml_model", help="Path to ML model to be used for filtering")
     args = parser.parse_args()
-    main(args.lancet_raw_vcf)
+    main(args.lancet_raw_vcf, args.ml_model)
