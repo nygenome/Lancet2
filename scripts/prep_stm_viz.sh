@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly VERSION="v1.0.0"
-readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo> -out_dir <out_dir>"
+readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo>"
 
 if [ $# -eq 0 ]; then
   echo "$0 $VERSION"
@@ -24,8 +24,6 @@ while [[ $# -gt 1 ]]; do
       VARIANTS_VCF=${2};;
     -stm_repo)
       STM_REPO=${2};;
-    -out_dir)
-      OUT_DIR=${2};;
     *)
       echo "$HELP_TEXT"
       exit 65
@@ -53,18 +51,12 @@ ensure_exists "vg"
 ensure_exists "bcftools"
 ensure_exists "jq"
 
-if [ -d "${OUT_DIR}" ]; then
-  echo "Output directory $OUT_DIR already exists"
-  exit 1
-fi
-
 
 TUMOR="$(realpath "${TUMOR}")"
 NORMAL="$(realpath "${NORMAL}")"
 REF_FASTA=$(realpath "${REF_FASTA}")
 STM_REPO=$(realpath "${STM_REPO}")
-
-rm -rf "${OUT_DIR}" && mkdir -p "${OUT_DIR}"
+OUT_DIR="${STM_REPO}/exampleData"
 
 bcftools query -f '%CHROM\t%REF\t%ALT\t%POS\t%INFO/TYPE\n' "${VARIANTS_VCF}" | while IFS= read -r line
 do
