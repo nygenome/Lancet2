@@ -51,7 +51,6 @@ ensure_exists "Lancet2"
 ensure_exists "samtools"
 ensure_exists "vg"
 ensure_exists "bcftools"
-ensure_exists "curl"
 ensure_exists "jq"
 
 if [ -d "${OUT_DIR}" ]; then
