@@ -122,8 +122,6 @@ def main(raw_vcf_path, model_path):
             v.filter.add("PASS") # SNV needs > 90% probability
         elif is_pass_variant and is_indel and score >= 13:
             v.filter.add("PASS") # InDel needs > 95% probability
-        else:
-            v.filter.add("LowScore")
 
         outvcf.write(v)
 
