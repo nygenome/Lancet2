@@ -113,18 +113,19 @@ def main(raw_vcf_path, model_path):
         error_probability = sorted(class_scores)[0]
         score = phred_score(error_probability)
         is_pass_variant = predictions[idx]
+        v.qual = score
 
         is_snv = len(v.ref) == 1 and len(v.alts[0]) == 1
-        if is_pass_variant and is_snv and score >= 10:
-            v.qual = score
-            v.filter.add("PASS")
-            outvcf.write(v)
-
         is_indel = len(v.ref) != 1 or len(v.alts[0]) != 1
-        if is_pass_variant and is_indel and score >= 15:
-            v.qual = score
-            v.filter.add("PASS")
-            outvcf.write(v)
+
+        if is_pass_variant and is_snv and score >= 10:
+            v.filter.add("PASS") # SNV needs > 90% probability
+        elif is_pass_variant and is_indel and score >= 13:
+            v.filter.add("PASS") # InDel needs > 95% probability
+        else:
+            v.filter.add("LowScore")
+
+        outvcf.write(v)
 
     invcf.close()
     outvcf.close()
