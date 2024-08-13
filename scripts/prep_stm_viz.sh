@@ -120,7 +120,7 @@ do
     -g "${WORK_DIR}/normal.gam" -p '{"mainPalette": "blues", "auxPalette": "blues"}' \
     -g "${WORK_DIR}/tumor.gam" -p '{"mainPalette": "reds", "auxPalette": "reds"}' \
     -d "${REF} -> ${ALT} variant (${VAR_TYPE}) at ${CHROM}:${VAR_POS}" \
-    -b "${OUT_DIR}/" > "${OUT_DIR}/index.bed"
+    -b "${OUT_DIR}/" >> "${OUT_DIR}/index.bed"
 
   vg paths --drop-paths --paths-by "path_cover_" --xg "${CHUNK_DIR}/chunk.vg" >"${CHUNK_DIR}/chunk.vg.new" && \
   mv "${CHUNK_DIR}/chunk.vg.new" "${CHUNK_DIR}/chunk.vg"
