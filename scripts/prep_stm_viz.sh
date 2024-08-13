@@ -91,7 +91,7 @@ do
 
   UNCHOPPED_GFA="${WORK_DIR}/${CURR_NAME}.unchopped.gfa"
   log "Unchopping Lancet GFA graph and creating giraffe indexes for ${REGION}"
-  vg mod --unchop "$(ls "${WORK_DIR}/graphs/poa_graph/*.gfa")" | sed 's/ref0/'"${CHROM}"'/g' >| "${UNCHOPPED_GFA}" && \
+  vg mod --unchop "$(ls "${WORK_DIR}/graphs/poa_graph/"*".gfa")" | sed 's/ref0/'"${CHROM}"'/g' >| "${UNCHOPPED_GFA}" && \
   vg autoindex --workflow giraffe --gfa "${UNCHOPPED_GFA}" --prefix "${WORK_DIR}/${CHROM}_${WIN_START}_${WIN_END}"
 
   GBZ="${WORK_DIR}/${CHROM}_${WIN_START}_${WIN_END}.giraffe.gbz"
