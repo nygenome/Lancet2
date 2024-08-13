@@ -3,13 +3,15 @@
 set -euo pipefail
 
 readonly VERSION="v1.0.0"
-readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo>"
+readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo> [-out_dir <alternative_output_directory]"
 
 if [ $# -eq 0 ]; then
   echo "$0 $VERSION"
   echo "$HELP_TEXT"
   exit 1
 fi
+
+OUT_DIR=""
 
 while [[ $# -gt 1 ]]; do
   key=${1}
@@ -24,6 +26,8 @@ while [[ $# -gt 1 ]]; do
       VARIANTS_VCF=${2};;
     -stm_repo)
       STM_REPO=${2};;
+    -out_dir)
+      OUT_DIR=${2};;
     *)
       echo "$HELP_TEXT"
       exit 65
@@ -56,7 +60,9 @@ TUMOR="$(realpath "${TUMOR}")"
 NORMAL="$(realpath "${NORMAL}")"
 REF_FASTA=$(realpath "${REF_FASTA}")
 STM_REPO=$(realpath "${STM_REPO}")
-OUT_DIR="${STM_REPO}/exampleData"
+if [[ -z "${OUT_DIR}" ]] ; then
+    OUT_DIR="${STM_REPO}/exampleData"
+fi
 
 bcftools query -f '%CHROM\t%REF\t%ALT\t%POS\t%INFO/TYPE\n' "${VARIANTS_VCF}" | while IFS= read -r line
 do
