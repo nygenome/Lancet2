@@ -110,7 +110,7 @@ do
   vg gamsort --index "${WORK_DIR}/normal.gam.gai" tmp.gam >| "${WORK_DIR}/normal.gam" && rm -f tmp.gam
 
   log "Creating local VG chunk for ${REGION} to visualize in SequenceTubeMap"
-  "${STM_REPO}/prep_local_chunk.sh" -x "${GBZ}" -r "${REGION}" -o "${CHUNK_DIR}" \
+  "${STM_REPO}/scripts/prepare_local_chunk.sh" -x "${GBZ}" -r "${REGION}" -o "${CHUNK_DIR}" \
     -g "${WORK_DIR}/normal.gam" -p '{"mainPalette": "blues", "auxPalette": "blues"}' \
     -g "${WORK_DIR}/tumor.gam" -p '{"mainPalette": "reds", "auxPalette": "reds"}' \
     -d "${REF} -> ${ALT} variant (${VAR_TYPE}) at ${CHROM}:${VAR_POS}" >> "${OUT_DIR}/index.bed"
