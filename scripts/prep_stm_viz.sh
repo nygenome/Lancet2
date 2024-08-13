@@ -64,6 +64,10 @@ if [[ -z "${OUT_DIR}" ]] ; then
     OUT_DIR="${STM_REPO}/exampleData"
 fi
 
+# Make sure that if we re-run the script we don't just keep appending to the
+# same index BED
+rm -f "${OUT_DIR}/index.bed"
+
 bcftools query -f '%CHROM\t%REF\t%ALT\t%POS\t%INFO/TYPE\n' "${VARIANTS_VCF}" | while IFS= read -r line
 do
   CHROM="$(echo "${line}" | cut -f1)"
