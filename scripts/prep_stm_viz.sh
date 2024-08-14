@@ -3,13 +3,15 @@
 set -euo pipefail
 
 readonly VERSION="v1.0.0"
-readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo>"
+readonly HELP_TEXT="Usage: $0 -tumor <tumor_bam_cram> -normal <normal_bam_cram> -ref_fasta <ref_fasta> -variants_vcf <variants_to_prep> -stm_repo <sequence_tube_map_repo> [-out_dir <alternative_output_directory]"
 
 if [ $# -eq 0 ]; then
   echo "$0 $VERSION"
   echo "$HELP_TEXT"
   exit 1
 fi
+
+OUT_DIR=""
 
 while [[ $# -gt 1 ]]; do
   key=${1}
@@ -24,6 +26,8 @@ while [[ $# -gt 1 ]]; do
       VARIANTS_VCF=${2};;
     -stm_repo)
       STM_REPO=${2};;
+    -out_dir)
+      OUT_DIR=${2};;
     *)
       echo "$HELP_TEXT"
       exit 65
@@ -56,7 +60,13 @@ TUMOR="$(realpath "${TUMOR}")"
 NORMAL="$(realpath "${NORMAL}")"
 REF_FASTA=$(realpath "${REF_FASTA}")
 STM_REPO=$(realpath "${STM_REPO}")
-OUT_DIR="${STM_REPO}/exampleData"
+if [[ -z "${OUT_DIR}" ]] ; then
+    OUT_DIR="${STM_REPO}/exampleData"
+fi
+
+# Make sure that if we re-run the script we don't just keep appending to the
+# same index BED
+rm -f "${OUT_DIR}/index.bed"
 
 bcftools query -f '%CHROM\t%REF\t%ALT\t%POS\t%INFO/TYPE\n' "${VARIANTS_VCF}" | while IFS= read -r line
 do
@@ -91,7 +101,7 @@ do
 
   UNCHOPPED_GFA="${WORK_DIR}/${CURR_NAME}.unchopped.gfa"
   log "Unchopping Lancet GFA graph and creating giraffe indexes for ${REGION}"
-  vg mod --unchop "$(ls "${WORK_DIR}/graphs/poa_graph/*.gfa")" | sed 's/ref0/'"${CHROM}"'/g' >| "${UNCHOPPED_GFA}" && \
+  vg mod --unchop "$(ls "${WORK_DIR}/graphs/poa_graph/"*".gfa")" | sed 's/ref0/'"${CHROM}"'/g' >| "${UNCHOPPED_GFA}" && \
   vg autoindex --workflow giraffe --gfa "${UNCHOPPED_GFA}" --prefix "${WORK_DIR}/${CHROM}_${WIN_START}_${WIN_END}"
 
   GBZ="${WORK_DIR}/${CHROM}_${WIN_START}_${WIN_END}.giraffe.gbz"
@@ -110,10 +120,11 @@ do
   vg gamsort --index "${WORK_DIR}/normal.gam.gai" tmp.gam >| "${WORK_DIR}/normal.gam" && rm -f tmp.gam
 
   log "Creating local VG chunk for ${REGION} to visualize in SequenceTubeMap"
-  "${STM_REPO}/prep_local_chunk.sh" -x "${GBZ}" -r "${REGION}" -o "${CHUNK_DIR}" \
+  "${STM_REPO}/scripts/prepare_local_chunk.sh" -x "${GBZ}" -r "${REGION}" -o "${CHUNK_DIR}" \
     -g "${WORK_DIR}/normal.gam" -p '{"mainPalette": "blues", "auxPalette": "blues"}' \
     -g "${WORK_DIR}/tumor.gam" -p '{"mainPalette": "reds", "auxPalette": "reds"}' \
-    -d "${REF} -> ${ALT} variant (${VAR_TYPE}) at ${CHROM}:${VAR_POS}" >> "${OUT_DIR}/index.bed"
+    -d "${REF} -> ${ALT} variant (${VAR_TYPE}) at ${CHROM}:${VAR_POS}" \
+    -b "${OUT_DIR}/" >> "${OUT_DIR}/index.bed"
 
   vg paths --drop-paths --paths-by "path_cover_" --xg "${CHUNK_DIR}/chunk.vg" >"${CHUNK_DIR}/chunk.vg.new" && \
   mv "${CHUNK_DIR}/chunk.vg.new" "${CHUNK_DIR}/chunk.vg"
