@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v2.1.7 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 96cdf6c SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 0df5674 SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -48,7 +48,7 @@ set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
 set(LIBDEFLATE_BUILD_GZIP OFF)
 set(LIBDEFLATE_BUILD_TESTS OFF)
 set(LIBDEFLATE_USE_SHARED_LIB OFF)
-FetchContent_Declare(libdeflate GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git GIT_TAG v1.20 SYSTEM)
+FetchContent_Declare(libdeflate GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git GIT_TAG v1.21 SYSTEM)
 FetchContent_MakeAvailable(libdeflate)
 
 set(ZLIB_COMPAT ON)
@@ -65,15 +65,15 @@ else ()
 	set(WITH_OPTIM ON)
 	set(WITH_NATIVE_INSTRUCTIONS ON)
 endif ()
-FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.6 SYSTEM)
+FetchContent_Declare(zlib-ng GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.1.8 SYSTEM)
 FetchContent_MakeAvailable(zlib-ng)
 
 set(HTSLIB_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/htslib")
 set(LIB_HTS "${HTSLIB_ROOT_DIR}/libhts.a")
 set(HTSLIB_CONFIG_PARAMS ${HTSLIB_ROOT_DIR} ${CMAKE_C_COMPILER})
 ExternalProject_Add(htslib
-		URL https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
-		URL_MD5 127cbea4e9a8c084fb09c3fd24bd825d PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
+		URL https://github.com/samtools/htslib/releases/download/1.21/htslib-1.21.tar.bz2
+		URL_MD5 e10407ad47233ab762e2aa6eefec9921 PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
 		SOURCE_DIR ${HTSLIB_ROOT_DIR} BUILD_IN_SOURCE 1 INSTALL_COMMAND ""
 		BUILD_COMMAND ${MAKE_EXE} -j${NumCores} lib-static BUILD_BYPRODUCTS ${LIB_HTS}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_htslib.sh ${HTSLIB_CONFIG_PARAMS}
@@ -98,8 +98,8 @@ set(GPERFTOOLS_INC_DIR "${GPERFTOOLS_ROOT_DIR}/include")
 set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
 set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
 ExternalProject_Add(gperftools
-		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.15/gperftools-2.15.tar.gz
-		URL_MD5 0c16898d428c6f2694c1ea9e6525de8f
+		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.15.90/gperftools-2.15.90.tar.gz
+		URL_MD5 fbab1d58619c76857a2a46fc02b9dffa
 		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR} BUILD_IN_SOURCE 1
 		INSTALL_COMMAND ${MAKE_EXE} install BUILD_COMMAND ${MAKE_EXE} -j${NumCores}
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_gperftools.sh ${GPERFTOOLS_CONFIG_PARAMS}
@@ -110,15 +110,15 @@ set(spoa_optimize_for_native OFF)
 FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 73f7a25 SYSTEM)
 FetchContent_MakeAvailable(spoa)
 
-FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.85.0 SYSTEM)
+FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.86.0 SYSTEM)
 FetchContent_MakeAvailable(boost_math)
 
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
 	set(CATCH_ROOT "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
-	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.6.0")
-	set(CATCH_MD5c "d437bbfabf16633b5fba322793716a9a")
-	set(CATCH_MD5h "e3210ec900023f46c1c3c1d0e63359d3")
+	set(CATCH_URL "https://github.com/catchorg/Catch2/releases/download/v3.7.1")
+	set(CATCH_MD5c "dc70126409d62593ce53f45830f98065")
+	set(CATCH_MD5h "9466b920b07009697e2a152284cfa221")
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.cpp" EXPECTED_MD5 ${CATCH_MD5c})
 	file(DOWNLOAD "${CATCH_URL}/catch_amalgamated.hpp" "${CATCH_ROOT}/catch_amalgamated.hpp" EXPECTED_MD5 ${CATCH_MD5h})
 	add_library(Catch2 STATIC "${CATCH_ROOT}/catch_amalgamated.cpp" "${CATCH_ROOT}/catch_amalgamated.hpp")
@@ -133,6 +133,6 @@ if (LANCET_BENCHMARKS)
 	set(BENCHMARK_ENABLE_INSTALL OFF)
 	set(BENCHMARK_INSTALL_DOCS OFF)
 	set(BENCHMARK_ENABLE_LTO OFF)
-	FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.8.4 SYSTEM)
+	FetchContent_Declare(benchmark GIT_REPOSITORY https://github.com/google/benchmark.git GIT_TAG v1.9.0 SYSTEM)
 	FetchContent_MakeAvailable(benchmark)
 endif ()
