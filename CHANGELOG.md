@@ -1,9 +1,51 @@
 
+<a name="v2.8.6"></a>
+## [v2.8.6](https://github.com/nygenome/Lancet2/compare/v2.9.5...v2.8.6) (0001-01-01)
+
+
+<a name="v2.9.5"></a>
+## [v2.9.5](https://github.com/nygenome/Lancet2/compare/v2.8.5...v2.9.5) (2025-02-06)
+
+### Bug Fixes
+
+* remove lowscore filter
+* use only stm repo data directory
+
+### Maintenance/Refactoring
+
+* Bump version to v2.9.5
+* update dependencies
+* add somtic model and filter script to docker image
+* add somtic model and filter script to docker image
+* minor fix to prep_stm_viz.sh
+* temp remove for lfs tracking
+* temp clean git index
+* update ide config files
+* update dependencies
+* update default version string
+* update ide files for new dev vm
+* Update Dockerfile
+* resolve multiple clang-tidy warnings
+* resolve multiple clang-tidy warnings
+
+### New Features
+
+* use 10 and 13 cutoffs & always write non pass variants
+* add script to prep all necessary files for STM viz
+* bundle ml model with repo
+* bundle ml model with repo
+* update filter script to use 10_15 cutoffs
+* bundle ml model with repo
+* bundle ml model with repo
+* increase max window coverage per sample to 1000
+
+
 <a name="v2.8.5"></a>
 ## [v2.8.5](https://github.com/nygenome/Lancet2/compare/v2.8.4...v2.8.5) (2024-05-10)
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.8.5
 * update cmake version and use gcc14 for docker build
 * update dependencies
 * update Dockerfile
@@ -285,11 +327,11 @@
 * skip regions which have 0 or more than 3 tokens
 * include cmake install line
 * use debian as default base image
-* use relative path to inject right require on build Former-commit-id: ec10bd90fe3df428a08f7076fdd2c3635650f00e Former-commit-id: 40c9b35f7aa984b7b79c6614064cd03ce1aaec5d Former-commit-id: 74cf99ef548050f677de5cce6da1d9ebb9bea6a6
-* change config to include static assets Former-commit-id: d818cc677ca0ce1529041ba804ec6e2d4ba67a29 Former-commit-id: c65a78edf57ae926af2bee2ee65f13913b8a32a0 Former-commit-id: e8e292b5af811cd57aa7e2f4536244f10113ab1d
-* use public api to refer to transcipt member variable Former-commit-id: f8e1ebc84f3450960bbe7da1a1175204b3ca4dac Former-commit-id: d51fb61953e975c2ed71a5f9c3d031346e6bed41 Former-commit-id: 9cc4265b74796c1f7f3eae08e397890ed611b518
-* use node fill colors consistent with v1 Former-commit-id: f698fe76eccb7858781a6941b0fd9e7640dc8913 Former-commit-id: 1691140cbaf41b10c3649af78fa0b458945c0d3b Former-commit-id: 073c09532824d6984acea58824197e7ecc65216d
-* alternate index file missing file extension dot Former-commit-id: 9fbc4ef335efbbbbf6cd8599aa1bd492c292d964 Former-commit-id: 248c5500dbd3141600d610f207cf8099f30f112d Former-commit-id: 240652b1a022c224731387819a7ff0d58a95ee48
+* use relative path to inject right require on build Former-commit-id: 96128bd509124cbd0573dac47a29eacbfe8acb9c Former-commit-id: 40c9b35f7aa984b7b79c6614064cd03ce1aaec5d Former-commit-id: 74cf99ef548050f677de5cce6da1d9ebb9bea6a6
+* change config to include static assets Former-commit-id: 468c8c6669da39dcc3a94671db7547a03609a238 Former-commit-id: c65a78edf57ae926af2bee2ee65f13913b8a32a0 Former-commit-id: e8e292b5af811cd57aa7e2f4536244f10113ab1d
+* use public api to refer to transcipt member variable Former-commit-id: c0a546e87d8b7b105b4a151ca36e001c6b21f0d0 Former-commit-id: d51fb61953e975c2ed71a5f9c3d031346e6bed41 Former-commit-id: 9cc4265b74796c1f7f3eae08e397890ed611b518
+* use node fill colors consistent with v1 Former-commit-id: d6e674c494ec0f1002fd64c3b2c96696c23354f6 Former-commit-id: 1691140cbaf41b10c3649af78fa0b458945c0d3b Former-commit-id: 073c09532824d6984acea58824197e7ecc65216d
+* alternate index file missing file extension dot Former-commit-id: dbe5d677498947db73be612a514fffcd7a7ff464 Former-commit-id: 248c5500dbd3141600d610f207cf8099f30f112d Former-commit-id: 240652b1a022c224731387819a7ff0d58a95ee48
 
 ### Maintenance/Refactoring
 
@@ -300,32 +342,32 @@
 * update CMP0135 policy
 * update CMP0135 policy
 * update deps
-* keep only gcc build Former-commit-id: a4f8b4aeb1353e97ddac1eb08995ba40e5a05944 Former-commit-id: 6d01d6a27eb1c7fdf65dfe33bdbae974bf4d810b Former-commit-id: 4dcb3a240bde0daf58d98d139bd0fb3c9263fe7e
+* keep only gcc build Former-commit-id: facbfe77ae435592f8cd0e029e00b8349a2ff446 Former-commit-id: 6d01d6a27eb1c7fdf65dfe33bdbae974bf4d810b Former-commit-id: 4dcb3a240bde0daf58d98d139bd0fb3c9263fe7e
 * update graphviz image
-* remove ghcr from build to prevent push 403 errors Former-commit-id: 09ffe64accc7479a16c46a4dcdbfe23c0adc3028 Former-commit-id: a8fd94a3e496a1bc24fd319466b4501e054a38fe Former-commit-id: fae57a5d155e73bc566face970b44d53e6f0cefa
-* update readme Former-commit-id: 0f920b34997abc4f2bc023d2485dd2db5e05d9ab Former-commit-id: f4f01d634fd6c48fc75cfae8be8dbd5b74ff54b0 Former-commit-id: cc929dc6fc954ca834fa14f32a1ff97cad9b0edf
-* Update docs Former-commit-id: 06b10918bcfbf4ec9e7a6a9cf14f68cc61db1ef5 Former-commit-id: 80f708b507a345305a5c006b4d6f6514e1c8f65a Former-commit-id: a1302cd2c95236f53c7a5162c0a9caea9d52ea37
-* Update docs Former-commit-id: 155eca1f9665713c1f18c2516862f057cf496260 Former-commit-id: ce5d5a2c9756fe8909d914c61d5ec24f2f0b71a3 Former-commit-id: 93ea17c7d3a5d9ba273c582b2752239a88a05dbb
-* Update docs Former-commit-id: 7cd131e9340febfdf68f3275a24c55a344a7fb6c Former-commit-id: e565f6d9889b716cdd122e3435f7ca633541d134 Former-commit-id: 9d0c32e191be8fef0af955acd649b40e5c2348b3
-* Update docs Former-commit-id: 4f4f66aba54f151ecb21c8ee124136b5d60283dd Former-commit-id: 5d4a4b1c7645a3b89a758686ba2af59601dfdcd5 Former-commit-id: abd3d761420e5e6d0c004f5ed366c5969e14f901
-* Update docs Former-commit-id: 0d716afec1717f698bb1c733b5ae5417f7d52a65 Former-commit-id: 33dbeccd68ef8e375f7fa2ae59c2a20c6f964490 Former-commit-id: 9735acbb78ea328068b708be28cd27cc49caa9da
-* Update docs Former-commit-id: e4250b703098de7422cd81c51c4160874fd5eae7 Former-commit-id: 3a1e40f66fd9a3145632940761ae3c43dc866dfb Former-commit-id: 6a4a699221bc73671d7df2a8607cda6e9fd32cdc
-* Update docs Former-commit-id: 29971e42f81f179b458ac99a28d06edd719e45a8 Former-commit-id: d47e8ce4a3cbf063556104d481c6438b5e529d29 Former-commit-id: ce29c3f75a97617c61c41edbd33902d1606b7d7c
-* Update docs Former-commit-id: 432bfeefe6f13dda0db719a17825ad55a7b89d2c Former-commit-id: f7dbf5412c23e2d7f45740bb8300a5a1acdf5c38 Former-commit-id: bfa255ddaf79995a1d126cd011697cdf12cf003e
-* Update docs Former-commit-id: 363da3fe3a87798fd7a25a379fd8ddaa0d9f3e26 Former-commit-id: 20fcca4ef3717bfd7c4fb8852e95fe57e91eeeae Former-commit-id: 5446c5fec6669b4d92ed9213a07ba36dd4daf848
-* Update docs Former-commit-id: 3e7ca93dcde23520f35ff7031bfe802944ac9404 Former-commit-id: 25255c194fe0cd248490ddff72db792a54f779e5 Former-commit-id: 1b66b168849637c3ddd7037773a69581379024dc
-* Update docs Former-commit-id: 3278677702c49493024d0e682b46ca924f7b78f2 Former-commit-id: 54e99f29258b47b3cef70fa7d9aeef39ddd54038 Former-commit-id: 5ede0eda990754840c590afcac290ba85a26ccab
-* Update docs Former-commit-id: 61b6b2e8163eb283929c740955ba69c3175016cd Former-commit-id: 30d5b3e2a4c763040dd3323137f3186286f790c1 Former-commit-id: 26c3254e281e5e1ff71d857420bf3ed0af15db46
-* Update docs Former-commit-id: 3b0940c7cf98adb162969448f61f184f8d994484 Former-commit-id: a02f16c46d0020d6b1ed5ac653c8deedba3d8016 Former-commit-id: f0cf954c65c0ece715a28c54e54b283acb2f02c0
-* Update docs Former-commit-id: 26435f116131c7d88897d57a5365c1beab8fd28f Former-commit-id: c68d6163558c27a60906615c6a5ff33afcc3b781 Former-commit-id: 3d14e32fcf3e83950d1e5534df9ee3a45d828537
-* Update docs Former-commit-id: 2fee87afe551b62c140b2bc4a596d9b47684cbbf Former-commit-id: a1c6cdb20ad154faeaac9cc07ec5bf583dd9ed75 Former-commit-id: 50b0f7c062d0f7306833d460426474e9904ad70b
-* update docs Former-commit-id: daaba8c6dcce07bd7685e0c90f2211477c1c1a25 Former-commit-id: 7190b770e35badc7730974caf37c5d764147ff2d Former-commit-id: b23a08bb6d9ace976ac42d4c1d89ce600d0a3eb7
-* update docs config Former-commit-id: d13e0716a13205f46cee7c687952f612f537d8ea Former-commit-id: c205583da1f63b476e552eff0bb74747fb54b9c9 Former-commit-id: 9614b69eac2c6b1f9a1694cd651c308601ee7116
-* use permalinks Former-commit-id: e77f6c3d2512e3cbe3e03bab5679f058fadbc2d4 Former-commit-id: fc3ffc309b50c02fa62c01ab61825da09eb2841f Former-commit-id: ae0b1c6e0a42011f10f92deaa8750142472f2fcd
-* update visualization section in docs Former-commit-id: db225350de4da2a125694e03e01dbc006a9865fc Former-commit-id: d97e23e1f3e4e8ef7d493577cdebf959d1dff559 Former-commit-id: 866a20e845164ff7cbcb0a6564cf1ba134769e81
-* use 0 component for raw graph Former-commit-id: e817b66b39179a7307011141582d39c4f68ba14f Former-commit-id: c8c60bb1bdc3fd95b610cdfac6dc08680935a6a8 Former-commit-id: 5c8977e2ba9dc06547219b7469213f9084f53172
-* also build dot file before low cov removal Former-commit-id: db2029fd2c4cab5b0563ff8ade81126e43e519e8 Former-commit-id: ab3449a1a319a9f2db05452f14abff3ddf833079 Former-commit-id: 490be6ee4bafe791ad62233b2fd348ad0cf9d953
-* ensure non ref alt allele Former-commit-id: 89a8b155e949ba1add275ee95416a0457aa1a6aa Former-commit-id: bdcba126ca1593b7fdcd9673a9ceffe83cac3558 Former-commit-id: 62098deb02f19bae5a4488a181d4b3a7b9df6b26
+* remove ghcr from build to prevent push 403 errors Former-commit-id: 4f83100db7dcea3e5f953573c1ce498831bdc3ed Former-commit-id: a8fd94a3e496a1bc24fd319466b4501e054a38fe Former-commit-id: fae57a5d155e73bc566face970b44d53e6f0cefa
+* update readme Former-commit-id: a38e811ade0e6d800a06ec705c295db973eb7150 Former-commit-id: f4f01d634fd6c48fc75cfae8be8dbd5b74ff54b0 Former-commit-id: cc929dc6fc954ca834fa14f32a1ff97cad9b0edf
+* Update docs Former-commit-id: a464948922765af128e9f62f302aa3ce5271adf1 Former-commit-id: 80f708b507a345305a5c006b4d6f6514e1c8f65a Former-commit-id: a1302cd2c95236f53c7a5162c0a9caea9d52ea37
+* Update docs Former-commit-id: 33f97e8b6a9a54a6fb732dd5462788f36640e7af Former-commit-id: ce5d5a2c9756fe8909d914c61d5ec24f2f0b71a3 Former-commit-id: 93ea17c7d3a5d9ba273c582b2752239a88a05dbb
+* Update docs Former-commit-id: 3cc3f6490331cffff8c7c9f526218727364bde10 Former-commit-id: e565f6d9889b716cdd122e3435f7ca633541d134 Former-commit-id: 9d0c32e191be8fef0af955acd649b40e5c2348b3
+* Update docs Former-commit-id: 6dc05d640cce51eaecf630749372c868cff5a911 Former-commit-id: 5d4a4b1c7645a3b89a758686ba2af59601dfdcd5 Former-commit-id: abd3d761420e5e6d0c004f5ed366c5969e14f901
+* Update docs Former-commit-id: 37d33bcf5ff3165e1700e047bce73f8d8b2f3091 Former-commit-id: 33dbeccd68ef8e375f7fa2ae59c2a20c6f964490 Former-commit-id: 9735acbb78ea328068b708be28cd27cc49caa9da
+* Update docs Former-commit-id: 9cf6883ed91fc6954319b9eef2369a2c3e703e65 Former-commit-id: 3a1e40f66fd9a3145632940761ae3c43dc866dfb Former-commit-id: 6a4a699221bc73671d7df2a8607cda6e9fd32cdc
+* Update docs Former-commit-id: 1c5ca07cc1317fba1cc7afef87f1c07df4489045 Former-commit-id: d47e8ce4a3cbf063556104d481c6438b5e529d29 Former-commit-id: ce29c3f75a97617c61c41edbd33902d1606b7d7c
+* Update docs Former-commit-id: b4f36182263f776aad6007d681da1a7596691a53 Former-commit-id: f7dbf5412c23e2d7f45740bb8300a5a1acdf5c38 Former-commit-id: bfa255ddaf79995a1d126cd011697cdf12cf003e
+* Update docs Former-commit-id: 6ea9c8203426e6a344a48a9b1074774b58d19599 Former-commit-id: 20fcca4ef3717bfd7c4fb8852e95fe57e91eeeae Former-commit-id: 5446c5fec6669b4d92ed9213a07ba36dd4daf848
+* Update docs Former-commit-id: 8a587117fbdf8b5dc91064a68efa5b7cae7ae004 Former-commit-id: 25255c194fe0cd248490ddff72db792a54f779e5 Former-commit-id: 1b66b168849637c3ddd7037773a69581379024dc
+* Update docs Former-commit-id: 6b0b2d9effb71d8394dc41f836916af853070766 Former-commit-id: 54e99f29258b47b3cef70fa7d9aeef39ddd54038 Former-commit-id: 5ede0eda990754840c590afcac290ba85a26ccab
+* Update docs Former-commit-id: eed98b81155ae60737996e184912d0de6403461b Former-commit-id: 30d5b3e2a4c763040dd3323137f3186286f790c1 Former-commit-id: 26c3254e281e5e1ff71d857420bf3ed0af15db46
+* Update docs Former-commit-id: c31b9397df30264ec156691465636bba3e0aef05 Former-commit-id: a02f16c46d0020d6b1ed5ac653c8deedba3d8016 Former-commit-id: f0cf954c65c0ece715a28c54e54b283acb2f02c0
+* Update docs Former-commit-id: 061e979f05de97e1c96d705b20b9681613b61027 Former-commit-id: c68d6163558c27a60906615c6a5ff33afcc3b781 Former-commit-id: 3d14e32fcf3e83950d1e5534df9ee3a45d828537
+* Update docs Former-commit-id: 942afe8a454aef8a1364093c8364a8e597ad182f Former-commit-id: a1c6cdb20ad154faeaac9cc07ec5bf583dd9ed75 Former-commit-id: 50b0f7c062d0f7306833d460426474e9904ad70b
+* update docs Former-commit-id: 4b7c302b80e12dda4bb8a320a834fa868b05ee40 Former-commit-id: 7190b770e35badc7730974caf37c5d764147ff2d Former-commit-id: b23a08bb6d9ace976ac42d4c1d89ce600d0a3eb7
+* update docs config Former-commit-id: e19ab764bc32800f9466372ca28a3fbbc06c5abe Former-commit-id: c205583da1f63b476e552eff0bb74747fb54b9c9 Former-commit-id: 9614b69eac2c6b1f9a1694cd651c308601ee7116
+* use permalinks Former-commit-id: c1e9356207ef3f2e95e21fea5a9fc8df11baf9a5 Former-commit-id: fc3ffc309b50c02fa62c01ab61825da09eb2841f Former-commit-id: ae0b1c6e0a42011f10f92deaa8750142472f2fcd
+* update visualization section in docs Former-commit-id: 0dda6c83b86b3c80a494de76df1f164a7d76ba5c Former-commit-id: d97e23e1f3e4e8ef7d493577cdebf959d1dff559 Former-commit-id: 866a20e845164ff7cbcb0a6564cf1ba134769e81
+* use 0 component for raw graph Former-commit-id: e055d13eb84efec2c8d5693b1f0c43b3ad8dec2a Former-commit-id: c8c60bb1bdc3fd95b610cdfac6dc08680935a6a8 Former-commit-id: 5c8977e2ba9dc06547219b7469213f9084f53172
+* also build dot file before low cov removal Former-commit-id: f1f1e775e5949f46e2ac7c80c3f19d6c42017303 Former-commit-id: ab3449a1a319a9f2db05452f14abff3ddf833079 Former-commit-id: 490be6ee4bafe791ad62233b2fd348ad0cf9d953
+* ensure non ref alt allele Former-commit-id: e68f2bb6e9c38b1c7926a9781f17ee7988e48c79 Former-commit-id: bdcba126ca1593b7fdcd9673a9ceffe83cac3558 Former-commit-id: 62098deb02f19bae5a4488a181d4b3a7b9df6b26
 
 ### New Features
 
@@ -397,7 +439,7 @@
 ### Maintenance/Refactoring
 
 * use unique path kmer
-* use bioinformatics link Former-commit-id: 7033a21a28235d471868e1827d47a01dbb505094 Former-commit-id: 2043ca4c05c59bbb57b13ad1dc82b1b53eaf7acc Former-commit-id: 434ccc77009e54405fb7ec14c04d0053dd91f317
+* use bioinformatics link Former-commit-id: 1fc7c9831a78323c1f348f1a263432a43389e49e Former-commit-id: 2043ca4c05c59bbb57b13ad1dc82b1b53eaf7acc Former-commit-id: 434ccc77009e54405fb7ec14c04d0053dd91f317
 * skip low qual normal snvs
 * use raw cov for normal always
 * change normal read filters
@@ -442,8 +484,8 @@
 * fix clang-12 compilation error
 * fix clang-12 compilation error
 * add clang tidy fixes
-* add license badge and update docs url Former-commit-id: 40d6386f06c45e158aee48d775b8fd39e7a6e37a Former-commit-id: 3fe3a7abd1aded64e727ebbc7155de6cb7a14edf Former-commit-id: a624022b7bd50cfc367251d7d1cf5db9d933b0ec
-* update to BSD license Former-commit-id: 1002421774521f079eb6642a8de94ce93f24dbe2 Former-commit-id: d810ed6a2f7766c88f0be7455b7688b89dfc7b71 Former-commit-id: 92e0c257074d24c61b5739e25443b942f948f8ff
+* add license badge and update docs url Former-commit-id: 111a547be0b1e752a58abddb6da0c4fbc97bac60 Former-commit-id: 3fe3a7abd1aded64e727ebbc7155de6cb7a14edf Former-commit-id: a624022b7bd50cfc367251d7d1cf5db9d933b0ec
+* update to BSD license Former-commit-id: b5aa128c6537916903d5871051bcfe1be65bee2c Former-commit-id: d810ed6a2f7766c88f0be7455b7688b89dfc7b71 Former-commit-id: 92e0c257074d24c61b5739e25443b942f948f8ff
 * add gh pages config
 * update dependencies and fix related issues for upgrade
 * update ide config files
