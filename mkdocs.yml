@@ -1,0 +1,92 @@
+site_name: Lancet2
+site_url: https://nygenome.github.io/Lancet2/
+site_author: Rajeeva Lochan Musunuri
+repo_url: https://github.com/nygenome/Lancet2
+repo_name: nygenome/Lancet2
+theme:
+  name: material
+  logo: assets/logo_nygenome.svg
+  favicon: assets/favicon.ico
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - content.code.copy
+    - navigation.top
+    - navigation.tabs
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to system preference
+plugins:
+  - privacy
+  - offline
+  - meta
+  - blog
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+  - search:
+      lang: en
+  - git-revision-date-localized:
+      type: datetime
+      enable_creation_date: true
+      fallback_to_build_date: true
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: nygenome
+      repo: Lancet2
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+nav:
+  - Getting Started: index.md
+  - Guides:
+    - Whole Genome Analysis: guides/wgs_analysis.md
+    - Targeted Analysis: guides/targeted_analysis.md
+    - Custom Visualization: guides/custom_visualization.md
+  - Reference: reference.md
+  - Publications: publications.md

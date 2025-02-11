@@ -1,32 +1,23 @@
 # Lancet2
 
-> Micro-assembly based somatic variant caller
-
-***Note: Lancet2 is currently under development and is not yet ready for production use.***
+Lancet2 is a command line somatic variant caller (SNVs and InDels) for short
+read sequencing data implemented with modern C++. It performs joint multi-sample
+localized colored de-bruijn graph assembly for more accurate variant calls,
+especially InDels.
 
 [![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?mLabel=Documentation&style=flat)](https://nygenome.github.io/Lancet2)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-## Docker builds
-* [Docker images](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet) are available for every tagged release.
-* Please note that the public docker image requires [Cascade Lake CPU](https://en.wikichip.org/wiki/intel/microarchitectures/cascade_lake) or newer.
-* If needed, users can build an image for any 64-bit Linux machine using the [Dockerfile](Dockerfile)
-
 ## Installation
 
-### Pre-requisites to compile from source
-
-* [Linux](https://kernel.org/)
-* [x86-64](https://en.wikipedia.org/wiki/X86-64)
-* [BZip2](https://sourceware.org/bzip2/)
-* [LibLZMA](https://tukaani.org/xz/)
-* [Git](https://command-not-found.com/git)
-* [Make](https://command-not-found.com/make)
-* [CMake](https://cmake.org/download) (3.25 or greater)
-* [GCC](https://gcc.gnu.org) (12.x or greater)
+### Build prerequisites
+- [Linux](https://kernel.org/) [x86-64 system](https://en.wikipedia.org/wiki/X86-64)
+- [Git](https://command-not-found.com/git), [Make](https://command-not-found.com/make)
+- [GCC](https://gcc.gnu.org) (12.x or greater)
+- [CMake](https://cmake.org/download) (3.25 or greater)
+- [BZip2](https://sourceware.org/bzip2/), [LibLZMA](https://tukaani.org/xz/)
 
 ### Build commands
-
 ```bash
 git clone https://github.com/nygenome/Lancet2.git
 cd Lancet2 && mkdir build && cd build
@@ -37,13 +28,9 @@ cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
 
 Documentation for Lancet2 is hosted on [GitHub pages](https://nygenome.github.io/Lancet2/).
 
-## Authors
-
-Rajeeva Musunuri, Bryan Zhu and Giuseppe Narzisi
-
 ## Citing
 
-See [publications](https://nygenome.github.io/Lancet2/docs/publications) associated with Lancet.
+See [publications](https://nygenome.github.io/Lancet2/publications) associated with Lancet.
 
 ## License
 

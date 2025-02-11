@@ -1,35 +1,32 @@
-defaults:
-  run:
-    working-directory: website
-
 name: Update documentation
 on:
   push:
     branches:
       - main
     paths:
-      - website/**
+      - docs/**
+      - mkdocs.yml
       - .github/workflows/update_docs.yml
-
+permissions:
+  contents: write
 jobs:
-  Update-Website:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: git pull
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - name: Configure Git Credentials
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+      - uses: actions/setup-python@v5
         with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Build website
-        run: npm run build
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+          python-version: 3.x
+      - run: echo "cache_id=$(date --utc '+%F')" >> $GITHUB_ENV
+      - uses: actions/cache@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./website/build
-          user_name: rmusunuri
-          user_email: rmusunuri@nygenome.org
+          key: mkdocs-material-${{ env.cache_id }}
+          path: .cache
+          restore-keys: |
+            mkdocs-material-
+      - run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-git-revision-date-localized-plugin
+      - run: mkdocs gh-deploy --force

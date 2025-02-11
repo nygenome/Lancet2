@@ -296,3 +296,7 @@ data/*.vcf.gz
 data/*.bcf
 data/*.tbi
 data/*.csi
+
+# documentation
+.cache/
+pyenv/
