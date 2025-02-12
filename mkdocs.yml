@@ -5,6 +5,7 @@ repo_url: https://github.com/nygenome/Lancet2
 repo_name: nygenome/Lancet2
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: assets/logo_nygenome.svg
   favicon: assets/favicon.ico
   font:
