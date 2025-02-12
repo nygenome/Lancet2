@@ -90,7 +90,7 @@ def main(raw_vcf_path, model_path):
     logging.basicConfig(format=msg_fmt, level=logging.INFO, datefmt=dt_fmt)
     logging.info(f"Starting to filter and score input VCF {raw_vcf_path}")
 
-    logging.info(f"Building variants dataframe for ML model evaluation")
+    logging.info("Building variants dataframe for ML model evaluation")
     variants_itr = tqdm.tqdm(pysam.VariantFile(raw_vcf_path, threads=2))
     df = [tuple(build_variant_info(v).values()) for v in variants_itr]
     logging.info(f"Done building dataframe with {len(df)} variants")
@@ -127,7 +127,7 @@ def main(raw_vcf_path, model_path):
 
     invcf.close()
     outvcf.close()
-    logging.info(f"Done writing filtered and scored variants to output VCF")
+    logging.info("Done writing filtered and scored variants to output VCF")
 
 
 if __name__ == "__main__":
