@@ -85,6 +85,7 @@ markdown_extensions:
 nav:
   - Getting Started: index.md
   - Guides:
+    - Scoring Somatic Variants: guides/scoring_somatic_variants.md
     - Whole Genome Analysis: guides/wgs_analysis.md
     - Targeted Analysis: guides/targeted_analysis.md
     - Custom Visualization: guides/custom_visualization.md
