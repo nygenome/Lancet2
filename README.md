@@ -6,6 +6,7 @@ localized colored de-bruijn graph assembly for more accurate variant calls,
 especially InDels.
 
 [![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?mLabel=Documentation&style=flat)](https://nygenome.github.io/Lancet2)
+[![GitHub Release](https://img.shields.io/github/v/release/nygenome/Lancet2?include_prereleases&sort=semver&display_name=release&style=flat)](https://github.com/nygenome/Lancet2/releases)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ## Installation
