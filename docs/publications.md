@@ -5,7 +5,7 @@ hide:
 
 # Publications
 
-## [Lancet2: Improved and accelerated somatic variant calling with joint multi-sample local assembly graphs](https://www.biorxiv.org/content/10.1101/2025.02.18.638852v2)
+## [Lancet2: Improved and accelerated somatic variant calling with joint multi-sample local assembly graphs](https://www.biorxiv.org/content/10.1101/2025.02.18.638852v2.full)
 **Abstract:**
 
 Here, we present Lancet2, an open-source somatic variant caller designed to improve detection of small variants in short-read sequencing data.

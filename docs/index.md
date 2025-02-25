@@ -74,7 +74,7 @@ Lancet2 is distributed under the [BSD 3-Clause License](https://github.com/nygen
 
 ## Citing Lancet2
 
-- [Lancet2: Improved and accelerated somatic variant calling with joint multi-sample local assembly graphs](https://www.biorxiv.org/content/10.1101/2025.02.18.638852v2)
+- [Lancet2: Improved and accelerated somatic variant calling with joint multi-sample local assembly graphs](https://www.biorxiv.org/content/10.1101/2025.02.18.638852v2.full)
 - [Somatic variant analysis of linked-reads sequencing data with Lancet](https://academic.oup.com/bioinformatics/article/37/13/1918/5926970)
 - [Genome-wide somatic variant calling using localized colored de Bruijn graphs](https://www.nature.com/articles/s42003-018-0023-9)
 
