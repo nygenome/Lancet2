@@ -28,21 +28,6 @@ cd Lancet2 && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
 ```
 
-### Static binary
-
-!!! note "Note"
-
-    It is recommended to build Lancet2 from scratch on the target machine
-    where processing is expected to happen for maximum runtime performance.
-
-The simplest way to use `Lancet2` is to download the binary from the [latest available release](https://github.com/nygenome/Lancet2/releases).
-The binary from releases is static, with no dependencies and needs only executable permissions before it can be used.
-
-```bash
-chmod +x Lancet2
-./Lancet2 --help
-```
-
 ### Docker images
 
 !!! note "Note"
