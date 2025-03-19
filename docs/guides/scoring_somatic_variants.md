@@ -10,7 +10,7 @@ python3 -m venv --upgrade-deps pyenv
 ./pyenv/bin/pip install numpy==1.26.4 tqdm==4.66.2 pysam==0.22.0 interpret-core==0.5.1
 ```
 
-The explainable somatic machine learning model (`somatic_ebm.lancet_6ef7ba445a.v1.pkl`)
+The explainable somatic machine learning model ([`somatic_ebm.lancet_6ef7ba445a.v1.pkl`](https://github.com/nygenome/Lancet2/blob/v2.8.6/python/somatic_ebm.lancet_6ef7ba445a.v1.pkl))
 is also needed to run the `score_variants.py` script.
 
 ## Usage
