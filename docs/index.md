@@ -12,6 +12,8 @@ read sequencing data implemented with modern C++. It performs joint multi-sample
 localized colored de-bruijn graph assembly for more accurate variant calls,
 especially InDels.
 
+In addition to variant calling accuracy and improved somatic filtering, Lancet2 has significant runtime performance improvements compared to Lancet1 (upto ∼10x speedup and 50% less peak memory usage)
+
 ## Installation
 
 ### Build prerequisites
