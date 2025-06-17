@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/index.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/publications.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/reference.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/blog/index.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/guides/custom_visualization.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/guides/scoring_somatic_variants.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/guides/targeted_analysis.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+    <url>
+         <loc>https://nygenome.github.io/Lancet2/guides/wgs_analysis.html</loc>
+         <lastmod>2025-06-17</lastmod>
+    </url>
+</urlset>
