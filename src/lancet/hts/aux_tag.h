@@ -19,8 +19,8 @@ extern "C" {
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
-#include "spdlog/fmt/bundled/core.h"
 #include "spdlog/fmt/bundled/format.h"
+#include "spdlog/fmt/bundled/ranges.h"
 
 namespace lancet::hts {
 

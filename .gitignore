@@ -300,3 +300,6 @@ data/*.csi
 # documentation
 .cache/
 pyenv/
+# pixi environments
+.pixi/*
+!.pixi/config.toml
