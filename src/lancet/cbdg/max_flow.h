@@ -1,11 +1,11 @@
 #ifndef SRC_LANCET_CBDG_MAX_FLOW_H_
 #define SRC_LANCET_CBDG_MAX_FLOW_H_
 
-#include <deque>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "absl/container/chunked_queue.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/types/span.h"
@@ -36,7 +36,7 @@ class MaxFlow {
 
   using Walk = std::vector<Edge>;
   using WalkView = absl::Span<const Edge>;
-  using CandidateWalks = std::deque<Walk>;
+  using CandidateWalks = absl::chunked_queue<Walk, 128, 1024>;
 
   [[nodiscard]] auto BuildNextWalk() -> std::optional<Walk>;
 

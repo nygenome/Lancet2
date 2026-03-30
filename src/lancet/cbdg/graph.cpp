@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -14,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/chunked_queue.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -457,7 +457,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
     current_component++;
     results_info.emplace_back(ComponentInfo{.mCompId = current_component, .mNumNodes = 0});
 
-    std::deque<Node*> connected_nodes;
+    absl::chunked_queue<Node*, 128, 1024> connected_nodes;
     connected_nodes.push_back(item.second.get());
 
     while (!connected_nodes.empty()) {
