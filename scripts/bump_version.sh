@@ -25,10 +25,8 @@ function main() {
   #fi
 
   #echo "Bumping version from ${MOST_RECENT_TAG} to ${NEW_VERSION}"
-  git push && bump "${BUMP_KIND}"
-  git-chglog -o "${PROJECT_DIR}"/CHANGELOG.md
-  #git add "${PROJECT_DIR}"/CHANGELOG.md
-  git commit -vsm "chore: Update release notes in changelog"
+  git push && bump "${BUMP_KIND}" && git-chglog --config "${PROJECT_DIR}/config.yml" -o "${PROJECT_DIR}"/CHANGELOG.md && \
+  git add "${PROJECT_DIR}"/CHANGELOG.md && git commit -vsm "chore: Update release notes in changelog"
   #git tag -m "${NEW_VERSION}" -sa "${NEW_VERSION}"
 }
 
