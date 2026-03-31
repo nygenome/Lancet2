@@ -32,7 +32,7 @@ namespace {
 inline auto SequenceFrom4Bit(absl::Span<const u8> bases) -> std::string {
   std::string result(bases.length(), 'N');
   for (usize idx = 0; idx < bases.length(); ++idx) {
-    result[idx] = SEQ_4BIT_TO_CHAR.at(bam_seqi(bases.data(), idx));
+    result[idx] = SEQ_4BIT_TO_CHAR[bam_seqi(bases.data(), idx)];
   }
   return result;
 }
@@ -80,10 +80,10 @@ void Alignment::PopulateCigarSeqQual(bam1_t* aln) {
   mSeq = SequenceFrom4Bit(raw_bases);
 
   const absl::Span<const u8> raw_quals = absl::MakeConstSpan(bam_get_qual(aln), aln->core.l_qseq);
-  mQual = std::vector<u8>(raw_quals.cbegin(), raw_quals.cend());
+  mQual.assign(raw_quals.cbegin(), raw_quals.cend());
 
   const absl::Span<const u32> raw_cigar = absl::MakeConstSpan(bam_get_cigar(aln), aln->core.n_cigar);
-  mCigar = std::vector<u32>(raw_cigar.cbegin(), raw_cigar.cend());
+  mCigar.assign(raw_cigar.cbegin(), raw_cigar.cend());
 }
 
 void Alignment::PopulateAuxRgAux(bam1_t* aln, const TagNamesSet* fill_tags) {
@@ -184,11 +184,10 @@ auto Alignment::ToString(const Reference& ref) const -> std::string {
   const auto rnext = both_chroms_same ? "=" : mate_chrom.ok() ? mate_chrom->Name() : "*";
 
   std::string fastq_quality;
-  fastq_quality.reserve(mQual.size());
+  fastq_quality.resize(mQual.size());
   static constexpr u8 PHRED_QUALITY_OFFSET = 33;
-  for (const auto& base_qual : mQual) {
-    fastq_quality.push_back(static_cast<char>(base_qual + PHRED_QUALITY_OFFSET));
-  }
+  std::transform(mQual.cbegin(), mQual.cend(), fastq_quality.begin(),
+                 [](const u8 base_qual) { return static_cast<char>(base_qual + PHRED_QUALITY_OFFSET); });
 
   std::string tags_data;
   static constexpr usize NUM_ESTIMATED_CHARS_PER_TAG = 2048;

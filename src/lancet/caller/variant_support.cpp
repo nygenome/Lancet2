@@ -62,13 +62,13 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
 auto VariantSupport::AlleleQualityStats() const -> Statistics {
   std::vector<u8> refs;
   refs.reserve(mRefFwdBaseQuals.size() + mRefRevBaseQuals.size());
-  std::ranges::for_each(mRefFwdBaseQuals, [&refs](const u8 bqual) { refs.push_back(bqual); });
-  std::ranges::for_each(mRefRevBaseQuals, [&refs](const u8 bqual) { refs.push_back(bqual); });
+  refs.insert(refs.end(), mRefFwdBaseQuals.begin(), mRefFwdBaseQuals.end());
+  refs.insert(refs.end(), mRefRevBaseQuals.begin(), mRefRevBaseQuals.end());
 
   std::vector<u8> alts;
   alts.reserve(mAltFwdBaseQuals.size() + mAltRevBaseQuals.size());
-  std::ranges::for_each(mAltFwdBaseQuals, [&alts](const u8 bqual) { alts.push_back(bqual); });
-  std::ranges::for_each(mAltRevBaseQuals, [&alts](const u8 bqual) { alts.push_back(bqual); });
+  alts.insert(alts.end(), mAltFwdBaseQuals.begin(), mAltFwdBaseQuals.end());
+  alts.insert(alts.end(), mAltRevBaseQuals.begin(), mAltRevBaseQuals.end());
 
   return BuildStats(absl::MakeConstSpan(refs), absl::MakeConstSpan(alts));
 }

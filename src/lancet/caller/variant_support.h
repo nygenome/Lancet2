@@ -82,13 +82,8 @@ class VariantSupport {
   template <Number T>
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   [[nodiscard]] static auto BuildStats(absl::Span<const T> data_ref, absl::Span<const T> data_alt) -> Statistics {
-    std::vector<f64> refs;
-    std::vector<f64> alts;
-    refs.reserve(data_ref.size());
-    alts.reserve(data_alt.size());
-
-    std::ranges::for_each(data_ref, [&refs](const u8 bqual) { refs.push_back(static_cast<f64>(bqual)); });
-    std::ranges::for_each(data_alt, [&alts](const u8 bqual) { alts.push_back(static_cast<f64>(bqual)); });
+    std::vector<f64> refs(data_ref.begin(), data_ref.end());
+    std::vector<f64> alts(data_alt.begin(), data_alt.end());
     std::ranges::sort(refs);
     std::ranges::sort(alts);
 

@@ -57,9 +57,7 @@ inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
 
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(character));
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
-      auto [itr, newly_added] = result->try_emplace(genome_pos, 1);
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!newly_added) itr->second++;
+      (*result)[genome_pos]++;
     }
   }
 }
@@ -258,9 +256,7 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
       // lambda function to increment the counter for `genome_positions`
       static const auto increment_genome_pos = [](CountMap& counts, u32 genome_pos) {
-        auto [itr, newly_added] = counts.try_emplace(genome_pos, 1);
-        // NOLINTNEXTLINE(readability-braces-around-statements)
-        if (!newly_added) itr->second++;
+        counts[genome_pos]++;
       };
 
       for (const auto& cig_unit : cigar_units) {
