@@ -11,10 +11,12 @@ set(PROJECT_VERSION ${LANCET2_GIT_TAG})
 message(STATUS "Lancet v${PROJECT_VERSION}")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
 option(LANCET_BENCHMARKS "Builds the Lancet benchmarks executable" "OFF")
+option(LANCET_PROFILE_MODE "Enables CPU profiling for the Lancet executable" "OFF")
 option(LANCET_BUILD_STATIC "Build a statically linked Lancet executable" "ON")
 option(LANCET_BUILD_ARCH "Build the Lancet executable for given CPU architecture")
 set_property(CACHE LANCET_TESTS PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_BENCHMARKS PROPERTY STRINGS "OFF" "ON")
+set_property(CACHE LANCET_PROFILE_MODE PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_BUILD_STATIC PROPERTY STRINGS "OFF" "ON")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -141,11 +143,12 @@ endif ()
 
 # Helpful links for profiling – https://github.com/google/pprof
 # https://gperftools.github.io/gperftools/cpuprofile.html
-#if (${CMAKE_BUILD_TYPE} MATCHES Release)
-#	add_dependencies(lancet_cli gperftools)
-#	target_include_directories(lancet_cli SYSTEM PRIVATE ${GPERFTOOLS_INC_DIR})
-#	target_link_libraries(lancet_cli PRIVATE ${LIB_PROFILER})
-#endif ()
+if (LANCET_PROFILE_MODE AND ${CMAKE_BUILD_TYPE} MATCHES Release)
+	add_compile_definitions(LANCET_PROFILE_MODE)
+	add_dependencies(lancet_cli gperftools)
+	target_include_directories(lancet_cli SYSTEM PRIVATE ${GPERFTOOLS_INC_DIR})
+	target_link_libraries(lancet_cli PRIVATE ${LIB_PROFILER})
+endif ()
 
 # Helpful links to run tests
 # https://github.com/catchorg/Catch2/blob/v3.3.2/docs/Readme.md
