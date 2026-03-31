@@ -1,4 +1,40 @@
 
+<a name="v2.8.11"></a>
+## [v2.8.11](https://github.com/nygenome/Lancet2/compare/v2.8.10...v2.8.11) (2026-03-31)
+
+### Maintenance/Refactoring
+
+* minor fixes to bump helper script
+
+
+<a name="v2.8.10"></a>
+## [v2.8.10](https://github.com/nygenome/Lancet2/compare/v2.8.9...v2.8.10) (2026-03-31)
+
+### Maintenance/Refactoring
+
+* minor fixes to bump helper script
+
+
+<a name="v2.8.9"></a>
+## [v2.8.9](https://github.com/nygenome/Lancet2/compare/v2.8.8...v2.8.9) (2026-03-31)
+
+### Maintenance/Refactoring
+
+* use different semver helper tool
+
+
+<a name="v2.8.8"></a>
+## [v2.8.8](https://github.com/nygenome/Lancet2/compare/v2.8.7...v2.8.8) (2026-03-31)
+
+### Maintenance/Refactoring
+
+* add profile mode to enable cpu profiling in release mode
+
+### Performance Improvements
+
+* optimize hot-path allocs & access patterns
+
+
 <a name="v2.8.7"></a>
 ## [v2.8.7](https://github.com/nygenome/Lancet2/compare/v2.8.6...v2.8.7) (2026-03-30)
 
@@ -8,6 +44,7 @@
 
 ### Maintenance/Refactoring
 
+* Bump version to v2.8.7
 * update dependencies
 * remove pkl from gitattrs
 * point to gcs link
