@@ -1,4 +1,13 @@
 
+<a name="v2.8.12"></a>
+## [v2.8.12](https://github.com/nygenome/Lancet2/compare/v2.8.11...v2.8.12) (2026-03-31)
+
+### Maintenance/Refactoring
+
+* minor fixes to bump helper script
+* Update release notes in changelog
+
+
 <a name="v2.8.11"></a>
 ## [v2.8.11](https://github.com/nygenome/Lancet2/compare/v2.8.10...v2.8.11) (2026-03-31)
 
