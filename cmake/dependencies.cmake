@@ -93,11 +93,19 @@ ExternalProject_Add(minimap2
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
 add_dependencies(minimap2 zlibstatic)
 
-set(GPERFTOOLS_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/gperftools")
-set(GPERFTOOLS_INC_DIR "${GPERFTOOLS_ROOT_DIR}/include")
-set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
-set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
-ExternalProject_Add(gperftools
+set(spoa_optimize_for_native OFF)
+FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 4.1.5 SYSTEM)
+FetchContent_MakeAvailable(spoa)
+
+FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.90.0 SYSTEM)
+FetchContent_MakeAvailable(boost_math)
+
+if (LANCET_PROFILE_MODE)
+	set(GPERFTOOLS_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/gperftools")
+	set(GPERFTOOLS_INC_DIR "${GPERFTOOLS_ROOT_DIR}/include")
+	set(LIB_PROFILER "${GPERFTOOLS_ROOT_DIR}/lib/libprofiler.a")
+	set(GPERFTOOLS_CONFIG_PARAMS ${GPERFTOOLS_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_CXX_COMPILER})
+	ExternalProject_Add(gperftools
 		URL https://github.com/gperftools/gperftools/releases/download/gperftools-2.18.1/gperftools-2.18.1.tar.gz
 		URL_MD5 129c01f6f5297f0482b33d431b5ec555
 		PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps" SOURCE_DIR ${GPERFTOOLS_ROOT_DIR} BUILD_IN_SOURCE 1
@@ -105,13 +113,7 @@ ExternalProject_Add(gperftools
 		CONFIGURE_COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/cmake/configure_gperftools.sh ${GPERFTOOLS_CONFIG_PARAMS}
 		BUILD_BYPRODUCTS ${LIB_PROFILER} LOG_DOWNLOAD ON LOG_CONFIGURE ON LOG_BUILD ON LOG_INSTALL ON
 		USES_TERMINAL_DOWNLOAD OFF USES_TERMINAL_BUILD OFF USES_TERMINAL_INSTALL OFF)
-
-set(spoa_optimize_for_native OFF)
-FetchContent_Declare(spoa GIT_REPOSITORY https://github.com/rvaser/spoa GIT_TAG 4.1.5 SYSTEM)
-FetchContent_MakeAvailable(spoa)
-
-FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG boost-1.90.0 SYSTEM)
-FetchContent_MakeAvailable(boost_math)
+endif ()
 
 if (LANCET_TESTS)
 	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/Catch2")
