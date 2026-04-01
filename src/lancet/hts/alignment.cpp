@@ -2,42 +2,30 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
-#include <functional>
-#include <iterator>
-#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "cigar_unit.h"
+#include "lancet/hts/cigar_unit.h"
 
 extern "C" {
 #include "htslib/sam.h"
 }
 
 #include "absl/strings/str_cat.h"
-#include "absl/types/span.h"
 #include "lancet/base/types.h"
-#include "lancet/hts/aux_tag.h"
 #include "lancet/hts/reference.h"
 #include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::hts {
 
+// 4-bit BAM nucleotide encoding -> ASCII character lookup table
 static constexpr auto SEQ_4BIT_TO_CHAR =
     std::array<char, 16>{'N', 'A', 'C', 'N', 'G', 'N', 'N', 'N', 'T', 'N', 'N', 'N', 'N', 'N', 'N', 'N'};
 
-namespace {
-
-inline auto SequenceFrom4Bit(absl::Span<const u8> bases) -> std::string {
-  std::string result(bases.length(), 'N');
-  for (usize idx = 0; idx < bases.length(); ++idx) {
-    result[idx] = SEQ_4BIT_TO_CHAR[bam_seqi(bases.data(), idx)];
-  }
-  return result;
-}
-
-}  // namespace
+// ---------------------------------------------------------------------------
+// Lifecycle management
+// ---------------------------------------------------------------------------
 
 void Alignment::ClearAllFields() {
   mStart0 = -1;
@@ -47,24 +35,11 @@ void Alignment::ClearAllFields() {
   mMateChromIdx = -1;
   mSamFlag = 0;
   mMapQual = 0;
-  mQname.clear();
-  mSeq.clear();
-  mQual.clear();
-  mCigar.clear();
-  mAuxTags.clear();
+  mRawAln = nullptr;
 }
 
-void Alignment::PopulateRequestedFields(bam1_t* aln, const Fields fields, const TagNamesSet* fill_tags) {
-  PopulateCoreQname(aln);
-  if (fields == Alignment::Fields::CORE_QNAME) return;  // NOLINT(readability-braces-around-statements)
-
-  PopulateCigarSeqQual(aln);
-  if (fields == Alignment::Fields::CIGAR_SEQ_QUAL) return;  // NOLINT(readability-braces-around-statements)
-
-  PopulateAuxRgAux(aln, fill_tags);
-}
-
-void Alignment::PopulateCoreQname(bam1_t* aln) {
+void Alignment::PopulateFromRaw(bam1_t* aln) {
+  // Cache the cheap scalar core fields to avoid repeated pointer chasing
   mStart0 = aln->core.pos;
   mMateStart0 = aln->core.mpos;
   mInsertSize = aln->core.isize;
@@ -72,50 +47,121 @@ void Alignment::PopulateCoreQname(bam1_t* aln) {
   mMateChromIdx = aln->core.mtid;
   mSamFlag = aln->core.flag;
   mMapQual = aln->core.qual;
-  mQname.assign(bam_get_qname(aln));
+
+  // Retain the raw pointer for zero-copy field access.
+  // WARNING: This pointer is managed by the Iterator and becomes invalid on ++itr.
+  mRawAln = aln;
 }
 
-void Alignment::PopulateCigarSeqQual(bam1_t* aln) {
-  const absl::Span<const u8> raw_bases = absl::MakeConstSpan(bam_get_seq(aln), aln->core.l_qseq);
-  mSeq = SequenceFrom4Bit(raw_bases);
+// ---------------------------------------------------------------------------
+// Zero-copy proxy methods
+// ---------------------------------------------------------------------------
 
-  const absl::Span<const u8> raw_quals = absl::MakeConstSpan(bam_get_qual(aln), aln->core.l_qseq);
-  mQual.assign(raw_quals.cbegin(), raw_quals.cend());
-
-  const absl::Span<const u32> raw_cigar = absl::MakeConstSpan(bam_get_cigar(aln), aln->core.n_cigar);
-  mCigar.assign(raw_cigar.cbegin(), raw_cigar.cend());
+auto Alignment::QnameView() const noexcept -> std::string_view {
+  if (mRawAln == nullptr) return {};
+  return bam_get_qname(mRawAln);
 }
 
-void Alignment::PopulateAuxRgAux(bam1_t* aln, const TagNamesSet* fill_tags) {
-  if (fill_tags->empty()) return;  // NOLINT(readability-braces-around-statements)
+auto Alignment::Length() const noexcept -> usize {
+  if (mRawAln == nullptr) return 0;
+  return static_cast<usize>(mRawAln->core.l_qseq);
+}
 
-  mAuxTags.clear();
-  mAuxTags.reserve(fill_tags->size());
-
-  u8* curr_aux = bam_aux_first(aln);
-  while (curr_aux != nullptr) {
-    if (fill_tags->contains(std::string_view(bam_aux_tag(curr_aux), 2))) {
-      mAuxTags.emplace_back(AuxTag(curr_aux));
-    }
-
-    curr_aux = bam_aux_next(aln, curr_aux);
-    if (errno == EINVAL) {
-      throw std::runtime_error("aux data for BAM/CRAM record is corrupt");
-    }
+auto Alignment::CigarData() const -> std::vector<CigarUnit> {
+  if (mRawAln == nullptr) return {};
+  const auto* raw_cigar = bam_get_cigar(mRawAln);
+  const auto n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
+  std::vector<CigarUnit> result;
+  result.reserve(n_cigar);
+  for (usize idx = 0; idx < n_cigar; ++idx) {
+    result.emplace_back(CigarUnit(raw_cigar[idx]));
   }
+  return result;
 }
 
 auto Alignment::CigarString() const -> std::string {
+  if (mRawAln == nullptr) return {};
+  const auto* raw_cigar = bam_get_cigar(mRawAln);
+  const auto n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
   std::string result;
-  result.reserve(mCigar.size() * 4);
-
-  for (const auto& unit : mCigar) {
-    absl::StrAppend(&result, bam_cigar_oplen(unit), std::string(1, bam_cigar_opchr(unit)));
+  result.reserve(n_cigar * 4);
+  for (usize idx = 0; idx < n_cigar; ++idx) {
+    absl::StrAppend(&result, bam_cigar_oplen(raw_cigar[idx]), std::string(1, bam_cigar_opchr(raw_cigar[idx])));
   }
-
   result.shrink_to_fit();
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// On-demand deep extraction methods
+// ---------------------------------------------------------------------------
+
+auto Alignment::BuildSequence() const -> std::string {
+  if (mRawAln == nullptr) return {};
+  const auto seq_len = static_cast<usize>(mRawAln->core.l_qseq);
+  const auto* raw_seq = bam_get_seq(mRawAln);
+  std::string result(seq_len, 'N');
+  for (usize idx = 0; idx < seq_len; ++idx) {
+    result[idx] = SEQ_4BIT_TO_CHAR[bam_seqi(raw_seq, idx)];
+  }
+  return result;
+}
+
+auto Alignment::BuildQualities() const -> std::vector<u8> {
+  if (mRawAln == nullptr) return {};
+  const auto seq_len = static_cast<usize>(mRawAln->core.l_qseq);
+  const auto* raw_qual = bam_get_qual(mRawAln);
+  return {raw_qual, raw_qual + seq_len};
+}
+
+// ---------------------------------------------------------------------------
+// Aux tag access: direct bam_aux_get routing
+// ---------------------------------------------------------------------------
+
+auto Alignment::FindRawTag(std::string_view tag_name) const noexcept -> const u8* {
+  if (mRawAln == nullptr || tag_name.size() != 2) return nullptr;
+  // bam_aux_get expects a two-character null-terminated string
+  const char tag_str[3] = {tag_name[0], tag_name[1], '\0'};
+  return bam_aux_get(mRawAln, tag_str);
+}
+
+auto Alignment::HasTag(std::string_view tag_name) const noexcept -> bool { return FindRawTag(tag_name) != nullptr; }
+
+// Explicit template specializations for ExtractTagValue
+template <>
+auto Alignment::ExtractTagValue<i64>(const u8* raw_aux, std::string_view tag_name) -> absl::StatusOr<i64> {
+  const auto val = bam_aux2i(raw_aux);
+  if (errno == EINVAL) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        fmt::format("Tag {} does not contain an integer value", tag_name));
+  }
+  return val;
+}
+
+template <>
+auto Alignment::ExtractTagValue<f64>(const u8* raw_aux, std::string_view tag_name) -> absl::StatusOr<f64> {
+  const auto val = bam_aux2f(raw_aux);
+  if (errno == EINVAL) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        fmt::format("Tag {} does not contain a float value", tag_name));
+  }
+  return val;
+}
+
+template <>
+auto Alignment::ExtractTagValue<std::string_view>(const u8* raw_aux, std::string_view tag_name)
+    -> absl::StatusOr<std::string_view> {
+  const auto* val = bam_aux2Z(raw_aux);
+  if (val == nullptr) {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        fmt::format("Tag {} does not contain a string value", tag_name));
+  }
+  return std::string_view(val);
+}
+
+// ---------------------------------------------------------------------------
+// BitwiseFlag implementation
+// ---------------------------------------------------------------------------
 
 auto Alignment::BitwiseFlag::GetStrand() const noexcept -> Strand { return IsFwdStrand() ? Strand::FWD : Strand::REV; }
 auto Alignment::BitwiseFlag::GetMateStrand() const noexcept -> Strand {
@@ -143,6 +189,10 @@ auto Alignment::BitwiseFlag::HasFlagsUnset(u16 check_flags) const noexcept -> bo
   return (mFlag & check_flags) == 0;
 }
 
+// ---------------------------------------------------------------------------
+// Location and region helpers
+// ---------------------------------------------------------------------------
+
 auto Alignment::MateLocation() const noexcept -> MateInfo {
   return {.mChromIndex = mMateChromIdx, .mMateStartPos0 = mMateStart0};
 }
@@ -158,22 +208,12 @@ auto Alignment::OverlapsRegion(const Reference::Region& region) const noexcept -
 
 auto Alignment::IsEmpty() const noexcept -> bool {
   return mStart0 == -1 && mMateStart0 == -1 && mInsertSize == -1 && mChromIdx == -1 && mMateChromIdx == -1 &&
-         mSamFlag == 0 && mMapQual == 0 && mQname.empty() && mSeq.empty() && mQual.empty() && mCigar.empty() &&
-         mAuxTags.empty();
+         mSamFlag == 0 && mMapQual == 0 && mRawAln == nullptr;
 }
 
-auto Alignment::TagNamesView() const -> std::vector<std::string_view> {
-  std::vector<std::string_view> result;
-  result.reserve(mAuxTags.size());
-  std::transform(mAuxTags.cbegin(), mAuxTags.cend(), std::back_inserter(result), std::mem_fn(&AuxTag::Name));
-  std::sort(result.begin(), result.end());
-  return result;
-}
-
-auto Alignment::FindTag(std::string_view tag_name) const -> TagsConstIterator {
-  return std::find_if(mAuxTags.cbegin(), mAuxTags.cend(),
-                      [&tag_name](const AuxTag& curr_tag) -> bool { return curr_tag.Name() == tag_name; });
-}
+// ---------------------------------------------------------------------------
+// ToString (debug/diagnostic output)
+// ---------------------------------------------------------------------------
 
 auto Alignment::ToString(const Reference& ref) const -> std::string {
   const auto chrom = ref.FindChromByIndex(mChromIdx);
@@ -183,49 +223,58 @@ auto Alignment::ToString(const Reference& ref) const -> std::string {
   // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
   const auto rnext = both_chroms_same ? "=" : mate_chrom.ok() ? mate_chrom->Name() : "*";
 
+  const auto seq = BuildSequence();
+  const auto quals = BuildQualities();
+
   std::string fastq_quality;
-  fastq_quality.resize(mQual.size());
+  fastq_quality.resize(quals.size());
   static constexpr u8 PHRED_QUALITY_OFFSET = 33;
-  std::transform(mQual.cbegin(), mQual.cend(), fastq_quality.begin(),
+  std::transform(quals.cbegin(), quals.cend(), fastq_quality.begin(),
                  [](const u8 base_qual) { return static_cast<char>(base_qual + PHRED_QUALITY_OFFSET); });
 
-  std::string tags_data;
-  static constexpr usize NUM_ESTIMATED_CHARS_PER_TAG = 2048;
-  tags_data.reserve(mAuxTags.size() * NUM_ESTIMATED_CHARS_PER_TAG);
-  for (const auto& tag : mAuxTags) {
-    absl::StrAppend(&tags_data, "\t", tag.ToString());
-  }
-  tags_data.shrink_to_fit();
+  const auto qname_sv = QnameView();
 
   return fmt::format(
-      "{QNAME}\t{FLAG}\t{RNAME}\t{POS}\t{MAPQ}\t{CIGAR}\t{RNEXT}\t{PNEXT}\t{TLEN}\t{SEQ}\t{QUAL}{TAGS_IF_PRESENT}\n",
-      fmt::arg("QNAME", mQname.empty() ? "*" : mQname), fmt::arg("FLAG", mSamFlag),
+      "{QNAME}\t{FLAG}\t{RNAME}\t{POS}\t{MAPQ}\t{CIGAR}\t{RNEXT}\t{PNEXT}\t{TLEN}\t{SEQ}\t{QUAL}\n",
+      fmt::arg("QNAME", qname_sv.empty() ? "*" : std::string(qname_sv)), fmt::arg("FLAG", mSamFlag),
       fmt::arg("RNAME", chrom.ok() ? chrom->Name() : "*"), fmt::arg("POS", mStart0 >= 0 ? mStart0 + 1 : 0),
       fmt::arg("MAPQ", mMapQual), fmt::arg("CIGAR", CigarString()), fmt::arg("RNEXT", rnext),
-      fmt::arg("PNEXT", mMateStart0 >= 0 ? mMateStart0 + 1 : 0), fmt::arg("TLEN", mInsertSize), fmt::arg("SEQ", mSeq),
-      fmt::arg("QUAL", fastq_quality), fmt::arg("TAGS_IF_PRESENT", tags_data));
+      fmt::arg("PNEXT", mMateStart0 >= 0 ? mMateStart0 + 1 : 0), fmt::arg("TLEN", mInsertSize), fmt::arg("SEQ", seq),
+      fmt::arg("QUAL", fastq_quality));
 }
+
+// ---------------------------------------------------------------------------
+// Equality operators
+// ---------------------------------------------------------------------------
 
 auto Alignment::operator==(const Alignment& rhs) const -> bool {
   return mStart0 == rhs.mStart0 && mMateStart0 == rhs.mMateStart0 && mInsertSize == rhs.mInsertSize &&
          mChromIdx == rhs.mChromIdx && mMateChromIdx == rhs.mMateChromIdx && mSamFlag == rhs.mSamFlag &&
-         mMapQual == rhs.mMapQual && mQname == rhs.mQname && mSeq == rhs.mSeq && mQual == rhs.mQual &&
-         mCigar == rhs.mCigar && mAuxTags == rhs.mAuxTags;
+         mMapQual == rhs.mMapQual;
 }
 
 auto Alignment::operator!=(const Alignment& rhs) const -> bool { return !(rhs == *this); }
 
+// ---------------------------------------------------------------------------
+// Soft-clip detection (reads directly from bam1_t cigar)
+// ---------------------------------------------------------------------------
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* read_positions,
                              std::vector<u32>* genome_positions, bool use_padded) const -> bool {
+  if (mRawAln == nullptr) return false;
+
+  const auto* raw_cigar = bam_get_cigar(mRawAln);
+  const auto n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
+
   // initialize positions & flags
   auto ref_position = static_cast<u32>(mStart0);
   u32 read_position = 0;
   bool soft_clip_found = false;
   bool first_cigar_op = true;
 
-  for (const auto& val : mCigar) {
-    const auto cig_unit = CigarUnit(val);
+  for (usize idx = 0; idx < n_cigar; ++idx) {
+    const auto cig_unit = CigarUnit(raw_cigar[idx]);
     switch (cig_unit.Operation()) {
       // increase both read & genome positions on CIGAR chars [DMXN=]
       case CigarOp::DELETION:

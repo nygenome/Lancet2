@@ -1,7 +1,6 @@
 #ifndef SRC_LANCET_CBDG_READ_H_
 #define SRC_LANCET_CBDG_READ_H_
 
-#include <cmath>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -18,8 +17,8 @@ class Read {
  public:
   explicit Read(const hts::Alignment& aln, std::string sample_name, const Label::Tag tag)
       : mStart0(aln.StartPos0()), mChromIdx(aln.ChromIndex()), mSamFlag(aln.FlagRaw()), mMapQual(aln.MapQual()),
-        mTag(tag), mQname(aln.QnameView()), mSequence(aln.SeqView()), mSampleName(std::move(sample_name)),
-        mQuality(aln.QualView().cbegin(), aln.QualView().cend()) {
+        mTag(tag), mQname(aln.QnameView()), mSequence(aln.BuildSequence()), mSampleName(std::move(sample_name)),
+        mQuality(aln.BuildQualities()) {
     static constexpr u8 DEFAULT_MIN_READ_MAP_QUAL = 20;
     if (aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL) {
       mPassesAlnFilters = false;

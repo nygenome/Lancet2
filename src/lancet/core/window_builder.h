@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/core/window.h"
@@ -25,6 +24,11 @@ class WindowBuilder {
   static constexpr u32 MIN_ALLOWED_WINDOW_LEN = 250;
   static constexpr u32 MAX_ALLOWED_WINDOW_LEN = 2500;
   static constexpr u32 MAX_ALLOWED_REGION_PAD = 1000;
+
+  /// Batch size for pipelined window generation. Used by both WindowBuilder
+  /// and PipelineRunner to control memory footprint during WGS runs.
+  /// Small enough to avoid OOM, large enough to keep worker threads saturated.
+  static constexpr usize BATCH_SIZE = 4096;
 
   struct Params {
     u32 mWindowLength = DEFAULT_WINDOW_LENGTH;
@@ -45,14 +49,31 @@ class WindowBuilder {
 
   [[nodiscard]] static auto StepSize(const Params& params) -> i64;
 
+  /// Returns the mathematically computed total number of windows that will be generated
+  /// from the current input regions, without performing any allocations.
+  [[nodiscard]] auto ExpectedTargetWindows() const -> usize;
+
+  /// Returns all windows at once. Suitable for small region sets (targeted panels).
   [[nodiscard]] auto BuildWindows() const -> std::vector<WindowPtr>;
+
+  /// Returns the next batch of up to BATCH_SIZE windows, starting from the given offset.
+  /// The offset parameter tracks progress and should be initialized to 0 on the first call.
+  /// Returns an empty vector when all windows have been emitted.
+  /// Input regions must be sorted (via SortInputRegions) before the first call.
+  [[nodiscard]] auto BuildWindowsBatch(usize& offset) const -> std::vector<WindowPtr>;
+
+  /// Sorts input regions by chromosome index and start position. Must be called before
+  /// using BuildWindowsBatch() to ensure sequential emission order.
+  void SortInputRegions();
 
  private:
   Params mParams;
   std::unique_ptr<hts::Reference> mRefPtr;
 
   using ParseRegionResult = hts::Reference::ParseRegionResult;
-  absl::flat_hash_set<ParseRegionResult> mInputRegions;
+  /// Stored as a sorted vector (after SortInputRegions) instead of flat_hash_set,
+  /// enabling deterministic sequential batch emission without global post-sort.
+  std::vector<ParseRegionResult> mInputRegions;
 
   // Add `regionPadding` to start and end, while checking for coordinate under/over-flow
   void PadInputRegion(ParseRegionResult& result) const;

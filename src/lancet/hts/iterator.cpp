@@ -41,8 +41,10 @@ void Iterator::FetchNextAlignment() {
   }
 
   if (PassesFilter()) {
-    // Read passed all filters provided in the filter expression
-    mParsedAln.PopulateRequestedFields(mRawAlnPtr, mFieldsNeeded, mTagsNeeded);
+    // Read passed all filters provided in the filter expression.
+    // PopulateFromRaw caches scalar core fields and stores the raw bam1_t* pointer
+    // for zero-copy access. No string allocations happen here.
+    mParsedAln.PopulateFromRaw(mRawAlnPtr);
     return;
   }
 

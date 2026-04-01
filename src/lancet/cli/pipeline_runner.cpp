@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <chrono>  // NOLINT(misc-include-cleaner)
-#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
@@ -139,6 +138,29 @@ PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(s
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// InitWindowBuilder: setup and sort regions for batch emission
+// ---------------------------------------------------------------------------
+
+auto PipelineRunner::InitWindowBuilder(const CliParams &params) -> core::WindowBuilder {
+  core::WindowBuilder window_builder(params.mVariantBuilder.mRdCollParams.mRefPath, params.mWindowBuilder);
+  window_builder.AddBatchRegions(absl::MakeConstSpan(params.mInRegions));
+  window_builder.AddBatchRegions(params.mBedFile);
+
+  if (window_builder.IsEmpty()) {
+    LOG_WARN("No input regions provided to build windows. Using contigs in reference as input regions")
+    window_builder.AddAllReferenceRegions();
+  }
+
+  // Sort input regions before batch emission to ensure deterministic genomic ordering
+  window_builder.SortInputRegions();
+  return window_builder;
+}
+
+// ---------------------------------------------------------------------------
+// Run: primary pipeline execution with dynamic batch-fed window queue
+// ---------------------------------------------------------------------------
+
 void PipelineRunner::Run() {
   Timer timer;
   static thread_local const auto tid = std::this_thread::get_id();
@@ -146,7 +168,6 @@ void PipelineRunner::Run() {
 
   ValidateAndPopulateParams();
   if (!mParamsPtr->mVariantBuilder.mOutGraphsDir.empty()) {
-    // Set out graphs directory parameter as well and create new out graphs root diretory
     mParamsPtr->mVariantBuilder.mGraphParams.mOutGraphsDir = mParamsPtr->mVariantBuilder.mOutGraphsDir;
     std::filesystem::remove_all(mParamsPtr->mVariantBuilder.mOutGraphsDir);
     std::filesystem::create_directories(mParamsPtr->mVariantBuilder.mOutGraphsDir);
@@ -164,21 +185,55 @@ void PipelineRunner::Run() {
   }
 
   output_vcf << BuildVcfHeader(*mParamsPtr);
-  const auto windows = BuildWindows(*mParamsPtr);
-  LOG_INFO("Processing {} window(s) with {} VariantBuilder thread(s)", windows.size(), mParamsPtr->mNumWorkerThreads)
 
-  const auto num_total_windows = windows.size();
-  static absl::FixedArray<bool> done_windows(num_total_windows);
+  // Initialize the window builder with sorted regions
+  auto window_builder = InitWindowBuilder(*mParamsPtr);
+  const auto num_total_windows = window_builder.ExpectedTargetWindows();
+  LOG_INFO("Processing {} window(s) with {} VariantBuilder thread(s)", num_total_windows, mParamsPtr->mNumWorkerThreads)
+
+  // Use the BATCH_SIZE from WindowBuilder for queue feeding granularity
+  static constexpr auto BATCH_SIZE = core::WindowBuilder::BATCH_SIZE;
+
+  // When total windows fit within a small multiple of BATCH_SIZE, just generate all windows
+  // upfront to avoid the overhead of batched emission for small/targeted runs.
+  static constexpr usize BATCH_THRESHOLD = 2 * BATCH_SIZE;
+  const bool use_batching = num_total_windows > BATCH_THRESHOLD;
+
+  // Track all emitted windows for variant flushing (indexed by genome index)
+  std::vector<core::WindowPtr> windows;
+  windows.reserve(num_total_windows);
+
+  absl::FixedArray<bool> done_windows(num_total_windows);
   done_windows.fill(false);
 
-  const auto send_qptr = std::make_shared<AsyncWorker::InputQueue>(windows.size());
-  const auto recv_qptr = std::make_shared<AsyncWorker::OutputQueue>(windows.size());
+  const auto send_qptr = std::make_shared<AsyncWorker::InputQueue>(num_total_windows);
+  const auto recv_qptr = std::make_shared<AsyncWorker::OutputQueue>(num_total_windows);
   const moodycamel::ProducerToken producer_token(*send_qptr);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
-  send_qptr->enqueue_bulk(producer_token, windows.begin(), windows.size());
-#pragma GCC diagnostic pop
 
+  usize batch_offset = 0;
+
+  // Generates the next batch of windows from the builder, enqueues them for
+  // workers, and appends them to the tracking vector. Callers are responsible
+  // for checking whether more windows are needed before invoking.
+  const auto feed_next_batch = [&window_builder, &batch_offset, &send_qptr, &producer_token, &windows]() {
+    auto next_batch = window_builder.BuildWindowsBatch(batch_offset);
+    if (!next_batch.empty()) {
+      send_qptr->enqueue_bulk(producer_token, next_batch.begin(), next_batch.size());
+      windows.insert(windows.end(), next_batch.begin(), next_batch.end());
+    }
+  };
+
+  if (use_batching) {
+    // Seed the queue with the first batch of windows
+    feed_next_batch();
+  } else {
+    // Small run: generate all windows upfront, no batching overhead
+    windows = window_builder.BuildWindows();
+    batch_offset = num_total_windows;  // Mark all as emitted
+    send_qptr->enqueue_bulk(producer_token, windows.begin(), windows.size());
+  }
+
+  // Launch worker threads
   std::vector<std::jthread> worker_threads;
   worker_threads.reserve(mParamsPtr->mNumWorkerThreads);
   const auto varstore = std::make_shared<core::VariantStore>();
@@ -187,12 +242,12 @@ void PipelineRunner::Run() {
     worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params);
   }
 
-  static const auto all_windows_upto_idx_done = [](const usize window_idx) -> bool {
-    const auto *last_itr = window_idx >= done_windows.size() ? done_windows.cend() : done_windows.cbegin() + window_idx;
-    return std::all_of(done_windows.cbegin(), last_itr, [](const bool is_window_done) { return is_window_done; });
+  static const auto all_windows_upto_idx_done = [](const absl::FixedArray<bool> &dw, const usize window_idx) -> bool {
+    const auto *last_itr = window_idx >= dw.size() ? dw.cend() : dw.cbegin() + window_idx;
+    return std::all_of(dw.cbegin(), last_itr, [](const bool is_done) { return is_done; });
   };
 
-  static const auto percent_done = [&num_total_windows](const usize ndone) -> f64 {
+  const auto percent_done = [&num_total_windows](const usize ndone) -> f64 {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
@@ -205,10 +260,16 @@ void PipelineRunner::Run() {
   constexpr usize nbuffer_windows = 100;
   EtaTimer eta_timer(num_total_windows);
 
+  // ---------------------------------------------------------------------------
+  // Main pipeline loop: process results and dynamically feed new window batches
+  // ---------------------------------------------------------------------------
   while (num_completed != num_total_windows) {
     if (!recv_qptr->try_dequeue(result_consumer_token, async_worker_result)) {
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(1s);
+      if (use_batching && batch_offset < num_total_windows && send_qptr->size_approx() < BATCH_SIZE) {
+        feed_next_batch();
+      }
       continue;
     }
 
@@ -227,9 +288,13 @@ void PipelineRunner::Run() {
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
              percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
 
-    if (all_windows_upto_idx_done(idx_to_flush + nbuffer_windows)) {
+    if (all_windows_upto_idx_done(done_windows, idx_to_flush + nbuffer_windows)) {
       varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
       idx_to_flush++;
+    }
+
+    if (use_batching && batch_offset < num_total_windows && send_qptr->size_approx() < BATCH_SIZE) {
+      feed_next_batch();
     }
   }
 
@@ -250,18 +315,9 @@ void PipelineRunner::Run() {
   std::exit(EXIT_SUCCESS);
 }
 
-auto PipelineRunner::BuildWindows(const CliParams &params) -> std::vector<core::WindowPtr> {
-  core::WindowBuilder window_builder(params.mVariantBuilder.mRdCollParams.mRefPath, params.mWindowBuilder);
-  window_builder.AddBatchRegions(absl::MakeConstSpan(params.mInRegions));
-  window_builder.AddBatchRegions(params.mBedFile);
-
-  if (window_builder.IsEmpty()) {
-    LOG_WARN("No input regions provided to build windows. Using contigs in reference as input regions")
-    window_builder.AddAllReferenceRegions();
-  }
-
-  return window_builder.BuildWindows();
-}
+// ---------------------------------------------------------------------------
+// BuildVcfHeader
+// ---------------------------------------------------------------------------
 
 auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
   using namespace std::string_view_literals;
@@ -325,6 +381,10 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 
   return full_hdr;
 }
+
+// ---------------------------------------------------------------------------
+// ValidateAndPopulateParams
+// ---------------------------------------------------------------------------
 
 void PipelineRunner::ValidateAndPopulateParams() {
   // NOLINTNEXTLINE(readability-braces-around-statements)

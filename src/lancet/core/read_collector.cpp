@@ -1,23 +1,23 @@
 #include "lancet/core/read_collector.h"
 
-#include <absl/container/flat_hash_map.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <iterator>
 #include <memory>
-#include <numeric>
 #include <random>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+
+#include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
-#include "lancet/base/assert.h"
 #include "lancet/base/types.h"
 #include "lancet/cbdg/label.h"
 #include "lancet/core/sample_info.h"
@@ -63,23 +63,23 @@ inline auto ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
   return false;
 }
 
-[[nodiscard]] inline auto HasOnlyMatches(absl::Span<const lancet::hts::CigarUnit> cigar) -> bool {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (cigar.size() != 1) return false;
-
-  using lancet::hts::CigarOp;
-  const auto cigop = cigar[0].Operation();
-  return (cigop == CigarOp::ALIGNMENT_MATCH || cigop == CigarOp::SEQUENCE_MATCH);
-}
-
 }  // namespace
 
 namespace lancet::core {
 
+// ---------------------------------------------------------------------------
+// Qname hashing utility
+// ---------------------------------------------------------------------------
+
+auto ReadCollector::HashQname(std::string_view qname) -> u64 { return absl::HashOf(qname); }
+
+// ---------------------------------------------------------------------------
+// Constructor
+// ---------------------------------------------------------------------------
+
 ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGermlineMode(false) {
   using hts::Extractor;
   using hts::Alignment::Fields::AUX_RGAUX;
-  using hts::Alignment::Fields::CIGAR_SEQ_QUAL;
 
   mSampleList = MakeSampleList(mParams);
   const auto no_ctgcheck = mParams.mNoCtgCheck;
@@ -95,29 +95,49 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
   }
 }
 
+// ---------------------------------------------------------------------------
+// CollectRegionResult: Two-pass uniform paired downsampling
+//
+// Pass 1 (Profile): Iterate the region with zero-copy alignment. Collect
+//         per-read statistics (total/pass counts), build a set of unique
+//         qname hashes, and track out-of-region mate candidates. Then
+//         mathematically compute which template qnames to keep, ensuring
+//         both mates of a pair are symmetrically accepted or rejected.
+//
+// Pass 2 (Extract): Re-iterate the region. Only reads whose qname hash
+//         is in the keep_qnames set trigger deep extraction (BuildSequence,
+//         BuildQualities via cbdg::Read construction).
+//
+// Pass 3 (Mates):   For kept reads whose mates fall outside the region,
+//         fetch those mates using targeted single-position queries.
+// ---------------------------------------------------------------------------
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   std::vector<Read> sampled_reads;
-  std::vector<Read> all_reads;
-  absl::flat_hash_map<std::string, hts::Alignment::MateInfo> expected_mates;
   const auto max_sample_bases = mParams.mMaxSampleCov * static_cast<f64>(region.Length());
-  static const auto base_summer = [](const u64 sum, const Read& read) -> u64 { return sum + read.Length(); };
+  const auto region_spec = region.ToSamtoolsRegion();
 
   for (auto& sinfo : mSampleList) {
+    auto& extractor = mExtractors.at(sinfo);
+    const auto sample_name = std::string(sinfo.SampleName());
+
+    // -----------------------------------------------------------------------
+    // Pass 1: Profile & Downsample Math (zero-copy, no string allocations)
+    // -----------------------------------------------------------------------
     u64 num_pass_reads = 0;
     u64 num_pass_bases = 0;
     u64 num_total_reads = 0;
     u64 num_total_bases = 0;
 
-    all_reads.clear();
-    expected_mates.clear();
+    // All unique qname hashes from passing reads (for downsampling)
+    std::vector<u64> pass_qname_hashes;
+    // Track out-of-region mate locations keyed by qname hash
+    MateRegionsMap expected_mates;
+    // Track qname hashes already seen in-region (for mate dedup)
+    absl::flat_hash_set<u64> seen_in_region;
 
-    const AlnAndRefPaths aln_refs{sinfo.Path(), mParams.mRefPath};
-    const auto sample_name = std::string(sinfo.SampleName());
-
-    auto& extractor = mExtractors.at(sinfo);
-    extractor->SetRegionToExtract(region.ToSamtoolsRegion());
-
+    extractor->SetRegionToExtract(region_spec);
     for (const auto& aln : *extractor) {
       num_total_reads += 1;
       num_total_bases += aln.Length();
@@ -127,38 +147,79 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) continue;
       // NOLINTEND(readability-braces-around-statements)
 
-      all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
-      if (all_reads.back().PassesAlnFilters()) {
+      const auto qhash = HashQname(aln.QnameView());
+      const bool passes_filters = aln.MapQual() >= 20;
+      if (passes_filters) {
         num_pass_reads += 1;
         num_pass_bases += aln.Length();
+        pass_qname_hashes.push_back(qhash);
       }
 
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!mParams.mExtractPairs) continue;
+      // Track out-of-region mates if pair extraction is enabled
+      if (mParams.mExtractPairs) {
+        // Check if we already saw the mate in-region
+        if (seen_in_region.contains(qhash)) {
+          expected_mates.erase(qhash);
+        } else {
+          seen_in_region.insert(qhash);
 
-      // First check if we already saw both mates in the same window
-      const auto mate_itr = expected_mates.find(aln.QnameView());
-      if (mate_itr != expected_mates.end()) {
-        expected_mates.erase(mate_itr);
-        continue;
+          // NOLINTBEGIN(readability-braces-around-statements)
+          if (!aln.Flag().IsMateUnmapped() &&
+              !(aln.Flag().IsMappedProperPair() && !aln.HasTag("SA"))) {
+            expected_mates.try_emplace(qhash, aln.MateLocation());
+          }
+          // NOLINTEND(readability-braces-around-statements)
+        }
       }
-
-      // NOLINTBEGIN(readability-braces-around-statements)
-      if (aln.Flag().IsMateUnmapped()) continue;
-      if (aln.Flag().IsMappedProperPair() && !aln.HasTag("SA")) continue;
-      // NOLINTEND(readability-braces-around-statements)
-
-      auto [itr, newly_added] = expected_mates.try_emplace(aln.QnameView(), aln.MateLocation());
-      // If not newly emplaced, then we already read both pairs
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (!newly_added) expected_mates.erase(itr);
     }
 
+    // Compute uniform paired downsampling threshold
+    const auto bases_per_read =
+        num_pass_reads > 0 ? static_cast<f64>(num_pass_bases) / static_cast<f64>(num_pass_reads) : 1.0;
+    const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
+    const auto sampled_read_count = num_pass_reads > max_reads_to_sample ? max_reads_to_sample : num_pass_reads;
+
+    // Shuffle unique qname hashes and select the first `sampled_read_count` entries.
+    // This guarantees that if Mate1 is accepted, Mate2 is symmetrically accepted.
+    std::shuffle(pass_qname_hashes.begin(), pass_qname_hashes.end(), std::default_random_engine(0));  // NOLINT
+    absl::flat_hash_set<u64> keep_qnames(
+        pass_qname_hashes.begin(),
+        pass_qname_hashes.begin() + static_cast<i64>(sampled_read_count));
+
+    // -----------------------------------------------------------------------
+    // Pass 2: Deep Copy & Object Emplacement (only for kept reads)
+    // -----------------------------------------------------------------------
+    u64 sampled_base_count = 0;
+    extractor->SetRegionToExtract(region_spec);
+    for (const auto& aln : *extractor) {
+      const auto bflag = aln.Flag();
+      // NOLINTBEGIN(readability-braces-around-statements)
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) continue;
+      if (!keep_qnames.contains(HashQname(aln.QnameView()))) continue;
+      // NOLINTEND(readability-braces-around-statements)
+
+      // Only kept reads trigger BuildSequence/BuildQualities via the Read constructor
+      sampled_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+      sampled_base_count += sampled_reads.back().Length();
+    }
+
+    // -----------------------------------------------------------------------
+    // Pass 3: Recapture out-of-region mates for kept reads
+    // -----------------------------------------------------------------------
     if (!expected_mates.empty() && mParams.mExtractPairs) {
+      // Remove mates whose qnames were not kept during downsampling
+      for (auto it = expected_mates.begin(); it != expected_mates.end();) {
+        if (!keep_qnames.contains(it->first)) {
+          expected_mates.erase(it++);
+        } else {
+          ++it;
+        }
+      }
+
       auto rev_mate_regions = RevSortMateRegions(expected_mates);
       while (!expected_mates.empty()) {
-        const auto& [rname, minfo] = rev_mate_regions.back();
-        if (!expected_mates.contains(rname)) {
+        const auto& [qhash, minfo] = rev_mate_regions.back();
+        if (!expected_mates.contains(qhash)) {
           rev_mate_regions.pop_back();
           continue;
         }
@@ -167,19 +228,13 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
         extractor->SetRegionToExtract(mate_reg_spec);
 
         for (const auto& aln : *extractor) {
-          const auto itr = expected_mates.find(aln.QnameView());
+          const auto mate_qhash = HashQname(aln.QnameView());
+          const auto itr = expected_mates.find(mate_qhash);
           // NOLINTNEXTLINE(readability-braces-around-statements)
           if (itr == expected_mates.end()) continue;
 
-          num_total_reads += 1;
-          num_total_bases += aln.Length();
-
-          all_reads.emplace_back(aln, sample_name, sinfo.TagKind());
-          if (all_reads.back().PassesAlnFilters()) {
-            num_pass_reads += 1;
-            num_pass_bases += aln.Length();
-          }
-
+          sampled_reads.emplace_back(aln, sample_name, sinfo.TagKind());
+          sampled_base_count += sampled_reads.back().Length();
           expected_mates.erase(itr);
         }
 
@@ -187,16 +242,7 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
       }
     }
 
-    const auto bases_per_read = static_cast<f64>(num_pass_bases) / static_cast<f64>(num_pass_reads);
-    const auto max_reads_to_sample = static_cast<u64>(std::ceil(max_sample_bases / bases_per_read));
-    const auto sampled_read_count = num_pass_reads > max_reads_to_sample ? max_reads_to_sample : num_pass_reads;
-
-    std::shuffle(all_reads.begin(), all_reads.end(), std::default_random_engine(0));  // NOLINT
-    const auto read_end_position = all_reads.begin() + static_cast<i64>(sampled_read_count);
-
-    sampled_reads.insert(sampled_reads.end(), all_reads.begin(), read_end_position);
-    const auto sampled_base_count = std::accumulate(all_reads.begin(), read_end_position, 0, base_summer);
-
+    // Update sample statistics
     sinfo.SetNumSampledReads(sampled_read_count);
     sinfo.SetNumSampledBases(sampled_base_count);
     sinfo.CalculateMeanSampledCov(region.Length());
@@ -220,13 +266,18 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
   return {.mSampleReads = std::move(sampled_reads), .mSampleList = mSampleList};
 }
 
+// ---------------------------------------------------------------------------
+// IsActiveRegion: uses zero-copy alignment for rapid region evaluation.
+// BuildQualities() is called on-demand only for reads that have MD tags.
+// ---------------------------------------------------------------------------
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
   CountMap mismatches;  // genome position -> number of mismatches at position
   CountMap insertions;  // genome position -> number of insertions at position
   CountMap deletions;   // genome position -> number of deletions at position
   CountMap softclips;   // genome position -> number of softclips at position
-  std::vector<u32> genome_positions;     // softclip genome positions for single alignment
+  std::vector<u32> genome_positions;  // softclip genome positions for single alignment
 
   const auto sample_list = MakeSampleList(params);
   for (const auto& sinfo : sample_list) {
@@ -248,7 +299,9 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
       if (aln.HasTag("MD")) {
         const auto md_tag = aln.GetTag<std::string_view>("MD");
-        if (ParseMd(md_tag.value(), aln.QualView(), aln.StartPos0(), &mismatches)) return true;
+        // BuildQualities performs on-demand deep copy of quality values
+        const auto quals = aln.BuildQualities();
+        if (ParseMd(md_tag.value(), absl::MakeConstSpan(quals), aln.StartPos0(), &mismatches)) return true;
       }
 
       const auto cigar_units = aln.CigarData();
@@ -293,6 +346,10 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Utility methods
+// ---------------------------------------------------------------------------
+
 auto ReadCollector::BuildSampleNameList(const Params& params) -> std::vector<std::string> {
   const auto sinfo_list = MakeSampleList(params);
   std::vector<std::string> results;
@@ -325,9 +382,9 @@ auto ReadCollector::MakeSampleList(const Params& params) -> std::vector<SampleIn
   return results;
 }
 
-auto ReadCollector::RevSortMateRegions(const MateRegionsMap& data) -> std::vector<MateNameAndLocation> {
-  std::vector<MateNameAndLocation> results(data.cbegin(), data.cend());
-  std::ranges::sort(results, [](const MateNameAndLocation& lhs, const MateNameAndLocation& rhs) -> bool {
+auto ReadCollector::RevSortMateRegions(const MateRegionsMap& data) -> std::vector<MateHashAndLocation> {
+  std::vector<MateHashAndLocation> results(data.cbegin(), data.cend());
+  std::ranges::sort(results, [](const MateHashAndLocation& lhs, const MateHashAndLocation& rhs) -> bool {
     return (lhs.second.mChromIndex != rhs.second.mChromIndex) ? lhs.second.mChromIndex > rhs.second.mChromIndex
                                                               : lhs.second.mMateStartPos0 > rhs.second.mMateStartPos0;
   });

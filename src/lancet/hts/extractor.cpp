@@ -104,8 +104,6 @@ auto Extractor::begin() -> Iterator {
   result.mRawItrPtr = mItrPtr.get();
   result.mRawAlnPtr = mAlnPtr.get();
   result.mRawFiltrPtr = mFiltrPtr.get();
-  result.mFieldsNeeded = mFieldsNeeded;
-  result.mTagsNeeded = &mTagsNeeded;
   result.FetchNextAlignment();
   return result;
 }

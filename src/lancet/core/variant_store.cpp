@@ -12,7 +12,7 @@
 #include "lancet/caller/raw_variant.h"
 #include "spdlog/fmt/bundled/ostream.h"
 #include "spdlog/fmt/ostr.h"
-#include "window.h"
+#include "lancet/core/window.h"
 
 namespace lancet::core {
 
@@ -20,7 +20,7 @@ void VariantStore::AddVariants(std::vector<Value> &&variants) {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (variants.empty()) return;
 
-  const absl::MutexLock lock(&mMutex);
+  const absl::MutexLock lock(mMutex);
   for (auto &&curr : variants) {
     const auto identifier = curr->Identifier();
     auto prev = mData.find(identifier);
@@ -37,13 +37,13 @@ void VariantStore::AddVariants(std::vector<Value> &&variants) {
 }
 
 void VariantStore::FlushVariantsBeforeWindow(const Window &win, std::ostream &out) {
-  const absl::MutexLock lock(&mMutex);
+  const absl::MutexLock lock(mMutex);
   const auto variant_keys_to_extract = KeysBeforeWindow(win);
   ExtractKeysAndDumpToStream(absl::MakeConstSpan(variant_keys_to_extract), out);
 }
 
 void VariantStore::FlushAllVariantsInStore(std::ostream &out) {
-  const absl::MutexLock lock(&mMutex);
+  const absl::MutexLock lock(mMutex);
   std::vector<Key> variant_keys_to_extract;
   variant_keys_to_extract.reserve(mData.size());
 

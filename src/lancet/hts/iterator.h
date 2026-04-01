@@ -2,7 +2,6 @@
 #define SRC_LANCET_HTS_ITERATOR_H_
 
 #include <iterator>
-#include <string>
 
 extern "C" {
 #include "htslib/hts.h"
@@ -10,7 +9,6 @@ extern "C" {
 #include "htslib/sam.h"
 }
 
-#include "absl/container/flat_hash_set.h"
 #include "lancet/base/types.h"
 #include "lancet/hts/alignment.h"
 
@@ -38,8 +36,6 @@ class Iterator {
   hts_itr_t* mRawItrPtr = nullptr;
   bam1_t* mRawAlnPtr = nullptr;
   hts_filter_t* mRawFiltrPtr = nullptr;
-  const absl::flat_hash_set<std::string>* mTagsNeeded = nullptr;
-  Alignment::Fields mFieldsNeeded = Alignment::Fields::AUX_RGAUX;
 
   friend class Extractor;
 

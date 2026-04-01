@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -45,18 +43,18 @@ void WindowBuilder::AddAllReferenceRegions() {
   std::ranges::for_each(ref_chroms, [this](const hts::Reference::Chrom &chrom) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (should_exclude_chrom(chrom.Name())) return;
-    this->mInputRegions.emplace(ParseRegionResult{.mChromName = chrom.Name(), .mRegionSpan = {1, chrom.Length()}});
+    this->mInputRegions.emplace_back(ParseRegionResult{.mChromName = chrom.Name(), .mRegionSpan = {1, chrom.Length()}});
   });
 }
 
 void WindowBuilder::AddRegion(const std::string &region_spec) {
-  mInputRegions.emplace(mRefPtr->ParseRegion(region_spec.c_str()));
+  mInputRegions.emplace_back(mRefPtr->ParseRegion(region_spec.c_str()));
 }
 
 void WindowBuilder::AddBatchRegions(absl::Span<const std::string> region_specs) {
   mInputRegions.reserve(mInputRegions.size() + region_specs.size());
   std::ranges::for_each(region_specs, [this](const std::string &spec) {
-    this->mInputRegions.emplace(this->mRefPtr->ParseRegion(spec.c_str()));
+    this->mInputRegions.emplace_back(this->mRefPtr->ParseRegion(spec.c_str()));
   });
 }
 
@@ -108,7 +106,7 @@ void WindowBuilder::AddBatchRegions(const std::filesystem::path &bed_file) {
       throw std::runtime_error(msg);
     }
 
-    mInputRegions.emplace(ParseRegionResult{.mChromName = curr_chrom, .mRegionSpan = {region_start, region_end}});
+    mInputRegions.emplace_back(ParseRegionResult{.mChromName = curr_chrom, .mRegionSpan = {region_start, region_end}});
   }
 }
 
@@ -117,6 +115,59 @@ auto WindowBuilder::StepSize(const Params &params) -> i64 {
   // round to ensure that steps always move in multiples of 100
   return static_cast<i64>(std::ceil(val / 100.0) * 100.0);
 }
+
+// ---------------------------------------------------------------------------
+// ExpectedTargetWindows: arithmetic estimate without allocations
+// ---------------------------------------------------------------------------
+
+auto WindowBuilder::ExpectedTargetWindows() const -> usize {
+  if (mInputRegions.empty()) return 0;
+
+  const auto step_size = StepSize(mParams);
+  const auto window_len = static_cast<i64>(mParams.mWindowLength);
+  usize total_expected = 0;
+
+  for (auto region : mInputRegions) {
+    PadInputRegion(region);
+    const auto region_len = static_cast<i64>(region.Length());
+
+    if (region_len <= window_len) {
+      total_expected += 1;
+    } else {
+      // Number of full windows that fit, plus account for the sliding step
+      total_expected += static_cast<usize>((region_len - window_len) / step_size) + 1;
+    }
+  }
+
+  return total_expected;
+}
+
+// ---------------------------------------------------------------------------
+// SortInputRegions: pre-sort for deterministic sequential batch emission
+// ---------------------------------------------------------------------------
+
+void WindowBuilder::SortInputRegions() {
+  // Deduplicate first
+  std::ranges::sort(mInputRegions, [this](const ParseRegionResult &lhs, const ParseRegionResult &rhs) -> bool {
+    const auto lhs_chrom = mRefPtr->FindChromByName(lhs.mChromName);
+    const auto rhs_chrom = mRefPtr->FindChromByName(rhs.mChromName);
+    const auto lhs_idx = lhs_chrom.ok() ? lhs_chrom->Index() : -1;
+    const auto rhs_idx = rhs_chrom.ok() ? rhs_chrom->Index() : -1;
+    if (lhs_idx != rhs_idx) return lhs_idx < rhs_idx;
+    const auto lhs_start = lhs.mRegionSpan[0].value_or(0);
+    const auto rhs_start = rhs.mRegionSpan[0].value_or(0);
+    if (lhs_start != rhs_start) return lhs_start < rhs_start;
+    return lhs.mRegionSpan[1].value_or(0) < rhs.mRegionSpan[1].value_or(0);
+  });
+
+  // Remove exact duplicates
+  const auto last = std::unique(mInputRegions.begin(), mInputRegions.end());
+  mInputRegions.erase(last, mInputRegions.end());
+}
+
+// ---------------------------------------------------------------------------
+// BuildWindows: monolithic generation (for small region sets / targeted panels)
+// ---------------------------------------------------------------------------
 
 auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
   // NOLINTNEXTLINE(readability-braces-around-statements)
@@ -174,6 +225,79 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
 
   return results;
 }
+
+// ---------------------------------------------------------------------------
+// BuildWindowsBatch: pipelined emission for WGS memory control
+//
+// Requires SortInputRegions() to have been called first.
+// The `offset` parameter is used to track which input region and which
+// position within that region we are currently generating from.
+// We encode the offset as: (region_index * large_factor + intra_region_step)
+// For simplicity, we use a flat global window index approach.
+// ---------------------------------------------------------------------------
+
+auto WindowBuilder::BuildWindowsBatch(usize &offset) const -> std::vector<WindowPtr> {
+  if (mInputRegions.empty()) return {};
+
+  const auto window_len = static_cast<i64>(mParams.mWindowLength);
+  const auto step_size = StepSize(mParams);
+  std::string rspec;
+
+  std::vector<WindowPtr> batch;
+  batch.reserve(BATCH_SIZE);
+
+  // We iterate through all regions from the start, skipping `offset` windows,
+  // then emit up to BATCH_SIZE windows.
+  usize global_idx = 0;
+  const auto target_start = offset;
+  const auto target_end = offset + BATCH_SIZE;
+
+  for (auto region : mInputRegions) {
+    PadInputRegion(region);
+    const auto chrom = mRefPtr->FindChromByName(region.mChromName);
+    if (!chrom.ok()) continue;
+
+    if (region.Length() <= window_len) {
+      if (global_idx >= target_start && global_idx < target_end) {
+        auto wptr = std::make_shared<Window>(std::move(region), chrom.value(), mRefPtr->FastaPath());
+        wptr->SetGenomeIndex(global_idx);
+        batch.emplace_back(std::move(wptr));
+      }
+      global_idx++;
+      if (global_idx >= target_end) break;
+      continue;
+    }
+
+    const auto chrom_has_colon = region.mChromName.find(':') != std::string::npos;
+    auto curr_window_start = static_cast<i64>(region.mRegionSpan[0].value());
+    const auto max_window_pos = static_cast<i64>(region.mRegionSpan[1].value());
+
+    while ((curr_window_start + window_len) <= max_window_pos) {
+      if (global_idx >= target_start && global_idx < target_end) {
+        const i64 curr_window_end = curr_window_start + window_len;
+        rspec = chrom_has_colon
+                    ? fmt::format("{{{}}}:{}-{}", region.mChromName, curr_window_start, curr_window_end)
+                    : fmt::format("{}:{}-{}", region.mChromName, curr_window_start, curr_window_end);
+
+        auto wptr = std::make_shared<Window>(mRefPtr->ParseRegion(rspec.c_str()), chrom.value(), mRefPtr->FastaPath());
+        wptr->SetGenomeIndex(global_idx);
+        batch.emplace_back(std::move(wptr));
+      }
+      global_idx++;
+      curr_window_start += step_size;
+      if (global_idx >= target_end) break;
+    }
+
+    if (global_idx >= target_end) break;
+  }
+
+  offset = global_idx;
+  return batch;
+}
+
+// ---------------------------------------------------------------------------
+// PadInputRegion
+// ---------------------------------------------------------------------------
 
 void WindowBuilder::PadInputRegion(ParseRegionResult &result) const {
   const auto contig_info = mRefPtr->FindChromByName(result.mChromName);

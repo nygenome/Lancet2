@@ -3,8 +3,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "lancet/cli/cli_params.h"
+#include "lancet/core/window.h"
+#include "lancet/core/window_builder.h"
 
 namespace lancet::cli {
 
@@ -17,9 +20,17 @@ class PipelineRunner {
  private:
   std::shared_ptr<CliParams> mParamsPtr;
 
-  [[nodiscard]] static auto BuildWindows(const CliParams& params) -> std::vector<core::WindowPtr>;
+  // ---------------------------------------------------------------------------
+  // Modularized helpers extracted from the monolithic Run() method
+  // ---------------------------------------------------------------------------
+
+  /// Initializes the WindowBuilder from CLI params, populates regions, and sorts them.
+  [[nodiscard]] static auto InitWindowBuilder(const CliParams& params) -> core::WindowBuilder;
+
+  /// Builds the full VCF header string from CLI params and reference metadata.
   [[nodiscard]] static auto BuildVcfHeader(const CliParams& params) -> std::string;
 
+  /// Validates BAM/CRAM inputs and populates derived params (e.g. MD tag check).
   void ValidateAndPopulateParams();
 };
 
