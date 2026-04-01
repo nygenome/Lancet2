@@ -50,14 +50,13 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:RAQS:AAQS:RMQS:AMQS");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RAQS:AAQS:RMQS:AMQS");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
 
   bool alt_seen_in_normal = false;
   bool alt_seen_in_tumor = false;
-  const auto is_str = var->mStrResult.mFoundStr;
 
   for (const auto &sinfo : samps) {
     const auto &evidence = per_sample_evidence.at(sinfo.SampleName());
@@ -71,7 +70,6 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
     const auto allele_qual_stats = evidence->AlleleQualityStats();
     const auto mapping_qual_stats = evidence->MappingQualityStats();
 
-    const auto alt_allele_freq = evidence->AltFrequency();
     const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
 
     mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<f64>(ref_hom_pl) : fisher_score);
@@ -84,7 +82,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
 
     mFormatFields.emplace_back(fmt::format(
         "{GT}:{AD1},{AD2}:{ADF1},{ADF2}:{ADR1},{ADR2}:"
-        "{DP}:{WDC:.2f}:{WTC:.2f}:{PRF:.2f}:{VAF:.2f}:"
+        "{DP}:"
         "{RAQ_MIN},{RAQ_MEDIAN},{RAQ_MAX},{RAQ_MAD}:"
         "{AAQ_MIN},{AAQ_MEDIAN},{AAQ_MAX},{AAQ_MAD}:"
         "{RMQ_MIN},{RMQ_MEDIAN},{RMQ_MAX},{RMQ_MAD}:"
@@ -96,9 +94,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
         fmt::arg("ADF1", evidence->RefFwdCount()), fmt::arg("ADF2", evidence->AltFwdCount()),
         fmt::arg("ADR1", evidence->RefRevCount()), fmt::arg("ADR2", evidence->AltRevCount()),
 
-        fmt::arg("DP", evidence->TotalSampleCov()), fmt::arg("WDC", sinfo.MeanSampledCov()),
-        fmt::arg("WTC", sinfo.MeanTotalCov()), fmt::arg("PRF", sinfo.PassReadsFraction()),
-        fmt::arg("VAF", alt_allele_freq),
+        fmt::arg("DP", evidence->TotalSampleCov()),
 
         fmt::arg("RAQ_MIN", allele_qual_stats.refMinVal), fmt::arg("RAQ_MEDIAN", allele_qual_stats.refMedian),
         fmt::arg("RAQ_MAX", allele_qual_stats.refMaxVal), fmt::arg("RAQ_MAD", allele_qual_stats.refMADVal),
@@ -132,9 +128,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
                                                               : "REF"sv;
   // NOLINTEND(readability-avoid-nested-conditional-operator)
 
-  mInfoField = fmt::format(
-      "{};{}TYPE={};LENGTH={};KMERLEN={}{}", vstate, is_str ? "STR;"sv : ""sv, vcategory, mVariantLength, kmerlen,
-      is_str ? fmt::format(";STR_LEN={};STR_MOTIF={}", var->mStrResult.mStrLen, var->mStrResult.mStrMotif) : "");
+  mInfoField = fmt::format("{};TYPE={};LENGTH={};KMERLEN={}", vstate, vcategory, mVariantLength, kmerlen);
 }
 
 auto VariantCall::AsVcfRecord() const -> std::string {

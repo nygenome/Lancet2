@@ -194,8 +194,8 @@ void PipelineRunner::Run() {
   // Use the BATCH_SIZE from WindowBuilder for queue feeding granularity
   static constexpr auto BATCH_SIZE = core::WindowBuilder::BATCH_SIZE;
 
-  // When total windows fit within a small multiple of BATCH_SIZE, just generate all windows
-  // upfront to avoid the overhead of batched emission for small/targeted runs.
+  // When total windows fit within a multiple of BATCH_SIZE, just generate all windows
+  // upfront to avoid the overhead of batched emission for smaller runs.
   static constexpr usize BATCH_THRESHOLD = 2 * BATCH_SIZE;
   const bool use_batching = num_total_windows > BATCH_THRESHOLD;
 
@@ -330,21 +330,14 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 {CONTIG_HDR_LINES}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
 ##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
-##INFO=<ID=STR,Number=0,Type=Flag,Description="Variant ALT seen near an identified STR site">
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##INFO=<ID=KMERLEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
-##INFO=<ID=STR_LEN,Number=1,Type=Integer,Description="If variant ALT is near STR, lists length of the STR unit">
-##INFO=<ID=STR_MOTIF,Number=1,Type=String,Description="If variant ALT is near STR, lists motif of the STR unit">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
-##FORMAT=<ID=WDC,Number=1,Type=Float,Description="Window read depth after downsampling and read filters">
-##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Window read depth before downsampling and read filters">
-##FORMAT=<ID=PRF,Number=1,Type=Float,Description="Fraction of reads in the window that pass read quality filters">
-##FORMAT=<ID=VAF,Number=1,Type=Float,Description="ALT allele frequency in the sample at the variant site">
 ##FORMAT=<ID=RAQS,Number=4,Type=Integer,Description="REF allele quality stats - Min, Median, Max, MAD">
 ##FORMAT=<ID=AAQS,Number=4,Type=Integer,Description="ALT allele quality stats - Min, Median, Max, MAD">
 ##FORMAT=<ID=RMQS,Number=4,Type=Integer,Description="REF mapping quality stats - Min, Median, Max, MAD">

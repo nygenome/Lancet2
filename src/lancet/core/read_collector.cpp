@@ -127,8 +127,6 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     // -----------------------------------------------------------------------
     u64 num_pass_reads = 0;
     u64 num_pass_bases = 0;
-    u64 num_total_reads = 0;
-    u64 num_total_bases = 0;
 
     // All unique qname hashes from passing reads (for downsampling)
     std::vector<u64> pass_qname_hashes;
@@ -139,8 +137,6 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
 
     extractor->SetRegionToExtract(region_spec);
     for (const auto& aln : *extractor) {
-      num_total_reads += 1;
-      num_total_bases += aln.Length();
 
       const auto bflag = aln.Flag();
       // NOLINTBEGIN(readability-braces-around-statements)
@@ -245,9 +241,6 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
     // Update sample statistics
     sinfo.SetNumSampledReads(sampled_read_count);
     sinfo.SetNumSampledBases(sampled_base_count);
-    sinfo.CalculateMeanSampledCov(region.Length());
-    sinfo.CalculateMeanTotalCov(num_total_bases, region.Length());
-    sinfo.CalculatePassReadsFraction(num_pass_reads, num_total_reads);
   }
 
   std::ranges::sort(sampled_reads, [](const Read& lhs, const Read& rhs) -> bool {

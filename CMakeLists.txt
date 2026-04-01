@@ -67,8 +67,7 @@ add_library(lancet_base STATIC
 		src/lancet/base/logging.h src/lancet/base/rev_comp.h
 		src/lancet/base/compute_stats.h src/lancet/base/sliding.h
 		src/lancet/base/hash.cpp src/lancet/base/hash.h
-		src/lancet/base/repeat.cpp src/lancet/base/repeat.h
-		src/lancet/base/find_str.cpp src/lancet/base/find_str.h)
+		src/lancet/base/repeat.cpp src/lancet/base/repeat.h)
 target_link_libraries(lancet_base PRIVATE absl::flat_hash_set
 		PUBLIC spdlog::spdlog absl::span absl::fixed_array absl::strings absl::time)
 target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/generated")

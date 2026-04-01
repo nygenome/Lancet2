@@ -35,7 +35,6 @@ class VariantSupport {
   [[nodiscard]] auto TotalAltCov() const noexcept -> usize { return AltFwdCount() + AltRevCount(); }
   [[nodiscard]] auto TotalSampleCov() const noexcept -> usize { return TotalRefCov() + TotalAltCov(); }
 
-  [[nodiscard]] auto AltFrequency() const -> f64;
 
   /// Normalized Phred scaled genotype likelihoods for all possible genotype combinations
   [[nodiscard]] auto ComputePLs() const -> std::array<int, 3>;

@@ -25,9 +25,6 @@ class SampleInfo {
 
   [[nodiscard]] auto NumSampledReads() const noexcept -> u64 { return mNumSampledReads; }
   [[nodiscard]] auto NumSampledBases() const noexcept -> u64 { return mNumSampledBases; }
-  [[nodiscard]] auto MeanTotalCov() const noexcept -> f64 { return mMeanTotalCov; }
-  [[nodiscard]] auto MeanSampledCov() const noexcept -> f64 { return mMeanSampledCov; }
-  [[nodiscard]] auto PassReadsFraction() const noexcept -> f64 { return mPassReadsFraction; }
   [[nodiscard]] auto SampleName() const noexcept -> std::string_view { return mSampleName; }
 
   [[nodiscard]] static auto CombinedSampledCov(absl::Span<const SampleInfo> samples, const u64 ref_len) -> f64 {
@@ -70,9 +67,6 @@ class SampleInfo {
  private:
   u64 mNumSampledReads = 0;
   u64 mNumSampledBases = 0;
-  f64 mMeanTotalCov = 0.0;
-  f64 mMeanSampledCov = 0.0;
-  f64 mPassReadsFraction = 0.0;
 
   std::string mSampleName;
   std::filesystem::path mFilePath;
@@ -82,17 +76,6 @@ class SampleInfo {
   void SetNumSampledReads(const u64 num_reads) { mNumSampledReads = num_reads; }
   void SetNumSampledBases(const u64 num_bases) { mNumSampledBases = num_bases; }
 
-  void CalculateMeanTotalCov(const u64 total_bases, const u64 ref_len) {
-    mMeanTotalCov = static_cast<f64>(total_bases) / static_cast<f64>(ref_len);
-  }
-
-  void CalculateMeanSampledCov(const u64 ref_len) {
-    mMeanSampledCov = static_cast<f64>(mNumSampledBases) / static_cast<f64>(ref_len);
-  }
-
-  void CalculatePassReadsFraction(const u64 pass, const u64 total) {
-    mPassReadsFraction = total == 0 ? 0 : static_cast<f64>(pass) / static_cast<f64>(total);
-  }
 };
 
 }  // namespace lancet::core

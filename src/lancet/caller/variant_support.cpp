@@ -38,9 +38,7 @@ void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, cons
   }
 }
 
-auto VariantSupport::AltFrequency() const -> f64 {
-  return TotalAltCov() == 0 ? 0.0 : static_cast<f64>(TotalAltCov()) / static_cast<f64>(TotalSampleCov());
-}
+
 
 auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   // NOLINTNEXTLINE(readability-braces-around-statements)

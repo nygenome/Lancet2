@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
-#include "lancet/base/find_str.h"
 #include "lancet/base/types.h"
 
 namespace lancet::caller {
@@ -25,7 +24,6 @@ class RawVariant {
   std::string mChromName;
   std::string mRefAllele;
   std::string mAltAllele;
-  StrResult mStrResult;
 
   // haplotype index identifier -> start index of variant in haplotype
   absl::flat_hash_map<usize, usize> mHapStart0Idxs;

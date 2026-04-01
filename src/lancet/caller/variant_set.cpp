@@ -11,7 +11,6 @@
 
 #include "absl/types/span.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/find_str.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/msa_builder.h"
 #include "lancet/caller/raw_variant.h"
@@ -22,7 +21,7 @@ static constexpr usize REF_HAP_IDX = 0;
 
 namespace {
 
-inline auto BuildAllele(const std::string_view seq, const std::array<usize, 2> &range) -> std::string {
+inline auto BuildAllele(std::string_view seq, const std::array<usize, 2> &range) -> std::string {
   const auto [start, end] = range;
   const auto allele_with_gaps = seq.substr(start, end - start + 1);
 
@@ -128,13 +127,10 @@ VariantSet::VariantSet(const MsaBuilder &bldr, const core::Window &win, const us
       if (!mResultVariants.contains(msa_variant)) {
         msa_variant.mHapStart0Idxs.emplace(REF_HAP_IDX, start_ref0);
         msa_variant.mHapStart0Idxs.emplace(alt_hap_idx, start_alt0);
-        msa_variant.mStrResult = FindStr(alt_sequence, start_alt0);
         mResultVariants.emplace(std::move(msa_variant));
       } else {
         RawVariant tmp_variant = mResultVariants.extract(msa_variant).value();
         tmp_variant.mHapStart0Idxs.emplace(alt_hap_idx, start_alt0);
-        // NOLINTNEXTLINE(readability-braces-around-statements)
-        if (!tmp_variant.mStrResult.mFoundStr) tmp_variant.mStrResult = FindStr(alt_sequence, start_alt0);
         mResultVariants.emplace(std::move(tmp_variant));
       }
     }
