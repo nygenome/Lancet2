@@ -281,9 +281,9 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=STR_LEN,Number=1,Type=Integer,Description="If variant ALT is near STR, lists length of the STR unit">
 ##INFO=<ID=STR_MOTIF,Number=1,Type=String,Description="If variant ALT is near STR, lists motif of the STR unit">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
-##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
-##FORMAT=<ID=ADF,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
-##FORMAT=<ID=ADR,Number=2,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
 ##FORMAT=<ID=WDC,Number=1,Type=Float,Description="Window read depth after downsampling and read filters">
 ##FORMAT=<ID=WTC,Number=1,Type=Float,Description="Window read depth before downsampling and read filters">
@@ -293,10 +293,6 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=AAQS,Number=4,Type=Integer,Description="ALT allele quality stats - Min, Median, Max, MAD">
 ##FORMAT=<ID=RMQS,Number=4,Type=Integer,Description="REF mapping quality stats - Min, Median, Max, MAD">
 ##FORMAT=<ID=AMQS,Number=4,Type=Integer,Description="ALT mapping quality stats - Min, Median, Max, MAD">
-##FORMAT=<ID=RAPDS,Number=4,Type=Integer,Description="REF aln scores pct difference stats - Min, Median, Max, MAD">
-##FORMAT=<ID=AAPDS,Number=4,Type=Integer,Description="ALT aln scores pct difference stats - Min, Median, Max, MAD">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled genotype quality for the sample">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized phred-scaled likelihoods for all genotypes">
 )raw"sv;
   // clang-format on
 

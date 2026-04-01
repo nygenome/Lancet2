@@ -35,7 +35,7 @@ namespace lancet::cbdg {
 
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result {
+auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads, f64 total_window_cov) -> Result {
   mReads = reads;
   mRegion = std::move(region);
 
@@ -51,11 +51,11 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
   // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
   const auto reg_str = mRegion->ToSamtoolsRegion();
-  mCurrK = mParams.mMinKmerLen - mParams.mKmerStepLen;
+  mCurrK = mParams.mMinKmerLen - DEFAULT_KMER_STEP_LEN;
 
 IncrementKmerAndRetry:
-  while (per_comp_haplotypes.empty() && (mCurrK + mParams.mKmerStepLen) <= mParams.mMaxKmerLen) {
-    mCurrK += mParams.mKmerStepLen;
+  while (per_comp_haplotypes.empty() && (mCurrK + DEFAULT_KMER_STEP_LEN) <= mParams.mMaxKmerLen) {
+    mCurrK += DEFAULT_KMER_STEP_LEN;
     timer.Reset();
     mSourceAndSinkIds = {0, 0};
     mNodes.reserve(DEFAULT_EST_NUM_NODES);
@@ -67,7 +67,12 @@ IncrementKmerAndRetry:
     BuildGraph(mate_mers);
     LOG_TRACE("Done building graph for {} with k={}, nodes={}, reads={}", reg_str, mCurrK, mNodes.size(), mReads.size())
 
-    RemoveLowCovNodes(0);
+    // Extract topological spectrum limitations. This derives an empirical threshold dynamically
+    // based on the lowest point (the valley) between systemic error read artifacts and the first
+    // actual biological peak natively established in the sequence fragment for this data pool.
+    const auto spectrum_limits = ExtractSpectrumConstraints(total_window_cov);
+    LOG_INFO("Spectrum limits for {} with k={}: min_node_cov={}, min_anchor_cov={}, total_window_cov={}", reg_str, mCurrK, spectrum_limits.min_node_cov, spectrum_limits.min_anchor_cov, total_window_cov)
+    RemoveLowCovNodes(0, spectrum_limits.min_node_cov);
     mNodes.rehash(0);
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
 
@@ -81,8 +86,8 @@ IncrementKmerAndRetry:
       if (cinfo.mPctNodes < DEFAULT_PCT_NODES_NEEDED) continue;
 
       const auto comp_id = cinfo.mCompId;
-      const auto source = FindSource(comp_id);
-      const auto sink = FindSink(comp_id);
+      const auto source = FindSource(comp_id, spectrum_limits.min_anchor_cov);
+      const auto sink = FindSink(comp_id, spectrum_limits.min_anchor_cov);
 
       if (!source.mFoundAnchor || !sink.mFoundAnchor || source.mAnchorId == sink.mAnchorId) {
         LOG_TRACE("Skipping comp{} in graph for {} because source/sink was not found", comp_id, reg_str)
@@ -100,28 +105,28 @@ IncrementKmerAndRetry:
       ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
       WriteDotDevelop(FOUND_REF_ANCHORS, comp_id);
 
-      if (HasCycle()) {
+      if (HasCycle(spectrum_limits.max_path_limit)) {
         LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
         goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
       }
 
       CompressGraph(comp_id);
       WriteDotDevelop(FIRST_COMPRESSION, comp_id);
-      RemoveLowCovNodes(comp_id);
+      RemoveLowCovNodes(comp_id, spectrum_limits.min_node_cov);
       WriteDotDevelop(SECOND_LOW_COV_REMOVAL, comp_id);
       CompressGraph(comp_id);
       WriteDotDevelop(SECOND_COMPRESSION, comp_id);
       RemoveTips(comp_id);
       WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
 
-      if (HasCycle()) {
+      if (HasCycle(spectrum_limits.max_path_limit)) {
         LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
         goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
       }
 
       WriteDot(State::FULLY_PRUNED_GRAPH, comp_id);
       LOG_TRACE("Starting Edmond Karp traversal for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
-      MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK);
+      MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, spectrum_limits.max_path_limit);
       auto path_seq = max_flow.NextPath();
 
       while (path_seq) {
@@ -349,7 +354,7 @@ void Graph::RemoveTips(const usize component_id) {
   }
 }
 
-auto Graph::FindSource(const usize component_id) const -> RefAnchor {
+auto Graph::FindSource(const usize component_id, const u32 min_anchor_cov) const -> RefAnchor {
   RefAnchor result{.mAnchorId = 0, .mRefOffset = 0, .mFoundAnchor = false};
 
   for (usize ref_idx = 0; ref_idx < mRefNodeIds.size(); ++ref_idx) {
@@ -358,7 +363,7 @@ auto Graph::FindSource(const usize component_id) const -> RefAnchor {
     if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
-    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinAnchorCov) {
+    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < min_anchor_cov) {
       continue;
     }
 
@@ -371,7 +376,7 @@ auto Graph::FindSource(const usize component_id) const -> RefAnchor {
   return result;
 }
 
-auto Graph::FindSink(const usize component_id) const -> RefAnchor {
+auto Graph::FindSink(const usize component_id, const u32 min_anchor_cov) const -> RefAnchor {
   RefAnchor result{.mAnchorId = 0, .mRefOffset = 0, .mFoundAnchor = false};
 
   for (i64 ref_idx = static_cast<i64>(mRefNodeIds.size() - 1); ref_idx >= 0; --ref_idx) {
@@ -380,7 +385,7 @@ auto Graph::FindSink(const usize component_id) const -> RefAnchor {
     if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
-    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < mParams.mMinAnchorCov) {
+    if (itr->second->GetComponentId() != component_id || itr->second->TotalReadSupport() < min_anchor_cov) {
       continue;
     }
 
@@ -393,50 +398,116 @@ auto Graph::FindSink(const usize component_id) const -> RefAnchor {
   return result;
 }
 
-auto Graph::HasCycle() const -> bool {
+auto Graph::ExtractSpectrumConstraints(const f64 total_window_cov) const -> SpectrumLimits {
+  const auto max_peak_limit = static_cast<u32>(std::ceil(total_window_cov));
+  
+  // 1. Array-based spectrum histogram (Cache-friendly O(N) allocation)
+  // `spectrum` stores frequency counts up to `max_peak_limit`. Super-coverage outliers fall into `tail_bio_kmers`.
+  // Tracking outliers in `tail_bio_kmers` prevents massive memory allocations for extreme repeats, 
+  // while preserving the exact biological K-mer sum required to scale DP complexity bounds dynamically.
+  std::vector<u32> spectrum(max_peak_limit + 1, 0);
+  usize tail_bio_kmers = 0;
+
+  for (const auto& [nid, node] : mNodes) {
+    const auto cov = node->TotalReadSupport();
+    if (cov <= max_peak_limit) spectrum[cov]++;
+    else tail_bio_kmers++;
+  }
+
+  // 2. Valley-Finding: Isolate biological variation from scaling sequencing noise
+  u32 f_valley = 1;
+  u32 min_count = std::numeric_limits<u32>::max();
+  int uphill_streak = 0;
+
+  for (u32 f = 1; f <= max_peak_limit; ++f) {
+    if (spectrum[f] < min_count) {
+      min_count = spectrum[f];
+      f_valley = f;
+      uphill_streak = 0;
+    } else if (spectrum[f] > min_count) {
+      uphill_streak++;
+    }
+    // Definitively lock threshold on right-shoulder detection (>= 1 climbs)
+    if (uphill_streak >= 1) break;
+  }
+  
+  const u32 min_node_cov = std::max(DEFAULT_MIN_NODE_COV, f_valley);
+
+  // 3. Anchor Threshold Calculation: Lock to empirically atleast 25% of absolute mean expected coverage
+  usize sum_bio_kmers = tail_bio_kmers;
+
+  for (u32 f = min_node_cov; f <= max_peak_limit; ++f) {
+    sum_bio_kmers += spectrum[f];
+  }
+
+  const u32 expected_biological_anchor = static_cast<u32>(std::round(total_window_cov * 0.25));
+  const u32 min_anchor_cov = std::max(DEFAULT_MIN_ANCHOR_COV, expected_biological_anchor);
+
+  // 4. Complexity Computation: Derive valid topological expected bounds representing genuine variations
+  // Biologically, a subclonal Het paths yield roughly 2K novel sequences.
+  const f64 expected_biological_branches = static_cast<f64>(sum_bio_kmers) / (2.0 * static_cast<f64>(mCurrK));
+  const f64 combinatorial_bound = 8.0 + expected_biological_branches; // 8.0 safely pads structural overhead
+  const auto max_paths = static_cast<usize>(std::pow(2.0, combinatorial_bound));
+  
+  return {
+    .min_node_cov = min_node_cov,
+    .min_anchor_cov = min_anchor_cov,
+    .max_path_limit = std::clamp<usize>(max_paths, MaxFlow::MIN_PATH_LIMIT, MaxFlow::MAX_PATH_LIMIT)
+  };
+}
+
+auto Graph::HasCycle(usize complexity_limit) const -> bool {
   const auto src_itr = mNodes.find(mSourceAndSinkIds[0]);
   LANCET_ASSERT(src_itr != mNodes.end())
   LANCET_ASSERT(src_itr->second != nullptr)
 
-  bool cycle_found = false;
-  usize recursion_count = 0;
-  absl::flat_hash_set<NodeID> traversed;
-  traversed.reserve(mNodes.size());
+  absl::flat_hash_map<NodeID, NodeVisitState> state_map;
+  state_map.reserve(mNodes.size());
 
-  HasCycle(*src_itr->second, traversed, cycle_found, recursion_count);
-  return cycle_found;
+  const auto result = CountPathsAndCycles(*src_itr->second, state_map);
+  if (result.mFoundCycle) return true;
+
+  // Bounding the graph explicitly by scaling topological parameters prevents MaxFlow 
+  // from hanging infinitely over excessively massive variant bubbles.
+  // The complexity limit dynamically scales natively with the number of unique biological K-mers in the active window.
+  return result.mNumPaths > complexity_limit;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-void Graph::HasCycle(const Node& node, NodeIdSet& traversed, bool& found_cycle, usize& recursion_depth) const {
+auto Graph::CountPathsAndCycles(const Node& node, absl::flat_hash_map<NodeID, NodeVisitState>& state_map) const -> DfsResult {
   const auto node_default_sign = node.SignFor(Kmer::Ordering::DEFAULT);
-  traversed.insert(node.Identifier());
+  state_map.emplace(node.Identifier(), NodeVisitState{DfsState::VISITING, 0});
 
-  // If we get here, then the graph is too complex and we are
-  // stuck in a deep recursion context with no way out.
-  const auto max_recursion_limit = mNodes.size() * mNodes.size();
-  if (recursion_depth > max_recursion_limit) {
-    found_cycle = true;
-    return;
-  }
+  usize total_paths = 0;
 
   for (const Edge& conn : node) {
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (conn.SrcSign() != node_default_sign) continue;
-    if (traversed.find(conn.DstId()) != traversed.end()) {
-      found_cycle = true;
-      return;
+    
+    auto it = state_map.find(conn.DstId());
+    if (it != state_map.end()) {
+      if (it->second.mState == DfsState::VISITING) return DfsResult{.mFoundCycle = true};
+      total_paths += it->second.mPathsFromHere;
+      continue;
     }
 
     const auto neighbour_itr = mNodes.find(conn.DstId());
     LANCET_ASSERT(neighbour_itr != mNodes.end())
     LANCET_ASSERT(neighbour_itr->second != nullptr)
 
-    recursion_depth++;
-    HasCycle(*neighbour_itr->second, traversed, found_cycle, recursion_depth);
+    const auto child_res = CountPathsAndCycles(*neighbour_itr->second, state_map);
+    if (child_res.mFoundCycle) return DfsResult{.mFoundCycle = true};
+
+    // Saturate limit matching MaxFlow's 1M bailout constraint to avoid local integer overflow
+    static constexpr usize MAX_SANE_PATHS = 1'000'000;
+    total_paths = std::min<usize>(total_paths + child_res.mNumPaths, MAX_SANE_PATHS);
   }
 
-  traversed.erase(node.Identifier());
+  // If node is a leaf (no outgoing paths in this direction), it constitutes 1 valid path terminal.
+  if (total_paths == 0) total_paths = 1;
+
+  state_map[node.Identifier()] = NodeVisitState{DfsState::VISITED, total_paths};
+  return DfsResult{.mFoundCycle = false, .mNumPaths = total_paths};
 }
 
 auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
@@ -496,11 +567,11 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   return results_info;
 }
 
-void Graph::RemoveLowCovNodes(const usize component_id) {
+void Graph::RemoveLowCovNodes(const usize component_id, const u32 min_cov) {
   std::vector<NodeID> remove_nids;
   remove_nids.reserve(mNodes.size());
 
-  std::ranges::for_each(std::as_const(mNodes), [&remove_nids, &component_id, this](NodeTable::const_reference item) {
+  std::ranges::for_each(std::as_const(mNodes), [&remove_nids, &component_id, &min_cov, this](NodeTable::const_reference item) {
     const auto [source_id, sink_id] = this->mSourceAndSinkIds;
     // NOLINTBEGIN(readability-braces-around-statements)
     if (item.second->GetComponentId() != component_id) return;
@@ -511,7 +582,9 @@ void Graph::RemoveLowCovNodes(const usize component_id) {
     const auto is_tmr_singleton = item.second->TumorReadSupport() == 1;
     const auto total_sample_cov = item.second->TotalReadSupport();
 
-    if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < this->mParams.mMinNodeCov) {
+    // Nodes are scrubbed if their coverage strictly falls below the empirically detected valley threshold 
+    // separating systemic sequence noise from genuine low-VAF somatic variations.
+    if ((is_nml_singleton && is_tmr_singleton) || total_sample_cov < min_cov) {
       remove_nids.emplace_back(item.first);
     }
   });
@@ -555,14 +628,8 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
   std::ranges::transform(ref_nodes, std::back_inserter(mRefNodeIds),
                          [](const Node* node) -> NodeID { return node->Identifier(); });
 
-  // Expected errors = floor(err_sum) https://www.drive5.com/usearch/manual/exp_errs.html
-  // See https://doi.org/10.1093/bioinformatics/btv401 for proof on expected errors
-  // Add support for only high quality kmers. If the expected error is > MAX_AGG_ERR,
-  // then skip adding any read support for those kmers, so they can be removed later
-  static const auto error_summer = [](const f64 sum, const u8 bql) -> f64 { return sum + hts::PhredToErrorProb(bql); };
   static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool {
-    const f64 expected_errors = std::floor(std::accumulate(quals.cbegin(), quals.cend(), 0.0, error_summer));
-    return static_cast<i64>(expected_errors) > 0;
+    return *std::min_element(quals.cbegin(), quals.cend()) < MIN_QUAL_THRESHOLD;
   };
 
   mate_mers.clear();
@@ -572,10 +639,9 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
     usize offset = 0;
     auto added_nodes = AddNodes(read.SeqView(), mCurrK + 1);
-    const auto qname_label = fmt::format("{}{}", read.QnameView(), read.SrcLabel().GetData());
 
-    std::ranges::for_each(added_nodes, [&qname_label, &read, &offset, &mate_mers, this](Node* node) {
-      auto mm_pair = std::make_pair(qname_label, node->Identifier());
+    std::ranges::for_each(added_nodes, [&read, &offset, &mate_mers, this](Node* node) {
+      MateMer mm_pair{.mQname = read.QnameView(), .mTagKind = read.TagKind(), .mKmerHash = node->Identifier()};
       const auto curr_qual = read.QualView().subspan(offset, this->mCurrK);
       offset++;
 

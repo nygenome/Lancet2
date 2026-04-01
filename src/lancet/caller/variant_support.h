@@ -24,7 +24,7 @@ class VariantSupport {
  public:
   VariantSupport() = default;
 
-  void AddEvidence(u32 rname_hash, Allele allele, Strand strand, u8 base_qual, u8 map_qual, u8 aln_diff_score);
+  void AddEvidence(u32 rname_hash, Allele allele, Strand strand, u8 base_qual, u8 map_qual);
 
   [[nodiscard]] auto RefFwdCount() const noexcept -> usize { return mRefFwdBaseQuals.size(); }
   [[nodiscard]] auto RefRevCount() const noexcept -> usize { return mRefRevBaseQuals.size(); }
@@ -55,7 +55,6 @@ class VariantSupport {
 
   [[nodiscard]] auto AlleleQualityStats() const -> Statistics;
   [[nodiscard]] auto MappingQualityStats() const -> Statistics;
-  [[nodiscard]] auto AlnDiffScoreStats() const -> Statistics;
 
  private:
   using Qualities = std::vector<u8>;
@@ -71,9 +70,6 @@ class VariantSupport {
 
   Qualities mRefMapQuals;
   Qualities mAltMapQuals;
-
-  Qualities mRefAlnDiffScores;
-  Qualities mAltAlnDiffScores;
 
   [[nodiscard]] auto MeanErrorProbability(Allele allele) const -> f64;
   [[nodiscard]] auto BinomialSuccessRatios() const -> std::array<f64, 2>;

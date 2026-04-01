@@ -62,7 +62,9 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);
 
   const auto total_cov = SampleInfo::CombinedSampledCov(samples, window->Length());
-  if (total_cov < static_cast<f64>(mParamsPtr->mGraphParams.mMinAnchorCov)) {
+  // Static early-exit optimization. Completely skips fully un-mapped dead windows safely 
+  // without entering the computationally heavy graph assembly logic.
+  if (total_cov < static_cast<f64>(cbdg::Graph::DEFAULT_MIN_ANCHOR_COV)) {
     LOG_DEBUG("Skipping window {} since it has only {:.2f}x total sample coverage", reg_str, total_cov)
     mCurrentCode = StatusCode::SKIPPED_INACTIVE_REGION;
     return {};
@@ -70,7 +72,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
 
   LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str, reads.size(), total_cov)
   // First haplotype from each component will always be the reference haplotype sequence for the graph
-  const auto dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads);
+  const auto dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads, total_cov);
   const auto &component_haplotypes = dbg_rslt.mGraphHaplotypes;
 
   static const auto summer = [](const u64 sum, const auto &comp_haps) -> u64 { return sum + comp_haps.size() - 1; };

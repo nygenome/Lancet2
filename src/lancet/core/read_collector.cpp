@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/btree_map.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
 #include "lancet/base/assert.h"
@@ -28,13 +27,13 @@
 #include "lancet/hts/reference.h"
 #include "spdlog/fmt/bundled/core.h"
 
-using CountMap = absl::btree_map<u32, u32>;
+using CountMap = absl::flat_hash_map<u32, u32>;
 
 namespace {
 
-inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i64 start, CountMap* result) {
+inline auto ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i64 start, CountMap* result) -> bool {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (start < 0) return;
+  if (start < 0) return false;
 
   std::string token;
   token.reserve(md_val.length());
@@ -57,9 +56,11 @@ inline void ParseMd(std::string_view md_val, absl::Span<const u8> quals, const i
 
     const auto base = absl::ascii_toupper(static_cast<unsigned char>(character));
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
-      (*result)[genome_pos]++;
+      if (++(*result)[genome_pos] == 2) return true;
     }
   }
+
+  return false;
 }
 
 [[nodiscard]] inline auto HasOnlyMatches(absl::Span<const lancet::hts::CigarUnit> cigar) -> bool {
@@ -221,10 +222,10 @@ auto ReadCollector::CollectRegionResult(const Region& region) -> Result {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -> bool {
-  absl::btree_map<u32, u32> mismatches;  // genome position -> number of mismatches at position
-  absl::btree_map<u32, u32> insertions;  // genome position -> number of insertions at position
-  absl::btree_map<u32, u32> deletions;   // genome position -> number of deletions at position
-  absl::btree_map<u32, u32> softclips;   // genome position -> number of softclips at position
+  CountMap mismatches;  // genome position -> number of mismatches at position
+  CountMap insertions;  // genome position -> number of insertions at position
+  CountMap deletions;   // genome position -> number of deletions at position
+  CountMap softclips;   // genome position -> number of softclips at position
   std::vector<u32> genome_positions;     // softclip genome positions for single alignment
 
   const auto sample_list = MakeSampleList(params);
@@ -247,7 +248,7 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
       if (aln.HasTag("MD")) {
         const auto md_tag = aln.GetTag<std::string_view>("MD");
-        ParseMd(md_tag.value(), aln.QualView(), aln.StartPos0(), &mismatches);
+        if (ParseMd(md_tag.value(), aln.QualView(), aln.StartPos0(), &mismatches)) return true;
       }
 
       const auto cigar_units = aln.CigarData();
@@ -255,8 +256,8 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
       bool has_soft_clip = false;
 
       // lambda function to increment the counter for `genome_positions`
-      static const auto increment_genome_pos = [](CountMap& counts, u32 genome_pos) {
-        counts[genome_pos]++;
+      static const auto increment_genome_pos = [](CountMap& counts, u32 genome_pos) -> bool {
+        return ++counts[genome_pos] == 2;
       };
 
       for (const auto& cig_unit : cigar_units) {
@@ -264,16 +265,13 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
         if (cig_unit.ConsumesReference()) curr_genome_pos += cig_unit.Length();
         switch (cig_unit.Operation()) {
           case hts::CigarOp::INSERTION:
-            increment_genome_pos(insertions, curr_genome_pos);
-            LANCET_ASSERT(!insertions.empty())
+            if (increment_genome_pos(insertions, curr_genome_pos)) return true;
             break;
           case hts::CigarOp::DELETION:
-            increment_genome_pos(deletions, curr_genome_pos);
-            LANCET_ASSERT(!deletions.empty())
+            if (increment_genome_pos(deletions, curr_genome_pos)) return true;
             break;
           case hts::CigarOp::SEQUENCE_MISMATCH:
-            increment_genome_pos(mismatches, curr_genome_pos);
-            LANCET_ASSERT(!mismatches.empty())
+            if (increment_genome_pos(mismatches, curr_genome_pos)) return true;
             break;
           case hts::CigarOp::SOFT_CLIP:
             has_soft_clip = true;
@@ -285,19 +283,9 @@ auto ReadCollector::IsActiveRegion(const Params& params, const Region& region) -
 
       genome_positions.clear();
       if (has_soft_clip && aln.GetSoftClips(nullptr, nullptr, &genome_positions, false)) {
-        const auto handle_clips = [&softclips](const auto gpos) { increment_genome_pos(softclips, gpos); };
-        std::ranges::for_each(genome_positions, handle_clips);
-        LANCET_ASSERT(!softclips.empty())
-      }
-
-      // lambda function to check if `map` has evidence of mutation >= 2 reads
-      static const auto count_gt2 = [](const CountMap& counts) {
-        return std::any_of(counts.cbegin(), counts.cend(), [](const auto& pair) { return pair.second >= 2; });
-      };
-
-      // if evidence of SNV/insertion/deletion/softclip is found in window, mark region as active
-      if (count_gt2(mismatches) || count_gt2(insertions) || count_gt2(deletions) || count_gt2(softclips)) {
-        return true;
+        for (const auto gpos : genome_positions) {
+          if (increment_genome_pos(softclips, gpos)) return true;
+        }
       }
     }
   }

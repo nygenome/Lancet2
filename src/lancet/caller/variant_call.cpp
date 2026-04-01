@@ -50,7 +50,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:RAQS:AAQS:RMQS:AMQS:RAPDS:AAPDS:GQ:PL");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:WDC:WTC:PRF:VAF:RAQS:AAQS:RMQS:AMQS");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
@@ -63,15 +63,13 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
     const auto &evidence = per_sample_evidence.at(sinfo.SampleName());
 
     const auto phred_likelihoods = evidence->ComputePLs();
-    const auto [ref_hom_pl, het_alt_pl, alt_hom_pl] = phred_likelihoods;
-    const auto [smallest_index, second_smallest_index] = FirstAndSecondSmallestIndices(phred_likelihoods);
+    const auto ref_hom_pl = phred_likelihoods[0];
+    const auto smallest_index = SmallestIndex(phred_likelihoods);
 
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
-    const auto genotype_quality = static_cast<u32>(phred_likelihoods.at(second_smallest_index));
 
     const auto allele_qual_stats = evidence->AlleleQualityStats();
     const auto mapping_qual_stats = evidence->MappingQualityStats();
-    const auto aln_score_stats = evidence->AlnDiffScoreStats();
 
     const auto alt_allele_freq = evidence->AltFrequency();
     const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
@@ -90,10 +88,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
         "{RAQ_MIN},{RAQ_MEDIAN},{RAQ_MAX},{RAQ_MAD}:"
         "{AAQ_MIN},{AAQ_MEDIAN},{AAQ_MAX},{AAQ_MAD}:"
         "{RMQ_MIN},{RMQ_MEDIAN},{RMQ_MAX},{RMQ_MAD}:"
-        "{AMQ_MIN},{AMQ_MEDIAN},{AMQ_MAX},{AMQ_MAD}:"
-        "{RAPD_MIN},{RAPD_MEDIAN},{RAPD_MAX},{RAPD_MAD}:"
-        "{AAPD_MIN},{AAPD_MEDIAN},{AAPD_MAX},{AAPD_MAD}:"
-        "{GQ}:{HOM_REF_PL},{HET_ALT_PL},{HOM_ALT_PL}",
+        "{AMQ_MIN},{AMQ_MEDIAN},{AMQ_MAX},{AMQ_MAD}",
 
         fmt::arg("GT", genotype),
 
@@ -115,17 +110,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
         fmt::arg("RMQ_MAX", mapping_qual_stats.refMaxVal), fmt::arg("RMQ_MAD", mapping_qual_stats.refMADVal),
 
         fmt::arg("AMQ_MIN", mapping_qual_stats.altMinVal), fmt::arg("AMQ_MEDIAN", mapping_qual_stats.altMedian),
-        fmt::arg("AMQ_MAX", mapping_qual_stats.altMaxVal), fmt::arg("AMQ_MAD", mapping_qual_stats.altMADVal),
-
-        fmt::arg("RAPD_MIN", aln_score_stats.refMinVal), fmt::arg("RAPD_MEDIAN", aln_score_stats.refMedian),
-        fmt::arg("RAPD_MAX", aln_score_stats.refMaxVal), fmt::arg("RAPD_MAD", aln_score_stats.refMADVal),
-
-        fmt::arg("AAPD_MIN", aln_score_stats.altMinVal), fmt::arg("AAPD_MEDIAN", aln_score_stats.altMedian),
-        fmt::arg("AAPD_MAX", aln_score_stats.altMaxVal), fmt::arg("AAPD_MAD", aln_score_stats.altMADVal),
-
-        fmt::arg("GQ", genotype_quality),
-
-        fmt::arg("HOM_REF_PL", ref_hom_pl), fmt::arg("HET_ALT_PL", het_alt_pl), fmt::arg("HOM_ALT_PL", alt_hom_pl)));
+        fmt::arg("AMQ_MAX", mapping_qual_stats.altMaxVal), fmt::arg("AMQ_MAD", mapping_qual_stats.altMADVal)));
   }
 
   // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
@@ -195,19 +180,9 @@ auto VariantCall::SomaticFisherScore(const core::SampleInfo &curr, const PerSamp
   return hts::ErrorProbToPhred(result.mMoreProb);
 }
 
-auto VariantCall::FirstAndSecondSmallestIndices(const std::array<int, 3> &pls) -> std::array<usize, 2> {
+auto VariantCall::SmallestIndex(const std::array<int, 3> &pls) -> usize {
   const auto *min_itr = std::ranges::min_element(pls);
-  const auto smallest_idx = static_cast<usize>(std::distance(pls.cbegin(), min_itr));
-
-  const auto second_min_comparator = [&min_itr](const int lhs, const int rhs) -> bool {
-    // NOLINTNEXTLINE(readability-avoid-nested-conditional-operator)
-    return (lhs == *min_itr) ? false : (rhs == *min_itr) ? true : lhs < rhs;
-  };
-
-  const auto *second_itr = std::ranges::min_element(pls, second_min_comparator);
-  const auto second_smallest_idx = static_cast<usize>(std::distance(pls.cbegin(), second_itr));
-
-  return {smallest_idx, second_smallest_idx};
+  return static_cast<usize>(std::distance(pls.cbegin(), min_itr));
 }
 
 }  // namespace lancet::caller

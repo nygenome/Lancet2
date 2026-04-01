@@ -17,7 +17,7 @@ namespace lancet::caller {
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 base_qual,
-                                 const u8 map_qual, const u8 aln_diff_score) {
+                                 const u8 map_qual) {
   // NOLINTEND(bugprone-easily-swappable-parameters)
   const auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
   const auto itr = name_hashes.find(rname_hash);
@@ -28,13 +28,11 @@ void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, cons
     case Allele::REF:
       mRefNameHashes.emplace(rname_hash, strand);
       mRefMapQuals.emplace_back(map_qual);
-      mRefAlnDiffScores.emplace_back(aln_diff_score);
       strand == Strand::FWD ? mRefFwdBaseQuals.emplace_back(base_qual) : mRefRevBaseQuals.emplace_back(base_qual);
       break;
     default:
       mAltNameHashes.emplace(rname_hash, strand);
       mAltMapQuals.emplace_back(map_qual);
-      mAltAlnDiffScores.emplace_back(aln_diff_score);
       strand == Strand::FWD ? mAltFwdBaseQuals.emplace_back(base_qual) : mAltRevBaseQuals.emplace_back(base_qual);
       break;
   }
@@ -75,10 +73,6 @@ auto VariantSupport::AlleleQualityStats() const -> Statistics {
 
 auto VariantSupport::MappingQualityStats() const -> Statistics {
   return BuildStats(absl::MakeConstSpan(mRefMapQuals), absl::MakeConstSpan(mAltMapQuals));
-}
-
-auto VariantSupport::AlnDiffScoreStats() const -> Statistics {
-  return BuildStats(absl::MakeConstSpan(mRefAlnDiffScores), absl::MakeConstSpan(mAltAlnDiffScores));
 }
 
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
