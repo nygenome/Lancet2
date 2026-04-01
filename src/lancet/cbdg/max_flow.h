@@ -19,16 +19,13 @@ namespace lancet::cbdg {
 
 class MaxFlow {
  public:
-  static constexpr usize MIN_PATH_LIMIT = 1024;
-  static constexpr usize MAX_PATH_LIMIT = 1048576;
-
-  explicit MaxFlow(const Graph::NodeTable* graph, const NodeIDPair& src_and_snk, usize currk, usize max_limit);
+  explicit MaxFlow(const Graph::NodeTable* graph, const NodeIDPair& src_and_snk, usize currk);
 
   using Result = std::optional<std::string>;
   [[nodiscard]] auto NextPath() -> Result;
 
  private:
-  static constexpr usize INLINE_EDGES = 8;
+  static constexpr usize INLINE_EDGES = 128;
   absl::flat_hash_set<Edge> mTraversed;
   absl::InlinedVector<Edge, INLINE_EDGES> mWalkableEdges;
 
@@ -39,9 +36,7 @@ class MaxFlow {
 
   using Walk = std::vector<Edge>;
   using WalkView = absl::Span<const Edge>;
-  using CandidateWalks = absl::chunked_queue<Walk, MIN_PATH_LIMIT, MAX_PATH_LIMIT>;
-
-  usize mTraversalLimit = MAX_PATH_LIMIT;
+  using CandidateWalks = absl::chunked_queue<Walk, 1024, 32768>;
 
   [[nodiscard]] auto BuildNextWalk() -> std::optional<Walk>;
 

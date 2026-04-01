@@ -14,8 +14,8 @@
 
 namespace lancet::cbdg {
 
-MaxFlow::MaxFlow(const Graph::NodeTable *graph, const NodeIDPair &src_and_snk, const usize currk, const usize max_limit)
-    : mTraversalLimit(max_limit), mGraph(graph), mCurrentK(currk) {
+MaxFlow::MaxFlow(const Graph::NodeTable *graph, const NodeIDPair &src_and_snk, const usize currk)
+    : mGraph(graph), mCurrentK(currk) {
   const auto [source_id, sink_id] = src_and_snk;
   const auto src_itr = mGraph->find(source_id);
   LANCET_ASSERT(src_itr != mGraph->end())
@@ -63,10 +63,8 @@ auto MaxFlow::BuildNextWalk() -> std::optional<Walk> {
   while (!candidates.empty()) {
     nvisits++;
 
-    // Traversal limit dynamically scales per-window based on empirical K-mer spectrum extraction, 
-    // guaranteeing safe execution limits that do not hang endlessly over complex path variants.
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (nvisits > mTraversalLimit) break;
+    if (nvisits > Graph::DEFAULT_GRAPH_TRAVERSAL_LIMIT) break;
 
     const Walk &current_walk = candidates.front();
     const Edge &last_edge = current_walk.back();

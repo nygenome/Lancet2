@@ -29,18 +29,26 @@ class Graph {
   using RegionPtr = std::shared_ptr<const hts::Reference::Region>;
   using ReadList = absl::Span<const Read>;
 
-  static constexpr usize DEFAULT_MIN_KMER_LEN = 19;
+  static constexpr usize DEFAULT_MIN_KMER_LEN = 13;
   static constexpr usize DEFAULT_MAX_KMER_LEN = 127;
-  static constexpr usize DEFAULT_KMER_STEP_LEN = 6;
-  
-  static constexpr usize MAX_ALLOWED_KMER_LEN = 127;
-  static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 20;
+  static constexpr usize MAX_ALLOWED_KMER_LEN = 255;
+
+  static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
+  static constexpr u32 DEFAULT_MIN_ANCHOR_COV = 5;
+  static constexpr u32 DEFAULT_GRAPH_TRAVERSAL_LIMIT = 1048576;
+
+  static constexpr u16 DEFAULT_KMER_STEP_LEN = 6;
 
   struct Params {
     std::filesystem::path mOutGraphsDir;
 
     usize mMinKmerLen = DEFAULT_MIN_KMER_LEN;
     usize mMaxKmerLen = DEFAULT_MAX_KMER_LEN;
+
+    u32 mMinNodeCov = DEFAULT_MIN_NODE_COV;
+    u32 mMinAnchorCov = DEFAULT_MIN_ANCHOR_COV;
+
+    u16 mKmerStepLen = DEFAULT_KMER_STEP_LEN;
   };
 
   Graph(Params params) : mParams(std::move(params)) {}
@@ -56,7 +64,7 @@ class Graph {
     std::vector<usize> mAnchorStartIdxs;
   };
 
-  [[nodiscard]] auto BuildComponentHaplotypes(RegionPtr region, ReadList reads, f64 total_window_cov) -> Result;
+  [[nodiscard]] auto BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result;
 
  private:
   usize mCurrK = 0;
@@ -71,8 +79,7 @@ class Graph {
   using EdgeSet = absl::flat_hash_set<Edge>;
   using NodeIdSet = absl::flat_hash_set<NodeID>;
 
-  static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
-  static constexpr u8 MIN_BASE_QUAL_THRESHOLD = 20;
+
 
   void CompressGraph(usize component_id);
   void CompressNode(NodeID nid, Kmer::Ordering ord, NodeIdSet& compressed_ids) const;
@@ -90,29 +97,11 @@ class Graph {
     bool mFoundAnchor = false;
   };
 
-  [[nodiscard]] auto FindSource(usize component_id, u32 min_anchor_cov) const -> RefAnchor;
-  [[nodiscard]] auto FindSink(usize component_id, u32 min_anchor_cov) const -> RefAnchor;
+  [[nodiscard]] auto FindSource(usize component_id) const -> RefAnchor;
+  [[nodiscard]] auto FindSink(usize component_id) const -> RefAnchor;
 
-  struct SpectrumLimits {
-    u32 min_node_cov = 2;
-    u32 min_anchor_cov = 5;
-    usize max_path_limit = 100000;
-  };
-  [[nodiscard]] auto ExtractSpectrumConstraints(f64 total_window_cov) const -> SpectrumLimits;
-
-  [[nodiscard]] auto HasCycle(usize complexity_limit) const -> bool;
-
-  enum class DfsState : u8 { VISITING = 0, VISITED = 1 };
-  struct DfsResult {
-    bool mFoundCycle = false;
-    usize mNumPaths = 0;
-  };
-  struct NodeVisitState {
-    DfsState mState = DfsState::VISITING;
-    usize mPathsFromHere = 0;
-  };
-  
-  auto CountPathsAndCycles(const Node& node, absl::flat_hash_map<NodeID, NodeVisitState>& state_map) const -> DfsResult;
+  [[nodiscard]] auto HasCycle() const -> bool;
+  void HasCycle(const Node& node, NodeIdSet& traversed, bool& found_cycle, usize& recursion_depth) const;
 
   struct ComponentInfo {
     f64 mPctNodes = 0.0;
@@ -121,7 +110,7 @@ class Graph {
   };
   [[nodiscard]] auto MarkConnectedComponents() -> std::vector<ComponentInfo>;
 
-  void RemoveLowCovNodes(usize component_id, u32 min_cov);
+  void RemoveLowCovNodes(usize component_id);
   void RemoveNode(NodeTable::iterator itr);
   void RemoveNodes(absl::Span<const NodeID> node_ids);
 
