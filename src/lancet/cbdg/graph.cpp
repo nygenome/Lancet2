@@ -628,7 +628,7 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
                          [](const Node* node) -> NodeID { return node->Identifier(); });
 
   static const auto is_low_qual_kmer = [](absl::Span<const u8> quals) -> bool {
-    return *std::min_element(quals.cbegin(), quals.cend()) < MIN_QUAL_THRESHOLD;
+    return *std::min_element(quals.cbegin(), quals.cend()) < MIN_BASE_QUAL_THRESHOLD;
   };
 
   mate_mers.clear();
@@ -637,7 +637,7 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
     if (!read.PassesAlnFilters()) continue;
 
     usize offset = 0;
-    auto added_nodes = AddNodes(read.SeqView(), mCurrK + 1);
+    auto added_nodes = AddNodes(read.SeqView(), read.SrcLabel());
 
     std::ranges::for_each(added_nodes, [&read, &offset, &mate_mers, this](Node* node) {
       MateMer mm_pair{.mQname = read.QnameView(), .mTagKind = read.TagKind(), .mKmerHash = node->Identifier()};

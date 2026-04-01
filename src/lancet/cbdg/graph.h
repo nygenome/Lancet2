@@ -72,7 +72,7 @@ class Graph {
   using NodeIdSet = absl::flat_hash_set<NodeID>;
 
   static constexpr u32 DEFAULT_MIN_NODE_COV = 2;
-  static constexpr u8 MIN_QUAL_THRESHOLD = 20;
+  static constexpr u8 MIN_BASE_QUAL_THRESHOLD = 20;
 
   void CompressGraph(usize component_id);
   void CompressNode(NodeID nid, Kmer::Ordering ord, NodeIdSet& compressed_ids) const;
