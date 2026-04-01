@@ -71,7 +71,6 @@ IncrementKmerAndRetry:
     // based on the lowest point (the valley) between systemic error read artifacts and the first
     // actual biological peak natively established in the sequence fragment for this data pool.
     const auto spectrum_limits = ExtractSpectrumConstraints(total_window_cov);
-    LOG_INFO("Spectrum limits for {} with k={}: min_node_cov={}, min_anchor_cov={}, total_window_cov={}", reg_str, mCurrK, spectrum_limits.min_node_cov, spectrum_limits.min_anchor_cov, total_window_cov)
     RemoveLowCovNodes(0, spectrum_limits.min_node_cov);
     mNodes.rehash(0);
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
