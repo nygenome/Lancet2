@@ -22,11 +22,74 @@
 #include "lancet/core/sample_info.h"
 #include "lancet/core/window.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spoa/alignment_engine.hpp"
 
 namespace lancet::core {
 
-VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params)
-    : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)) {
+namespace {
+
+  /*
+ * ============================================================================
+ * SPOA MSA Parameter Rationale for Lancet2 Variant Extraction
+ * ============================================================================
+ * Values: Match: 2, Mismatch: -4, Gap1: -4,-2, Gap2: -24,-1
+ *
+ * Unlike minimap2's `asm5` preset (which aggressively splits contigs at major
+ * divergences for whole-genome synteny filtering), these parameters are tuned
+ * to force end-to-end global alignment within a specific micro-assembly window
+ * to capture dense somatic mutations and large Insertions/Deletions.
+ *
+ * 1. Why Convex (Dual-Affine) vs. Affine or Linear Scoring:
+ *    - Linear Scoring applies a flat penalty per gap base, which is biologically
+ *      inaccurate (one 50bp deletion is one biological event, not fifty 1bp
+ *      independent events).
+ *    - Single Affine Scoring forces a compromise: tune for small variants (strict
+ *      extension) and you penalize/clip large insertions/deletions; tune for large
+ *      insertions/deletions (loose extension) and sequencer noise creates messy,
+ *      spurious small gaps.
+ *    - Convex (Dual-Affine) Scoring solves this by taking the minimum of two
+ *      intersecting models. It is strict for short gaps to suppress sequencer
+ *      noise, but switches to an incredibly cheap extension penalty for large
+ *      biological gaps.
+ *
+ * 2. Mismatch Tolerance (Multi-Nucleotide Variants / MNVs):
+ *    asm5 uses a +1 match / -19 mismatch, which shatters alignments at dense
+ *    mutation clusters. We use +2 / -4, meaning only 2 matching bases are needed
+ *    to offset a SNP. This keeps the MSA globally intact through complex variants.
+ *
+ * 3. Micro-Indel Sensitivity (Convex Model 1: -4, -2):
+ *    asm5's -39 gap open penalty prevents small indels, forcing them to misalign
+ *    as false-positive SNPs. Our -4 open / -2 extend penalty allows true small
+ *    biological indels to open naturally while still applying enough friction
+ *    to prevent 1bp sequencing errors (e.g., homopolymer stutters) from opening gaps.
+ *
+ * 4. Large Insertion/Deletion Continuity (Convex Model 2: -24, -1):
+ *    asm5's -81 penalty for large gaps will soft-clip contigs right at an insertion/deletion
+ *    breakpoint. Our parameters mathematically intersect at 20bp (4 + 2L = 24 + 1L).
+ *    For gaps > 20bp, the algorithm switches to Model 2 where the extension cost
+ *    drops to -1. This "cheap extension" forces the DP matrix into mapping massive
+ *    insertions/deletions as single, contiguous blocks in the MSA rather than
+ *    dropping the alignment.
+ *
+ *    https://curiouscoding.nl/posts/pairwise-alignment ->
+ *    – Convex dual affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
+ */
+constexpr i8 MSA_MATCH_SCORE = 2;
+constexpr i8 MSA_MISMATCH_SCORE = -4;
+constexpr i8 MSA_OPEN1_SCORE = -4;
+constexpr i8 MSA_EXTEND1_SCORE = -2;
+constexpr i8 MSA_OPEN2_SCORE = -24;
+constexpr i8 MSA_EXTEND2_SCORE = -1;
+constexpr u8 DNA_ALPHABET_SIZE = 4;
+constexpr u32 PREALLOC_WINDOW_LENGTH_MULTIPLIER = 3;
+
+}  // namespace
+
+VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params, const u32 window_length)
+    : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)),
+      mAlnEngine(spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE,
+        MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE)) {
+  mAlnEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
   mGenotyper.SetIsGermlineMode(mReadCollector.IsGermlineMode());
 }
@@ -89,7 +152,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     LOG_DEBUG("Building MSA for graph component {} from window {} with {} haplotypes", idx, reg_str, nhaps)
 
     const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
-    const caller::MsaBuilder msa_builder(ref_and_alt_haps, MakeGfaPath(*window, idx));
+    const caller::MsaBuilder msa_builder(ref_and_alt_haps, *mAlnEngine, MakeGfaPath(*window, idx));
     const caller::VariantSet vset(msa_builder, *window, anchor_start);
 
     if (vset.IsEmpty()) {

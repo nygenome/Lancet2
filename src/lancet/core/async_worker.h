@@ -33,9 +33,9 @@ class AsyncWorker {
   using VariantBuilderPtr = std::unique_ptr<VariantBuilder>;
   using BuilderParamsPtr = std::shared_ptr<const VariantBuilder::Params>;
 
-  AsyncWorker(InQueuePtr in_queue, OutQueuePtr out_queue, VariantStorePtr vstore, BuilderParamsPtr prms)
+  AsyncWorker(InQueuePtr in_queue, OutQueuePtr out_queue, VariantStorePtr vstore, BuilderParamsPtr prms, u32 window_length)
       : mInPtr(std::move(in_queue)), mOutPtr(std::move(out_queue)), mStorePtr(std::move(vstore)),
-        mBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms))) {}
+        mBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms), window_length)) {}
 
   void Process(std::stop_token stop_token, const moodycamel::ProducerToken& in_token);
 

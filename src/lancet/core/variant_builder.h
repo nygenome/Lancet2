@@ -12,6 +12,7 @@
 #include "lancet/cbdg/graph.h"
 #include "lancet/core/read_collector.h"
 #include "lancet/core/window.h"
+#include "spoa/alignment_engine.hpp"
 
 namespace lancet::core {
 
@@ -28,7 +29,7 @@ class VariantBuilder {
     ReadCollector::Params mRdCollParams;
   };
 
-  VariantBuilder(std::shared_ptr<const Params> params);
+  VariantBuilder(std::shared_ptr<const Params> params, u32 window_length);
 
   enum class StatusCode : u8 {
     UNKNOWN = 0,
@@ -51,6 +52,7 @@ class VariantBuilder {
   ReadCollector mReadCollector;
   caller::Genotyper mGenotyper;
   std::shared_ptr<const Params> mParamsPtr;
+  std::unique_ptr<spoa::AlignmentEngine> mAlnEngine;
   StatusCode mCurrentCode = StatusCode::UNKNOWN;
 
   [[nodiscard]] auto MakeGfaPath(const Window& win, usize comp_id) const -> std::filesystem::path;

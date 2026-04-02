@@ -115,14 +115,14 @@ void LogWindowStats(const WindowStats &stats) {
 // NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken *in_token,
                     AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
-                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params) {
+                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params, u32 window_length) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 #ifdef LANCET_PROFILE_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
 #endif
-  auto worker =
-      std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore), std::move(params));
+  auto worker = std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore),
+                                              std::move(params), window_length);
   worker->Process(std::move(stop_token), *in_token);
 }
 
@@ -238,8 +238,9 @@ void PipelineRunner::Run() {
   worker_threads.reserve(mParamsPtr->mNumWorkerThreads);
   const auto varstore = std::make_shared<core::VariantStore>();
   const auto vb_params = std::make_shared<const core::VariantBuilder::Params>(mParamsPtr->mVariantBuilder);
+  const auto window_length = mParamsPtr->mWindowBuilder.mWindowLength;
   for (usize idx = 0; idx < mParamsPtr->mNumWorkerThreads; ++idx) {
-    worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params);
+    worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params, window_length);
   }
 
   static const auto all_windows_upto_idx_done = [](const absl::FixedArray<bool> &dw, const usize window_idx) -> bool {

@@ -8,6 +8,7 @@
 
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
+#include "spoa/alignment_engine.hpp"
 #include "spoa/graph.hpp"
 
 namespace lancet::caller {
@@ -17,7 +18,7 @@ class MsaBuilder {
   using FsPath = std::filesystem::path;
   using RefAndAltHaplotypes = absl::Span<const std::string>;
 
-  explicit MsaBuilder(RefAndAltHaplotypes sequences, const FsPath& out_gfa_path = FsPath());
+  explicit MsaBuilder(RefAndAltHaplotypes sequences, spoa::AlignmentEngine& engine, const FsPath& out_gfa_path = FsPath());
 
   [[nodiscard]] auto MultipleSequenceAlignment() const -> std::vector<std::string_view>;
   [[nodiscard]] auto FetchHaplotypeSeqView(const usize idx) const -> std::string_view { return mHaplotypeSeqs.at(idx); }
