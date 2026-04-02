@@ -100,7 +100,7 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
     for (auto &&[variant, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
       variants.emplace_back(
-          std::make_unique<caller::VariantCall>(variant, std::move(evidence), samples, mDebruijnGraph.CurrentK()));
+          std::make_unique<caller::VariantCall>(variant, std::move(evidence), samples));
     }
   }
 

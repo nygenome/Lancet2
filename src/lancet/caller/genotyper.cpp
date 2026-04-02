@@ -460,7 +460,7 @@ void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read, const SupportsI
     const auto [read_start_idx0, allele] = qry_start_and_allele;
     const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
     const auto allele_qual = static_cast<u8>(Mean(quals.subspan(read_start_idx0, allele_len)));
-    sample_variant->AddEvidence(rname_hash, allele, read_strand, allele_qual, read.MapQual());
+    sample_variant->AddEvidence(rname_hash, allele, read_strand, allele_qual);
   }
 }
 

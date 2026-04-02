@@ -16,8 +16,7 @@
 namespace lancet::caller {
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 base_qual,
-                                 const u8 map_qual) {
+void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, const Strand strand, const u8 base_qual) {
   // NOLINTEND(bugprone-easily-swappable-parameters)
   const auto& name_hashes = allele == Allele::REF ? mRefNameHashes : mAltNameHashes;
   const auto itr = name_hashes.find(rname_hash);
@@ -27,12 +26,10 @@ void VariantSupport::AddEvidence(const u32 rname_hash, const Allele allele, cons
   switch (allele) {
     case Allele::REF:
       mRefNameHashes.emplace(rname_hash, strand);
-      mRefMapQuals.emplace_back(map_qual);
       strand == Strand::FWD ? mRefFwdBaseQuals.emplace_back(base_qual) : mRefRevBaseQuals.emplace_back(base_qual);
       break;
     default:
       mAltNameHashes.emplace(rname_hash, strand);
-      mAltMapQuals.emplace_back(map_qual);
       strand == Strand::FWD ? mAltFwdBaseQuals.emplace_back(base_qual) : mAltRevBaseQuals.emplace_back(base_qual);
       break;
   }
@@ -55,23 +52,6 @@ auto VariantSupport::ComputePLs() const -> std::array<int, 3> {
   return ConvertGtProbsToPls({prob_hom_ref, prob_het_alt, prob_hom_alt});
 }
 
-auto VariantSupport::AlleleQualityStats() const -> Statistics {
-  std::vector<u8> refs;
-  refs.reserve(mRefFwdBaseQuals.size() + mRefRevBaseQuals.size());
-  refs.insert(refs.end(), mRefFwdBaseQuals.begin(), mRefFwdBaseQuals.end());
-  refs.insert(refs.end(), mRefRevBaseQuals.begin(), mRefRevBaseQuals.end());
-
-  std::vector<u8> alts;
-  alts.reserve(mAltFwdBaseQuals.size() + mAltRevBaseQuals.size());
-  alts.insert(alts.end(), mAltFwdBaseQuals.begin(), mAltFwdBaseQuals.end());
-  alts.insert(alts.end(), mAltRevBaseQuals.begin(), mAltRevBaseQuals.end());
-
-  return BuildStats(absl::MakeConstSpan(refs), absl::MakeConstSpan(alts));
-}
-
-auto VariantSupport::MappingQualityStats() const -> Statistics {
-  return BuildStats(absl::MakeConstSpan(mRefMapQuals), absl::MakeConstSpan(mAltMapQuals));
-}
 
 auto VariantSupport::MeanErrorProbability(const Allele allele) const -> f64 {
   constexpr f64 ZERO_COV_ERR_PROB = 0.5;

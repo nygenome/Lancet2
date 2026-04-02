@@ -332,16 +332,11 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
-##INFO=<ID=KMERLEN,Number=1,Type=Integer,Description="K-mer length used to assemble the locus">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
 ##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
 ##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
-##FORMAT=<ID=RAQS,Number=4,Type=Integer,Description="REF allele quality stats - Min, Median, Max, MAD">
-##FORMAT=<ID=AAQS,Number=4,Type=Integer,Description="ALT allele quality stats - Min, Median, Max, MAD">
-##FORMAT=<ID=RMQS,Number=4,Type=Integer,Description="REF mapping quality stats - Min, Median, Max, MAD">
-##FORMAT=<ID=AMQS,Number=4,Type=Integer,Description="ALT mapping quality stats - Min, Median, Max, MAD">
 )raw"sv;
   // clang-format on
 

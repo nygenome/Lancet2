@@ -31,7 +31,7 @@ namespace {
 namespace lancet::caller {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,cppcoreguidelines-rvalue-reference-param-not-moved)
-VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples samps, const usize kmerlen)
+VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples samps)
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele), mAltAllele(var->mAltAllele),
       mVariantLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType) {
@@ -50,7 +50,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
   }
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RAQS:AAQS:RMQS:AMQS");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP");
 
   static const auto is_normal = [](const auto &sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
   const auto germline_mode = std::ranges::all_of(samps, is_normal);
@@ -67,9 +67,6 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
 
     const auto genotype = POSSIBLE_GENOTYPES.at(smallest_index);
 
-    const auto allele_qual_stats = evidence->AlleleQualityStats();
-    const auto mapping_qual_stats = evidence->MappingQualityStats();
-
     const auto fisher_score = SomaticFisherScore(sinfo, per_sample_evidence);
 
     mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<f64>(ref_hom_pl) : fisher_score);
@@ -81,12 +78,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
     // NOLINTEND(readability-braces-around-statements)
 
     mFormatFields.emplace_back(fmt::format(
-        "{GT}:{AD1},{AD2}:{ADF1},{ADF2}:{ADR1},{ADR2}:"
-        "{DP}:"
-        "{RAQ_MIN},{RAQ_MEDIAN},{RAQ_MAX},{RAQ_MAD}:"
-        "{AAQ_MIN},{AAQ_MEDIAN},{AAQ_MAX},{AAQ_MAD}:"
-        "{RMQ_MIN},{RMQ_MEDIAN},{RMQ_MAX},{RMQ_MAD}:"
-        "{AMQ_MIN},{AMQ_MEDIAN},{AMQ_MAX},{AMQ_MAD}",
+        "{GT}:{AD1},{AD2}:{ADF1},{ADF2}:{ADR1},{ADR2}:{DP}",
 
         fmt::arg("GT", genotype),
 
@@ -94,19 +86,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
         fmt::arg("ADF1", evidence->RefFwdCount()), fmt::arg("ADF2", evidence->AltFwdCount()),
         fmt::arg("ADR1", evidence->RefRevCount()), fmt::arg("ADR2", evidence->AltRevCount()),
 
-        fmt::arg("DP", evidence->TotalSampleCov()),
-
-        fmt::arg("RAQ_MIN", allele_qual_stats.refMinVal), fmt::arg("RAQ_MEDIAN", allele_qual_stats.refMedian),
-        fmt::arg("RAQ_MAX", allele_qual_stats.refMaxVal), fmt::arg("RAQ_MAD", allele_qual_stats.refMADVal),
-
-        fmt::arg("AAQ_MIN", allele_qual_stats.altMinVal), fmt::arg("AAQ_MEDIAN", allele_qual_stats.altMedian),
-        fmt::arg("AAQ_MAX", allele_qual_stats.altMaxVal), fmt::arg("AAQ_MAD", allele_qual_stats.altMADVal),
-
-        fmt::arg("RMQ_MIN", mapping_qual_stats.refMinVal), fmt::arg("RMQ_MEDIAN", mapping_qual_stats.refMedian),
-        fmt::arg("RMQ_MAX", mapping_qual_stats.refMaxVal), fmt::arg("RMQ_MAD", mapping_qual_stats.refMADVal),
-
-        fmt::arg("AMQ_MIN", mapping_qual_stats.altMinVal), fmt::arg("AMQ_MEDIAN", mapping_qual_stats.altMedian),
-        fmt::arg("AMQ_MAX", mapping_qual_stats.altMaxVal), fmt::arg("AMQ_MAD", mapping_qual_stats.altMADVal)));
+        fmt::arg("DP", evidence->TotalSampleCov())));
   }
 
   // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
@@ -128,7 +108,7 @@ VariantCall::VariantCall(const RawVariant *var, Supports &&supports, Samples sam
                                                               : "REF"sv;
   // NOLINTEND(readability-avoid-nested-conditional-operator)
 
-  mInfoField = fmt::format("{};TYPE={};LENGTH={};KMERLEN={}", vstate, vcategory, mVariantLength, kmerlen);
+  mInfoField = fmt::format("{};TYPE={};LENGTH={}", vstate, vcategory, mVariantLength);
 }
 
 auto VariantCall::AsVcfRecord() const -> std::string {
