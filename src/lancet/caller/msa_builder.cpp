@@ -17,19 +17,63 @@
 
 namespace {
 
+/*
+ * ============================================================================
+ * SPOA MSA Parameter Rationale for Lancet2 Variant Extraction
+ * ============================================================================
+ * Values: Match: 2, Mismatch: -4, Gap1: -4,-2, Gap2: -24,-1
+ * 
+ * Unlike minimap2's `asm5` preset (which aggressively splits contigs at major 
+ * divergences for whole-genome synteny filtering), these parameters are tuned 
+ * to force end-to-end global alignment within a specific micro-assembly window 
+ * to capture dense somatic mutations and large Insertions/Deletions.
+ * 
+ * 1. Why Convex (Dual-Affine) vs. Affine or Linear Scoring:
+ *    - Linear Scoring applies a flat penalty per gap base, which is biologically 
+ *      inaccurate (one 50bp deletion is one biological event, not fifty 1bp 
+ *      independent events).
+ *    - Single Affine Scoring forces a compromise: tune for small variants (strict 
+ *      extension) and you penalize/clip large insertions/deletions; tune for large 
+ *      insertions/deletions (loose extension) and sequencer noise creates messy, 
+ *      spurious small gaps.
+ *    - Convex (Dual-Affine) Scoring solves this by taking the minimum of two 
+ *      intersecting models. It is strict for short gaps to suppress sequencer 
+ *      noise, but switches to an incredibly cheap extension penalty for large 
+ *      biological gaps.
+ * 
+ * 2. Mismatch Tolerance (Multi-Nucleotide Variants / MNVs): 
+ *    asm5 uses a +1 match / -19 mismatch, which shatters alignments at dense 
+ *    mutation clusters. We use +2 / -4, meaning only 2 matching bases are needed 
+ *    to offset a SNP. This keeps the MSA globally intact through complex variants.
+ * 
+ * 3. Micro-Indel Sensitivity (Convex Model 1: -4, -2): 
+ *    asm5's -39 gap open penalty prevents small indels, forcing them to misalign 
+ *    as false-positive SNPs. Our -4 open / -2 extend penalty allows true small 
+ *    biological indels to open naturally while still applying enough friction 
+ *    to prevent 1bp sequencing errors (e.g., homopolymer stutters) from opening gaps.
+ * 
+ * 4. Large Insertion/Deletion Continuity (Convex Model 2: -24, -1): 
+ *    asm5's -81 penalty for large gaps will soft-clip contigs right at an insertion/deletion 
+ *    breakpoint. Our parameters mathematically intersect at 20bp (4 + 2L = 24 + 1L). 
+ *    For gaps > 20bp, the algorithm switches to Model 2 where the extension cost 
+ *    drops to -1. This "cheap extension" forces the DP matrix into mapping massive 
+ *    insertions/deletions as single, contiguous blocks in the MSA rather than 
+ *    dropping the alignment.
+ * 
+ *    https://curiouscoding.nl/posts/pairwise-alignment -> 
+ *    – Convex dual affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
+ */
 using AlnEngine = std::unique_ptr<spoa::AlignmentEngine>;
 inline auto BuildAlnEngine(absl::Span<const std::string> seqs) -> AlnEngine {
-  static constexpr i8 MATCH = 1;
-  static constexpr i8 MISMATCH = -19;
-  static constexpr i8 OPEN1 = -81;
-  static constexpr i8 EXTEND1 = -1;
-  static constexpr i8 OPEN2 = -39;
-  static constexpr i8 EXTEND2 = -3;
-  // asm5 from minimap2 -> https://lh3.github.io/minimap2/minimap2.html -> assembly to same species ref scoring
-  // https://curiouscoding.nl/posts/pairwise-alignment -> Convex affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
+  static constexpr i8 MATCH = 2;
+  static constexpr i8 MISMATCH = -4;
+  static constexpr i8 OPEN1 = -4;
+  static constexpr i8 EXTEND1 = -2;
+  static constexpr i8 OPEN2 = -24;
+  static constexpr i8 EXTEND2 = -1;
   auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
   const auto* longest_seq = std::ranges::max_element(seqs, std::less<>(), &std::string::size);
-  aln->Prealloc(longest_seq->length(), 4);
+  aln->Prealloc(longest_seq->length(), 16);
   return aln;
 }
 
