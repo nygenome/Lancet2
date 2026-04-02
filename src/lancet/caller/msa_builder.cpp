@@ -73,7 +73,7 @@ inline auto BuildAlnEngine(absl::Span<const std::string> seqs) -> AlnEngine {
   static constexpr i8 EXTEND2 = -1;
   auto aln = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MATCH, MISMATCH, OPEN1, EXTEND1, OPEN2, EXTEND2);
   const auto* longest_seq = std::ranges::max_element(seqs, std::less<>(), &std::string::size);
-  aln->Prealloc(longest_seq->length(), 16);
+  aln->Prealloc(longest_seq->length(), 8);
   return aln;
 }
 
