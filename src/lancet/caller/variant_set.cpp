@@ -257,4 +257,12 @@ auto VariantSet::CountEndsGap(absl::Span<const std::string_view> msa_view) -> En
   return {start_gaps, end_gaps};
 }
 
+auto VariantSet::GroupByLocus() const -> GroupedVariants {
+  GroupedVariants grouped;
+  for (const auto& variant : mResultVariants) {
+    grouped[variant.MakeLocusKey()].push_back(&variant);
+  }
+  return grouped;
+}
+
 }  // namespace lancet::caller

@@ -91,7 +91,6 @@ VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params, const u32 w
         MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE)) {
   mAlnEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
-  mGenotyper.SetIsGermlineMode(mReadCollector.IsGermlineMode());
 }
 
 auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) -> WindowResults {
@@ -161,9 +160,25 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     }
 
     LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
-    for (auto &&[variant, evidence] : mGenotyper.Genotype(ref_and_alt_haps, reads, vset)) {
-      variants.emplace_back(
-          std::make_unique<caller::VariantCall>(variant, std::move(evidence), samples));
+    auto genotyped = mGenotyper.Genotype(ref_and_alt_haps, reads, vset);
+    auto grouped = vset.GroupByLocus();
+
+    // Drop variants where the graph assembled a haplotype but no reads actually support it.
+    static const auto HasAltSupport = [](const caller::Genotyper::PerSampleEvidence& evidence) {
+      return std::ranges::any_of(evidence, [](const auto& kv) { return kv.second && kv.second->TotalAltCov() > 0; });
+    };
+
+    for (const auto& [locus_key, locus_variants] : grouped) {
+      caller::VariantCall::SupportsByVariant locus_supports;
+      for (const auto* var_ptr : locus_variants) {
+        auto it = genotyped.find(var_ptr);
+        if (it == genotyped.end() || !HasAltSupport(it->second)) continue;
+        locus_supports.emplace(var_ptr, std::move(it->second));
+      }
+
+      if (locus_supports.empty()) continue;
+      variants.emplace_back(std::make_unique<caller::VariantCall>(
+          absl::MakeConstSpan(locus_variants), std::move(locus_supports), samples));
     }
   }
 

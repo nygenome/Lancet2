@@ -1,38 +1,104 @@
 #include "lancet/caller/genotyper.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
-#include <optional>
-#include <string_view>
 #include <utility>
-#include <vector>
 
 extern "C" {
-#include "minimap.h"
 #include "mmpriv.h"
 }
 
-#include "absl/strings/numbers.h"
-#include "lancet/base/assert.h"
-#include "lancet/base/compute_stats.h"
-#include "lancet/base/hash.h"
-#include "lancet/base/types.h"
+#include "absl/hash/hash.h"
+#include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_set.h"
-#include "lancet/caller/variant_support.h"
-#include "lancet/hts/cigar_unit.h"
+
+namespace lancet::caller {
+
+// ============================================================================
+// Constructor: initialize minimap2 with custom Illumina scoring parameters.
+//
+// We do NOT use the 'sr' preset because its gap penalties are tuned for
+// whole-genome alignment where gaps represent biological variation. In local
+// assembly, biological variation is already in the haplotype sequences —
+// gaps here are machine errors and must be heavily penalized.
+//
+// See the SCORING_* constants in genotyper.h for the full rationale.
+// ============================================================================
+Genotyper::Genotyper() {
+  // 0 -> no info, 1 -> error, 2 -> warning, 3 -> debug
+  mm_verbose = 1;
+
+  // Start from the default parameter set, then override scoring
+  mm_set_opt(nullptr, mIndexingOpts.get(), mMappingOpts.get());
+
+  auto* mopts = mMappingOpts.get();
+  mopts->a = genotyper_detail::SCORING_MATCH;
+  mopts->b = genotyper_detail::SCORING_MISMATCH;
+  mopts->q = genotyper_detail::SCORING_GAP_OPEN;
+  mopts->e = genotyper_detail::SCORING_GAP_EXTEND;
+  // Use single-affine gap model: set the second model to the same parameters.
+  // This disables minimap2's dual-affine (convex) model.
+  mopts->q2 = genotyper_detail::SCORING_GAP_OPEN;
+  mopts->e2 = genotyper_detail::SCORING_GAP_EXTEND;
+
+  mopts->flag |= MM_F_CIGAR;  // Generate CIGAR (needed for local scoring)
+  mopts->best_n = 1;          // Only keep the best hit per haplotype
+}
+
+// ============================================================================
+// EncodeSequence: ASCII DNA → numeric (0-4) for local scoring.
+// Single pass using the constexpr lookup table. O(n), no branches.
+// ============================================================================
+auto Genotyper::EncodeSequence(const std::string_view seq) -> std::vector<u8> {
+  std::vector<u8> encoded(seq.size());
+  for (usize i = 0; i < seq.size(); ++i) {
+    encoded[i] = genotyper_detail::ENCODE_TABLE[static_cast<u8>(seq[i])];
+  }
+  return encoded;
+}
+
+// ============================================================================
+// ResetData: build minimap2 indices for all haplotype sequences.
+//
+// Each haplotype gets its own index so we can align reads independently
+// to REF and each ALT haplotype and compare scores.
+// ============================================================================
+void Genotyper::ResetData(Haplotypes sequences) {
+  mIndices.clear();
+  mIndices.reserve(sequences.size());
+
+  const auto* iopts = mIndexingOpts.get();
+  for (const auto& seq : sequences) {
+    const char* raw_seq = seq.c_str();
+    auto* idx_result = mm_idx_str(iopts->w, iopts->k, 0, iopts->bucket_bits, 1, &raw_seq, nullptr);
+    mIndices.emplace_back(Minimap2Index(idx_result));
+  }
+
+  // Pre-encode haplotype sequences for local scoring.
+  // mm_idx stores sequences internally but doesn't expose them via a clean API,
+  // so we maintain our own numeric-encoded copies for ComputeLocalScore.
+  mEncodedHaplotypes.clear();
+  mEncodedHaplotypes.reserve(sequences.size());
+  for (const auto& seq : sequences) {
+    mEncodedHaplotypes.push_back(EncodeSequence(seq));
+  }
+
+  auto* mopts = mMappingOpts.get();
+  for (const auto& mm2_idx : mIndices) {
+    mm_mapopt_update(mopts, mm2_idx.get());
+  }
+}
 
 namespace {
 
-inline void FreeMinimap2Alignment(mm_reg1_t* regs, const int num_regs) {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
+// Free minimap2 alignment results (mm_reg1_t array)
+inline void FreeMm2Alignment(mm_reg1_t* regs, const int num_regs) {
   if (regs == nullptr) return;
   // NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
   for (int idx = 0; idx < num_regs; ++idx) {
-    auto* curr_reg = &regs[idx];  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    std::free(curr_reg->p);
+    std::free(regs[idx].p);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   }
   std::free(regs);
   // NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
@@ -40,364 +106,19 @@ inline void FreeMinimap2Alignment(mm_reg1_t* regs, const int num_regs) {
 
 }  // namespace
 
-namespace lancet::caller {
-
-Genotyper::Genotyper(const Preset preset) {
-  // 0 -> no info, 1 -> error, 2 -> warning, 3 -> debug
-  // set default parameters first before seeting preset parameters
-  mm_verbose = 1;
-  mm_set_opt(nullptr, mIndexingOpts.get(), mMappingOpts.get());
-  mm_set_opt(preset == Preset::ShortRead ? "sr" : "map-ont", mIndexingOpts.get(), mMappingOpts.get());
-  mMappingOpts->flag |= MM_F_CIGAR | MM_F_OUT_CS;
-  mMappingOpts->best_n = 1;
-}
-
-auto Genotyper::Genotype(Haplotypes haplotypes, Reads reads, const VariantSet& vset) -> Result {
-  ResetData(haplotypes);
-
-  Result genotyped_variants;
-  static constexpr usize DEFAULT_EXPECTED_SAMPLES_COUNT = 2;
-  // Just in case caller of this method forgets to call SetNumSamples before
-  genotyped_variants.reserve(std::max(mNumSamples, DEFAULT_EXPECTED_SAMPLES_COUNT));
-
-  // so that we don't double count support
-  // for REF and ALT alleles from same read
-  AlnInfo::SupportsInfo read_supports;
-  read_supports.reserve(vset.Count());
-
-  static const auto by_descending_identity_and_score = [](const AlnInfo& lhs, const AlnInfo& rhs) {
-    // Sort by gap compressed identity, then by alignment DP score and then by haplotype index
-    // So if gap compressed identity and DP score are same, we pick ALT haplotype preferentially
-    // NOLINTBEGIN(readability-braces-around-statements)
-    if (lhs.mGcIden != rhs.mGcIden) return lhs.mGcIden > rhs.mGcIden;
-    if (lhs.mDpScore != rhs.mDpScore) return lhs.mDpScore > rhs.mDpScore;
-    return lhs.mHapIdx > rhs.mHapIdx;
-    // NOLINTEND(readability-braces-around-statements)
-  };
-
-  for (const auto& read : reads) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (!read.PassesAlnFilters()) continue;
-
-    read_supports.clear();
-    auto alns_to_all_haps = AlignRead(read);
-    std::ranges::sort(alns_to_all_haps, by_descending_identity_and_score);
-    std::ranges::for_each(alns_to_all_haps, [&read_supports, &vset](const AlnInfo& item) {
-      item.AddSupportingInfo(read_supports, vset);
-    });
-
-    AddToTable(genotyped_variants, read, read_supports);
-  }
-
-  return genotyped_variants;
-}
-
-auto Genotyper::AlnInfo::IsEmpty() const noexcept -> bool {
-  return mRefStart == -1 && mQryStart == -1 && mRefEnd == -1 && mQryEnd == -1 && mDpScore == -1 && mGcIden == 0.0 &&
-         mHapIdx == 0 && mQryLen == 0 && mCsTag.empty();
-}
-
-auto Genotyper::AlnInfo::IsFullQueryMatch() const noexcept -> bool {
-  return (mQryEnd - mQryStart) == static_cast<i32>(mQryLen) && mGcIden == 1.0;
-}
-
-void Genotyper::AlnInfo::AddSupportingInfo(SupportsInfo& supports, const VariantSet& called_variants) const {
-  const auto curr_allele = mHapIdx == REF_HAP_IDX ? Allele::REF : Allele::ALT;
-  const auto identity_ranges = FindIdentityRanges();
-  const auto non_indel_chunks = FindNonIndelChunks();
-
-  for (const auto& variant : called_variants) {
-    // If read has already been counted as support for this variant as support
-    // skip the CS tag check to confirm that the read has exact match to the allele
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (!variant.mHapStart0Idxs.contains(mHapIdx) || supports.contains(&variant)) continue;
-
-    const auto al_start = variant.mHapStart0Idxs.at(mHapIdx);
-    const auto al_len = std::max(variant.mRefAllele.length(), variant.mAltAllele.length());
-    const auto al_range = StartEndIndices({al_start, al_start + al_len - 1});
-    const auto rd_start_idx_supporting_allele = FindQueryStartForAllele(identity_ranges, non_indel_chunks, al_range);
-    if (rd_start_idx_supporting_allele) {
-      auto qstart_strand = std::make_pair(rd_start_idx_supporting_allele.value(), curr_allele);
-      supports.emplace(&variant, std::move(qstart_strand));
-    }
-  }
-}
-
-auto Genotyper::AlnInfo::FindIdentityRanges() const -> RefQryIdentityRanges {
-  std::vector<StartEndIndices> ref_iden_ranges;
-  std::vector<StartEndIndices> qry_iden_ranges;
-
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mCsTag.empty()) return RefQryIdentityRanges({ref_iden_ranges, qry_iden_ranges});
-
-  ref_iden_ranges.reserve(mCsTag.length());
-  qry_iden_ranges.reserve(mCsTag.length());
-
-  auto curr_ref_idx = static_cast<usize>(mRefStart);
-  auto curr_qry_idx = static_cast<usize>(mQryStart);
-
-  // Example CS Tag --> `:6-ata:10+gtc:4*at:3`
-  std::string op_info;
-  usize parsed_num = 0;
-  std::vector<usize> idxs_with_ops;
-  op_info.reserve(mCsTag.length());
-  idxs_with_ops.reserve(mCsTag.length());
-
-  // IDENTITY = ':', MISMATCH = '*', INSERTION = '+', DELETION = '-'
-  const auto handle_cs_op = [&](const char token) {
-    if (token == ':' && absl::SimpleAtoi(op_info, &parsed_num)) {
-      ref_iden_ranges.emplace_back(StartEndIndices{curr_ref_idx, curr_ref_idx + parsed_num});
-      qry_iden_ranges.emplace_back(StartEndIndices{curr_qry_idx, curr_qry_idx + parsed_num});
-      curr_ref_idx += parsed_num;
-      curr_qry_idx += parsed_num;
-      return;
-    }
-
-    if (token == '*') {
-      curr_ref_idx++;
-      curr_qry_idx++;
-      return;
-    }
-
-    if (token == '+') {
-      curr_qry_idx += op_info.length();
-      return;
-    }
-
-    if (token == '-') {
-      curr_ref_idx += op_info.length();
-      return;
-    }
-  };
-
-  for (usize idx = 0; idx < mCsTag.length(); ++idx) {
-    switch (mCsTag[idx]) {
-      case ':':
-      case '-':
-      case '+':
-      case '*':
-        if (!idxs_with_ops.empty()) {
-          handle_cs_op(mCsTag[idxs_with_ops.back()]);
-          op_info.clear();
-        }
-
-        idxs_with_ops.emplace_back(idx);
-        break;
-      default:
-        op_info.push_back(mCsTag[idx]);
-        break;
-    }
-  }
-
-  // Handle the final CS operation
-  handle_cs_op(mCsTag[idxs_with_ops.back()]);
-  op_info.clear();
-
-  return RefQryIdentityRanges({ref_iden_ranges, qry_iden_ranges});
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-auto Genotyper::AlnInfo::FindNonIndelChunks() const -> NonIndelChunks {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mCsTag.empty()) return NonIndelChunks{};
-
-  NonIndelChunks result_chunks;
-  result_chunks.reserve(mCsTag.length());
-
-  // Example CS Tag --> `:6-ata:10+gtc:4*at:3`
-  // IDENTITY = ':', MISMATCH = '*', INSERTION = '+', DELETION = '-'
-  usize parsed_number = 0;
-  std::string op_len_data;
-  std::vector<hts::CigarOp> cig_ops;
-  std::vector<usize> cig_lens;
-  cig_ops.reserve(mCsTag.length());
-  cig_lens.reserve(mCsTag.length());
-
-  const auto parse_operation_length = [&op_len_data, &parsed_number, &cig_lens]() {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (op_len_data.empty()) return;
-
-    if (absl::SimpleAtoi(op_len_data, &parsed_number)) {
-      cig_lens.push_back(parsed_number);
-    } else {
-      cig_lens.push_back(op_len_data.length());
-    }
-  };
-
-  for (const char token : mCsTag) {
-    switch (token) {
-      case ':':
-        parse_operation_length();
-        cig_ops.emplace_back(hts::CigarOp::ALIGNMENT_MATCH);
-        op_len_data.clear();
-        break;
-
-      case '-':
-        parse_operation_length();
-        cig_ops.emplace_back(hts::CigarOp::DELETION);
-        op_len_data.clear();
-        break;
-
-      case '+':
-        parse_operation_length();
-        cig_ops.emplace_back(hts::CigarOp::INSERTION);
-        op_len_data.clear();
-        break;
-
-      case '*':
-        parse_operation_length();
-        cig_ops.emplace_back(hts::CigarOp::SEQUENCE_MISMATCH);
-        op_len_data.clear();
-        break;
-
-      default:
-        op_len_data.push_back(token);
-        break;
-    }
-  }
-
-  // Parse the last operation length
-  parse_operation_length();
-
-  auto curr_ref_idx = static_cast<usize>(mRefStart);
-  auto curr_qry_idx = static_cast<usize>(mQryStart);
-  LANCET_ASSERT(cig_ops.size() == cig_lens.size())
-
-  const auto update_ref_qry_idxs = [&curr_ref_idx, &curr_qry_idx](const hts::CigarOp cig_op, const usize len) {
-    if (cig_op == hts::CigarOp::ALIGNMENT_MATCH || cig_op == hts::CigarOp::SEQUENCE_MISMATCH) {
-      curr_ref_idx += len;
-      curr_qry_idx += len;
-      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx - len, curr_ref_idx},
-                                            StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
-    }
-
-    if (cig_op == hts::CigarOp::DELETION) {
-      curr_ref_idx += len;
-      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx - len, curr_ref_idx},
-                                            StartEndIndices{curr_qry_idx, curr_qry_idx}};
-    }
-
-    if (cig_op == hts::CigarOp::INSERTION) {
-      curr_qry_idx += len;
-      return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx, curr_ref_idx},
-                                            StartEndIndices{curr_qry_idx - len, curr_qry_idx}};
-    }
-
-    return std::array<StartEndIndices, 2>{StartEndIndices{curr_ref_idx, curr_ref_idx},
-                                          StartEndIndices{curr_qry_idx, curr_qry_idx}};
-  };
-
-  for (usize idx = 0; idx < cig_ops.size(); ++idx) {
-    // Skip adding indel chunks to the result chunks
-    if (cig_ops[idx] == hts::CigarOp::INSERTION || cig_ops[idx] == hts::CigarOp::DELETION) {
-      update_ref_qry_idxs(cig_ops[idx], cig_lens[idx]);
-      continue;
-    }
-
-    const auto is_match = cig_ops[idx] == hts::CigarOp::ALIGNMENT_MATCH;
-    const auto [ref_range, qry_range] = update_ref_qry_idxs(cig_ops[idx], cig_lens[idx]);
-
-    if (result_chunks.empty()) {
-      result_chunks.emplace_back(RefQryAlnChunk{ref_range, qry_range, is_match ? cig_lens[idx] : 0});
-      continue;
-    }
-
-    // If previous operation is non indel, then add to previous existing chunk, instead of creating a new one
-    if (cig_ops[idx - 1] == hts::CigarOp::ALIGNMENT_MATCH || cig_ops[idx - 1] == hts::CigarOp::SEQUENCE_MISMATCH) {
-      result_chunks.back().mRefRange[1] = ref_range[1];
-      result_chunks.back().mQryRange[1] = qry_range[1];
-      // NOLINTNEXTLINE(readability-braces-around-statements)
-      if (is_match) result_chunks.back().mNumExactMatches += cig_lens[idx];
-      continue;
-    }
-
-    result_chunks.emplace_back(RefQryAlnChunk{ref_range, qry_range, is_match ? cig_lens[idx] : 0});
-  }
-
-  return result_chunks;
-}
-
-auto Genotyper::AlnInfo::FindQueryStartForAllele(const RefQryIdentityRanges& ref_qry_equal_ranges,
-                                                 const NonIndelChunks& ref_qry_non_indel_ranges,
-                                                 const StartEndIndices& allele_span) const -> std::optional<usize> {
-  const auto& [hap_identity_ranges, read_identity_ranges] = ref_qry_equal_ranges;
-  const auto [var_allele_start, var_allele_end] = allele_span;
-  const auto one_third_read_length = static_cast<usize>(0.30 * f64(mQryLen));
-  LANCET_ASSERT(hap_identity_ranges.size() == read_identity_ranges.size())
-
-  for (usize idx = 0; idx < hap_identity_ranges.size(); ++idx) {
-    const auto [aln_hap_match_start, aln_hap_match_end] = hap_identity_ranges[idx];
-    const auto [read_match_start, read_match_end] = read_identity_ranges[idx];
-
-    // For genotyping small variant alleles, where variant is within read matches
-    // Check if variant allele is contained within the alignment match span
-    if (aln_hap_match_start < var_allele_start && aln_hap_match_end > var_allele_end) {
-      const auto allele_to_hap_match_start_diff = var_allele_start - aln_hap_match_start;
-      return read_match_start + allele_to_hap_match_start_diff;
-    }
-
-    // For genotyping longer variant alleles, where read matches are within variant
-    // Check if atleast 30% of the read matches the haplotype sequence exactly and
-    // the entire match portion of the read lies within the variant allele span
-    // This will usually only happen for long alleles or greater then read length.
-    const auto partial_read_hap_match = (read_match_end - read_match_start) >= one_third_read_length;
-    if (partial_read_hap_match && var_allele_start <= aln_hap_match_start && var_allele_end >= aln_hap_match_end) {
-      return read_match_start;
-    }
-  }
-
-  static constexpr usize LONG_ALLELE_THRESHOLD = 50;
-  static constexpr f64 MIN_REQUIRED_MATCH_PERCENT = 0.9;
-
-  // If long allele, allow fuzzy comparison of read & allele. i.e Match & Mismatch
-  const auto var_length = var_allele_end - var_allele_start + 1;
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (var_length < LONG_ALLELE_THRESHOLD) return std::nullopt;
-
-  for (const auto& non_indel_chunk : ref_qry_non_indel_ranges) {
-    const auto chunk_len = static_cast<f64>(non_indel_chunk.mQryRange[1] - non_indel_chunk.mQryRange[0] + 1);
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (chunk_len < static_cast<f64>(one_third_read_length)) continue;
-
-    const auto min_needed_matches = static_cast<usize>(std::ceil(chunk_len * MIN_REQUIRED_MATCH_PERCENT));
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (non_indel_chunk.mNumExactMatches < min_needed_matches) continue;
-
-    const auto [aln_hap_non_indel_start, aln_hap_non_indel_end] = non_indel_chunk.mRefRange;
-    const auto [read_non_indel_start, read_non_indel_end] = non_indel_chunk.mQryRange;
-
-    // Check if variant allele is contained within the alignment non indel span
-    if (aln_hap_non_indel_start < var_allele_start && aln_hap_non_indel_end > var_allele_end) {
-      const auto allele_to_hap_non_indel_start_diff = var_allele_start - aln_hap_non_indel_start;
-      return read_non_indel_start + allele_to_hap_non_indel_start_diff;
-    }
-
-    // Check if alignment non indel span is contained within variant allele
-    if (var_allele_start <= aln_hap_non_indel_start && var_allele_end >= aln_hap_non_indel_end) {
-      return read_non_indel_start;
-    }
-  }
-
-  return std::nullopt;
-}
-
-void Genotyper::ResetData(Haplotypes sequences) {
-  mIndices.clear();
-  mIndices.reserve(sequences.size() + 1);
-
-  const auto* iopts = mIndexingOpts.get();
-  std::ranges::for_each(sequences, [this, &iopts](const std::string& seq) {
-    const char* raw_seq = seq.c_str();
-    auto* idx_result = mm_idx_str(iopts->w, iopts->k, 0, iopts->bucket_bits, 1, &raw_seq, nullptr);
-    this->mIndices.emplace_back(Minimap2Index(idx_result));
-  });
-
-  auto* mopts = mMappingOpts.get();
-  std::ranges::for_each(mIndices, [&mopts](const Minimap2Index& mm2_idx) { mm_mapopt_update(mopts, mm2_idx.get()); });
-}
-
-auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
-  std::vector<AlnInfo> results;
+// ============================================================================
+// AlignToAllHaplotypes: map a read to all haplotype indices via mm_map.
+//
+// Uses minimap2's full pipeline (seed → chain → extend) which is much faster
+// than raw ksw2 DP for well-matching sequences because seeding resolves most
+// of the alignment before DP is even invoked.
+//
+// Early-exit: if a read has a perfect match to any haplotype (identity ≈ 1.0,
+// full query coverage), skip remaining haplotypes. This read unambiguously
+// belongs to that haplotype and doesn't need comparison.
+// ============================================================================
+auto Genotyper::AlignToAllHaplotypes(const cbdg::Read& read) -> std::vector<Mm2AlnResult> {
+  std::vector<Mm2AlnResult> results;
   results.reserve(mIndices.size());
 
   int nregs = 0;
@@ -406,40 +127,44 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
   const auto read_len = static_cast<int>(read.Length());
 
   for (usize idx = 0; idx < mIndices.size(); ++idx) {
-    AlnInfo aln_info;
-
     const auto* hap_mm_idx = mIndices[idx].get();
     auto* regs = mm_map(hap_mm_idx, read_len, read.SeqPtr(), &nregs, tbuffer, map_opts, read.QnamePtr());
+
     if (regs == nullptr || nregs <= 0) {
-      FreeMinimap2Alignment(regs, nregs);
+      FreeMm2Alignment(regs, nregs);
       continue;
     }
 
+    // Take the top hit only (best_n = 1)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const mm_reg1_t* top_hit = &regs[0];
-    aln_info.mRefStart = top_hit->rs;
-    aln_info.mQryStart = top_hit->qs;
-    aln_info.mRefEnd = top_hit->re;
-    aln_info.mQryEnd = top_hit->qe;
-    aln_info.mDpScore = top_hit->score;
-    aln_info.mGcIden = mm_event_identity(top_hit);
-    aln_info.mHapIdx = idx;
-    aln_info.mQryLen = read.Length();
 
-    int max_len = 0;
-    char* cs_result_ptr = nullptr;
-    const auto len_cs = mm_gen_cs(tbuffer->km, &cs_result_ptr, &max_len, hap_mm_idx, top_hit, read.SeqPtr(), 1);
-    if (len_cs > 0 && cs_result_ptr != nullptr) {
-      aln_info.mCsTag = std::string_view(cs_result_ptr, static_cast<usize>(len_cs));
-      std::free(cs_result_ptr);  // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
+    Mm2AlnResult result;
+    result.score = top_hit->score;
+    result.ref_start = top_hit->rs;  // critical: where alignment starts on haplotype
+    result.ref_end = top_hit->re;
+    result.identity = mm_event_identity(top_hit);
+    result.hap_idx = idx;
+
+    // Extract CIGAR from mm_extra_t
+    if (top_hit->p != nullptr && top_hit->p->n_cigar > 0) {
+      result.cigar.reserve(top_hit->p->n_cigar);
+      for (u32 k = 0; k < top_hit->p->n_cigar; ++k) {
+        result.cigar.emplace_back(top_hit->p->cigar[k]);
+      }
     }
 
-    results.emplace_back(std::move(aln_info));
-    FreeMinimap2Alignment(regs, nregs);
+    // Perfect match: every base of the read aligns to this haplotype with no mismatches.
+    // qs==0 && qe==read_len means the full query is consumed (no soft clips).
+    // identity==1.0 means zero mismatches/indels in the aligned region.
+    result.is_full_match = (top_hit->qs == 0 && top_hit->qe == read_len && result.identity == 1.0);
 
-    // If exact match with REF haplotype, skip aligning with ALTs
-    const AlnInfo& added_aln_info = results.back();
-    if (idx == REF_HAP_IDX && added_aln_info.IsFullQueryMatch()) {
+    results.push_back(std::move(result));
+    FreeMm2Alignment(regs, nregs);
+
+    // Early exit: if perfect match to any haplotype, this read
+    // unambiguously belongs here. Skip aligning to other haps.
+    if (results.back().is_full_match) {
       break;
     }
   }
@@ -447,21 +172,323 @@ auto Genotyper::AlignRead(const cbdg::Read& read) -> std::vector<AlnInfo> {
   return results;
 }
 
-void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read, const SupportsInfo& supports) {
-  const auto quals = read.QualView();
-  const auto sample_name = read.SampleName();
-  const auto rname_hash = HashStr32(read.QnameView());
-  const auto read_strand = read.BitwiseFlag().IsFwdStrand() ? Strand::FWD : Strand::REV;
+// ============================================================================
+// ComputeLocalScore: evaluate alignment quality in a variant's region.
+//
+// Given a read→haplotype CIGAR alignment, this function extracts three metrics
+// for the sub-region of the haplotype that contains the variant:
+//
+//   1. score:      PBQ-weighted DP score. Each position's substitution matrix
+//                  contribution is scaled by (1 - ε) where ε = 10^(-PBQ/10).
+//                  This down-weights low-confidence bases and up-weights
+//                  high-confidence ones, analogous to GATK's PairHMM which
+//                  bakes PBQ directly into the per-read log-likelihood.
+//
+//   2. identity:   fraction of aligned bases that are exact matches.
+//
+//   3. base_qual:  minimum Phred base quality across all read positions
+//                  that fall within the variant region (weakest-link).
+//
+// CRITICAL: tpos coordinates in the CIGAR are relative to the alignment start
+// (ref_start from mm_map), NOT position 0 of the haplotype. The caller must
+// adjust var_start by subtracting ref_start before calling this function.
+//
+//   Haplotype:   |----[var_start..........var_end)------|
+//                      ^ref_start
+//   CIGAR tpos:  0  1  2 ...
+//                      ^var_start_in_aln = var_start - ref_start
+// ============================================================================
+namespace {
 
-  for (const auto& [var_ptr, qry_start_and_allele] : supports) {
-    auto& variant_evidence = rslt.try_emplace(var_ptr, PerSampleVariantEvidence()).first->second;
-    auto& sample_variant = variant_evidence.try_emplace(sample_name, std::make_unique<VariantSupport>()).first->second;
+/// Convert a Phred quality score to confidence weight: 1 - 10^(-Q/10).
+/// Q=0 → 0.0, Q=10 → 0.9, Q=20 → 0.99, Q=30 → 0.999, Q=40 → 0.9999
+inline auto PhredToConfidence(const u8 qual) -> f64 {
+  return 1.0 - std::pow(10.0, -static_cast<f64>(qual) / 10.0);
+}
 
-    const auto [read_start_idx0, allele] = qry_start_and_allele;
-    const auto allele_len = allele == Allele::REF ? var_ptr->mRefAllele.length() : var_ptr->mAltAllele.length();
-    const auto allele_qual = static_cast<u8>(Mean(quals.subspan(read_start_idx0, allele_len)));
-    sample_variant->AddEvidence(rname_hash, allele, read_strand, allele_qual);
+struct LocalScoreResult {
+  f64 score = 0.0;      // PBQ-weighted DP score within variant region
+  f64 identity = 0.0;   // matches / total_aligned in variant region
+  u8 base_qual = 0;     // min PBQ across read positions in variant region
+};
+
+/// Accumulates alignment statistics within a variant region.
+/// Encapsulates all scoring state so the CIGAR walk loop stays clean.
+struct RegionAccumulator {
+  const absl::Span<const u8> query;
+  const absl::Span<const u8> target;
+  const absl::Span<const u8> base_quals;
+  const std::array<i8, 25>& scoring_matrix;
+  const usize var_start;
+  const usize var_end;
+
+  f64 score = 0.0;
+  usize matches = 0;
+  usize aligned = 0;
+  u8 min_bq = 255;
+
+  [[nodiscard]] auto InRegion(usize tpos) const -> bool {
+    return tpos >= var_start && tpos < var_end;
   }
+
+  /// Score an aligned base pair at (tpos, qpos) within the variant region.
+  void ScoreAlignedPair(usize tpos, usize qpos) {
+    ++aligned;
+    if (qpos >= query.size() || tpos >= target.size()) return;
+
+    const auto raw = scoring_matrix[target[tpos] * 5 + query[qpos]];
+    const f64 weight = (qpos < base_quals.size()) ? PhredToConfidence(base_quals[qpos]) : 1.0;
+    score += static_cast<f64>(raw) * weight;
+    matches += static_cast<usize>(query[qpos] == target[tpos]);
+  }
+
+  /// Track the minimum base quality at a query position.
+  void TrackBaseQual(usize qpos) {
+    if (qpos < base_quals.size()) {
+      min_bq = std::min(min_bq, base_quals[qpos]);
+    }
+  }
+
+  /// Finalize accumulated stats into a LocalScoreResult.
+  [[nodiscard]] auto ToResult() const -> LocalScoreResult {
+    return {
+        .score = score,
+        .identity = aligned > 0 ? static_cast<f64>(matches) / static_cast<f64>(aligned) : 0.0,
+        // min_bq stays 255 if no query positions fell in the region (pure deletion).
+        // Default to 0 = no base quality evidence available.
+        // See ReadAlleleAssignment::base_qual_at_var in genotyper.h for rationale.
+        .base_qual = (min_bq == 255) ? u8{0} : min_bq,
+    };
+  }
+};
+
+auto ComputeLocalScore(const std::vector<hts::CigarUnit>& cigar,
+                       absl::Span<const u8> query, absl::Span<const u8> target,
+                       absl::Span<const u8> base_quals,
+                       const usize var_start, const usize var_len,
+                       const std::array<i8, 25>& scoring_matrix) -> LocalScoreResult {
+  if (cigar.empty() || var_len == 0) return {};
+
+  RegionAccumulator acc{query, target, base_quals, scoring_matrix, var_start, var_start + var_len};
+  usize tpos = 0;
+  usize qpos = 0;
+
+  for (const auto& unit : cigar) {
+    if (tpos >= acc.var_end && unit.ConsumesReference()) break;
+
+    const auto op = unit.Operation();
+    const u32 len = unit.Length();
+
+    switch (op) {
+      case hts::CigarOp::ALIGNMENT_MATCH:
+      case hts::CigarOp::SEQUENCE_MATCH:
+      case hts::CigarOp::SEQUENCE_MISMATCH: {
+        for (u32 i = 0; i < len; ++i, ++tpos, ++qpos) {
+          if (!acc.InRegion(tpos)) continue;
+          acc.ScoreAlignedPair(tpos, qpos);
+          acc.TrackBaseQual(qpos);
+        }
+        break;
+      }
+
+      case hts::CigarOp::INSERTION: {
+        // Inserted bases don't advance tpos, but if we're inside the variant
+        // region they count as aligned content and contribute PBQ.
+        const bool in_region = (tpos > var_start && tpos <= acc.var_end);
+        for (u32 i = 0; i < len; ++i, ++qpos) {
+          if (!in_region) continue;
+          ++acc.aligned;
+          acc.TrackBaseQual(qpos);
+        }
+        break;
+      }
+
+      case hts::CigarOp::DELETION: {
+        // No query base → no PBQ contribution, just track aligned count.
+        for (u32 i = 0; i < len; ++i, ++tpos) {
+          if (acc.InRegion(tpos)) ++acc.aligned;
+        }
+        break;
+      }
+
+      case hts::CigarOp::SOFT_CLIP:      { qpos += len; break; }
+      case hts::CigarOp::REFERENCE_SKIP:  { tpos += len; break; }
+      default: break;
+    }
+  }
+
+  return acc.ToResult();
+}
+
+}  // namespace
+
+// ============================================================================
+// AssignReadToAlleles: the Phase 2 abstraction boundary.
+//
+// For each variant in the VariantSet, determines which allele this read
+// supports by comparing combined (global + local * identity) alignment scores
+// across all haplotypes that carry that variant.
+//
+// CRITICAL FIX: mm_map's CIGAR is relative to ref_start (where the alignment
+// begins on the haplotype), NOT position 0. So when computing local scores,
+// the variant's position must be adjusted: var_start_in_aln = var_start - ref_start.
+// If the variant falls outside the alignment span, it's skipped.
+// ============================================================================
+auto Genotyper::AssignReadToAlleles(const cbdg::Read& read,
+                                    const VariantSet& vset) -> PerVariantAssignment {
+  auto all_alns = AlignToAllHaplotypes(read);
+  if (all_alns.empty()) {
+    return {};
+  }
+
+  const auto base_quals = read.QualView();
+  const auto read_seq = read.SeqView();
+  const auto encoded_query = EncodeSequence(read_seq);
+
+  PerVariantAssignment assignments;
+  for (const auto& variant : vset) {
+    ReadAlleleAssignment best{};
+    best.allele = REF_ALLELE_IDX;
+    best.global_score = 0;
+    best.local_score = 0.0;
+    best.local_identity = 0.0;
+    best.base_qual_at_var = 0;
+    bool found_any = false;
+
+    for (const auto& aln : all_alns) {
+      // Skip if this haplotype doesn't carry this variant
+      const auto hap_pos_it = variant.mHapStart0Idxs.find(aln.hap_idx);
+      if (hap_pos_it == variant.mHapStart0Idxs.end()) {
+        continue;
+      }
+
+      const auto var_start_in_hap = static_cast<i32>(hap_pos_it->second);
+      const auto var_len = std::max(variant.mRefAllele.size(), variant.mAltAllele.size());
+
+      // CRITICAL: adjust variant position relative to alignment start.
+      // mm_map's CIGAR starts at ref_start, not haplotype position 0.
+      // If the variant falls outside the alignment span, skip.
+      if (var_start_in_hap < aln.ref_start || var_start_in_hap >= aln.ref_end) {
+        continue;
+      }
+      const auto var_start_in_aln = static_cast<usize>(var_start_in_hap - aln.ref_start);
+
+      // Use pre-encoded haplotype sequence for local scoring.
+      // The CIGAR covers [ref_start, ref_end) on the haplotype, so we pass
+      // the corresponding subspan of the encoded haplotype as the target.
+      const auto aln_len = static_cast<usize>(aln.ref_end - aln.ref_start);
+      const auto target = absl::MakeConstSpan(mEncodedHaplotypes[aln.hap_idx])
+                              .subspan(static_cast<usize>(aln.ref_start), aln_len);
+
+      const auto local = ComputeLocalScore(
+          aln.cigar, absl::MakeConstSpan(encoded_query), target,
+          base_quals, var_start_in_aln, var_len, genotyper_detail::SCORING_MATRIX);
+
+      // Use combined score (global + local * identity) for allele assignment.
+      // See ReadAlleleAssignment comment block for rationale.
+      const f64 combined = static_cast<f64>(aln.score) + (local.score * local.identity);
+      if (!found_any || combined > best.CombinedScore()) {
+        // Haplotype index ≠ allele index. Each RawVariant is bi-allelic:
+        // REF haplotype (idx 0) → allele 0, any ALT haplotype → allele 1.
+        // Multiple haplotypes may carry the same ALT allele.
+        best.allele = (aln.hap_idx == REF_HAP_IDX) ? REF_ALLELE_IDX : AlleleIndex{1};
+        best.global_score = aln.score;
+        best.local_score = local.score;
+        best.local_identity = local.identity;
+        best.base_qual_at_var = local.base_qual;
+        found_any = true;
+      }
+    }
+
+    if (found_any) {
+      assignments.emplace(&variant, best);
+    }
+  }
+
+  return assignments;
+}
+
+// ============================================================================
+// AddToTable: record a read's allele assignments into per-variant support.
+//
+// Constructs ReadEvidence with all available read-level metrics:
+//   - base quality at the variant position
+//   - original mapping quality
+//   - normalized alignment score
+//   - strand direction
+// All metrics flow through to VCF FORMAT fields via VariantSupport aggregation.
+// ============================================================================
+void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read,
+                           const PerVariantAssignment& assignments) {
+  const auto sample_name = read.SampleName();
+  const auto rname_hash = absl::HashOf(read.QnameView());
+  const auto strand = read.BitwiseFlag().IsRevStrand() ? Strand::REV : Strand::FWD;
+
+  for (const auto& [var_ptr, assignment] : assignments) {
+    // Look up (or create) the per-sample evidence aggregator for this variant.
+    // Result is keyed: variant → sample_name → VariantSupport.
+    // operator[] default-inserts at both levels if the key is absent:
+    //   rslt[var_ptr]              → inserts empty PerSampleEvidence map
+    //   rslt[var_ptr][sample_name] → inserts null unique_ptr<VariantSupport>
+    // The null check below then constructs the VariantSupport on first access.
+    auto& support = rslt[var_ptr][sample_name];
+    if (!support) {
+      support = std::make_unique<VariantSupport>();
+    }
+
+    VariantSupport::ReadEvidence evidence;
+    evidence.rname_hash = static_cast<u32>(rname_hash);
+    evidence.allele = assignment.allele;
+    evidence.strand = strand;
+    evidence.base_qual = assignment.base_qual_at_var;
+    evidence.map_qual = read.MapQual();
+    evidence.aln_score = static_cast<f64>(assignment.CombinedScore());
+
+    support->AddEvidence(evidence);
+  }
+}
+
+// ============================================================================
+// Genotype: main entry point — orchestrates alignment and evidence collection.
+//
+//  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+//  │  Haplotypes   │   │    Reads     │   │  VariantSet  │
+//  │ (REF + ALTs)  │   │  (all samps) │   │ (raw vars)   │
+//  └───────┬───────┘   └──────┬───────┘   └──────┬───────┘
+//          │                  │                   │
+//          ▼                  │                   │
+//   ResetData()               │                   │
+//   (build mm2 indices)       │                   │
+//          │                  │                   │
+//          │    ┌─────────────┘                   │
+//          │    │                                 │
+//          ▼    ▼                                 │
+//   AssignReadToAlleles() ◄──────────────────────┘
+//   (mm_map per hap,
+//    local scoring per var)
+//          │
+//          ▼
+//   AddToTable()
+//   (ReadEvidence → VariantSupport)
+//          │
+//          ▼
+//   ┌──────────────┐
+//   │    Result     │
+//   │  per-variant  │
+//   │  per-sample   │
+//   │  support      │
+//   └──────────────┘
+// ============================================================================
+auto Genotyper::Genotype(Haplotypes haps, Reads reads, const VariantSet& vset) -> Result {
+  ResetData(haps);
+
+  Result result;
+  for (const auto& read : reads) {
+    auto assignments = AssignReadToAlleles(read, vset);
+    AddToTable(result, read, assignments);
+  }
+
+  return result;
 }
 
 }  // namespace lancet::caller

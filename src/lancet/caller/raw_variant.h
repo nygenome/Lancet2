@@ -2,12 +2,45 @@
 #define SRC_LANCET_CALLER_RAW_VARIANT_H_
 
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "lancet/base/types.h"
 
 namespace lancet::caller {
+
+// ============================================================================
+// LocusKey: groups RawVariants at the same genomic position for multi-allelic
+// VCF output. Two variants with the same LocusKey (chrom, position, ref allele)
+// become a single VCF record with comma-separated ALTs.
+//
+// Example:
+//   RawVariant{chr1, 100, A→T}  ─┐
+//                                 ├─ same LocusKey → VCF: chr1 100 . A T,G ...
+//   RawVariant{chr1, 100, A→G}  ─┘
+// ============================================================================
+struct LocusKey {
+  usize chrom_index = 0;
+  usize genome_start1 = 0;
+  std::string_view ref_allele;
+
+  friend auto operator==(const LocusKey& lhs, const LocusKey& rhs) -> bool {
+    return std::tie(lhs.chrom_index, lhs.genome_start1, lhs.ref_allele) ==
+           std::tie(rhs.chrom_index, rhs.genome_start1, rhs.ref_allele);
+  }
+
+  friend auto operator<(const LocusKey& lhs, const LocusKey& rhs) -> bool {
+    return std::tie(lhs.chrom_index, lhs.genome_start1, lhs.ref_allele) <
+           std::tie(rhs.chrom_index, rhs.genome_start1, rhs.ref_allele);
+  }
+
+  template <typename H>
+  friend auto AbslHashValue(H hash_state, const LocusKey& key) -> H {
+    return H::combine(std::move(hash_state), key.chrom_index, key.genome_start1, key.ref_allele);
+  }
+};
 
 class RawVariant {
  public:
@@ -28,6 +61,11 @@ class RawVariant {
   // haplotype index identifier -> start index of variant in haplotype
   absl::flat_hash_map<usize, usize> mHapStart0Idxs;
   // NOLINTEND(misc-non-private-member-variables-in-classes)
+
+  // Create a key for grouping variants at the same locus into multi-allelic records.
+  [[nodiscard]] auto MakeLocusKey() const -> LocusKey {
+    return {mChromIndex, mGenomeStart1, mRefAllele};
+  }
 
   template <typename HashState>
   friend auto AbslHashValue(HashState hash_state, const RawVariant& var) -> HashState {

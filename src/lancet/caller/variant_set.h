@@ -5,6 +5,7 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
@@ -38,6 +39,13 @@ class VariantSet {
 
   [[nodiscard]] auto IsEmpty() const -> bool { return mResultVariants.empty(); }
   [[nodiscard]] auto Count() const -> usize { return mResultVariants.size(); }
+
+  // Group variants by locus for multi-allelic VCF output.
+  // Variants at the same (chrom, position, ref_allele) become a single
+  // VCF record with comma-separated ALTs.
+  using LocusGroup = std::vector<const RawVariant*>;
+  using GroupedVariants = absl::btree_map<LocusKey, LocusGroup>;
+  [[nodiscard]] auto GroupByLocus() const -> GroupedVariants;
 
  private:
   absl::btree_set<RawVariant> mResultVariants;

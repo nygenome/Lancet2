@@ -334,26 +334,23 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles">
-##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on forward strand">
-##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Number of reads supporting REF and ALT alleles on reverse strand">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Read depth in the sample at the variant site">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth per allele (REF, ALT1, ALT2, ...)">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Forward strand read depth per allele">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Reverse strand read depth per allele">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth at the variant site">
+##FORMAT=<ID=RMQ,Number=R,Type=Float,Description="RMS mapping quality per allele">
+##FORMAT=<ID=PBQ,Number=R,Type=Float,Description="Posterior base quality per allele (Bayesian aggregation)">
+##FORMAT=<ID=SB,Number=R,Type=Float,Description="Strand bias ratio per allele (fwd/total)">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality (second-lowest PL, capped at 99)">
 )raw"sv;
   // clang-format on
-
-  static const auto should_exclude_chrom = [](std::string_view chrom) -> bool {
-    return chrom == "MT" || chrom == "chrM" || absl::StartsWith(chrom, "GL") || absl::StartsWith(chrom, "chrUn") ||
-           absl::StartsWith(chrom, "chrEBV") || absl::StartsWith(chrom, "HLA-") || absl::EndsWith(chrom, "_random") ||
-           absl::EndsWith(chrom, "_alt") || absl::EndsWith(chrom, "_decoy");
-  };
 
   std::string contig_hdr_lines;
   static constexpr usize CONTIGS_BUFFER_SIZE = 524288;
   contig_hdr_lines.reserve(CONTIGS_BUFFER_SIZE);
   const hts::Reference ref(params.mVariantBuilder.mRdCollParams.mRefPath);
   for (const auto &chrom : ref.ListChroms()) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (should_exclude_chrom(chrom.Name())) continue;
     absl::StrAppend(&contig_hdr_lines, fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
   }
 
