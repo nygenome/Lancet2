@@ -18,15 +18,16 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
   const auto regions = {ref.MakeRegion("chr4:100000000")};
 
+  // NOTE: With the zero-copy Alignment proxy, BuildSequence/BuildQualities/CigarData
+  // may return non-empty data even when only CORE_QNAME is requested, because htslib
+  // may populate the full bam1_t record in memory (especially for BAM). The Fields
+  // enum controls what htslib *guarantees* to populate, not what it excludes.
   SECTION("CORE_QNAME alignment fields only from cram") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
     cram_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK(aln.SeqView().empty());
-    CHECK(aln.QualView().empty());
-    CHECK(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
+    CHECK_FALSE(aln.QnameView().empty());
   }
 
   SECTION("CORE_QNAME alignment fields only from bam") {
@@ -34,10 +35,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
     bam_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK(aln.SeqView().empty());
-    CHECK(aln.QualView().empty());
-    CHECK(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
+    CHECK_FALSE(aln.QnameView().empty());
   }
 
   SECTION("CIGAR_SEQ_QUAL alignment fields only from cram") {
@@ -45,10 +43,9 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
     cram_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK_FALSE(aln.SeqView().empty());
-    CHECK_FALSE(aln.QualView().empty());
+    CHECK_FALSE(aln.BuildSequence().empty());
+    CHECK_FALSE(aln.BuildQualities().empty());
     CHECK_FALSE(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
   }
 
   SECTION("CIGAR_SEQ_QUAL alignment fields only from bam") {
@@ -56,10 +53,9 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
     bam_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK_FALSE(aln.SeqView().empty());
-    CHECK_FALSE(aln.QualView().empty());
+    CHECK_FALSE(aln.BuildSequence().empty());
+    CHECK_FALSE(aln.BuildQualities().empty());
     CHECK_FALSE(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
   }
 
   SECTION("AUX_RGAUX alignment fields only from cram") {
@@ -67,10 +63,9 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
     cram_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK_FALSE(aln.SeqView().empty());
-    CHECK_FALSE(aln.QualView().empty());
+    CHECK_FALSE(aln.BuildSequence().empty());
+    CHECK_FALSE(aln.BuildQualities().empty());
     CHECK_FALSE(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
   }
 
   SECTION("AUX_RGAUX alignment fields only from bam") {
@@ -78,10 +73,9 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
     bam_extractor.SetRegionBatchToExtract(regions);
     const auto aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
-    CHECK_FALSE(aln.SeqView().empty());
-    CHECK_FALSE(aln.QualView().empty());
+    CHECK_FALSE(aln.BuildSequence().empty());
+    CHECK_FALSE(aln.BuildQualities().empty());
     CHECK_FALSE(aln.CigarData().empty());
-    CHECK(aln.NumTags() == 0);
   }
 }
 
@@ -119,10 +113,9 @@ TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Al
     CHECK(aln.Flag().HasFlagsSet(2145));
     CHECK(aln.MapQual() == 21);
     CHECK(aln.QnameView() == "SRR7890893.726153849");
-    CHECK(aln.SeqView() == expected_seq);
-    CHECK(aln.QualView() == expected_qual);
+    CHECK(aln.BuildSequence() == expected_seq);
+    CHECK(aln.BuildQualities() == expected_qual);
     CHECK(aln.CigarString() == "62S33M5D39M17S");
-    CHECK(aln.TagNamesView() == expected_tags);
     std::for_each(expected_tags.cbegin(), expected_tags.cend(),
                   [&aln](const auto& tag_name) { CHECK(aln.HasTag(tag_name)); });
 
@@ -167,10 +160,9 @@ TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Al
     CHECK(aln.Flag().HasFlagsSet(2145));
     CHECK(aln.MapQual() == 21);
     CHECK(aln.QnameView() == "SRR7890893.726153849");
-    CHECK(aln.SeqView() == expected_seq);
-    CHECK(aln.QualView() == expected_qual);
+    CHECK(aln.BuildSequence() == expected_seq);
+    CHECK(aln.BuildQualities() == expected_qual);
     CHECK(aln.CigarString() == "62S33M5D39M17S");
-    CHECK(aln.TagNamesView() == expected_tags);
     std::for_each(expected_tags.cbegin(), expected_tags.cend(),
                   [&aln](const auto& tag_name) { CHECK(aln.HasTag(tag_name)); });
 

@@ -4,117 +4,50 @@
 #include <optional>
 #include <utility>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/hash/hash.h"
+#include "absl/container/chunked_queue.h"
 #include "absl/strings/str_cat.h"
 #include "lancet/base/assert.h"
-#include "lancet/cbdg/graph.h"
-#include "lancet/cbdg/kmer.h"
-#include "lancet/cbdg/node.h"
 
 namespace lancet::cbdg {
 
-MaxFlow::MaxFlow(const Graph::NodeTable *graph, const NodeIDPair &src_and_snk, const usize currk)
-    : mGraph(graph), mCurrentK(currk) {
-  const auto [source_id, sink_id] = src_and_snk;
-  const auto src_itr = mGraph->find(source_id);
-  LANCET_ASSERT(src_itr != mGraph->end())
-  LANCET_ASSERT(src_itr->second != nullptr)
-  mSource = src_itr->second.get();
-
-  const auto snk_itr = mGraph->find(sink_id);
-  LANCET_ASSERT(snk_itr != mGraph->end());
-  LANCET_ASSERT(snk_itr->second != nullptr)
-  mSink = snk_itr->second.get();
+MaxFlow::MaxFlow(const Graph::NodeTable *graph, const NodeIDPair &src_and_snk,
+                 const usize currk, const TraversalIndex *trav_idx)
+    : mGraph(graph), mIndex(trav_idx), mCurrentK(currk) {
+  LANCET_ASSERT(mGraph != nullptr)
+  LANCET_ASSERT(mIndex != nullptr)
 }
 
-auto MaxFlow::NextPath() -> Result {
-  auto walk = BuildNextWalk();
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (!walk.has_value() || walk->empty()) return std::nullopt;
-  return BuildSequence(*walk);
-}
-
-auto MaxFlow::BuildNextWalk() -> std::optional<Walk> {
-  using WalkID = usize;
-
-  usize nvisits = 0;
-  Walk best_possible_walk;
-  CandidateWalks candidates;
-  absl::flat_hash_map<WalkID, u64> walk_scores;
-
-  static const auto make_walk_id = absl::Hash<Walk>();
-  const auto dflt_src_sign = mSource->SignFor(Kmer::Ordering::DEFAULT);
-  static constexpr usize ESTIMATED_WALK_LENGTH = 128;
-
-  // Add outgoing edges from source node as seed walks for traversal
-  PopulateWalkableEdgesInDirection(mSource, dflt_src_sign);
-  for (const Edge &conn : mWalkableEdges) {
-    Walk seed_walk;
-    seed_walk.reserve(ESTIMATED_WALK_LENGTH);
-    seed_walk.emplace_back(conn);
-    candidates.emplace_back(std::move(seed_walk));
-
-    const auto is_uniq_edge = mTraversed.find(conn) == mTraversed.cend();
-    const auto identifier = make_walk_id(candidates.back());
-    walk_scores.emplace(identifier, is_uniq_edge ? 1 : 0);
+// ============================================================================
+//  ReconstructWalk — Follow parent pointers from leaf to root
+// ============================================================================
+//
+// The walk tree stores edges as parent-linked arena nodes. To get the full
+// ordered edge list (source → ... → sink), we walk backwards from the leaf
+// to root (NO_PARENT), collecting edges, then reverse.
+//
+//   Arena: [0: edge₀,NO_PARENT] [1: edge₁,0] [2: edge₂,1] [3: edge₃,2]
+//   Leaf = 3: traverse 3→2→1→0 → edges = [e₃,e₂,e₁,e₀] → reverse → [e₀,e₁,e₂,e₃]
+//
+auto MaxFlow::ReconstructWalk(const std::vector<WalkTreeNode> &arena, const u32 leaf_idx) const -> Walk {
+  Walk edges;
+  u32 idx = leaf_idx;
+  while (idx != TraversalIndex::NO_PARENT) {
+    edges.push_back(mIndex->mOrigEdges[arena[idx].mEdgeOrdinal]);
+    idx = arena[idx].mParentIdx;
   }
-
-  while (!candidates.empty()) {
-    nvisits++;
-
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (nvisits > Graph::DEFAULT_GRAPH_TRAVERSAL_LIMIT) break;
-
-    const Walk &current_walk = candidates.front();
-    const Edge &last_edge = current_walk.back();
-    const Node *leaf_node = mGraph->at(last_edge.DstId()).get();
-
-    const auto walk_direction = last_edge.DstSign();
-    const auto candidate_walk_id = make_walk_id(current_walk);
-    const auto current_score = walk_scores.at(candidate_walk_id);
-
-    // If we touched sink node and have at-least one unique edge,
-    // we set the current path as the best possible path and return
-    if (leaf_node->Identifier() == mSink->Identifier() && current_score > 0) {
-      walk_scores.erase(candidate_walk_id);
-      best_possible_walk = candidates.front();
-      break;
-    }
-
-    // If we touched sink node and do not have any unique edge,
-    // we pop the current path from deque and keep searching
-    if (leaf_node->Identifier() == mSink->Identifier() && current_score == 0) {
-      walk_scores.erase(candidate_walk_id);
-      candidates.pop_front();
-      continue;
-    }
-
-    PopulateWalkableEdgesInDirection(leaf_node, walk_direction);
-    for (const Edge &conn : mWalkableEdges) {
-      Walk extension = current_walk;
-      extension.reserve(ESTIMATED_WALK_LENGTH);
-      extension.emplace_back(conn);
-      candidates.emplace_back(std::move(extension));
-
-      const auto is_uniq_edge = mTraversed.find(conn) == mTraversed.end();
-      const auto identifier = make_walk_id(candidates.back());
-      walk_scores.emplace(identifier, is_uniq_edge ? current_score + 1 : current_score);
-    }
-
-    LANCET_ASSERT(!candidates.empty())
-    walk_scores.erase(candidate_walk_id);
-    candidates.pop_front();
-  }
-
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (best_possible_walk.empty()) return std::nullopt;
-
-  mTraversed.insert(best_possible_walk.cbegin(), best_possible_walk.cend());
-  return best_possible_walk;
+  std::ranges::reverse(edges);
+  return edges;
 }
 
-auto MaxFlow::BuildSequence(WalkView walk) const -> Result {
+// ============================================================================
+//  BuildSequence — Assemble haplotype DNA sequence from a walk
+// ============================================================================
+//
+// Each edge in the walk connects two nodes whose sequences overlap by (k-1)
+// bases. The haplotype sequence is built by concatenating the non-overlapping
+// suffix of each destination node's sequence.
+//
+auto MaxFlow::BuildSequence(const WalkView walk) const -> Result {
   LANCET_ASSERT(!walk.empty())
 
   usize total_seq_len = 0;
@@ -158,26 +91,146 @@ auto MaxFlow::BuildSequence(WalkView walk) const -> Result {
   return merged_seq;
 }
 
-void MaxFlow::PopulateWalkableEdgesInDirection(const Node *src, Kmer::Sign dir) {
-  LANCET_ASSERT(src != nullptr)
-  mWalkableEdges.clear();
-  mWalkableEdges.reserve(src->NumOutEdges());
+// ============================================================================
+//  NextPath — Find the Next Walk with At Least One New Edge
+// ============================================================================
+//
+// This is the core walk enumeration routine, matching the original Lancet
+// algorithm's semantics but using the walk-tree arena to eliminate the
+// exponential walk-vector copying that was the original bottleneck.
+//
+// ALGORITHM
+// ----------
+// 1. BFS from source, building a walk tree in an arena.
+// 2. Each arena node tracks its accumulated "score" — the count of edges
+//    on its walk that are NOT in mTraversedOrdinals.
+// 3. When BFS reaches the sink:
+//    a. If score > 0 → this walk has at least one new edge. Accept it.
+//    b. If score == 0 → this walk only uses already-traversed edges. Skip.
+// 4. After accepting a walk, its edges are added to mTraversedOrdinals
+//    so subsequent calls will seek walks containing OTHER new edges.
+// 5. BFS is bounded by DEFAULT_GRAPH_TRAVERSAL_LIMIT visits to prevent
+//    combinatorial blowup on pathological graphs.
+//
+//   SCORE PROPAGATION IN THE WALK TREE
+//   ┌──────────────────────────────────────────────────────┐
+//   │ Source outgoing edges: e₀ (new, score=1), e₁ (old)  │
+//   │                                                      │
+//   │ Arena[0]: e₀, score=1, parent=NO_PARENT              │
+//   │ Arena[1]: e₁, score=0, parent=NO_PARENT              │
+//   │                                                      │
+//   │ Expand Arena[0] → child e₂ (old):                    │
+//   │ Arena[2]: e₂, score=1, parent=0   (inherits 1+0)    │
+//   │                                                      │
+//   │ Expand Arena[1] → child e₃ (new):                    │
+//   │ Arena[3]: e₃, score=1, parent=1   (inherits 0+1)    │
+//   │                                                      │
+//   │ If Arena[2] reaches sink: score=1 > 0 → ACCEPT      │
+//   │ Walk = reconstruct(Arena,2) → [e₀, e₂]              │
+//   │ Mark e₀ as traversed.                                │
+//   └──────────────────────────────────────────────────────┘
+//
+// WHY SCORE > 0 IS REQUIRED
+// ---------------------------
+// Without the score check, the algorithm would keep returning the same
+// walk (or walks with only already-traversed edges) indefinitely.
+// The score ensures monotonic progress: each call returns a walk with
+// at least one edge not seen in any previous walk. When no such walk
+// exists, the enumeration terminates.
+//
+auto MaxFlow::NextPath() -> Result {
+  std::vector<WalkTreeNode> arena;
+  arena.reserve(mIndex->NumNodes() * 2);
 
-  std::ranges::copy_if(*src, std::back_inserter(mWalkableEdges),
-                       [&dir](const Edge &edge) -> bool { return edge.SrcSign() == dir; });
+  // BFS frontier: arena indices of tree nodes to expand.
+  absl::chunked_queue<u32, 256, 1024> frontier;
 
-  std::ranges::sort(mWalkableEdges, [this](const Edge &lhs, const Edge &rhs) -> bool {
-    // Extend candidate paths with bfs. Sort node edges by prioritizing
-    // unwalked paths first and then sort later for deterministic traversal
-    const auto is_unwalked_lhs = this->mTraversed.find(lhs) == this->mTraversed.end();
-    const auto is_unwalked_rhs = this->mTraversed.find(rhs) == this->mTraversed.end();
-    // NOLINTBEGIN(readability-braces-around-statements)
-    if (is_unwalked_lhs != is_unwalked_rhs) return is_unwalked_lhs;
-    if (lhs.SrcId() != rhs.SrcId()) return lhs.SrcId() < rhs.SrcId();
-    if (lhs.DstId() != rhs.DstId()) return lhs.DstId() < rhs.DstId();
-    return static_cast<u64>(lhs.Kind()) < static_cast<u64>(rhs.Kind());
-    // NOLINTEND(readability-braces-around-statements)
-  });
+  // Seed: outgoing edges from source state.
+  // Enqueue untraversed edges first for BFS priority.
+  const auto &src_range = mIndex->mAdjRanges[mIndex->mSrcState];
+
+  // Pass 1: untraversed edges from source (high priority)
+  for (u32 i = 0; i < src_range.mCount; i++) {
+    const auto &out = mIndex->mAdjList[src_range.mStart + i];
+    if (mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+    const auto ai = static_cast<u32>(arena.size());
+    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, TraversalIndex::NO_PARENT, 1);
+    frontier.push_back(ai);
+  }
+
+  // Pass 2: already-traversed edges from source (low priority)
+  for (u32 i = 0; i < src_range.mCount; i++) {
+    const auto &out = mIndex->mAdjList[src_range.mStart + i];
+    if (!mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+    const auto ai = static_cast<u32>(arena.size());
+    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, TraversalIndex::NO_PARENT, 0);
+    frontier.push_back(ai);
+  }
+
+  u32 nvisits = 0;
+  std::optional<u32> best_leaf;
+  u32 best_score = 0;
+
+  while (!frontier.empty()) {
+    nvisits++;
+    if (nvisits > Graph::DEFAULT_GRAPH_TRAVERSAL_LIMIT) break;
+
+    const u32 ai = frontier.front();
+    frontier.pop_front();
+    const auto &node = arena[ai];
+
+    // --- Sink reached: check if this walk has any new edges ---
+    if (mIndex->IsSinkState(node.mDstState)) {
+      if (node.mScore > 0 && node.mScore > best_score) {
+        best_leaf = ai;
+        best_score = node.mScore;
+        // Accept first walk with score > 0 (BFS guarantees shortest)
+        break;
+      }
+      // Score == 0: only traversed edges → skip this walk
+      continue;
+    }
+
+    // --- Expand: outgoing edges from this state ---
+    // Enqueue untraversed edges first (two-pass) to match the original code's
+    // priority logic without per-node sorting or allocation overhead.
+    // No per-walk cycle detection: the 1M visit cap (DEFAULT_GRAPH_TRAVERSAL_LIMIT)
+    // bounds exploration, and BFS FIFO order naturally prefers shorter paths.
+    const auto &range = mIndex->mAdjRanges[node.mDstState];
+
+    // Pass 1: untraversed edges (high priority — extend walk score)
+    for (u32 i = 0; i < range.mCount; i++) {
+      const auto &out = mIndex->mAdjList[range.mStart + i];
+      if (mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+      const auto child_ai = static_cast<u32>(arena.size());
+      arena.emplace_back(out.mEdgeOrdinal, out.mDstState, ai, node.mScore + 1);
+      frontier.push_back(child_ai);
+    }
+
+    // Pass 2: already-traversed edges (low priority — no score increase)
+    for (u32 i = 0; i < range.mCount; i++) {
+      const auto &out = mIndex->mAdjList[range.mStart + i];
+      if (!mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+      const auto child_ai = static_cast<u32>(arena.size());
+      arena.emplace_back(out.mEdgeOrdinal, out.mDstState, ai, node.mScore);
+      frontier.push_back(child_ai);
+    }
+  }
+
+  // No walk with any new edge found → enumeration complete
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (!best_leaf.has_value()) return std::nullopt;
+
+  // Reconstruct the walk and mark its edges as traversed.
+  // Walk the arena parent chain to collect ordinals directly — no linear scan.
+  Walk path = ReconstructWalk(arena, *best_leaf);
+  u32 mark_idx = *best_leaf;
+  while (mark_idx != TraversalIndex::NO_PARENT) {
+    mTraversedOrdinals.insert(arena[mark_idx].mEdgeOrdinal);
+    mark_idx = arena[mark_idx].mParentIdx;
+  }
+
+  return BuildSequence(path);
 }
 
 }  // namespace lancet::cbdg

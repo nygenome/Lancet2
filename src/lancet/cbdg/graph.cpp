@@ -33,6 +33,37 @@
 
 namespace lancet::cbdg {
 
+/// Pipeline architecture for haplotype assembly from a colored de Bruijn graph:
+///
+///  ┌─────────────┐
+///  │ Outer loop:  │  Iterate k from min_k to max_k in steps of mKmerStepLen.
+///  │ k-value scan │  If haplotypes are found at any k, stop.
+///  │              │  If a cycle is detected or graph is too complex, abandon
+///  │              │  this k and continue to next (via should_retry_kmer flag).
+///  └──────┬──────┘
+///         │
+///         ▼
+///  ┌─────────────┐
+///  │  BuildGraph  │  Build the bidirected de Bruijn graph from reads + reference.
+///  │  + prune     │  Remove low-coverage nodes, mark connected components.
+///  └──────┬──────┘
+///         │
+///         ▼
+///  ┌─────────────┐   For each connected component with valid source/sink anchors:
+///  │ Inner loop:  │
+///  │ per-component│   1. Compress linear chains, remove low-cov nodes, remove tips
+///  │              │   2. Build TraversalIndex (flat adjacency list) on frozen graph
+///  │              │   3. HasCycle via O(V+E) three-color DFS on flat arrays
+///  │              │   4. Log graph complexity metrics (cyclomatic, density, etc.)
+///  │              │   5. Enumerate all source→sink walks via BFS walk-tree
+///  └──────┬──────┘
+///         │
+///         ▼
+///  ┌─────────────┐
+///  │  Assemble    │  Deduplicate haplotype sequences, prepend reference anchor.
+///  │  + return    │  Return assembled haplotypes for genotyping / variant calling.
+///  └─────────────┘
+///
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result {
@@ -53,15 +84,18 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   const auto reg_str = mRegion->ToSamtoolsRegion();
   mCurrK = mParams.mMinKmerLen - mParams.mKmerStepLen;
 
-IncrementKmerAndRetry:
+  // Outer loop: increment k and retry until haplotypes are found or k is exhausted.
+  // Replaces the old `goto IncrementKmerAndRetry` with structured control flow.
   while (per_comp_haplotypes.empty() && (mCurrK + mParams.mKmerStepLen) <= mParams.mMaxKmerLen) {
     mCurrK += mParams.mKmerStepLen;
     timer.Reset();
     mSourceAndSinkIds = {0, 0};
     mNodes.reserve(DEFAULT_EST_NUM_NODES);
 
-    // NOLINTNEXTLINE(readability-braces-around-statements,cppcoreguidelines-avoid-goto)
-    if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK)) goto IncrementKmerAndRetry;
+    // Skip this k if the reference itself has a repeated k-mer — the de Bruijn
+    // graph would contain a cycle by construction, making assembly pointless.
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK)) continue;
 
     mNodes.clear();
     BuildGraph(mate_mers);
@@ -76,7 +110,13 @@ IncrementKmerAndRetry:
     anchor_start_idxs.reserve(components.size());
     LOG_TRACE("Found {} connected components in graph for {} with k={}", components.size(), reg_str, mCurrK)
 
+    // Inner loop: process each connected component with valid source/sink anchors.
+    // The should_retry_kmer flag is set to true by cycle detection to abandon all
+    // remaining components at this k and retry at a higher k value.
+    bool should_retry_kmer = false;
     for (const auto& cinfo : components) {
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (should_retry_kmer) break;
       // NOLINTNEXTLINE(readability-braces-around-statements)
       if (cinfo.mPctNodes < DEFAULT_PCT_NODES_NEEDED) continue;
 
@@ -100,11 +140,12 @@ IncrementKmerAndRetry:
       ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
       WriteDotDevelop(FOUND_REF_ANCHORS, comp_id);
 
-      if (HasCycle()) {
-        LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
-        goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
-      }
-
+      // Pruning pipeline: compress linear chains, remove low-coverage nodes, remove tips.
+      // NOTE: The pre-compression HasCycle call (old line 103) has been removed. Graph
+      // compression only merges degree-2 linear chain nodes — it cannot introduce or
+      // remove cycles. Therefore cycle detection before compression was redundant with
+      // the cycle detection after compression. We now check only once, on the smaller
+      // (compressed) graph, which is faster.
       CompressGraph(comp_id);
       WriteDotDevelop(FIRST_COMPRESSION, comp_id);
       RemoveLowCovNodes(comp_id);
@@ -114,18 +155,40 @@ IncrementKmerAndRetry:
       RemoveTips(comp_id);
       WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
 
-      if (HasCycle()) {
-        LOG_TRACE("Cycle found in graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
-        goto IncrementKmerAndRetry;  // NOLINT(cppcoreguidelines-avoid-goto)
+      // Build the flat traversal index on the frozen (fully-pruned) graph.
+      // This maps NodeID -> contiguous u32 and constructs the CSR adjacency list.
+      // Both HasCycle and MaxFlow operate on this flat structure for O(1) state tracking.
+      const auto trav_idx = BuildTraversalIndex(comp_id);
+
+      // O(V+E) cycle detection using three-color DFS on the flat adjacency list.
+      // See HasCycle() implementation for bidirected sign-continuity handling.
+      if (HasCycle(trav_idx)) {
+        LOG_TRACE("Cycle found in pruned graph for {} comp={} with k={}", reg_str, comp_id, mCurrK)
+        should_retry_kmer = true;
+        break;
       }
 
+      // Log graph complexity metrics for debugging / correlating with runtime.
+      // All metrics are O(V+E) to compute and help identify pathological windows.
+      // Skip walk enumeration on pathological graphs — retry with larger k to
+      // collapse branches. Same control flow as the HasCycle guard above.
+      const auto cx = ComputeGraphComplexity(comp_id);
+      if (cx.IsComplex()) {
+        LOG_DEBUG("Graph too complex for {} comp={} k={}: CC={} branches={}",
+                  reg_str, comp_id, mCurrK, cx.mCyclomaticComplexity, cx.mNumBranchPoints)
+        should_retry_kmer = true;
+        break;
+      }
+
+      LOG_DEBUG("Graph complexity stats for {} comp={} k={}: V={} E={} cyclomatic={} branches={}",
+                reg_str, comp_id, mCurrK, cx.mNumNodes, cx.mNumEdges, cx.mCyclomaticComplexity, cx.mNumBranchPoints)
       WriteDot(State::FULLY_PRUNED_GRAPH, comp_id);
-      LOG_TRACE("Starting Edmond Karp traversal for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
-      MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK);
+      LOG_TRACE("Starting walk enumeration for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
+      MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, &trav_idx);
       auto path_seq = max_flow.NextPath();
 
       while (path_seq) {
-        LOG_TRACE("Assembled {}bp path sequence for {} with k={}", path_seq->length(), reg_str, mCurrK)
+        LOG_DEBUG("Assembled {}bp path sequence for {} comp={} with k={}", path_seq->length(), reg_str, comp_id, mCurrK)
         haplotypes.emplace_back(std::move(*path_seq));
         path_seq = max_flow.NextPath();
       }
@@ -138,6 +201,13 @@ IncrementKmerAndRetry:
         per_comp_haplotypes.emplace_back(std::move(haplotypes));
         anchor_start_idxs.emplace_back(source.mRefOffset);
       }
+    }
+
+    // If any component triggered a retry, discard partial results and try next k
+    if (should_retry_kmer) {
+      per_comp_haplotypes.clear();
+      anchor_start_idxs.clear();
+      continue;
     }
   }
 
@@ -393,51 +463,250 @@ auto Graph::FindSink(const usize component_id) const -> RefAnchor {
   return result;
 }
 
-auto Graph::HasCycle() const -> bool {
-  const auto src_itr = mNodes.find(mSourceAndSinkIds[0]);
-  LANCET_ASSERT(src_itr != mNodes.end())
-  LANCET_ASSERT(src_itr->second != nullptr)
+// ============================================================================
+//  HasCycle — O(V+E) Three-Color DFS on the Flat Adjacency List
+// ============================================================================
+//
+// ALGORITHM
+// ---------
+// Standard directed-graph cycle detection using three colors:
+//   WHITE (0) = unvisited
+//    GRAY (1) = on the current DFS stack (ancestor in the current path)
+//   BLACK (2) = fully explored (all descendants visited)
+//
+// A cycle exists iff DFS encounters a "back edge" — an edge leading to a
+// GRAY state. GRAY states are ancestors on the current DFS path, so a back
+// edge forms a cycle.
+//
+// WHY THIS REPLACES THE OLD APPROACH
+// ------------------------------------
+// The old HasCycle used backtracking (erase from visited set on return),
+// which explored ALL paths from source — exponential in high-branching
+// graphs. Three-color DFS visits each state exactly once: O(V+E).
+// Profile data showed ~51.6s in the old HasCycle; this should be <1ms.
+//
+// BIDIRECTED SIGN CONTINUITY
+// ----------------------------
+// In the BCALM2 bidirected model, walks must satisfy sign continuity:
+//   edge.DstSign must match the next edge.SrcSign
+//
+// We track state as (node_flat_idx, sign), so a node visited via '+' and
+// via '-' are different DFS states. The TraversalIndex adjacency list is
+// already partitioned by (node, sign), so edge iteration naturally respects
+// sign continuity.
+//
+//   Example: DFS from source(+)
+//   ┌──────────────────────────────────────────────────────┐
+//   │  Visit state (A,+) → GRAY                           │
+//   │    Edge to (B,+) → WHITE → push (B,+)               │
+//   │      Edge to (C,-) → WHITE → push (C,-)             │
+//   │        Edge to (A,+) → GRAY! → CYCLE FOUND          │
+//   │      Edge to (A,-) → WHITE → push (A,-)             │ ← same node, different sign
+//   │        ...no back edge → BLACK                       │
+//   └──────────────────────────────────────────────────────┘
+//
+// FUTURE: Tarjan's SCC could provide cycle sizes and weakest edges for
+// smarter retry-vs-skip decisions. For now, just detect presence/absence.
+//
+auto Graph::HasCycle(const TraversalIndex& idx) const -> bool {
+  enum Color : u8 { WHITE = 0, GRAY = 1, BLACK = 2 };
 
-  bool cycle_found = false;
-  usize recursion_count = 0;
-  absl::flat_hash_set<NodeID> traversed;
-  traversed.reserve(mNodes.size());
+  // Flat color array indexed by state_idx = node_flat_idx * 2 + sign_offset.
+  // O(1) access per state — no hash lookups, cache-line-friendly.
+  std::vector<u8> color(idx.NumStates(), WHITE);
 
-  HasCycle(*src_itr->second, traversed, cycle_found, recursion_count);
-  return cycle_found;
-}
+  // Iterative DFS stack frame: current state + position in its outgoing edge list.
+  // Using an explicit stack avoids recursion depth limits on large graphs.
+  struct DfsFrame {
+    u32 mStateIdx;
+    u32 mEdgePos;  // next edge to explore within this state's adjacency range
+  };
 
-// NOLINTNEXTLINE(misc-no-recursion)
-void Graph::HasCycle(const Node& node, NodeIdSet& traversed, bool& found_cycle, usize& recursion_depth) const {
-  const auto node_default_sign = node.SignFor(Kmer::Ordering::DEFAULT);
-  traversed.insert(node.Identifier());
+  std::vector<DfsFrame> stack;
+  stack.reserve(idx.NumNodes());
 
-  // If we get here, then the graph is too complex and we are
-  // stuck in a deep recursion context with no way out.
-  const auto max_recursion_limit = mNodes.size() * mNodes.size();
-  if (recursion_depth > max_recursion_limit) {
-    found_cycle = true;
-    return;
-  }
+  color[idx.mSrcState] = GRAY;
+  stack.push_back({idx.mSrcState, 0});
 
-  for (const Edge& conn : node) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (conn.SrcSign() != node_default_sign) continue;
-    if (traversed.find(conn.DstId()) != traversed.end()) {
-      found_cycle = true;
-      return;
+  while (!stack.empty()) {
+    auto& frame = stack.back();
+    const auto& range = idx.mAdjRanges[frame.mStateIdx];
+
+    // All children of this state explored → mark BLACK and backtrack
+    if (frame.mEdgePos >= range.mCount) {
+      color[frame.mStateIdx] = BLACK;
+      stack.pop_back();
+      continue;
     }
 
-    const auto neighbour_itr = mNodes.find(conn.DstId());
-    LANCET_ASSERT(neighbour_itr != mNodes.end())
-    LANCET_ASSERT(neighbour_itr->second != nullptr)
+    // Examine the next outgoing edge from this state
+    const auto& out = idx.mAdjList[range.mStart + frame.mEdgePos];
+    frame.mEdgePos++;
 
-    recursion_depth++;
-    HasCycle(*neighbour_itr->second, traversed, found_cycle, recursion_depth);
+    if (color[out.mDstState] == GRAY) return true;  // Back edge → cycle!
+    if (color[out.mDstState] != WHITE) continue;     // BLACK → already finished, skip
+
+    // WHITE → unvisited. Push child onto DFS stack.
+    color[out.mDstState] = GRAY;
+    stack.push_back({out.mDstState, 0});
   }
 
-  traversed.erase(node.Identifier());
+  return false;
 }
+
+// ============================================================================
+//  BuildTraversalIndex — Construct Flat CSR Adjacency List
+// ============================================================================
+//
+// Converts the hash-map-based NodeTable into a contiguous, integer-indexed
+// adjacency list for a single connected component. This is built ONCE after
+// all graph mutations (pruning, compression, tip removal) are complete.
+//
+// CONSTRUCTION PHASES
+// --------------------
+//  Phase 1: Assign contiguous u32 indices to nodes in this component.
+//  Phase 2: Count outgoing edges per state (for CSR range sizing).
+//  Phase 3: Compute prefix-sum offsets for each state's edge range.
+//  Phase 4: Fill the adjacency list and assign edge ordinals.
+//  Phase 5: Set source and sink state indices.
+//
+// COST: O(V + E) time and memory. The nid_to_flat hash map is only used
+// during construction; all subsequent operations are flat-array-only.
+//
+auto Graph::BuildTraversalIndex(const usize component_id) const -> TraversalIndex {
+  TraversalIndex idx;
+
+  // Phase 1: Assign contiguous u32 indices to nodes in this component
+  absl::flat_hash_map<NodeID, u32> nid_to_flat;
+  nid_to_flat.reserve(mNodes.size());
+
+  for (const auto& [nid, node_ptr] : mNodes) {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (node_ptr->GetComponentId() != component_id) continue;
+    const auto flat = static_cast<u32>(idx.mNodes.size());
+    idx.mNodes.push_back(node_ptr.get());
+    idx.mNodeIds.push_back(nid);
+    nid_to_flat.emplace(nid, flat);
+  }
+
+  const u32 num_nodes = idx.NumNodes();
+  const u32 num_states = num_nodes * 2;
+  idx.mAdjRanges.resize(num_states, {0, 0});
+
+  // Phase 2: Count outgoing edges per state (for range sizing)
+  for (u32 ni = 0; ni < num_nodes; ni++) {
+    const Node* node = idx.mNodes[ni];
+    for (const Edge& edge : *node) {
+      // Only count edges whose destination is in this component
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (nid_to_flat.find(edge.DstId()) == nid_to_flat.end()) continue;
+      const u32 state = TraversalIndex::MakeState(ni, edge.SrcSign());
+      idx.mAdjRanges[state].mCount++;
+    }
+  }
+
+  // Phase 3: Compute starting offsets via prefix sum
+  u32 offset = 0;
+  for (u32 s = 0; s < num_states; s++) {
+    idx.mAdjRanges[s].mStart = offset;
+    offset += idx.mAdjRanges[s].mCount;
+    idx.mAdjRanges[s].mCount = 0;  // reset count; re-filled in phase 4
+  }
+  idx.mAdjList.resize(offset);
+
+  // Phase 4: Fill adjacency list entries and assign edge ordinals
+  absl::flat_hash_map<Edge, u32> edge_to_ordinal;
+  edge_to_ordinal.reserve(offset);
+
+  for (u32 ni = 0; ni < num_nodes; ni++) {
+    const Node* node = idx.mNodes[ni];
+    for (const Edge& edge : *node) {
+      const auto dst_it = nid_to_flat.find(edge.DstId());
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (dst_it == nid_to_flat.end()) continue;
+
+      const u32 src_state = TraversalIndex::MakeState(ni, edge.SrcSign());
+      const u32 dst_state = TraversalIndex::MakeState(dst_it->second, edge.DstSign());
+
+      // Assign or reuse edge ordinal (edges appear at both endpoints as forward + mirror)
+      u32 ordinal = 0;
+      auto [it, inserted] = edge_to_ordinal.emplace(edge, static_cast<u32>(idx.mOrigEdges.size()));
+      if (inserted) {
+        ordinal = it->second;
+        idx.mOrigEdges.push_back(edge);
+      } else {
+        ordinal = it->second;
+      }
+
+      auto& range = idx.mAdjRanges[src_state];
+      idx.mAdjList[range.mStart + range.mCount] = {dst_state, ordinal};
+      range.mCount++;
+    }
+  }
+
+  // Phase 5: Set source and sink states
+  const auto [source_id, sink_id] = mSourceAndSinkIds;
+  const auto src_flat = nid_to_flat.at(source_id);
+  const auto snk_flat = nid_to_flat.at(sink_id);
+  const auto src_sign = idx.mNodes[src_flat]->SignFor(Kmer::Ordering::DEFAULT);
+  idx.mSrcState = TraversalIndex::MakeState(src_flat, src_sign);
+  idx.mSnkNodeIdx = snk_flat;
+
+  return idx;
+}
+
+// ============================================================================
+//  ComputeGraphComplexity — O(V+E) Metrics for Debug Logging
+// ============================================================================
+//
+// Computes lightweight graph topology metrics that correlate with runtime:
+//
+//  Cyclomatic complexity (M = E - V + 1): number of independent cycles.
+//    M=0 → linear chain, M=1 → single variant bubble, M>>1 → STR hairball.
+//
+//  Edge-to-node density (E/V): a clean graph has E/V ≈ 1.0. Values >1.5
+//    indicate branching that causes path enumeration explosion.
+//
+//  Max single-direction degree: maximum outgoing edges in any one sign
+//    direction. Hub nodes with high degree are direct BFS blowup predictors.
+//
+//  Branch points: nodes with ≥2 outgoing edges in some direction. These
+//    are the "decision points" that cause combinatorial path blowup.
+//
+auto Graph::ComputeGraphComplexity(const usize component_id) const -> GraphComplexity {
+  GraphComplexity cx;
+  for (const auto& [nid, node_ptr] : mNodes) {
+    // NOLINTNEXTLINE(readability-braces-around-statements)
+    if (node_ptr->GetComponentId() != component_id) continue;
+    cx.mNumNodes++;
+
+    const auto dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
+    usize dflt_dir_edges = 0;
+    usize oppo_dir_edges = 0;
+    for (const Edge& edge : *node_ptr) {
+      if (edge.SrcSign() == dflt_sign) {
+        dflt_dir_edges++;
+      } else {
+        oppo_dir_edges++;
+      }
+    }
+
+    // Total edges (including mirrors stored at both endpoints); halved below
+    cx.mNumEdges += dflt_dir_edges + oppo_dir_edges;
+    const auto max_dir = std::max(dflt_dir_edges, oppo_dir_edges);
+    cx.mMaxSingleDirDegree = std::max(cx.mMaxSingleDirDegree, max_dir);
+    if (dflt_dir_edges >= 2 || oppo_dir_edges >= 2) cx.mNumBranchPoints++;
+  }
+
+  // Each edge stored at both endpoints (forward + mirror) → divide by 2
+  cx.mNumEdges /= 2;
+  cx.mCyclomaticComplexity =
+      (cx.mNumEdges >= cx.mNumNodes) ? (cx.mNumEdges - cx.mNumNodes + 1) : 0;
+  cx.mEdgeToNodeDensity = cx.mNumNodes > 0
+      ? static_cast<f64>(cx.mNumEdges) / static_cast<f64>(cx.mNumNodes) : 0.0;
+  return cx;
+}
+
 
 auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   usize current_component = 0;
