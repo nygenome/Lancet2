@@ -5,10 +5,6 @@ on:
       - main
     tags:
       - 'v*.*.*'
-    paths:
-      - docs/**
-      - mkdocs.yml
-      - .github/workflows/update_docs.yml
 permissions:
   contents: write
 jobs:
@@ -34,13 +30,13 @@ jobs:
             mkdocs-material-
       - run: pip install mkdocs-material mike mkdocs-minify-plugin mkdocs-git-revision-date-localized-plugin
 
-      - name: Deploy dev docs (main branch)
+      - name: Deploy latest docs (main branch)
         if: github.ref == 'refs/heads/main'
-        run: mike deploy --push dev
+        run: mike deploy --push latest
 
       - name: Deploy versioned docs (release tag)
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          mike deploy --push --update-aliases "$VERSION" latest
-          mike set-default --push latest
+          mike deploy --push "$VERSION"
+          mike set-default --push "$VERSION"

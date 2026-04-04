@@ -40,7 +40,6 @@ theme:
 extra:
   version:
     provider: mike
-    default: latest
 plugins:
   - privacy
   - offline
