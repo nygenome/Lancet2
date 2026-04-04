@@ -1,12 +1,12 @@
-#ifndef SRC_LANCET_CLI_ETA_TIMER_H_
-#define SRC_LANCET_CLI_ETA_TIMER_H_
+#ifndef SRC_LANCET_BASE_ETA_TIMER_H_
+#define SRC_LANCET_BASE_ETA_TIMER_H_
 
 #include "absl/time/time.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/timer.h"
 #include "lancet/base/types.h"
 
-namespace lancet::cli {
+namespace lancet::base {
 
 class EtaTimer {
  public:
@@ -23,6 +23,6 @@ class EtaTimer {
   OnlineStats mRunStats;
 };
 
-}  // namespace lancet::cli
+}  // namespace lancet::base
 
-#endif  // SRC_LANCET_CLI_ETA_TIMER_H_
+#endif  // SRC_LANCET_BASE_ETA_TIMER_H_

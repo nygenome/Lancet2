@@ -179,6 +179,11 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--graphs-dir", vb_prms.mOutGraphsDir, "Output directory to write per window graphs")
       ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
+  subcmd->add_option("--annotation-features", vb_prms.mAnnotationFeatures,
+                     "Comma-separated list of optional annotation feature IDs to include in VCF output. "
+                     "Supported: ALT_LCR, REF_LCR")
+      ->delimiter(',')
+      ->group("Optional");
 
   subcmd->callback([params]() {
     // NOLINTBEGIN(readability-braces-around-statements)

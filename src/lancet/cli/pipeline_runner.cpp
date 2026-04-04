@@ -33,7 +33,7 @@
 #include "lancet/base/types.h"
 #include "lancet/base/version.h"
 #include "lancet/cli/cli_params.h"
-#include "lancet/cli/eta_timer.h"
+#include "lancet/base/eta_timer.h"
 #include "lancet/core/async_worker.h"
 #include "lancet/core/read_collector.h"
 #include "lancet/core/variant_builder.h"
@@ -46,6 +46,7 @@
 #include "lancet/hts/reference.h"
 #include "spdlog/fmt/bundled/core.h"
 
+using lancet::base::EtaTimer;
 using lancet::core::AsyncWorker;
 using lancet::core::VariantBuilder;
 using WindowStats = absl::btree_map<VariantBuilder::StatusCode, u64>;
@@ -328,12 +329,9 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##source=Lancet_{FULL_VERSION_TAG}
 ##commandLine="{FULL_COMMAND_USED}"
 ##reference="{REFERENCE_PATH}"
-{CONTIG_HDR_LINES}##INFO=<ID=SHARED,Number=0,Type=Flag,Description="Variant ALT seen in both tumor & normal sample(s)">
-##INFO=<ID=NORMAL,Number=0,Type=Flag,Description="Variant ALT seen only in normal samples(s)">
-##INFO=<ID=TUMOR,Number=0,Type=Flag,Description="Variant ALT seen only in tumor sample(s)">
-##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
+{CONTIG_HDR_LINES}{CONDITIONAL_INFO_LINES}##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
+{ANNOTATION_INFO_LINES}##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth per allele (REF, ALT1, ALT2, ...)">
 ##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Forward strand read depth per allele">
 ##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Reverse strand read depth per allele">
@@ -354,12 +352,41 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
     absl::StrAppend(&contig_hdr_lines, fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
   }
 
+  // SHARED/NORMAL/TUMOR INFO headers — only when tumor inputs exist (somatic mode)
+  std::string conditional_info_lines;
+  const bool has_tumor = !params.mVariantBuilder.mRdCollParams.mTumorPaths.empty();
+  if (has_tumor) {
+    absl::StrAppend(&conditional_info_lines,
+        "##INFO=<ID=SHARED,Number=0,Type=Flag,Description=\"Variant ALT seen in both tumor & normal sample(s)\">\n"
+        "##INFO=<ID=NORMAL,Number=0,Type=Flag,Description=\"Variant ALT seen only in normal samples(s)\">\n"
+        "##INFO=<ID=TUMOR,Number=0,Type=Flag,Description=\"Variant ALT seen only in tumor sample(s)\">\n");
+  }
+
+  // ALT_LCR / REF_LCR INFO headers — only when requested via --annotation-features
+  std::string annotation_info_lines;
+  const auto& ann_feats = params.mVariantBuilder.mAnnotationFeatures;
+  static const auto has_feature = [](const std::vector<std::string>& feats, std::string_view name) -> bool {
+    return std::ranges::find(feats, name) != feats.end();
+  };
+  if (has_feature(ann_feats, "ALT_LCR")) {
+    absl::StrAppend(&annotation_info_lines,
+        "##INFO=<ID=ALT_LCR,Number=3,Type=Float,Description=\"Longdust low-complexity scores at "
+        "50, 100 bp flanks (k=4) and full ALT haplotype (k=7).\">\n");
+  }
+  if (has_feature(ann_feats, "REF_LCR")) {
+    absl::StrAppend(&annotation_info_lines,
+        "##INFO=<ID=REF_LCR,Number=3,Type=Float,Description=\"Longdust low-complexity scores at "
+        "50, 100 bp flanks (k=4) and full REF haplotype (k=7).\">\n");
+  }
+
   auto full_hdr = fmt::format(
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
       fstr_hdr, fmt::arg("RUN_TIMESTAMP", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone())),
       fmt::arg("FULL_VERSION_TAG", LancetFullVersion()), fmt::arg("FULL_COMMAND_USED", params.mFullCmdLine),
       fmt::arg("REFERENCE_PATH", params.mVariantBuilder.mRdCollParams.mRefPath.string()),
-      fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines));
+      fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines),
+      fmt::arg("CONDITIONAL_INFO_LINES", conditional_info_lines),
+      fmt::arg("ANNOTATION_INFO_LINES", annotation_info_lines));
 
   const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
   absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",

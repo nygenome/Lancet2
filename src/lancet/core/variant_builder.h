@@ -6,9 +6,11 @@
 #include <string>
 #include <vector>
 
+#include "lancet/base/lcr_scorer.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/genotyper.h"
 #include "lancet/caller/variant_call.h"
+#include "lancet/caller/variant_set.h"
 #include "lancet/cbdg/graph.h"
 #include "lancet/core/read_collector.h"
 #include "lancet/core/window.h"
@@ -24,6 +26,7 @@ class VariantBuilder {
   struct Params {
     bool mSkipActiveRegion = false;
     std::filesystem::path mOutGraphsDir;
+    std::vector<std::string> mAnnotationFeatures;
 
     cbdg::Graph::Params mGraphParams;
     ReadCollector::Params mRdCollParams;
@@ -53,9 +56,14 @@ class VariantBuilder {
   caller::Genotyper mGenotyper;
   std::shared_ptr<const Params> mParamsPtr;
   std::unique_ptr<spoa::AlignmentEngine> mAlnEngine;
+  base::LcrScorer mFlankScorer{base::LCR_FLANK_K};      // k=4 for 50bp, 100bp flanks
+  base::LcrScorer mHaplotypeScorer{base::LCR_HAPLOTYPE_K};  // k=7 for full haplotype
   StatusCode mCurrentCode = StatusCode::UNKNOWN;
 
   [[nodiscard]] auto MakeGfaPath(const Window& win, usize comp_id) const -> std::filesystem::path;
+
+  /// Score all variants in `vset` with ALT_LCR and/or REF_LCR based on enabled annotation features.
+  void ScoreVariantLCR(const caller::VariantSet& vset, absl::Span<const std::string> haplotypes) const;
 };
 
 [[nodiscard]] auto ToString(VariantBuilder::StatusCode status_code) -> std::string;

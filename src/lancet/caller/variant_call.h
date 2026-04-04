@@ -1,6 +1,7 @@
 #ifndef SRC_LANCET_CALLER_VARIANT_CALL_H_
 #define SRC_LANCET_CALLER_VARIANT_CALL_H_
 
+#include <array>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -45,15 +46,16 @@ using VariantID = u64;
 class VariantCall {
  public:
   using Samples = absl::Span<const core::SampleInfo>;
+  using AnnotationFeatures = absl::Span<const std::string>;
 
   // Single-variant (bi-allelic) constructor
   using Supports = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  VariantCall(const RawVariant* var, Supports&& supports, Samples samps);
+  VariantCall(const RawVariant* var, Supports&& supports, Samples samps, AnnotationFeatures features);
 
   // Multi-allelic constructor: group of variants at the same locus
   using VariantGroup = absl::Span<const RawVariant* const>;
   using SupportsByVariant = absl::flat_hash_map<const RawVariant*, Supports>;
-  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps);
+  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, AnnotationFeatures features);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
@@ -95,20 +97,44 @@ class VariantCall {
 
   i64 mVariantLength;
   f64 mSiteQuality;
-  RawVariant::State mState;
-  RawVariant::Type mCategory;
+  RawVariant::State mState = RawVariant::State::NONE;
+  RawVariant::Type mCategory = RawVariant::Type::REF;
 
   std::string mInfoField;
+  std::array<f64, base::NUM_LCR_SCALES> mAltLcrScores = base::DEFAULT_LCR_SCORES;
+  std::array<f64, base::NUM_LCR_SCALES> mRefLcrScores = base::DEFAULT_LCR_SCORES;
   std::vector<std::string> mFormatFields;
 
-  // Convert a GL index back to genotype string (e.g., GL=4 with k=3 → "1/2")
-  [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
-
+  // ── Evidence collection (shared by both constructors) ──────────────────
   using PerSampleEvidence = absl::flat_hash_map<const core::SampleInfo, std::unique_ptr<VariantSupport>,
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
-  void BuildFormatFields(const PerSampleEvidence& per_sample_evidence, Samples samps, bool germline_mode);
+  /// Common finalization after evidence is assembled: builds FORMAT, state, and INFO fields.
+  void Finalize(const PerSampleEvidence& evidence, Samples samps, AnnotationFeatures features);
 
+  // ── Modular field builders ─────────────────────────────────────────────
+
+  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:PL:GQ).
+  /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
+  struct AltPresence {
+    bool in_normal = false;
+    bool in_tumor = false;
+  };
+
+  auto BuildFormatFields(const PerSampleEvidence& evidence, Samples samps, bool germline_mode) -> AltPresence;
+
+  /// Compute SHARED/NORMAL/TUMOR/NONE state from ALT presence flags. No-op in germline mode.
+  void ComputeState(AltPresence alt_presence, bool germline_mode);
+
+  /// Assemble the INFO field string (TYPE, LENGTH, optional state prefix, optional LCR annotations).
+  void BuildInfoField(bool germline_mode, AnnotationFeatures features);
+
+  // ── Static helpers ─────────────────────────────────────────────────────
+
+  /// Convert a GL index back to genotype string (e.g., GL=4 with k=3 → "1/2")
+  [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
+
+  /// Fisher's exact test for somatic variant evidence.
   [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr,
                                                 const PerSampleEvidence& supports) -> f64;
 };

@@ -16,7 +16,7 @@ set(MI_BUILD_TESTS OFF)
 FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimalloc.git GIT_TAG v3.2.8 SYSTEM)
 FetchContent_MakeAvailable(mimalloc)
 
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 4ff7ff9 SYSTEM)
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG ed2114e SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
@@ -35,7 +35,7 @@ FetchContent_Declare(cli11 GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git 
 FetchContent_MakeAvailable(cli11)
 
 set(CONCURRENTQUEUE_GIT_REPO "https://github.com/cameron314/concurrentqueue.git")
-FetchContent_Declare(concurrentqueue GIT_REPOSITORY ${CONCURRENTQUEUE_GIT_REPO} GIT_TAG d37a467 SYSTEM)
+FetchContent_Declare(concurrentqueue GIT_REPOSITORY ${CONCURRENTQUEUE_GIT_REPO} GIT_TAG v1.0.5 SYSTEM)
 FetchContent_GetProperties(concurrentqueue)
 if (NOT concurrentqueue_POPULATED)
 	FetchContent_Populate(concurrentqueue)

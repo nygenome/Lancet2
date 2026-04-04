@@ -1,11 +1,11 @@
-#include "lancet/cli/eta_timer.h"
+#include "lancet/base/eta_timer.h"
 
 #include <cmath>
 
 #include "absl/time/time.h"
 #include "lancet/base/types.h"
 
-namespace lancet::cli {
+namespace lancet::base {
 
 EtaTimer::EtaTimer(const usize num_iterations) : mNumTotal(num_iterations) {}
 
@@ -26,4 +26,4 @@ auto EtaTimer::RatePerSecond() const -> f64 {
   return std::pow(mRunStats.Mean() * NS_TO_SECS, WINDOWS_PER_SECOND_CONVERTER);
 }
 
-}  // namespace lancet::cli
+}  // namespace lancet::base

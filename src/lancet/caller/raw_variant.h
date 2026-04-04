@@ -1,12 +1,14 @@
 #ifndef SRC_LANCET_CALLER_RAW_VARIANT_H_
 #define SRC_LANCET_CALLER_RAW_VARIANT_H_
 
+#include <array>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "lancet/base/lcr_scorer.h"
 #include "lancet/base/types.h"
 
 namespace lancet::caller {
@@ -60,6 +62,17 @@ class RawVariant {
 
   // haplotype index identifier -> start index of variant in haplotype
   absl::flat_hash_map<usize, usize> mHapStart0Idxs;
+
+  // ALT_LCR: multi-scale low-complexity scores centered on the ALT allele position.
+  // Scored across all haplotypes (REF + ALTs) carrying this variant. Max across haplotypes.
+  // Indexed by scale: [5bp, 10bp, 50bp, 100bp, full_haplotype].
+  // Higher values indicate more repetitive context. Score >= 0.6 ≈ LCR threshold.
+  std::array<f64, base::NUM_LCR_SCALES> mAltLcrScores = base::DEFAULT_LCR_SCORES;
+
+  // REF_LCR: multi-scale low-complexity scores centered on the REF allele position.
+  // Scored exclusively on the reference haplotype (comp_haps[0]).
+  // Indexed by scale: [5bp, 10bp, 50bp, 100bp, full_haplotype].
+  std::array<f64, base::NUM_LCR_SCALES> mRefLcrScores = base::DEFAULT_LCR_SCORES;
   // NOLINTEND(misc-non-private-member-variables-in-classes)
 
   // Create a key for grouping variants at the same locus into multi-allelic records.

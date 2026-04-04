@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "lancet/base/types.h"
+#include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {
 
@@ -153,7 +154,7 @@ auto VariantSupport::PosteriorBaseQual(const AlleleIndex idx) const -> f64 {
 
   const auto accumulate_bq = [&log_err, &log_ok](const std::vector<u8>& quals) {
     for (const auto qual : quals) {
-      const f64 eps = std::pow(10.0, -static_cast<f64>(qual) / 10.0);
+      const f64 eps = hts::PhredToErrorProb(qual);
       log_err += std::log10(std::max(eps, 1e-300));
       log_ok += std::log10(std::max(1.0 - eps, 1e-300));
     }
@@ -260,7 +261,7 @@ namespace {
 /// O(k²/2) genotype pairs — avoiding redundant recomputation.
 auto ReadLikelihoodsPerAllele(const int read_allele, const u8 base_qual,
                               const int num_alleles) -> std::vector<f64> {
-  const f64 error_prob = std::pow(10.0, -static_cast<f64>(base_qual) / 10.0);
+  const f64 error_prob = hts::PhredToErrorProb(base_qual);
   const f64 match_prob = 1.0 - error_prob;
   const f64 mismatch_prob = error_prob / std::max(1, num_alleles - 1);
 

@@ -13,6 +13,7 @@ extern "C" {
 #include "absl/hash/hash.h"
 #include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_set.h"
+#include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {
 
@@ -203,7 +204,7 @@ namespace {
 /// Convert a Phred quality score to confidence weight: 1 - 10^(-Q/10).
 /// Q=0 → 0.0, Q=10 → 0.9, Q=20 → 0.99, Q=30 → 0.999, Q=40 → 0.9999
 inline auto PhredToConfidence(const u8 qual) -> f64 {
-  return 1.0 - std::pow(10.0, -static_cast<f64>(qual) / 10.0);
+  return 1.0 - hts::PhredToErrorProb(qual);
 }
 
 struct LocalScoreResult {
