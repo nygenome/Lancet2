@@ -37,11 +37,18 @@ theme:
       toggle:
         icon: material/toggle-switch-off
         name: Switch to system preference
+extra:
+  version:
+    provider: mike
+    default: latest
 plugins:
   - privacy
   - offline
   - meta
   - blog
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
   - minify:
       minify_html: true
       minify_js: true

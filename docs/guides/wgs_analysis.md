@@ -9,7 +9,7 @@ NUM_CORES=64
 for chrom in $(head -24 GRCh38.fasta.fai | cut -f1 | tr '\n' ' ')
 do
 qsub -N "Lancet2_${chrom}" -cwd -pe smp "${NUM_CORES}" -j y -b y \
-"Lancet2 pipeline --threads ${NUM_CORES} \
+"Lancet2 pipeline --num-threads ${NUM_CORES} \
     --normal normal.bam --tumor tumor.bam \
     --reference GRCh38.fasta --region ${chrom} \
     --out-vcfgz output.${chrom}.vcf.gz"

@@ -1,5 +1,10 @@
 # Scoring Somatic Variants
 
+!!! warning "Model Compatibility"
+
+    The somatic scoring script (`score_variants.py`) and ML model are compatible with Lancet2
+    **v2.8.6** VCF output. Work is in progress to support the latest version soon.
+
 ## Setup & Installation
 
 The `score_variants.py` python script requires `Python 3.x` and some additional dependencies

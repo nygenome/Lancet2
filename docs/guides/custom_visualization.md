@@ -27,12 +27,13 @@ The above command will create two directories named `dbg_graph` and `poa_graph` 
 
 !!! info "Info"
 
-    If you are interested to further debug the de-bruijn graph assembly process, you can generate DOT files for the all the
+    If you are interested to further debug the de-bruijn graph assembly process, you can generate DOT files for all the
     intermediate steps before the `fully_pruned` graph is generated, by re-compiling the Lancet2 binary in `Debug` mode using
-    `-DCMAKE_BUILD_TYPE=Debug` instead of `-DCMAKE_BUILD_TYPE=Release` in the cmake step.
+    `-DCMAKE_BUILD_TYPE=Debug` instead of `-DCMAKE_BUILD_TYPE=Release` in the cmake step. This enables `LANCET_DEVELOP_MODE`
+    which serializes all intermediate graph states.
 
     The intermediate states that can be inspected in their order of generation are as follows –
-    `low_cov_removal1`, `found_ref_anchors`, `compression1`, `low_cov_removal2`, `compression2`, `short_tip_removal`.
+    `low_cov_removal1`, `found_ref_anchors`, `compression1`, `low_cov_removal2`, `compression2`, `short_tip_removal`, `short_link_removal`.
 
 ## Inspecting `DOT` formatted assembly graphs
 
@@ -53,7 +54,7 @@ states (can only be visualized in `Debug` mode Lancet2 binary. ideal for small r
 !!! note "Note"
 
     Only the `fully_pruned` graph will be serialized when the standard `Release` build is used.
-    The remaining 6 other states can only be visualized in the `Debug` build of Lancet2.
+    The remaining 7 other states can only be visualized in the `Debug` build of Lancet2 (`LANCET_DEVELOP_MODE`).
     The `Debug` build is much slower than the standard `Release` build and is only recommended
     to be used on small regions for inspection.
 

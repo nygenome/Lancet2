@@ -68,7 +68,7 @@ Lancet2 pipeline \
     --out-vcfgz /path/to/output.vcf.gz
 ```
 
-See [here](https://nygenome.github.io/Lancet2/guides/scoring_somatic_variants.html) for more information on how
+See the [Scoring Somatic Variants](guides/scoring_somatic_variants.md) guide for more information on how
 to score and filter somatic variants using explainable machine learning models.
 
 ## License
