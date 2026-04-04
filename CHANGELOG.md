@@ -7,8 +7,20 @@
 * revert dynamic spectrum-based thresholding to restore variant calling sensitivity
 * bug in Graph::BuildGraph: correct AddNodes label
 
-### Maintenance/Refactoring
+### New Features
 
+* Add multi-scale LCR scoring with dual k-mer sizes and calibration tooling
+* optimize spoa parameters for local variant extraction
+
+### Performance Improvements
+
+* Hoist spoa::AlignmentEngine to VariantBuilder for per-thread reuse
+* Eliminate per-read heap allocations via zero-copy bam1_t proxying and uniform paired downsampling
+* optimize hot-path allocs & access patterns
+
+### Refactoring
+
+* add mike versioning, sync docs, and clean up release tags
 * use same prealloc
 * only compile gperftools in profile mode
 * remove log message info
@@ -21,17 +33,6 @@
 * use different semver helper tool
 * add profile mode to enable cpu profiling in release mode
 
-### New Features
-
-* Add multi-scale LCR scoring with dual k-mer sizes and calibration tooling
-* optimize spoa parameters for local variant extraction
-
-### Performance Improvements
-
-* Hoist spoa::AlignmentEngine to VariantBuilder for per-thread reuse
-* Eliminate per-read heap allocations via zero-copy bam1_t proxying and uniform paired downsampling
-* optimize hot-path allocs & access patterns
-
 
 <a name="v2.8.7"></a>
 ## [v2.8.7](https://github.com/nygenome/Lancet2/compare/v2.8.6...v2.8.7) (2026-03-30)
@@ -40,7 +41,11 @@
 
 * use ml model from gcs
 
-### Maintenance/Refactoring
+### Performance Improvements
+
+* use absl::chunked_queue instead of deque
+
+### Refactoring
 
 * Bump version to v2.8.7
 * update dependencies
@@ -61,10 +66,6 @@
 * add release badge
 * update docs system & documentation
 * change default arch to skylake-avx512
-
-### Performance Improvements
-
-* use absl::chunked_queue instead of deque
 
 
 <a name="v2.8.6"></a>
@@ -176,7 +177,79 @@
 * impose strict weak ordering in sort
 * add option to skip truncated reference windows
 
-### Maintenance/Refactoring
+### New Features
+
+* use 10 and 13 cutoffs & always write non pass variants
+* add script to prep all necessary files for STM viz
+* bundle ml model with repo
+* bundle ml model with repo
+* update filter script to use 10_15 cutoffs
+* bundle ml model with repo
+* bundle ml model with repo
+* increase max window coverage per sample to 1000
+* update python deps and filter_variants script to use latest model
+* use only hq reads to genotype variants
+* update ml model features in apply script
+* set qual >=5 i.e. ~70% probability of somatic as cutoff
+* only output PASS variants to stdout vcf
+* add script to apply somatic ML filtering model
+* expand str info into flag, unit length and motif
+* expand stats by adding min, max and median abs. deviation
+* remove vcf filters & post call filtering to incorporate ML filtering
+* use low qual reads for GTing & vcf stats but not for graph
+* use same read filters for tumor and normal
+* Add window level FMT fields and convert Int to Float
+* add fuzzy matching for genotyping long indels
+* genotype insertions where read is not fully contained
+* change default kmer min, max and step
+* add indel specific fisher score threshold
+* add strict normal vaf filter for STRs
+* double min odds ratio for str variants
+* use 1% nml vaf threshold in STR
+* add AS/XS filter with 10% difference threshold
+* add flank match check to improve precision
+* add back short link removal with very lenient params
+* add back AS-XS, XT/XA tag read filters
+* add kmer step size cli flag
+* add rname hash to prevent double counting
+* add median
+* Fix scoring to call variants longer than read length
+* also check for non repeat kmer in refseq
+* do some basic read filtering on normal
+* add left and right flank haplotypes for coverage count
+* require atleast 25% overlap to include read in window
+* use avg base qual for both snvs and indels
+* reduce min tumor vaf callable
+* add low avg base qual filter and info fields
+* add contig header lines to vcf output
+* write bgzf compressed vcf and auto index at end
+* use x86 and arm specific pause/yield instructions
+* add flag to use only fully contained reads
+* skip adding reads not overlapping region
+* use weighted harmonic mean to merge node counts
+* write per window contigs fasta
+* write one path flow dot file with different hues
+* add option for cpu profiling
+* use spinlock instead of mutex & use relaxed lock when blocking is not needed
+* add option to use overlapping reads to build graph
+* catch and rethrow thread exceptions to show failures
+* use spdlog instead of custom logger
+* use concurrent queue for better window result and progress
+* add spython converted singularity recipes
+* use concurrent queue for pull-based worker model
+
+### Performance Improvements
+
+* optimize graph build by removing cord, turn off secure mimalloc
+* optimize queue operations
+* throttle counter and reduce default window & overlap
+* batch variants/results to reduce lock contention
+* use bool array to reduce allocs
+* use inlined vector to reduce allocs for small path builders
+* add consumer token when dequeueing windows
+* use shared_ptrs to reduce window copies
+
+### Refactoring
 
 * Bump version to v2.8.6
 * update dependencies
@@ -424,78 +497,6 @@
 * add informative log and error message
 * log stderr to show feedback without buffer
 * initial commit with c++17 codebase
-
-### New Features
-
-* use 10 and 13 cutoffs & always write non pass variants
-* add script to prep all necessary files for STM viz
-* bundle ml model with repo
-* bundle ml model with repo
-* update filter script to use 10_15 cutoffs
-* bundle ml model with repo
-* bundle ml model with repo
-* increase max window coverage per sample to 1000
-* update python deps and filter_variants script to use latest model
-* use only hq reads to genotype variants
-* update ml model features in apply script
-* set qual >=5 i.e. ~70% probability of somatic as cutoff
-* only output PASS variants to stdout vcf
-* add script to apply somatic ML filtering model
-* expand str info into flag, unit length and motif
-* expand stats by adding min, max and median abs. deviation
-* remove vcf filters & post call filtering to incorporate ML filtering
-* use low qual reads for GTing & vcf stats but not for graph
-* use same read filters for tumor and normal
-* Add window level FMT fields and convert Int to Float
-* add fuzzy matching for genotyping long indels
-* genotype insertions where read is not fully contained
-* change default kmer min, max and step
-* add indel specific fisher score threshold
-* add strict normal vaf filter for STRs
-* double min odds ratio for str variants
-* use 1% nml vaf threshold in STR
-* add AS/XS filter with 10% difference threshold
-* add flank match check to improve precision
-* add back short link removal with very lenient params
-* add back AS-XS, XT/XA tag read filters
-* add kmer step size cli flag
-* add rname hash to prevent double counting
-* add median
-* Fix scoring to call variants longer than read length
-* also check for non repeat kmer in refseq
-* do some basic read filtering on normal
-* add left and right flank haplotypes for coverage count
-* require atleast 25% overlap to include read in window
-* use avg base qual for both snvs and indels
-* reduce min tumor vaf callable
-* add low avg base qual filter and info fields
-* add contig header lines to vcf output
-* write bgzf compressed vcf and auto index at end
-* use x86 and arm specific pause/yield instructions
-* add flag to use only fully contained reads
-* skip adding reads not overlapping region
-* use weighted harmonic mean to merge node counts
-* write per window contigs fasta
-* write one path flow dot file with different hues
-* add option for cpu profiling
-* use spinlock instead of mutex & use relaxed lock when blocking is not needed
-* add option to use overlapping reads to build graph
-* catch and rethrow thread exceptions to show failures
-* use spdlog instead of custom logger
-* use concurrent queue for better window result and progress
-* add spython converted singularity recipes
-* use concurrent queue for pull-based worker model
-
-### Performance Improvements
-
-* optimize graph build by removing cord, turn off secure mimalloc
-* optimize queue operations
-* throttle counter and reduce default window & overlap
-* batch variants/results to reduce lock contention
-* use bool array to reduce allocs
-* use inlined vector to reduce allocs for small path builders
-* add consumer token when dequeueing windows
-* use shared_ptrs to reduce window copies
 
 ### Reverts
 

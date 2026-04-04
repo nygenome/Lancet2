@@ -16,7 +16,7 @@ options:
       feat: New Features
       fix: Bug Fixes
       perf: Performance Improvements
-      chore: Maintenance/Refactoring
+      chore: Refactoring
   header:
     pattern: "^(\\w*)\\:\\s(.*)$"
     pattern_maps:
