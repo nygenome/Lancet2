@@ -397,11 +397,32 @@ auto Genotyper::AssignReadToAlleles(const cbdg::Read& read,
         best.local_score = local.score;
         best.local_identity = local.identity;
         best.base_qual_at_var = local.base_qual;
+
+        // ── Folded read position ──────────────────────────────────
+        // Map the variant's haplotype position to the query (read) position
+        // via the CIGAR, then fold so 0.0 = read edge, 0.5 = read center.
+        const auto qpos_at_var = hts::CigarRefPosToQueryPos(aln.cigar, var_start_in_aln);
+        const auto rel_pos = read.Length() > 0
+            ? static_cast<f64>(qpos_at_var) / static_cast<f64>(read.Length()) : 0.5;
+        best.folded_read_pos = std::min(rel_pos, 1.0 - rel_pos);
+
         found_any = true;
       }
     }
 
     if (found_any) {
+      // ── NM from REF haplotype alignment ────────────────────────
+      // Always computed against haplotype[0] (reference) regardless of which
+      // allele the read is assigned to. This ensures ASMD cancels the shared
+      // variant contribution and isolates excess noise in ALT reads.
+      for (const auto& aln : all_alns) {
+        if (aln.hap_idx != REF_HAP_IDX || aln.ref_start >= aln.ref_end) continue;
+        const auto ref_aln_len = static_cast<usize>(aln.ref_end - aln.ref_start);
+        const auto ref_target = absl::MakeConstSpan(mEncodedHaplotypes[REF_HAP_IDX])
+                                    .subspan(static_cast<usize>(aln.ref_start), ref_aln_len);
+        best.ref_nm = hts::ComputeEditDistance(aln.cigar, absl::MakeConstSpan(encoded_query), ref_target);
+        break;
+      }
       assignments.emplace(&variant, best);
     }
   }
@@ -444,6 +465,11 @@ void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read,
     evidence.base_qual = assignment.base_qual_at_var;
     evidence.map_qual = read.MapQual();
     evidence.aln_score = static_cast<f64>(assignment.CombinedScore());
+    evidence.folded_read_pos = assignment.folded_read_pos;
+    evidence.is_soft_clipped = read.IsSoftClipped();
+    evidence.is_proper_pair = read.IsProperPair();
+    evidence.insert_size = read.InsertSize();
+    evidence.ref_nm = assignment.ref_nm;
 
     support->AddEvidence(evidence);
   }

@@ -6,13 +6,13 @@
 #include <string>
 #include <vector>
 
-#include "lancet/base/lcr_scorer.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/genotyper.h"
 #include "lancet/caller/variant_call.h"
 #include "lancet/caller/variant_set.h"
 #include "lancet/cbdg/graph.h"
 #include "lancet/core/read_collector.h"
+#include "lancet/core/variant_annotator.h"
 #include "lancet/core/window.h"
 #include "spoa/alignment_engine.hpp"
 
@@ -25,8 +25,16 @@ class VariantBuilder {
 
   struct Params {
     bool mSkipActiveRegion = false;
+    bool mEnableGraphComplexity = false;
+    bool mEnableSequenceComplexity = false;
     std::filesystem::path mOutGraphsDir;
-    std::vector<std::string> mAnnotationFeatures;
+
+    /// Global genome GC fraction for LongdustQ bias correction.
+    /// Default: 0.41 (human genome-wide average, Lander et al. 2001,
+    /// Piovesan et al. 2019, Nurk et al. 2022 T2T-CHM13).
+    /// Set to 0.5 for uniform distribution (no GC correction).
+    /// See --genome-gc-bias CLI parameter.
+    f64 mGcFraction = 0.41;
 
     cbdg::Graph::Params mGraphParams;
     ReadCollector::Params mRdCollParams;
@@ -56,14 +64,13 @@ class VariantBuilder {
   caller::Genotyper mGenotyper;
   std::shared_ptr<const Params> mParamsPtr;
   std::unique_ptr<spoa::AlignmentEngine> mAlnEngine;
-  base::LcrScorer mFlankScorer{base::LCR_FLANK_K};      // k=4 for 50bp, 100bp flanks
-  base::LcrScorer mHaplotypeScorer{base::LCR_HAPLOTYPE_K};  // k=7 for full haplotype
+
+  /// Variant annotator — produces ML-ready complexity features per variant.
+  VariantAnnotator mAnnotator;
+
   StatusCode mCurrentCode = StatusCode::UNKNOWN;
 
   [[nodiscard]] auto MakeGfaPath(const Window& win, usize comp_id) const -> std::filesystem::path;
-
-  /// Score all variants in `vset` with ALT_LCR and/or REF_LCR based on enabled annotation features.
-  void ScoreVariantLCR(const caller::VariantSet& vset, absl::Span<const std::string> haplotypes) const;
 };
 
 [[nodiscard]] auto ToString(VariantBuilder::StatusCode status_code) -> std::string;

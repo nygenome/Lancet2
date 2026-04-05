@@ -48,7 +48,7 @@ class ReadCollector {
   };
 
   [[nodiscard]] auto CollectRegionResult(const Region& region) -> Result;
-  [[nodiscard]] auto IsGermlineMode() const noexcept -> bool { return mIsGermlineMode; }
+  [[nodiscard]] auto IsTumorNormalMode() const noexcept -> bool { return mIsTumorNormalMode; }
 
   [[nodiscard]] static auto IsActiveRegion(const Params& params, const Region& region) -> bool;
   [[nodiscard]] static auto BuildSampleNameList(const Params& params) -> std::vector<std::string>;
@@ -63,7 +63,7 @@ class ReadCollector {
   using MateRegionsMap = absl::flat_hash_map<u64, hts::Alignment::MateInfo>;
 
   Params mParams;
-  bool mIsGermlineMode;
+  bool mIsTumorNormalMode;
   SampleExtractors mExtractors;
   std::vector<SampleInfo> mSampleList;
 

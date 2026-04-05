@@ -73,9 +73,8 @@ void VariantStore::ExtractKeysAndDumpToStream(absl::Span<const Key> keys, std::o
   std::vector<Value> variants;
   variants.reserve(keys.size());
 
-  using caller::RawVariant::State::NONE;
   using caller::RawVariant::Type::REF;
-  static const auto has_no_support = [](const Value &item) { return item->Category() == REF || item->State() == NONE; };
+  static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
   std::ranges::for_each(keys, [&variants, this](const Key &key) {
     auto handle = this->mData.extract(key);
     // NOLINTNEXTLINE(readability-braces-around-statements)

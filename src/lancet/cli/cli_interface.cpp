@@ -179,11 +179,21 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("--graphs-dir", vb_prms.mOutGraphsDir, "Output directory to write per window graphs")
       ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
-  subcmd->add_option("--annotation-features", vb_prms.mAnnotationFeatures,
-                     "Comma-separated list of optional annotation feature IDs to include in VCF output. "
-                     "Supported: ALT_LCR, REF_LCR")
-      ->delimiter(',')
+  subcmd->add_flag("--enable-graph-complexity-features",
+                   vb_prms.mEnableGraphComplexity,
+                   "Emit GRAPH_CX INFO tag with per-variant graph complexity metrics")
       ->group("Optional");
+  subcmd->add_flag("--enable-sequence-complexity-features",
+                   vb_prms.mEnableSequenceComplexity,
+                   "Emit ULTRA/MICRO/MACRO_*_CX INFO tags with multi-scale "
+                   "sequence complexity metrics (HRun, entropy, TR motifs, LongdustQ)")
+      ->group("Optional");
+  subcmd->add_option("--genome-gc-bias", vb_prms.mGcFraction,
+                     "Global genome GC fraction for LongdustQ score correction. "
+                     "Default: 0.41 (human genome-wide average). "
+                     "Set to 0.5 to disable GC correction (uniform model).")
+      ->group("Optional")
+      ->check(CLI::Range(0.0, 1.0));
 
   subcmd->callback([params]() {
     // NOLINTBEGIN(readability-braces-around-statements)

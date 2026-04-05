@@ -107,12 +107,27 @@ Skip contig check with reference
 Output directory to write per window graphs in DOT and GFA format.
 Must be a non-existing directory path that will be created.
 
-#### `--annotation-features`
-Comma-separated list of optional annotation feature IDs to include in VCF output.
-Supported features: `ALT_LCR`, `REF_LCR`
+#### `--enable-graph-complexity-features`
+Emit `GRAPH_CX` INFO tag with per-variant graph complexity metrics.
+See [VCF Output Reference](guides/vcf_output.md#graph-complexity-graph_cx) for details.
+
+#### `--enable-sequence-complexity-features`
+Emit `ULTRA_*_CX`, `MICRO_*_CX`, and `MACRO_REF_CX` INFO tags with multi-scale
+sequence complexity metrics (HRun, entropy, TR motifs, LongdustQ).
+See [VCF Output Reference](guides/vcf_output.md#multi-scale-sequence-complexity) for details.
+
+#### `--genome-gc-bias`
+> [0.0-1.0]. Default value --> 0.41
+
+Global genome GC fraction for LongdustQ score correction.
+Set to 0.5 to disable GC correction (uniform model).
+See [VCF Output Reference](guides/vcf_output.md#gc-bias-correction) for details.
 
 ```bash
-Lancet2 pipeline --annotation-features ALT_LCR,REF_LCR \
+Lancet2 pipeline \
+    --enable-graph-complexity-features \
+    --enable-sequence-complexity-features \
+    --genome-gc-bias 0.41 \
     --normal normal.bam --tumor tumor.bam \
     --reference ref.fasta --region "chr22" \
     --out-vcfgz output.vcf.gz
@@ -120,29 +135,6 @@ Lancet2 pipeline --annotation-features ALT_LCR,REF_LCR \
 
 ## VCF Output
 
-### INFO fields
+See the [VCF Output Format](guides/vcf_output.md) guide for complete documentation
+of all INFO and FORMAT fields.
 
-| Field      | Type    | Description |
-|:-----------|:--------|:------------|
-| `SHARED`   | Flag    | Variant ALT seen in both tumor & normal sample(s). Somatic mode only. |
-| `NORMAL`   | Flag    | Variant ALT seen only in normal sample(s). Somatic mode only. |
-| `TUMOR`    | Flag    | Variant ALT seen only in tumor sample(s). Somatic mode only. |
-| `TYPE`     | String  | Variant type. Possible values: `SNV`, `INS`, `DEL`, `MNP` |
-| `LENGTH`   | Integer | Variant length in base pairs |
-| `ALT_LCR`  | Float   | Low-complexity scores at 50bp, 100bp flanks (k=4) and full ALT haplotype (k=7). Optional, requires `--annotation-features ALT_LCR`. |
-| `REF_LCR`  | Float   | Low-complexity scores at 50bp, 100bp flanks (k=4) and full REF haplotype (k=7). Optional, requires `--annotation-features REF_LCR`. |
-
-### FORMAT fields
-
-| Field | Number | Type    | Description |
-|:------|:-------|:--------|:------------|
-| `GT`  | 1      | String  | Genotype called at the variant site |
-| `AD`  | R      | Integer | Read depth per allele (REF, ALT1, ALT2, ...) |
-| `ADF` | R      | Integer | Forward strand read depth per allele |
-| `ADR` | R      | Integer | Reverse strand read depth per allele |
-| `DP`  | 1      | Integer | Total read depth at the variant site |
-| `RMQ` | R      | Float   | RMS mapping quality per allele |
-| `PBQ` | R      | Float   | Posterior base quality per allele (Bayesian aggregation) |
-| `SB`  | R      | Float   | Strand bias ratio per allele (fwd/total) |
-| `PL`  | G      | Integer | Phred-scaled genotype likelihoods |
-| `GQ`  | 1      | Integer | Genotype quality (second-lowest PL, capped at 99) |

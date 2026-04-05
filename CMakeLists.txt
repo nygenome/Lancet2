@@ -69,7 +69,8 @@ add_library(lancet_base STATIC
 		src/lancet/base/hash.h src/lancet/base/hash.cpp
 		src/lancet/base/repeat.h src/lancet/base/repeat.cpp
 		src/lancet/base/eta_timer.cpp src/lancet/base/eta_timer.h
-		src/lancet/base/lcr_scorer.h)
+		src/lancet/base/sequence_complexity.h src/lancet/base/sequence_complexity.cpp
+		src/lancet/base/longdust_scorer.h)
 target_link_libraries(lancet_base PRIVATE absl::flat_hash_set
 		PUBLIC spdlog::spdlog absl::span absl::fixed_array absl::strings absl::time)
 target_include_directories(lancet_base PUBLIC "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/generated")
@@ -96,6 +97,7 @@ add_library(lancet_cbdg STATIC src/lancet/cbdg/label.h
 		src/lancet/cbdg/edge.h src/lancet/cbdg/read.h
 		src/lancet/cbdg/node.cpp src/lancet/cbdg/node.h
 		src/lancet/cbdg/max_flow.cpp src/lancet/cbdg/max_flow.h
+		src/lancet/cbdg/graph_complexity.cpp src/lancet/cbdg/graph_complexity.h
 		src/lancet/cbdg/graph.cpp src/lancet/cbdg/graph.h)
 target_include_directories(lancet_cbdg PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(lancet_cbdg PUBLIC lancet_hts absl::cord absl::inlined_vector absl::flat_hash_map)
@@ -117,6 +119,7 @@ add_library(lancet_core STATIC src/lancet/core/window.h src/lancet/core/sample_i
 		src/lancet/core/window_builder.cpp src/lancet/core/window_builder.h
 		src/lancet/core/read_collector.cpp src/lancet/core/read_collector.h
 		src/lancet/core/variant_store.cpp src/lancet/core/variant_store.h
+		src/lancet/core/variant_annotator.cpp src/lancet/core/variant_annotator.h
 		src/lancet/core/variant_builder.cpp src/lancet/core/variant_builder.h
 		src/lancet/core/async_worker.cpp src/lancet/core/async_worker.h)
 target_include_directories(lancet_core PUBLIC "${CMAKE_SOURCE_DIR}/src")

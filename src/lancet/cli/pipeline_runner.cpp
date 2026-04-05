@@ -329,18 +329,27 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##source=Lancet_{FULL_VERSION_TAG}
 ##commandLine="{FULL_COMMAND_USED}"
 ##reference="{REFERENCE_PATH}"
-{CONTIG_HDR_LINES}{CONDITIONAL_INFO_LINES}##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type. Possible values are SNV, INS, DEL and MNP">
+{CONTIG_HDR_LINES}{CONDITIONAL_INFO_LINES}##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type (SNV, INS, DEL, MNP)">
 ##INFO=<ID=LENGTH,Number=1,Type=Integer,Description="Variant length in base pairs">
-{ANNOTATION_INFO_LINES}##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype called at the variant site">
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth per allele (REF, ALT1, ALT2, ...)">
-##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Forward strand read depth per allele">
-##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Reverse strand read depth per allele">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth at the variant site">
+{ANNOTATION_INFO_LINES}##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allele depth">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Forward strand allele depth">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Reverse strand allele depth">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth">
 ##FORMAT=<ID=RMQ,Number=R,Type=Float,Description="RMS mapping quality per allele">
-##FORMAT=<ID=PBQ,Number=R,Type=Float,Description="Posterior base quality per allele (Bayesian aggregation)">
-##FORMAT=<ID=SB,Number=R,Type=Float,Description="Strand bias ratio per allele (fwd/total)">
+##FORMAT=<ID=PBQ,Number=R,Type=Float,Description="Posterior base quality per allele">
+##FORMAT=<ID=SB,Number=1,Type=Float,Description="Phred-scaled strand bias">
+##FORMAT=<ID=SCA,Number=1,Type=Float,Description="Soft clip asymmetry (ALT minus REF)">
+##FORMAT=<ID=FLD,Number=1,Type=Float,Description="Fragment length delta (ALT vs REF)">
+##FORMAT=<ID=RPRS,Number=1,Type=Float,Description="Read position rank sum Z-score (100.0 if untestable)">
+##FORMAT=<ID=BQRS,Number=1,Type=Float,Description="Base quality rank sum Z-score (100.0 if untestable)">
+##FORMAT=<ID=MQRS,Number=1,Type=Float,Description="Mapping quality rank sum Z-score (100.0 if untestable)">
+##FORMAT=<ID=ASMD,Number=1,Type=Float,Description="Allele-specific mismatch delta (mean ALT NM minus mean REF NM)">
+##FORMAT=<ID=SDFC,Number=1,Type=Float,Description="Site depth fold change (DP / window mean coverage)">
+##FORMAT=<ID=PRAD,Number=1,Type=Float,Description="Polar radius: signal magnitude sqrt(AD_Ref^2 + AD_Alt^2)">
+##FORMAT=<ID=PANG,Number=1,Type=Float,Description="Polar angle: allele identity ratio atan2(AD_Alt, AD_Ref) in radians">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality (second-lowest PL, capped at 99)">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
 )raw"sv;
   // clang-format on
 
@@ -362,21 +371,19 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
         "##INFO=<ID=TUMOR,Number=0,Type=Flag,Description=\"Variant ALT seen only in tumor sample(s)\">\n");
   }
 
-  // ALT_LCR / REF_LCR INFO headers — only when requested via --annotation-features
+  // Complexity feature INFO headers — only when requested via CLI flags
   std::string annotation_info_lines;
-  const auto& ann_feats = params.mVariantBuilder.mAnnotationFeatures;
-  static const auto has_feature = [](const std::vector<std::string>& feats, std::string_view name) -> bool {
-    return std::ranges::find(feats, name) != feats.end();
-  };
-  if (has_feature(ann_feats, "ALT_LCR")) {
+  const auto& vb_cfg = params.mVariantBuilder;
+  if (vb_cfg.mEnableGraphComplexity) {
     absl::StrAppend(&annotation_info_lines,
-        "##INFO=<ID=ALT_LCR,Number=3,Type=Float,Description=\"Longdust low-complexity scores at "
-        "50, 100 bp flanks (k=4) and full ALT haplotype (k=7).\">\n");
+        "##INFO=<ID=GRAPH_CX,Number=3,Type=String,Description=\"Graph complexity metrics: "
+        "GEI,TipToPathCovRatio,MaxSingleDirDegree\">\n");
   }
-  if (has_feature(ann_feats, "REF_LCR")) {
+  if (vb_cfg.mEnableSequenceComplexity) {
     absl::StrAppend(&annotation_info_lines,
-        "##INFO=<ID=REF_LCR,Number=3,Type=Float,Description=\"Longdust low-complexity scores at "
-        "50, 100 bp flanks (k=4) and full REF haplotype (k=7).\">\n");
+        "##INFO=<ID=SEQ_CX,Number=11,Type=String,Description=\"Sequence complexity features: "
+        "ContextHRun,ContextEntropy,ContextFlankLQ,ContextHaplotypeLQ,DeltaHRun,DeltaEntropy,"
+        "DeltaFlankLQ,TrAffinity,TrPurity,TrPeriod,IsStutterIndel\">\n");
   }
 
   auto full_hdr = fmt::format(

@@ -30,32 +30,47 @@ using VariantID = u64;
 //     Output: VCF record: chr1 100 . A T,G ... (comma-separated ALTs)
 //
 // FORMAT fields (per-sample):
-//   GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:PL:GQ
+//   GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ
 //
-//   GT  - Genotype (e.g., 0/1, 1/2 for multi-allelic)
-//   AD  - Number=R: read depth per allele (REF, ALT1, ALT2, ...)
-//   ADF - Number=R: forward strand depth per allele
-//   ADR - Number=R: reverse strand depth per allele
-//   DP  - Total read depth
-//   RMQ - Number=R: RMS mapping quality per allele
-//   PBQ - Number=R: posterior base quality per allele
-//   SB  - Number=R: strand bias ratio per allele
-//   PL  - Number=G: Phred-scaled genotype likelihoods
-//   GQ  - Genotype quality (second-lowest PL, capped at 99)
+//   GT   - Genotype (e.g., 0/1, 1/2 for multi-allelic)
+//   AD   - Number=R: read depth per allele (REF, ALT1, ALT2, ...)
+//   ADF  - Number=R: forward strand depth per allele
+//   ADR  - Number=R: reverse strand depth per allele
+//   DP   - Total read depth
+//   RMQ  - Number=R: RMS mapping quality per allele
+//   PBQ  - Number=R: posterior base quality per allele
+//   SB   - Number=1: Phred-scaled Fisher's exact test strand bias
+//   SCA  - Number=1: Soft Clip Asymmetry (ALT - REF soft-clip fraction)
+//   FLD  - Number=1: Fragment Length Delta (|mean ALT isize - mean REF isize|)
+//   RPRS - Number=1: Read Position Rank Sum Z-score (folded read position)
+//   BQRS - Number=1: Base Quality Rank Sum Z-score
+//   MQRS - Number=1: Mapping Quality Rank Sum Z-score (Mann-Whitney U)
+//   ASMD - Number=1: Allele-Specific Mismatch Delta (mean ALT NM - mean REF NM)
+//   SDFC - Number=1: Site Depth Fold Change (DP / window mean coverage)
+//   PRAD - Number=1: Polar Radius sqrt(AD_Ref² + AD_Alt²)
+//   PANG - Number=1: Polar Angle atan2(AD_Alt, AD_Ref) in radians
+//   PL   - Number=G: Phred-scaled genotype likelihoods
+//   GQ   - Genotype quality (second-lowest PL, capped at 99)
 // ============================================================================
 class VariantCall {
  public:
   using Samples = absl::Span<const core::SampleInfo>;
-  using AnnotationFeatures = absl::Span<const std::string>;
+
+  /// Feature gate flags — replaces the old string-based AnnotationFeatures.
+  struct FeatureFlags {
+    bool enable_graph_complexity = false;
+    bool enable_sequence_complexity = false;
+  };
 
   // Single-variant (bi-allelic) constructor
   using Supports = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  VariantCall(const RawVariant* var, Supports&& supports, Samples samps, AnnotationFeatures features);
+  VariantCall(const RawVariant* var, Supports&& supports, Samples samps, FeatureFlags features, f64 window_cov);
 
   // Multi-allelic constructor: group of variants at the same locus
   using VariantGroup = absl::Span<const RawVariant* const>;
   using SupportsByVariant = absl::flat_hash_map<const RawVariant*, Supports>;
-  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, AnnotationFeatures features);
+  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, FeatureFlags features,
+              f64 window_cov);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
@@ -71,6 +86,10 @@ class VariantCall {
   [[nodiscard]] auto NumSamples() const -> usize { return mFormatFields.empty() ? 0 : mFormatFields.size() - 1; }
   [[nodiscard]] auto Identifier() const -> VariantID { return mVariantId; }
   [[nodiscard]] auto TotalCoverage() const -> usize { return mTotalSampleCov; }
+
+  /// Returns true if any sample has ALT allele support.
+  /// Used by VariantStore to filter out zero-evidence calls.
+  [[nodiscard]] auto HasAltSupport() const -> bool { return mHasAltSupport; }
 
   [[nodiscard]] auto AsVcfRecord() const -> std::string;
 
@@ -99,10 +118,29 @@ class VariantCall {
   f64 mSiteQuality;
   RawVariant::State mState = RawVariant::State::NONE;
   RawVariant::Type mCategory = RawVariant::Type::REF;
+  bool mHasAltSupport = false;  ///< true if any sample has ALT coverage
 
   std::string mInfoField;
-  std::array<f64, base::NUM_LCR_SCALES> mAltLcrScores = base::DEFAULT_LCR_SCORES;
-  std::array<f64, base::NUM_LCR_SCALES> mRefLcrScores = base::DEFAULT_LCR_SCORES;
+
+  // ── Graph complexity metrics (from RawVariant, transcribed) ────────────
+  RawVariant::GraphMetrics mGraphMetrics;
+
+  // ── Sequence complexity (11 ML-ready features, from RawVariant) ─────────
+  base::SequenceComplexity mSeqCx;
+
+  // ── Feature gate flags (from constructor, preserved for BuildInfoField) ─
+  FeatureFlags mFeatureFlags;
+
+  /// Window-level BAM coverage used as the SDFC denominator.
+  /// Set during construction from ProcessWindow context.
+  f64 mWindowCov = 0.0;
+
+  /// Site Depth Fold Change: DP / window mean coverage.
+  /// Spikes indicate collapsed paralogous mappings; dips indicate mapping holes.
+  [[nodiscard]] auto SiteDepthFoldChange() const -> f64 {
+    return mWindowCov > 0.0 ? static_cast<f64>(mTotalSampleCov) / mWindowCov : 1.0;
+  }
+
   std::vector<std::string> mFormatFields;
 
   // ── Evidence collection (shared by both constructors) ──────────────────
@@ -110,24 +148,25 @@ class VariantCall {
                                                 core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
   /// Common finalization after evidence is assembled: builds FORMAT, state, and INFO fields.
-  void Finalize(const PerSampleEvidence& evidence, Samples samps, AnnotationFeatures features);
+  void Finalize(const PerSampleEvidence& evidence, Samples samps, FeatureFlags features);
 
   // ── Modular field builders ─────────────────────────────────────────────
 
-  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:PL:GQ).
+  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ).
   /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
   struct AltPresence {
     bool in_normal = false;
     bool in_tumor = false;
   };
 
-  auto BuildFormatFields(const PerSampleEvidence& evidence, Samples samps, bool germline_mode) -> AltPresence;
+  auto BuildFormatFields(const PerSampleEvidence& evidence, Samples samps, bool tumor_normal_mode) -> AltPresence;
 
-  /// Compute SHARED/NORMAL/TUMOR/NONE state from ALT presence flags. No-op in germline mode.
-  void ComputeState(AltPresence alt_presence, bool germline_mode);
+  /// Compute SHARED/NORMAL/TUMOR/UNKNOWN state from ALT presence flags.
+  /// In non-tumor-normal mode (i.e. normal-only), state is always UNKNOWN.
+  void ComputeState(AltPresence alt_presence, bool tumor_normal_mode);
 
-  /// Assemble the INFO field string (TYPE, LENGTH, optional state prefix, optional LCR annotations).
-  void BuildInfoField(bool germline_mode, AnnotationFeatures features);
+  /// Assemble the INFO field string (TYPE, LENGTH, optional state prefix, optional complexity annotations).
+  void BuildInfoField(bool tumor_normal_mode, FeatureFlags features);
 
   // ── Static helpers ─────────────────────────────────────────────────────
 

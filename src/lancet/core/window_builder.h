@@ -21,7 +21,7 @@ class WindowBuilder {
 
   static constexpr u32 MIN_ALLOWED_PCT_OVERLAP = 10;
   static constexpr u32 MAX_ALLOWED_PCT_OVERLAP = 90;
-  static constexpr u32 MIN_ALLOWED_WINDOW_LEN = 250;
+  static constexpr u32 MIN_ALLOWED_WINDOW_LEN = 1000;
   static constexpr u32 MAX_ALLOWED_WINDOW_LEN = 2500;
   static constexpr u32 MAX_ALLOWED_REGION_PAD = 1000;
 

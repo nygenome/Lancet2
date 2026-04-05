@@ -74,6 +74,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   GraphHaps per_comp_haplotypes;
   std::string_view ref_anchor_seq;
   std::vector<usize> anchor_start_idxs;
+  std::vector<GraphComplexity> component_metrics;
   absl::flat_hash_set<MateMer> mate_mers;
 
   static constexpr usize DEFAULT_EST_NUM_NODES = 32768;
@@ -172,16 +173,14 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
       // All metrics are O(V+E) to compute and help identify pathological windows.
       // Skip walk enumeration on pathological graphs — retry with larger k to
       // collapse branches. Same control flow as the HasCycle guard above.
-      const auto cx = ComputeGraphComplexity(comp_id);
+      const auto cx = ComputeComponentComplexity(comp_id);
       if (cx.IsComplex()) {
         LOG_DEBUG("Graph too complex for {} comp={} k={}: CC={} branches={}",
-                  reg_str, comp_id, mCurrK, cx.mCyclomaticComplexity, cx.mNumBranchPoints)
+                  reg_str, comp_id, mCurrK, cx.CyclomaticComplexity(), cx.NumBranchPoints())
         should_retry_kmer = true;
         break;
       }
 
-      LOG_DEBUG("Graph complexity stats for {} comp={} k={}: V={} E={} cyclomatic={} branches={}",
-                reg_str, comp_id, mCurrK, cx.mNumNodes, cx.mNumEdges, cx.mCyclomaticComplexity, cx.mNumBranchPoints)
       WriteDot(State::FULLY_PRUNED_GRAPH, comp_id);
       LOG_TRACE("Starting walk enumeration for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
       MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, &trav_idx);
@@ -200,6 +199,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
         haplotypes.emplace(haplotypes.begin(), ref_anchor_seq);
         per_comp_haplotypes.emplace_back(std::move(haplotypes));
         anchor_start_idxs.emplace_back(source.mRefOffset);
+        component_metrics.emplace_back(cx);
       }
     }
 
@@ -207,6 +207,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
     if (should_retry_kmer) {
       per_comp_haplotypes.clear();
       anchor_start_idxs.clear();
+      component_metrics.clear();
       continue;
     }
   }
@@ -218,7 +219,10 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   const auto human_rt = timer.HumanRuntime();
 
   LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", num_asm_haps, reg_str, mCurrK, human_rt)
-  return {.mGraphHaplotypes = per_comp_haplotypes, .mAnchorStartIdxs = anchor_start_idxs};
+
+  return {.mGraphHaplotypes = per_comp_haplotypes,
+          .mAnchorStartIdxs = anchor_start_idxs,
+          .mComponentMetrics = std::move(component_metrics)};
 }
 
 void Graph::CompressGraph(const usize component_id) {
@@ -673,38 +677,8 @@ auto Graph::BuildTraversalIndex(const usize component_id) const -> TraversalInde
 //  Branch points: nodes with ≥2 outgoing edges in some direction. These
 //    are the "decision points" that cause combinatorial path blowup.
 //
-auto Graph::ComputeGraphComplexity(const usize component_id) const -> GraphComplexity {
-  GraphComplexity cx;
-  for (const auto& [nid, node_ptr] : mNodes) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (node_ptr->GetComponentId() != component_id) continue;
-    cx.mNumNodes++;
-
-    const auto dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
-    usize dflt_dir_edges = 0;
-    usize oppo_dir_edges = 0;
-    for (const Edge& edge : *node_ptr) {
-      if (edge.SrcSign() == dflt_sign) {
-        dflt_dir_edges++;
-      } else {
-        oppo_dir_edges++;
-      }
-    }
-
-    // Total edges (including mirrors stored at both endpoints); halved below
-    cx.mNumEdges += dflt_dir_edges + oppo_dir_edges;
-    const auto max_dir = std::max(dflt_dir_edges, oppo_dir_edges);
-    cx.mMaxSingleDirDegree = std::max(cx.mMaxSingleDirDegree, max_dir);
-    if (dflt_dir_edges >= 2 || oppo_dir_edges >= 2) cx.mNumBranchPoints++;
-  }
-
-  // Each edge stored at both endpoints (forward + mirror) → divide by 2
-  cx.mNumEdges /= 2;
-  cx.mCyclomaticComplexity =
-      (cx.mNumEdges >= cx.mNumNodes) ? (cx.mNumEdges - cx.mNumNodes + 1) : 0;
-  cx.mEdgeToNodeDensity = cx.mNumNodes > 0
-      ? static_cast<f64>(cx.mNumEdges) / static_cast<f64>(cx.mNumNodes) : 0.0;
-  return cx;
+auto Graph::ComputeComponentComplexity(const usize component_id) const -> GraphComplexity {
+  return cbdg::ComputeGraphComplexity(*this, component_id);
 }
 
 

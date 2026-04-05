@@ -88,7 +88,8 @@ constexpr u32 PREALLOC_WINDOW_LENGTH_MULTIPLIER = 3;
 VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params, const u32 window_length)
     : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)),
       mAlnEngine(spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE,
-        MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE)) {
+        MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE)),
+      mAnnotator(mParamsPtr->mGcFraction) {
   mAlnEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
 }
@@ -154,7 +155,13 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     const caller::MsaBuilder msa_builder(ref_and_alt_haps, *mAlnEngine, MakeGfaPath(*window, idx));
     const caller::VariantSet vset(msa_builder, *window, anchor_start);
 
-    ScoreVariantLCR(vset, absl::MakeConstSpan(comp_haps));
+    // Annotate complexity features if enabled — gated on CLI flags
+    if (mParamsPtr->mEnableSequenceComplexity) {
+      mAnnotator.AnnotateSequenceComplexity(vset, absl::MakeConstSpan(comp_haps));
+    }
+    if (mParamsPtr->mEnableGraphComplexity && idx < dbg_rslt.mComponentMetrics.size()) {
+      VariantAnnotator::AnnotateGraphComplexity(vset, dbg_rslt.mComponentMetrics[idx]);
+    }
 
     if (vset.IsEmpty()) {
       LOG_DEBUG("No variants found in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
@@ -179,9 +186,12 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
       }
 
       if (locus_supports.empty()) continue;
+      const caller::VariantCall::FeatureFlags feat_flags{
+          .enable_graph_complexity = mParamsPtr->mEnableGraphComplexity,
+          .enable_sequence_complexity = mParamsPtr->mEnableSequenceComplexity,
+      };
       variants.emplace_back(std::make_unique<caller::VariantCall>(
-          absl::MakeConstSpan(locus_variants), std::move(locus_supports), samples,
-          absl::MakeConstSpan(mParamsPtr->mAnnotationFeatures)));
+          absl::MakeConstSpan(locus_variants), std::move(locus_supports), samples, feat_flags, total_cov));
     }
   }
 
@@ -196,94 +206,6 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   return variants;
 }
 
-// ============================================================================
-// ScoreVariantLCR: multi-scale low-complexity scoring for ALT_LCR and REF_LCR
-//
-// For each variant in the set, computes longdust Q(x)/ℓ complexity scores
-// at 5 flanking distances around the variant position in each haplotype.
-//
-//   ALT_LCR: centered on the variant position in each haplotype that carries
-//            it (REF + ALTs). Takes the max score across all haplotypes.
-//   REF_LCR: centered on the REF allele position in the reference haplotype
-//            (haplotypes[0]) only.
-//
-//   Scale 0:   [---5bp----|VVVV|----5bp---]
-//   Scale 1:   [--10bp----|VVVV|----10bp--]
-//   Scale 2:   [--50bp----|VVVV|----50bp--]
-//   Scale 3:   [-100bp----|VVVV|---100bp--]
-//   Scale 4:   [entire haplotype sequence ]
-//
-// Gated on the --annotation-features parameter. If neither ALT_LCR nor
-// REF_LCR is requested, this method is a no-op.
-// ============================================================================
-void VariantBuilder::ScoreVariantLCR(const caller::VariantSet& vset,
-                                     absl::Span<const std::string> haplotypes) const {
-  const auto& ann_features = mParamsPtr->mAnnotationFeatures;
-  static const auto has_feature = [](absl::Span<const std::string> feats, std::string_view name) -> bool {
-    return std::ranges::find(feats, name) != feats.end();
-  };
-
-  const bool compute_alt_lcr = has_feature(ann_features, "ALT_LCR");
-  const bool compute_ref_lcr = has_feature(ann_features, "REF_LCR");
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (!compute_alt_lcr && !compute_ref_lcr) return;
-
-  for (auto& var : vset) {
-    auto alt_scores = base::DEFAULT_LCR_SCORES;
-    auto ref_scores = base::DEFAULT_LCR_SCORES;
-
-    // ── ALT_LCR: score across all haplotypes carrying this variant ──
-    if (compute_alt_lcr) {
-      const auto alt_var_len = static_cast<i64>(std::max(var.mRefAllele.size(), var.mAltAllele.size()));
-
-      for (const auto& [hap_idx, hap_pos] : var.mHapStart0Idxs) {
-        if (hap_idx >= haplotypes.size()) continue;
-        const auto& hap = haplotypes[hap_idx];
-        const auto hap_len = static_cast<i64>(hap.size());
-        const auto pos = static_cast<i64>(hap_pos);
-
-        for (usize scale = 0; scale < base::LCR_FLANKS.size(); ++scale) {
-          const auto flank = base::LCR_FLANKS[scale];
-          const auto start = std::max<i64>(0, pos - flank);
-          const auto end = std::min<i64>(hap_len, pos + alt_var_len + flank);
-          const auto subseq = std::string_view(hap).substr(start, end - start);
-          alt_scores[scale] = std::max(alt_scores[scale], mFlankScorer.Score(subseq));
-        }
-
-        alt_scores[base::NUM_LCR_SCALES - 1] =
-            std::max(alt_scores[base::NUM_LCR_SCALES - 1], mHaplotypeScorer.Score(hap));
-      }
-    }
-
-    // ── REF_LCR: score only on reference haplotype (haplotypes[0]) ──
-    if (compute_ref_lcr) {
-      static constexpr usize REF_HAP_IDX = 0;
-      const auto ref_pos_it = var.mHapStart0Idxs.find(REF_HAP_IDX);
-      const auto ref_var_len = static_cast<i64>(var.mRefAllele.size());
-
-      if (ref_pos_it != var.mHapStart0Idxs.end() && REF_HAP_IDX < haplotypes.size()) {
-        const auto& ref_hap = haplotypes[REF_HAP_IDX];
-        const auto ref_hap_len = static_cast<i64>(ref_hap.size());
-        const auto ref_pos = static_cast<i64>(ref_pos_it->second);
-
-        for (usize scale = 0; scale < base::LCR_FLANKS.size(); ++scale) {
-          const auto flank = base::LCR_FLANKS[scale];
-          const auto start = std::max<i64>(0, ref_pos - flank);
-          const auto end = std::min<i64>(ref_hap_len, ref_pos + ref_var_len + flank);
-          const auto subseq = std::string_view(ref_hap).substr(start, end - start);
-          ref_scores[scale] = std::max(ref_scores[scale], mFlankScorer.Score(subseq));
-        }
-
-        ref_scores[base::NUM_LCR_SCALES - 1] = mHaplotypeScorer.Score(ref_hap);
-      }
-    }
-
-    // mAltLcrScores/mRefLcrScores are not part of RawVariant ordering/hash, so const_cast is safe
-    auto& mutable_var = const_cast<caller::RawVariant&>(var);
-    mutable_var.mAltLcrScores = alt_scores;
-    mutable_var.mRefLcrScores = ref_scores;
-  }
-}
 
 auto VariantBuilder::MakeGfaPath(const Window &win, const usize comp_id) const -> std::filesystem::path {
   // NOLINTNEXTLINE(readability-braces-around-statements)

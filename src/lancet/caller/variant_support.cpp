@@ -6,7 +6,9 @@
 #include <numeric>
 #include <vector>
 
+#include "lancet/base/mann_whitney.h"
 #include "lancet/base/types.h"
+#include "lancet/hts/fisher_exact.h"
 #include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {
@@ -35,6 +37,22 @@ void VariantSupport::AddEvidence(const ReadEvidence& evidence) {
 
   data.map_quals.push_back(evidence.map_qual);
   data.aln_scores.push_back(evidence.aln_score);
+
+  // Track soft-clip status from original alignment (for SCA FORMAT tag)
+  if (evidence.is_soft_clipped) {
+    ++data.soft_clip_count;
+  }
+
+  // Track insert sizes from properly-paired reads (for FLD FORMAT tag)
+  if (evidence.is_proper_pair && evidence.insert_size != 0) {
+    data.proper_pair_isizes.push_back(std::abs(static_cast<f64>(evidence.insert_size)));
+  }
+
+  // Track folded read position (for RPRS FORMAT tag)
+  data.folded_read_positions.push_back(evidence.folded_read_pos);
+
+  // Track edit distance to REF haplotype (for ASMD FORMAT tag)
+  data.ref_nm_values.push_back(static_cast<f64>(evidence.ref_nm));
 }
 
 // ============================================================================
@@ -72,6 +90,13 @@ void VariantSupport::MergeAlleleFrom(const VariantSupport& src, const AlleleInde
                             src_data.map_quals.begin(), src_data.map_quals.end());
   dst_data.aln_scores.insert(dst_data.aln_scores.end(),
                              src_data.aln_scores.begin(), src_data.aln_scores.end());
+  dst_data.soft_clip_count += src_data.soft_clip_count;
+  dst_data.proper_pair_isizes.insert(dst_data.proper_pair_isizes.end(),
+                                     src_data.proper_pair_isizes.begin(), src_data.proper_pair_isizes.end());
+  dst_data.folded_read_positions.insert(dst_data.folded_read_positions.end(),
+                                        src_data.folded_read_positions.begin(), src_data.folded_read_positions.end());
+  dst_data.ref_nm_values.insert(dst_data.ref_nm_values.end(),
+                                src_data.ref_nm_values.begin(), src_data.ref_nm_values.end());
 }
 
 // ============================================================================
@@ -195,19 +220,50 @@ auto VariantSupport::RmsMappingQual(const AlleleIndex idx) const -> f64 {
 }
 
 // ============================================================================
-// StrandBiasRatio (SB FORMAT field)
+// PhredStrandBias (SB FORMAT field)
 //
-// Simple strand bias metric: fraction of forward-strand reads for this allele.
-// A value of 0.5 indicates no bias. Values near 0 or 1 indicate strong bias.
+// Phred-scaled Fisher's Exact Test for strand bias, analogous to GATK's FS.
+// Constructs a 2×2 contingency table:
 //
-//   SB = fwd_count / total_count
+//        |  FWD  |  REV  |
+//   -----|-------|-------|
+//   REF  | rf    | rr    |
+//   ALT  | af    | ar    |      (ALT = sum across all non-REF alleles)
+//
+// Returns −10 · log10(two-sided p-value).
+//   - 0.0  → no strand bias (balanced)
+//   - High → strong strand bias (potential artifact)
+//
+// When all counts are zero or only one strand is represented, returns 0.0.
 // ============================================================================
-auto VariantSupport::StrandBiasRatio(const AlleleIndex idx) const -> f64 {
-  const auto total = TotalAlleleCov(idx);
-  if (total == 0) {
-    return 0.0;
+auto VariantSupport::PhredStrandBias() const -> f64 {
+  // REF strand counts
+  const auto ref_fwd = static_cast<int>(FwdCount(REF_ALLELE_IDX));
+  const auto ref_rev = static_cast<int>(RevCount(REF_ALLELE_IDX));
+
+  // ALT strand counts (summed across all non-REF alleles)
+  int alt_fwd = 0;
+  int alt_rev = 0;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    alt_fwd += static_cast<int>(mAlleleData[i].fwd_base_quals.size());
+    alt_rev += static_cast<int>(mAlleleData[i].rev_base_quals.size());
   }
-  return static_cast<f64>(FwdCount(idx)) / static_cast<f64>(total);
+
+  const auto total = ref_fwd + ref_rev + alt_fwd + alt_rev;
+  if (total == 0) return 0.0;
+
+  using Row = hts::FisherExact::Row;
+  const auto result = hts::FisherExact::Test({Row{ref_fwd, ref_rev}, Row{alt_fwd, alt_rev}});
+
+  // Use the two-tailed p-value (mDiffProb) because strand bias can skew in
+  // either direction (ALT enriched on FWD or REV). This differs from the somatic
+  // Fisher score (SomaticFisherScore) which uses mMoreProb (right-tail, one-sided)
+  // because it tests the directional hypothesis "tumor has more ALT than normal."
+  // htslib's kt_fisher_exact returns: _left = P(n11<=obs), _right = P(n11>=obs),
+  // two = sum of both tails with probabilities <= observed (exact two-sided test).
+  static constexpr f64 MIN_PVALUE = 1e-300;
+  const auto pvalue = std::max(result.mDiffProb, MIN_PVALUE);
+  return hts::ErrorProbToPhred(pvalue);
 }
 
 // ============================================================================
@@ -221,6 +277,198 @@ auto VariantSupport::MeanAlnScore(const AlleleIndex idx) const -> f64 {
   const auto& scores = mAlleleData[idx].aln_scores;
   const f64 sum = std::accumulate(scores.cbegin(), scores.cend(), 0.0);
   return sum / static_cast<f64>(scores.size());
+}
+
+// ============================================================================
+// SoftClipAsymmetry (SCA FORMAT field)
+//
+// Fraction of soft-clipped reads in ALT minus fraction in REF.
+//   SCA = (alt_sc/alt_total) - (ref_sc/ref_total)
+//
+// Positive values indicate ALT reads are more often soft-clipped than REF,
+// which may flag unresolved larger structural events masquerading as smaller
+// local variants. Soft-clip status comes from the original whole-genome
+// alignment CIGAR (>= 6% of read length), not the genotyper re-alignment.
+// ============================================================================
+auto VariantSupport::SoftClipAsymmetry() const -> f64 {
+  // ALT soft-clip fraction (summed across all non-REF alleles)
+  usize alt_sc = 0;
+  usize alt_total = 0;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    alt_sc += mAlleleData[i].soft_clip_count;
+    alt_total += TotalAlleleCov(static_cast<AlleleIndex>(i));
+  }
+
+  // REF soft-clip fraction
+  const auto ref_sc = (REF_ALLELE_IDX < mAlleleData.size()) ? mAlleleData[REF_ALLELE_IDX].soft_clip_count : usize{0};
+  const auto ref_total = TotalAlleleCov(REF_ALLELE_IDX);
+
+  const f64 alt_frac = alt_total > 0 ? static_cast<f64>(alt_sc) / static_cast<f64>(alt_total) : 0.0;
+  const f64 ref_frac = ref_total > 0 ? static_cast<f64>(ref_sc) / static_cast<f64>(ref_total) : 0.0;
+  return alt_frac - ref_frac;
+}
+
+// ============================================================================
+// FragLengthDelta (FLD FORMAT field)
+//
+// Absolute difference in mean insert sizes between ALT-supporting and
+// REF-supporting properly-paired reads.
+//   FLD = |mean_alt_isize - mean_ref_isize|
+//
+// Large FLD indicates chimeric library artifacts (artificial bridging) or
+// somatic cfDNA fragment length shifts. Insert sizes come from the original
+// whole-genome alignment (bam1_t::core.isize), not the genotyper re-alignment.
+// Only non-zero insert sizes from properly-paired reads are included.
+// ============================================================================
+auto VariantSupport::FragLengthDelta() const -> f64 {
+  // ALT mean insert size (summed across all non-REF alleles)
+  f64 alt_isize_sum = 0.0;
+  usize alt_pairs = 0;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    for (const auto isize : mAlleleData[i].proper_pair_isizes) {
+      alt_isize_sum += isize;
+      ++alt_pairs;
+    }
+  }
+
+  // REF mean insert size
+  f64 ref_isize_sum = 0.0;
+  usize ref_pairs = 0;
+  if (REF_ALLELE_IDX < mAlleleData.size()) {
+    for (const auto isize : mAlleleData[REF_ALLELE_IDX].proper_pair_isizes) {
+      ref_isize_sum += isize;
+      ++ref_pairs;
+    }
+  }
+
+  const f64 alt_mean = alt_pairs > 0 ? alt_isize_sum / static_cast<f64>(alt_pairs) : 0.0;
+  const f64 ref_mean = ref_pairs > 0 ? ref_isize_sum / static_cast<f64>(ref_pairs) : 0.0;
+  return std::abs(alt_mean - ref_mean);
+}
+
+// ============================================================================
+// MappingQualRankSumZ (MQRS FORMAT field)
+//
+// Mann-Whitney U test Z-score comparing mapping qualities of REF-supporting
+// vs ALT-supporting reads. Uses the original alignment MAPQ stored during
+// BAM/CRAM ingestion (not re-alignment MAPQ).
+//
+// Pools all ALT alleles into a single group (REF vs all-ALT) because the
+// test is about whether ALT reads as a class are mismapped, not which
+// specific ALT allele they support.
+//
+// Negative Z → ALT reads systematically lower MAPQ (paralogous mismapping)
+// Near zero  → no difference (expected for true variants)
+// Returns 100.0 (MANN_WHITNEY_MISSING_SENTINEL) if either group is empty
+// (e.g., homozygous ALT/REF genotype) or all MAPQs are identical.
+// See mann_whitney.h for full sentinel rationale.
+// ============================================================================
+auto VariantSupport::MappingQualRankSumZ() const -> f64 {
+  // Collect REF mapping qualities
+  absl::Span<const u8> ref_mqs;
+  if (REF_ALLELE_IDX < mAlleleData.size()) {
+    ref_mqs = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].map_quals);
+  }
+
+  // Pool all ALT mapping qualities into a single group
+  std::vector<u8> alt_mqs;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    const auto& mqs = mAlleleData[i].map_quals;
+    alt_mqs.insert(alt_mqs.end(), mqs.begin(), mqs.end());
+  }
+
+  return base::MannWhitneyUZScore<u8>(ref_mqs, absl::MakeConstSpan(alt_mqs));
+}
+
+// ============================================================================
+// ReadPosRankSumZ (RPRS FORMAT field)
+//
+// Mann-Whitney U test Z-score comparing folded read positions of REF vs ALT
+// reads. Folded position = min(p, 1−p) where p = variant_query_pos / read_len.
+// Maps both 5' and 3' read edges to 0.0, centers to 0.5.
+//
+// True variants should be uniformly distributed across read positions.
+// Artifacts from 3' quality degradation or 5' soft-clip misalignment cluster
+// at read edges (low folded position), producing a negative Z-score for ALT.
+// ============================================================================
+auto VariantSupport::ReadPosRankSumZ() const -> f64 {
+  absl::Span<const f64> ref_positions;
+  if (REF_ALLELE_IDX < mAlleleData.size()) {
+    ref_positions = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].folded_read_positions);
+  }
+
+  std::vector<f64> alt_positions;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    const auto& pos = mAlleleData[i].folded_read_positions;
+    alt_positions.insert(alt_positions.end(), pos.begin(), pos.end());
+  }
+
+  return base::MannWhitneyUZScore<f64>(ref_positions, absl::MakeConstSpan(alt_positions));
+}
+
+// ============================================================================
+// BaseQualRankSumZ (BQRS FORMAT field)
+//
+// Mann-Whitney U test Z-score comparing base qualities of REF vs ALT reads.
+// Concatenates forward and reverse strand base qualities per allele.
+// Detects 8-oxoguanine oxidation artifacts where the miscalled base has
+// characteristically low Phred confidence.
+// ============================================================================
+auto VariantSupport::BaseQualRankSumZ() const -> f64 {
+  // Collect REF base qualities (fwd + rev concatenated)
+  std::vector<u8> ref_bqs;
+  if (REF_ALLELE_IDX < mAlleleData.size()) {
+    const auto& ref = mAlleleData[REF_ALLELE_IDX];
+    ref_bqs.reserve(ref.fwd_base_quals.size() + ref.rev_base_quals.size());
+    ref_bqs.insert(ref_bqs.end(), ref.fwd_base_quals.begin(), ref.fwd_base_quals.end());
+    ref_bqs.insert(ref_bqs.end(), ref.rev_base_quals.begin(), ref.rev_base_quals.end());
+  }
+
+  // Pool all ALT base qualities
+  std::vector<u8> alt_bqs;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    const auto& alt = mAlleleData[i];
+    alt_bqs.insert(alt_bqs.end(), alt.fwd_base_quals.begin(), alt.fwd_base_quals.end());
+    alt_bqs.insert(alt_bqs.end(), alt.rev_base_quals.begin(), alt.rev_base_quals.end());
+  }
+
+  return base::MannWhitneyUZScore<u8>(absl::MakeConstSpan(ref_bqs), absl::MakeConstSpan(alt_bqs));
+}
+
+// ============================================================================
+// AlleleMismatchDelta (ASMD FORMAT field)
+//
+// mean(ALT NM) − mean(REF NM), where NM is the edit distance of each read
+// against the REF haplotype. Both groups share the variant's own edit
+// contribution, so ASMD cancels it and isolates excess noise.
+//
+// Positive ASMD → ALT reads have more mismatches (chimeric/paralogous signal)
+// Near zero     → expected for true variants
+// Returns 0.0 if either group is empty.
+// ============================================================================
+auto VariantSupport::AlleleMismatchDelta() const -> f64 {
+  // REF group mean NM
+  f64 ref_mean = 0.0;
+  if (REF_ALLELE_IDX < mAlleleData.size()) {
+    const auto& ref_nms = mAlleleData[REF_ALLELE_IDX].ref_nm_values;
+    if (!ref_nms.empty()) {
+      ref_mean = std::accumulate(ref_nms.begin(), ref_nms.end(), 0.0) / static_cast<f64>(ref_nms.size());
+    }
+  }
+
+  // Pool all ALT NM values
+  f64 alt_sum = 0.0;
+  usize alt_count = 0;
+  for (usize i = 1; i < mAlleleData.size(); ++i) {
+    const auto& nms = mAlleleData[i].ref_nm_values;
+    alt_sum += std::accumulate(nms.begin(), nms.end(), 0.0);
+    alt_count += nms.size();
+  }
+
+  // NOLINTNEXTLINE(readability-braces-around-statements)
+  if (alt_count == 0) return 0.0;
+  const auto alt_mean = alt_sum / static_cast<f64>(alt_count);
+  return alt_mean - ref_mean;
 }
 
 // ============================================================================
@@ -318,7 +566,7 @@ auto VariantSupport::ComputePLs() const -> std::vector<int> {
   std::vector<f64> gt_log_lks(num_genotypes, 0.0);
 
   // Walk every read once. Fwd and rev strands use identical math —
-  // strand information is already captured in the SB (strand bias) field.
+  // strand information is already captured in the SB (Phred-scaled Fisher strand bias) field.
   for (int allele_idx = 0; allele_idx < num_alleles; ++allele_idx) {
     const auto& allele_data = mAlleleData[allele_idx];
 

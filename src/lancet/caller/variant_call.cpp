@@ -13,7 +13,8 @@
 #include "lancet/base/assert.h"
 #include "lancet/base/compute_stats.h"
 #include "lancet/base/hash.h"
-#include "lancet/base/lcr_scorer.h"
+#include "lancet/base/longdust_scorer.h"
+#include "lancet/base/polar_coords.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_support.h"
@@ -47,11 +48,13 @@ namespace lancet::caller {
 // Single-variant constructor (bi-allelic, backwards compatible)
 // Delegates to multi-allelic BuildFormatFields.
 // ============================================================================
-VariantCall::VariantCall(const RawVariant* var, Supports&& supports, Samples samps, AnnotationFeatures features)
+VariantCall::VariantCall(const RawVariant* var, Supports&& supports, Samples samps, FeatureFlags features,
+                         const f64 window_cov)
     : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
       mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele),
       mVariantLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType),
-      mAltLcrScores(var->mAltLcrScores), mRefLcrScores(var->mRefLcrScores) {
+      mGraphMetrics(var->mGraphMetrics),
+      mSeqCx(var->mSeqCx), mFeatureFlags(features), mWindowCov(window_cov) {
   mAltAlleles.push_back(var->mAltAllele);
 
   PerSampleEvidence per_sample_evidence;
@@ -77,19 +80,23 @@ VariantCall::VariantCall(const RawVariant* var, Supports&& supports, Samples sam
 // to build a unified multi-allelic VariantSupport per sample.
 // ============================================================================
 VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps,
-                         AnnotationFeatures features)
+                         FeatureFlags features, const f64 window_cov)
     : mVariantId(HashVariantGroup(variants)),
       mChromIndex(variants[0]->mChromIndex), mStartPos1(variants[0]->mGenomeStart1),
       mTotalSampleCov(0), mChromName(variants[0]->mChromName), mRefAllele(variants[0]->mRefAllele),
-      mVariantLength(variants[0]->mAlleleLength), mSiteQuality(0), mCategory(variants[0]->mType) {
-  // Collect ALT alleles and merge LCR scores (element-wise max across the group)
+      mVariantLength(variants[0]->mAlleleLength), mSiteQuality(0), mCategory(variants[0]->mType),
+      mFeatureFlags(features), mWindowCov(window_cov) {
+  // Collect ALT alleles and merge complexity scores (element-wise max across the group)
   for (const auto* var : variants) {
     mAltAlleles.push_back(var->mAltAllele);
-    // Element-wise max of LCR scores across all variants in the group
-    for (usize si = 0; si < base::NUM_LCR_SCALES; ++si) {
-      mAltLcrScores[si] = std::max(mAltLcrScores[si], var->mAltLcrScores[si]);
-      mRefLcrScores[si] = std::max(mRefLcrScores[si], var->mRefLcrScores[si]);
+
+    // Graph metrics: take from first variant (all share same window-level metrics)
+    if (var == variants[0]) {
+      mGraphMetrics = var->mGraphMetrics;
     }
+
+    // Sequence complexity: element-wise max across all variants at this locus
+    mSeqCx.MergeMax(var->mSeqCx);
   }
 
   // Merge per-variant bi-allelic evidence into a single multi-allelic VariantSupport.
@@ -133,43 +140,54 @@ VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports
 // ============================================================================
 // Finalize: common post-construction steps for both constructors.
 //
-// Determines germline/somatic mode, then delegates to three focused methods:
+// Determines tumor-normal (somatic) vs normal-only mode, then delegates to
+// three focused methods:
 //   1. BuildFormatFields  — per-sample FORMAT strings + site quality
 //   2. ComputeState       — SHARED/NORMAL/TUMOR classification
 //   3. BuildInfoField     — INFO string assembly
 // ============================================================================
-void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, AnnotationFeatures features) {
+void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, FeatureFlags features) {
+  static const auto is_tumor = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::TUMOR; };
   static const auto is_normal = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::NORMAL; };
-  const auto germline_mode = std::ranges::all_of(samps, is_normal);
+  const auto tumor_normal_mode = std::ranges::any_of(samps, is_tumor) && std::ranges::any_of(samps, is_normal);
 
-  const auto alt_presence = BuildFormatFields(evidence, samps, germline_mode);
-  ComputeState(alt_presence, germline_mode);
-  BuildInfoField(germline_mode, features);
+  const auto alt_presence = BuildFormatFields(evidence, samps, tumor_normal_mode);
+  ComputeState(alt_presence, tumor_normal_mode);
+  BuildInfoField(tumor_normal_mode, features);
 }
 
 // ============================================================================
 // BuildFormatFields: per-sample FORMAT strings and site quality.
 //
-// FORMAT: GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:PL:GQ
+// FORMAT: GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:MQRS:PRAD:PANG:PL:GQ
 //
-//   GT  - Genotype derived from minimum PL
-//   AD  - Number=R: allele depths (REF, ALT1, ALT2, ...)
-//   ADF - Number=R: forward strand allele depths
-//   ADR - Number=R: reverse strand allele depths
-//   DP  - Total depth
-//   RMQ - Number=R: RMS mapping quality per allele
-//   PBQ - Number=R: posterior base quality per allele
-//   SB  - Number=R: strand bias ratio per allele
-//   PL  - Number=G: Phred-scaled genotype likelihoods
-//   GQ  - Genotype quality (GATK: second-lowest PL, capped at 99)
+//   GT   - Genotype derived from minimum PL
+//   AD   - Number=R: allele depths (REF, ALT1, ALT2, ...)
+//   ADF  - Number=R: forward strand allele depths
+//   ADR  - Number=R: reverse strand allele depths
+//   DP   - Total depth
+//   RMQ  - Number=R: RMS mapping quality per allele
+//   PBQ  - Number=R: posterior base quality per allele
+//   SB   - Number=1: Phred-scaled Fisher's exact test strand bias
+//   SCA  - Number=1: Soft Clip Asymmetry (ALT - REF soft-clip fraction)
+//   FLD  - Number=1: Fragment Length Delta (|mean ALT isize - mean REF isize|)
+//   RPRS - Number=1: Read Position Rank Sum Z-score (folded read position)
+//   BQRS - Number=1: Base Quality Rank Sum Z-score
+//   MQRS - Number=1: Mapping Quality Rank Sum Z-score (Mann-Whitney U)
+//   ASMD - Number=1: Allele-Specific Mismatch Delta (mean ALT NM - mean REF NM)
+//   SDFC - Number=1: Site Depth Fold Change (DP / window mean coverage)
+//   PRAD - Number=1: Polar Radius sqrt(AD_Ref² + AD_Alt²)
+//   PANG - Number=1: Polar Angle atan2(AD_Alt, AD_Ref) in radians
+//   PL   - Number=G: Phred-scaled genotype likelihoods
+//   GQ   - Genotype quality (GATK: second-lowest PL, capped at 99)
 // ============================================================================
 auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples samps,
-                                    const bool germline_mode) -> AltPresence {
+                                    const bool tumor_normal_mode) -> AltPresence {
   const auto num_alleles = mAltAlleles.size() + 1;  // +1 for REF
   AltPresence alt_presence;
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:PL:GQ");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ");
 
   for (const auto& sinfo : samps) {
     const auto& support = evidence.at(sinfo.SampleName());
@@ -185,28 +203,30 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
     }
     const auto genotype = GenotypeFromGLIndex(best_gt_idx, num_alleles);
 
-    // Site quality: Fisher score in somatic mode, ref-hom PL in germline mode
+    // Site quality: Fisher score in tumor-normal mode, ref-hom PL otherwise
     const auto fisher_score = SomaticFisherScore(sinfo, evidence);
     const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
-    mSiteQuality = std::max(mSiteQuality, germline_mode ? static_cast<f64>(ref_hom_pl) : fisher_score);
+    mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? fisher_score : static_cast<f64>(ref_hom_pl));
     mTotalSampleCov += support->TotalSampleCov();
 
-    // Track ALT presence per label (only meaningful in somatic mode)
-    if (!germline_mode && support->TotalAltCov() > 0) {
-      // NOLINTBEGIN(readability-braces-around-statements)
-      if (sinfo.TagKind() == cbdg::Label::NORMAL) alt_presence.in_normal = true;
-      if (sinfo.TagKind() == cbdg::Label::TUMOR) alt_presence.in_tumor = true;
-      // NOLINTEND(readability-braces-around-statements)
+    // Track ALT support globally (for HasAltSupport()) and per-label (for state)
+    if (support->TotalAltCov() > 0) {
+      mHasAltSupport = true;
+      if (tumor_normal_mode) {
+        // NOLINTBEGIN(readability-braces-around-statements)
+        if (sinfo.TagKind() == cbdg::Label::NORMAL) alt_presence.in_normal = true;
+        if (sinfo.TagKind() == cbdg::Label::TUMOR) alt_presence.in_tumor = true;
+        // NOLINTEND(readability-braces-around-statements)
+      }
     }
 
     // Per-allele metric strings (Number=R fields)
-    std::vector<std::string> ad_vals, adf_vals, adr_vals, rmq_vals, pbq_vals, sb_vals;
+    std::vector<std::string> ad_vals, adf_vals, adr_vals, rmq_vals, pbq_vals;
     ad_vals.reserve(num_alleles);
     adf_vals.reserve(num_alleles);
     adr_vals.reserve(num_alleles);
     rmq_vals.reserve(num_alleles);
     pbq_vals.reserve(num_alleles);
-    sb_vals.reserve(num_alleles);
 
     for (usize allele = 0; allele < num_alleles; ++allele) {
       const auto idx = static_cast<AlleleIndex>(allele);
@@ -215,8 +235,26 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
       adr_vals.push_back(std::to_string(support->RevCount(idx)));
       rmq_vals.push_back(fmt::format("{:.1f}", support->RmsMappingQual(idx)));
       pbq_vals.push_back(fmt::format("{:.1f}", support->PosteriorBaseQual(idx)));
-      sb_vals.push_back(fmt::format("{:.3f}", support->StrandBiasRatio(idx)));
     }
+
+    // Phred-scaled Fisher strand bias (Number=1, per-sample)
+    const auto sb_phred = fmt::format("{:.1f}", support->PhredStrandBias());
+
+    // Alignment-derived per-sample annotations
+    const auto sca_val = fmt::format("{:.4f}", support->SoftClipAsymmetry());
+    const auto fld_val = fmt::format("{:.1f}", support->FragLengthDelta());
+    const auto rprs_val = fmt::format("{:.3f}", support->ReadPosRankSumZ());
+    const auto bqrs_val = fmt::format("{:.3f}", support->BaseQualRankSumZ());
+    const auto mqrs_val = fmt::format("{:.3f}", support->MappingQualRankSumZ());
+    const auto asmd_val = fmt::format("{:.3f}", support->AlleleMismatchDelta());
+    const auto sdfc_val = fmt::format("{:.2f}", SiteDepthFoldChange());
+
+    // Polar coordinate features for ML variant classification
+    // PRAD/PANG orthogonalize allele identity from depth (see polar_coords.h)
+    const auto ad_ref = static_cast<f64>(support->TotalRefCov());
+    const auto ad_alt = static_cast<f64>(support->TotalAltCov());
+    const auto prad_val = fmt::format("{:.1f}", base::PolarRadius(ad_ref, ad_alt));
+    const auto pang_val = fmt::format("{:.4f}", base::PolarAngle(ad_alt, ad_ref));
 
     // PL string (Number=G field)
     std::vector<std::string> pl_strs;
@@ -226,7 +264,7 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
     }
 
     mFormatFields.emplace_back(fmt::format(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         genotype,
         absl::StrJoin(ad_vals, ","),
         absl::StrJoin(adf_vals, ","),
@@ -234,7 +272,16 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
         support->TotalSampleCov(),
         absl::StrJoin(rmq_vals, ","),
         absl::StrJoin(pbq_vals, ","),
-        absl::StrJoin(sb_vals, ","),
+        sb_phred,
+        sca_val,
+        fld_val,
+        rprs_val,
+        bqrs_val,
+        mqrs_val,
+        asmd_val,
+        sdfc_val,
+        prad_val,
+        pang_val,
         pls.empty() ? "." : absl::StrJoin(pl_strs, ","),
         gq_value));
   }
@@ -243,14 +290,14 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
 }
 
 // ============================================================================
-// ComputeState: classify variant as SHARED, NORMAL, TUMOR, or NONE.
+// ComputeState: classify variant as SHARED, NORMAL, TUMOR, UNKNOWN, or NONE.
 //
-// Only meaningful in somatic mode (at least one tumor + one normal sample).
-// In germline mode, state is always NONE.
+// In tumor-normal mode: SHARED/NORMAL/TUMOR based on ALT presence, NONE if no support.
+// In normal-only mode: always UNKNOWN (not enough info to classify).
 // ============================================================================
-void VariantCall::ComputeState(const AltPresence alt_presence, const bool germline_mode) {
-  if (germline_mode) {
-    mState = RawVariant::State::NONE;
+void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_normal_mode) {
+  if (!tumor_normal_mode) {
+    mState = RawVariant::State::UNKNOWN;
     return;
   }
 
@@ -258,22 +305,24 @@ void VariantCall::ComputeState(const AltPresence alt_presence, const bool germli
   mState = alt_presence.in_normal && alt_presence.in_tumor ? RawVariant::State::SHARED
            : alt_presence.in_normal                        ? RawVariant::State::NORMAL
            : alt_presence.in_tumor                         ? RawVariant::State::TUMOR
-                                                           : RawVariant::State::NONE;
+                                                            : RawVariant::State::NONE;
   // NOLINTEND(readability-avoid-nested-conditional-operator)
 }
 
 // ============================================================================
 // BuildInfoField: assemble the VCF INFO string.
 //
-// Structure:  [STATE;]TYPE=<type>;LENGTH=<len>[;ALT_LCR=...][;REF_LCR=...]
+// Structure:  [STATE;]TYPE=<type>;LENGTH=<len>[;GRAPH_CX=...][;SEQ_CX=...]
 //
-//   STATE     — SHARED/NORMAL/TUMOR/NONE (somatic mode only; omitted in germline)
+//   STATE     — SHARED/NORMAL/TUMOR (tumor-normal mode only; omitted otherwise)
 //   TYPE      — SNV, INS, DEL, MNP (always present)
 //   LENGTH    — variant length in bp (always present)
-//   ALT_LCR   — optional, when ALT_LCR in annotation features
-//   REF_LCR   — optional, when REF_LCR in annotation features
+//   GRAPH_CX  — optional graph complexity (GEI, TipToPathCovRatio, MaxDegree)
+//   SEQ_CX    — optional sequence complexity (11 ML-ready features)
+//
+// Note: SCA, FLD, and MQRS are per-sample FORMAT fields, not site-level INFO.
 // ============================================================================
-void VariantCall::BuildInfoField(const bool germline_mode, AnnotationFeatures features) {
+void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags features) {
   using namespace std::string_view_literals;
 
   // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
@@ -287,9 +336,9 @@ void VariantCall::BuildInfoField(const bool germline_mode, AnnotationFeatures fe
   std::string info;
   info.reserve(1024);
 
-  // State prefix — somatic mode only
-  if (!germline_mode) {
-    // SHARED/NORMAL/TUMOR state — only in somatic (non-germline) mode
+  // State prefix — tumor-normal mode only
+  if (tumor_normal_mode) {
+    // SHARED/NORMAL/TUMOR state — only in tumor-normal (somatic) mode
     // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
     const auto vstate = mState == RawVariant::State::SHARED ? "SHARED"sv
                         : mState == RawVariant::State::NORMAL ? "NORMAL"sv
@@ -301,17 +350,13 @@ void VariantCall::BuildInfoField(const bool germline_mode, AnnotationFeatures fe
 
   absl::StrAppend(&info, "TYPE=", vcategory, ";LENGTH=", mVariantLength);
 
-  // Optional LCR annotations gated on --annotation-features
-  static const auto has_feature = [](AnnotationFeatures feats, std::string_view name) -> bool {
-    return std::ranges::find(feats, name) != feats.end();
-  };
-
-  if (has_feature(features, "ALT_LCR")) {
-    absl::StrAppend(&info, ";ALT_LCR=", base::FormatLcrScores(mAltLcrScores));
+  // Optional complexity annotations — each struct owns its own VCF formatting
+  if (features.enable_graph_complexity) {
+    absl::StrAppend(&info, ";GRAPH_CX=", mGraphMetrics.FormatVcfValue());
   }
 
-  if (has_feature(features, "REF_LCR")) {
-    absl::StrAppend(&info, ";REF_LCR=", base::FormatLcrScores(mRefLcrScores));
+  if (features.enable_sequence_complexity) {
+    absl::StrAppend(&info, ";SEQ_CX=", mSeqCx.FormatVcfValue());
   }
 
   mInfoField = std::move(info);
@@ -417,6 +462,13 @@ auto VariantCall::SomaticFisherScore(const core::SampleInfo& curr,
   const auto tmr_counts = Row{cnt_tmr_alt, cnt_tmr_ref};
   const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
   const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
+
+  // Use the right-tail p-value (mMoreProb) because somatic calling tests the
+  // directional hypothesis: "tumor has higher ALT enrichment than normal"
+  // (odds ratio > 1). The left tail (tumor has *less* ALT) is not relevant
+  // for somatic variant detection. This differs from strand bias (PhredStrandBias)
+  // which uses the two-tailed p-value (mDiffProb) because bias can go either way.
+  // htslib's kt_fisher_exact: _right = P(n11 >= observed | H0: odds ratio <= 1).
   return hts::ErrorProbToPhred(result.mMoreProb);
 }
 

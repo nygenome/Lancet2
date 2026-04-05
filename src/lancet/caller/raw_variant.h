@@ -8,8 +8,10 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
-#include "lancet/base/lcr_scorer.h"
+#include "absl/strings/str_cat.h"
+#include "lancet/base/sequence_complexity.h"
 #include "lancet/base/types.h"
+#include "lancet/cbdg/graph_complexity.h"
 
 namespace lancet::caller {
 
@@ -49,13 +51,12 @@ class RawVariant {
   RawVariant() = default;
 
   enum class Type : i8 { REF = -1, SNV = 0, INS = 1, DEL = 2, MNP = 3 };
-  enum class State : i8 { NONE = -1, SHARED = 0, NORMAL = 1, TUMOR = 2 };
+  enum class State : i8 { NONE = -1, SHARED = 0, NORMAL = 1, TUMOR = 2, UNKNOWN = 3 };
 
   // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
   usize mChromIndex = -1;
   usize mGenomeStart1 = -1;
   i64 mAlleleLength = -1;
-  Type mType = Type::REF;
   std::string mChromName;
   std::string mRefAllele;
   std::string mAltAllele;
@@ -63,16 +64,42 @@ class RawVariant {
   // haplotype index identifier -> start index of variant in haplotype
   absl::flat_hash_map<usize, usize> mHapStart0Idxs;
 
-  // ALT_LCR: multi-scale low-complexity scores centered on the ALT allele position.
-  // Scored across all haplotypes (REF + ALTs) carrying this variant. Max across haplotypes.
-  // Indexed by scale: [5bp, 10bp, 50bp, 100bp, full_haplotype].
-  // Higher values indicate more repetitive context. Score >= 0.6 ≈ LCR threshold.
-  std::array<f64, base::NUM_LCR_SCALES> mAltLcrScores = base::DEFAULT_LCR_SCORES;
+  Type mType = Type::REF;
 
-  // REF_LCR: multi-scale low-complexity scores centered on the REF allele position.
-  // Scored exclusively on the reference haplotype (comp_haps[0]).
-  // Indexed by scale: [5bp, 10bp, 50bp, 100bp, full_haplotype].
-  std::array<f64, base::NUM_LCR_SCALES> mRefLcrScores = base::DEFAULT_LCR_SCORES;
+  // ── Graph complexity metrics (ML-ready orthogonal features) ────────────
+  // Populated when --enable-graph-complexity-features is set.
+  // 3 fields matching the GRAPH_CX VCF INFO tag.
+  //
+  // Raw topology metrics (CC, BP, EdgeDensity, UnitigRatio, CoverageCv) are
+  // mathematically collinear and compressed into the Graph Entanglement Index.
+  // Color-based metrics (UnsharedColorRatio, ColorDiscordantBranches) are not
+  // topological and are captured by other biologically relevant annotations.
+  struct GraphMetrics {
+    f64 graph_entanglement_index = 0.0;  ///< GEI: log₁₀(1 + CC×BP×CovCV / UnitigRatio)
+    f64 tip_to_path_cov_ratio = 0.0;    ///< assembly tearing: tip cov / unitig cov
+    usize max_single_dir_degree = 0;    ///< hub k-mer detection: max outgoing edges
+
+    /// Format as 3 comma-separated values for VCF GRAPH_CX INFO tag.
+    [[nodiscard]] auto FormatVcfValue() const -> std::string {
+      return absl::StrCat(
+          base::FormatComplexityScore(graph_entanglement_index), ",",
+          base::FormatComplexityScore(tip_to_path_cov_ratio), ",",
+          max_single_dir_degree);
+    }
+  };
+
+  // ── Annotation fields (mutable — populated post-construction) ─────────
+  // These do not participate in btree_set ordering and are annotated after
+  // variant discovery, so they are mutable to allow modification through
+  // const btree_set iterators without const_cast.
+
+  mutable GraphMetrics mGraphMetrics;
+
+  // ── Sequence complexity (11 ML-ready features) ────────────────────────
+  // Populated when --enable-sequence-complexity-features is set.
+  // Distilled from raw multi-scale metrics (HRun, Entropy, LongdustQ, TR motifs)
+  // into 3 groups: Context (REF), Delta (ALT−REF), TR Motif (ALT).
+  mutable base::SequenceComplexity mSeqCx;
   // NOLINTEND(misc-non-private-member-variables-in-classes)
 
   // Create a key for grouping variants at the same locus into multi-allelic records.

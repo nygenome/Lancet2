@@ -1,5 +1,5 @@
 // ============================================================================
-// ScoreRegionLCR — Comprehensive LCR Score Analysis & Test Data Generator
+// ScoreRegionLongdust — Comprehensive Longdust Score Analysis & Test Data Generator
 //
 // Reads annotation BED files in parallel, expands each to 4 scoring windows
 // (one per scale), sorts all windows globally by genome position, scores them
@@ -20,7 +20,7 @@
 //   chrom  start  end  source  name  region  scale  region_length  score
 //
 // Usage:
-//   ScoreRegionLCR <ref.fa.gz> <data_dir> <output.bed.gz> <test.tsv> <threads>
+//   ScoreRegionLongdust <ref.fa.gz> <data_dir> <output.bed.gz> <test.tsv> <threads>
 // ============================================================================
 
 #include <algorithm>
@@ -48,7 +48,7 @@ extern "C" {
 #include "concurrentqueue.h"
 #include "spdlog/fmt/bundled/format.h"
 
-#include "lancet/base/lcr_scorer.h"
+#include "lancet/base/longdust_scorer.h"
 #include "lancet/base/timer.h"
 #include "lancet/base/types.h"
 #include "lancet/hts/bgzf_ostream.h"
@@ -426,7 +426,7 @@ void ScoringWorker(std::stop_token stoken,
                    const std::vector<ScoringWindow>* windows,
                    const std::vector<BedAnnotation>* annotations,
                    const CachedReference* cache) {
-  lancet::base::LcrScorer scorer(7, 10001);
+  lancet::base::LongdustQScorer scorer(7, 10001);
   const moodycamel::ProducerToken out_token(*out_queue);
   usize win_idx = 0;
 
@@ -493,7 +493,7 @@ class EtaTimer {
 auto main(int argc, char** argv) -> int {
   if (argc < 6) {
     fmt::print(stderr,
-               "Usage: ScoreRegionLCR <ref.fa.gz> <data_dir> <output.bed.gz> <test.tsv> <threads>\n\n"
+               "Usage: ScoreRegionLongdust <ref.fa.gz> <data_dir> <output.bed.gz> <test.tsv> <threads>\n\n"
                "Arguments:\n"
                "  ref.fa.gz      Bgzipped reference FASTA\n"
                "  data_dir       Data directory with BED annotation files\n"
@@ -510,7 +510,7 @@ auto main(int argc, char** argv) -> int {
   const auto num_threads = static_cast<usize>(std::stoi(argv[5]));
 
   fmt::print(stderr,
-             "=== ScoreRegionLCR ===\n"
+             "=== ScoreRegionLongdust ===\n"
              "Reference: {}\n"
              "Data dir:  {}\n"
              "Output:    {}\n"

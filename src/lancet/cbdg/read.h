@@ -1,6 +1,7 @@
 #ifndef SRC_LANCET_CBDG_READ_H_
 #define SRC_LANCET_CBDG_READ_H_
 
+#include <numeric>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,13 +17,25 @@ namespace lancet::cbdg {
 class Read {
  public:
   explicit Read(const hts::Alignment& aln, std::string sample_name, const Label::Tag tag)
-      : mStart0(aln.StartPos0()), mChromIdx(aln.ChromIndex()), mSamFlag(aln.FlagRaw()), mMapQual(aln.MapQual()),
+      : mStart0(aln.StartPos0()), mInsertSize(aln.InsertSize()), mChromIdx(aln.ChromIndex()),
+        mSamFlag(aln.FlagRaw()), mMapQual(aln.MapQual()),
         mTag(tag), mQname(aln.QnameView()), mSequence(aln.BuildSequence()), mSampleName(std::move(sample_name)),
         mQuality(aln.BuildQualities()) {
     static constexpr u8 DEFAULT_MIN_READ_MAP_QUAL = 20;
     if (aln.MapQual() < DEFAULT_MIN_READ_MAP_QUAL) {
       mPassesAlnFilters = false;
     }
+
+    // Flag read as soft-clipped if total soft-clip bases >= 6% of read length.
+    // Uses the original whole-genome alignment CIGAR, not re-alignment CIGAR.
+    static constexpr f64 SOFT_CLIP_FRAC_THRESHOLD = 0.06;
+    static constexpr auto ClipLen = [](const auto& u) -> u32 {
+      return u.Operation() == hts::CigarOp::SOFT_CLIP ? u.Length() : 0;
+    };
+    const auto cigar = aln.CigarData();
+    const auto total_clip = std::transform_reduce(cigar.cbegin(), cigar.cend(), u32{0}, std::plus<>{}, ClipLen);
+    const auto clip_frac = aln.Length() > 0 ? static_cast<f64>(total_clip) / static_cast<f64>(aln.Length()) : 0.0;
+    mIsSoftClipped = clip_frac >= SOFT_CLIP_FRAC_THRESHOLD;
   }
 
   [[nodiscard]] auto StartPos0() const noexcept -> i64 { return mStart0; }
@@ -41,6 +54,9 @@ class Read {
   [[nodiscard]] auto QualView() const noexcept -> absl::Span<const u8> { return mQuality; }
   [[nodiscard]] auto Length() const noexcept -> usize { return mSequence.size(); }
   [[nodiscard]] auto SampleName() const noexcept -> std::string_view { return mSampleName; }
+  [[nodiscard]] auto IsSoftClipped() const noexcept -> bool { return mIsSoftClipped; }
+  [[nodiscard]] auto InsertSize() const noexcept -> i64 { return mInsertSize; }
+  [[nodiscard]] auto IsProperPair() const noexcept -> bool { return (mSamFlag & 0x2) != 0; }
 
   template <typename HashState>
   friend auto AbslHashValue(HashState hash_state, const Read& read) -> HashState {
@@ -59,10 +75,12 @@ class Read {
 
  private:
   i64 mStart0 = -1;
+  i64 mInsertSize = 0;
   i32 mChromIdx = -1;
   u16 mSamFlag = 0;
   u8 mMapQual = 0;
   bool mPassesAlnFilters = true;
+  bool mIsSoftClipped = false;
 
   Label::Tag mTag;
   std::string mQname;

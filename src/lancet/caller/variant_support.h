@@ -54,14 +54,18 @@ class VariantSupport {
  public:
   VariantSupport() = default;
 
-  // Evidence from a single read's alignment at this variant
   struct ReadEvidence {
-    u32 rname_hash;       // hash of read name (for dedup)
-    AlleleIndex allele;   // which allele this read supports
-    Strand strand;        // forward or reverse strand
-    u8 base_qual;         // representative PBQ (min across variant region for indels)
-    u8 map_qual;          // original mapping quality of the read
-    f64 aln_score;        // normalized alignment score to the assigned haplotype
+    i64 insert_size;        // template length from original alignment
+    f64 aln_score;          // normalized alignment score to the assigned haplotype
+    f64 folded_read_pos;    // 0.0=read edge, 0.5=read center (for RPRS)
+    u32 rname_hash;         // hash of read name (for dedup)
+    u32 ref_nm;             // edit distance to REF haplotype (for ASMD)
+    AlleleIndex allele;     // which allele this read supports
+    Strand strand;          // forward or reverse strand
+    u8 base_qual;           // representative PBQ (min across variant region for indels)
+    u8 map_qual;            // original mapping quality of the read
+    bool is_soft_clipped;   // soft-clip bases >= 6% of read length in original alignment
+    bool is_proper_pair;    // properly paired in original alignment
   };
 
   void AddEvidence(const ReadEvidence& evidence);
@@ -91,14 +95,66 @@ class VariantSupport {
   [[nodiscard]] auto PosteriorBaseQual(AlleleIndex idx) const -> f64;
 
   // RMS mapping quality: sqrt(mean(mapq_i^2)) for reads supporting this allele.
-  // Follows the standard samtools/GATK INFO/RMQ convention.
+  // Per-allele FORMAT field (RMQ), follows the standard samtools/GATK convention.
   [[nodiscard]] auto RmsMappingQual(AlleleIndex idx) const -> f64;
 
-  // Strand bias: fraction of forward-strand reads (fwd / total) for this allele.
-  [[nodiscard]] auto StrandBiasRatio(AlleleIndex idx) const -> f64;
+  // Phred-scaled Fisher's exact test strand bias: -10*log10(p_value) from a 2×2
+  // contingency table of REF/ALT × FWD/REV strand counts. Artifacts concentrate
+  // on one strand and produce high scores; true variants score near 0.
+  // This is a single per-sample metric (Number=1), not per-allele.
+  [[nodiscard]] auto PhredStrandBias() const -> f64;
 
   // Mean normalized alignment score for reads supporting this allele.
   [[nodiscard]] auto MeanAlnScore(AlleleIndex idx) const -> f64;
+
+  // Soft Clip Asymmetry (SCA FORMAT field): fraction of soft-clipped reads in ALT
+  // minus fraction in REF. Detects unresolved larger variant events masquerading
+  // as smaller local calls.
+  //   SCA = (alt_sc / alt_total) - (ref_sc / ref_total)
+  [[nodiscard]] auto SoftClipAsymmetry() const -> f64;
+
+  // Fragment Length Delta (FLD FORMAT field): absolute difference in mean insert
+  // sizes between ALT-supporting and REF-supporting read pairs. Large FLD
+  // indicates chimeric library artifacts or somatic cfDNA fragment length shifts.
+  //   FLD = |mean_alt_isize - mean_ref_isize|
+  [[nodiscard]] auto FragLengthDelta() const -> f64;
+
+  // Mapping Quality Rank Sum Z-score (MQRS FORMAT field): Mann-Whitney U test
+  // comparing mapping qualities of REF-supporting vs ALT-supporting reads.
+  // Uses the original alignment MAPQ (not re-alignment quality).
+  //   Negative Z → ALT reads are systematically lower MAPQ (paralogous mismapping)
+  //   Positive Z → ALT reads have higher MAPQ (unusual, may indicate REF bias)
+  //   Near zero  → no systematic difference (expected for true variants)
+  //   100.0      → test not applicable (empty REF or ALT group, or identical MAPQ)
+  // GATK uses Z < -12.5 as a hard filter threshold for MQRankSum.
+  [[nodiscard]] auto MappingQualRankSumZ() const -> f64;
+
+  // Read Position Rank Sum Z-score (RPRS FORMAT field): Mann-Whitney U test
+  // on folded read positions (REF vs ALT). Folded position maps both 5' and
+  // 3' read edges to 0.0, centers to 0.5. True variants are uniformly
+  // distributed; artifacts from quality degradation or misalignment cluster
+  // at read edges, producing a negative Z-score for the ALT group.
+  //   Negative Z → ALT allele systematically at read edges (artifact signal)
+  //   Near zero  → uniform distribution (expected for true variants)
+  //   100.0      → untestable (empty group or identical distributions)
+  [[nodiscard]] auto ReadPosRankSumZ() const -> f64;
+
+  // Base Quality Rank Sum Z-score (BQRS FORMAT field): Mann-Whitney U test
+  // on per-allele base qualities (REF vs ALT). Detects 8-oxoguanine oxidation
+  // artifacts and other chemistry-driven errors where the miscalled base has
+  // characteristically low Phred confidence.
+  //   Negative Z → ALT allele has systematically lower base quality
+  //   100.0      → untestable
+  [[nodiscard]] auto BaseQualRankSumZ() const -> f64;
+
+  // Allele-Specific Mismatch Delta (ASMD FORMAT field):
+  // mean(ALT NM) − mean(REF NM), where NM is edit distance to the REF haplotype.
+  // True variants contribute equally to both groups' NM (the variant itself is
+  // an edit against the reference for all reads). Chimeric or paralogously
+  // mismapped reads produce high ALT NM (excess random mismatches) while REF
+  // reads stay clean, yielding ASMD > 0.
+  //   0.0 if either group is empty.
+  [[nodiscard]] auto AlleleMismatchDelta() const -> f64;
 
   // ── Multi-Allelic Genotype Likelihoods ──
 
@@ -153,6 +209,20 @@ class VariantSupport {
 
     // Per-read normalized alignment score (for filtering / annotation).
     std::vector<f64> aln_scores;
+
+    // Count of soft-clipped reads supporting this allele (for SCA FORMAT tag).
+    usize soft_clip_count = 0;
+
+    // Insert sizes from properly-paired reads (for FLD FORMAT tag).
+    // Only non-zero insert sizes from proper pairs are tracked.
+    std::vector<f64> proper_pair_isizes;
+
+    // Folded read positions: min(p, 1−p) for RPRS rank-sum test.
+    std::vector<f64> folded_read_positions;
+
+    // Edit distances (NM) against REF haplotype for ASMD delta.
+    // Stored as f64 for mean computation.
+    std::vector<f64> ref_nm_values;
   };
 
   // Dense vector indexed by AlleleIndex: mAlleleData[0]=REF, [1]=ALT1, ...

@@ -92,6 +92,11 @@ nav:
   - Getting Started: index.md
   - Guides:
     - Scoring Somatic Variants: guides/scoring_somatic_variants.md
+    - VCF Output Reference: guides/vcf_output.md
+    - Alignment Annotations: guides/alignment_annotations.md
+    - Polar Coordinate Features: guides/polar_features.md
+    - Sequence Complexity: guides/sequence_complexity.md
+    - Graph Complexity: guides/graph_complexity.md
     - Whole Genome Analysis: guides/wgs_analysis.md
     - Targeted Analysis: guides/targeted_analysis.md
     - Custom Visualization: guides/custom_visualization.md

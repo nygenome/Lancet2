@@ -16,6 +16,7 @@ extern "C" {
 #include "lancet/base/types.h"
 #include "lancet/caller/variant_support.h"
 #include "lancet/hts/cigar_unit.h"
+#include "lancet/hts/cigar_utils.h"
 #include "lancet/cbdg/read.h"
 
 namespace lancet::caller {
@@ -150,13 +151,13 @@ class Genotyper {
   // Alignment result from mm_map for a single read-to-haplotype alignment
   // ──────────────────────────────────────────────────────────────────────────
   struct Mm2AlnResult {
+    std::vector<hts::CigarUnit> cigar;
+    f64 identity = 0.0;     // gap-compressed identity
+    usize hap_idx = 0;
     i32 score = 0;          // DP alignment score
     i32 ref_start = 0;      // 0-based start on haplotype (critical for local score offset)
     i32 ref_end = 0;        // 0-based end on haplotype
-    f64 identity = 0.0;     // gap-compressed identity
-    usize hap_idx = 0;
     bool is_full_match = false;  // read aligns end-to-end with high identity
-    std::vector<hts::CigarUnit> cigar;
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -170,8 +171,6 @@ class Genotyper {
   // is decoupled from alignment strategy and stays identical.
   // ──────────────────────────────────────────────────────────────────────────
   struct ReadAlleleAssignment {
-    AlleleIndex allele;
-
     // ── Scoring components for allele assignment ──
     //
     // Each read-haplotype pair produces three independent signals. The combined
@@ -216,9 +215,32 @@ class Genotyper {
     //
     //   - Phase 2 (graph DP) will replace this with a single graph-alignment
     //     log-likelihood that naturally integrates all three signals.
-    i32 global_score;       // mm_map DP score of full read→haplotype alignment
     f64 local_score;        // PBQ-weighted DP score within variant region
     f64 local_identity;     // fraction of exact matches in variant region
+
+    /// Folded read position: min(p, 1−p) where p = variant_query_pos / read_length.
+    /// 0.0 = variant at read edge, 0.5 = variant at read center.
+    ///
+    /// Why fold? Artifacts from 3' quality degradation and 5' soft-clip
+    /// misalignment cluster at BOTH read ends. With raw positions, these
+    /// bimodal clusters (e.g. positions 5 and 145 in a 150bp read) average
+    /// to ~75 — indistinguishable from a true centered variant. Folding maps
+    /// both ends to the same low-value space, converting the bimodal trap
+    /// into a unidirectional signal: "Are ALT alleles systematically closer
+    /// to read edges than REF alleles?" Used for RPRS FORMAT field.
+    f64 folded_read_pos = 0.0;
+
+    i32 global_score;       // mm_map DP score of full read→haplotype alignment
+
+    /// Edit distance (NM) of this read against the REF haplotype (hap_idx=0).
+    /// Mismatches (under M ops, comparing query vs encoded REF) + insertion
+    /// bases + deletion bases. Soft clips, hard clips, N-skips excluded per
+    /// SAM spec. Always measured against the reference haplotype regardless
+    /// of allele assignment so that ASMD = mean(ALT NM) − mean(REF NM)
+    /// cancels the variant's own contribution and isolates excess noise.
+    u32 ref_nm = 0;
+
+    AlleleIndex allele;
 
     [[nodiscard]] auto CombinedScore() const -> f64 {
       return static_cast<f64>(global_score) + local_score * local_identity;

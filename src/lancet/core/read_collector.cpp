@@ -77,7 +77,7 @@ auto ReadCollector::HashQname(std::string_view qname) -> u64 { return absl::Hash
 // Constructor
 // ---------------------------------------------------------------------------
 
-ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGermlineMode(false) {
+ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsTumorNormalMode(false) {
   using hts::Extractor;
   using hts::Alignment::Fields::AUX_RGAUX;
 
@@ -86,8 +86,9 @@ ReadCollector::ReadCollector(Params params) : mParams(std::move(params)), mIsGer
 
   const auto sam_tags =
       mParams.mExtractPairs ? std::vector<std::string>{"SA", "AS", "XS"} : std::vector<std::string>{"AS", "XS"};
+  static const auto is_tumor = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::TUMOR; };
   static const auto is_normal = [](const SampleInfo& sinfo) -> bool { return sinfo.TagKind() == cbdg::Label::NORMAL; };
-  mIsGermlineMode = std::ranges::all_of(mSampleList, is_normal);
+  mIsTumorNormalMode = std::ranges::any_of(mSampleList, is_tumor) && std::ranges::any_of(mSampleList, is_normal);
 
   for (const auto& sinfo : mSampleList) {
     auto extractor = std::make_unique<Extractor>(sinfo.Path(), mParams.mRefPath, AUX_RGAUX, sam_tags, no_ctgcheck);

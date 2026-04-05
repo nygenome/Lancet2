@@ -1,10 +1,10 @@
 // ============================================================================
-// AnalyzeLCRScores — Single-Threaded LCR Score Analysis Tool
+// AnalyzeLongdustScores — Single-Threaded Longdust Score Analysis Tool
 //
-// Reads the scored BED output from ScoreRegionLCR (potentially 500M+ rows)
+// Reads the scored BED output from ScoreRegionLongdust (potentially 500M+ rows)
 // and generates two analysis files:
-//   1. lcr_analysis_by_category.txt    - Median/mean/max scores per category
-//   2. lcr_analysis_by_subcategory.txt - Median scores per subcategory
+//   1. longdust_analysis_by_category.txt    - Median/mean/max scores per category
+//   2. longdust_analysis_by_subcategory.txt - Median scores per subcategory
 //
 // Architecture: single-pass streaming with O(1) per-line accumulation.
 //   • Reads gzipped input line-by-line via gzgets
@@ -12,10 +12,10 @@
 //   • Converts to btree_map only at report time for sorted output
 //   • Computes exact median via nth_element at report time
 //
-// Input format (9-column BED from ScoreRegionLCR):
+// Input format (9-column BED from ScoreRegionLongdust):
 //   #chrom  start  end  source  name  region  scale  region_length  score
 //
-// Usage: AnalyzeLCRScores <scored.bed.gz> <output_dir>
+// Usage: AnalyzeLongdustScores <scored.bed.gz> <output_dir>
 // ============================================================================
 
 #include <algorithm>
@@ -137,7 +137,7 @@ void WriteCategoryAnalysis(const std::filesystem::path& path,
   std::ofstream out(path);
   const auto scale_hdr = FormatScaleHeader(scales);
 
-  out << fmt::format("LCR Score Analysis by Category ({} total rows)\n", total_rows);
+  out << fmt::format("Longdust Score Analysis by Category ({} total rows)\n", total_rows);
   out << std::string(120, '=') << "\n\n";
 
   // Category median table
@@ -193,7 +193,7 @@ void WriteSubcategoryAnalysis(
   std::ofstream out(path);
   const auto scale_hdr = FormatScaleHeader(scales);
 
-  out << fmt::format("LCR Score Analysis by Subcategory ({} total rows)\n", total_rows);
+  out << fmt::format("Longdust Score Analysis by Subcategory ({} total rows)\n", total_rows);
   out << std::string(140, '=') << "\n\n";
 
   for (auto& [category, subcategories] : subcat_data) {
@@ -232,10 +232,10 @@ void WriteSubcategoryAnalysis(
 auto main(int argc, char** argv) -> int {
   if (argc < 3) {
     fmt::print(stderr,
-               "Usage: AnalyzeLCRScores <scored.bed.gz> <output_dir>\n\n"
-               "Reads a scored BED from ScoreRegionLCR and generates:\n"
-               "  <output_dir>/lcr_analysis_by_category.txt\n"
-               "  <output_dir>/lcr_analysis_by_subcategory.txt\n");
+               "Usage: AnalyzeLongdustScores <scored.bed.gz> <output_dir>\n\n"
+               "Reads a scored BED from ScoreRegionLongdust and generates:\n"
+               "  <output_dir>/longdust_analysis_by_category.txt\n"
+               "  <output_dir>/longdust_analysis_by_subcategory.txt\n");
     return 1;
   }
 
@@ -244,7 +244,7 @@ auto main(int argc, char** argv) -> int {
   std::filesystem::create_directories(output_dir);
 
   fmt::print(stderr,
-             "=== AnalyzeLCRScores ===\n"
+             "=== AnalyzeLongdustScores ===\n"
              "Input:  {}\nOutput: {}\n\n",
              input_path.string(), output_dir.string());
 
@@ -308,10 +308,10 @@ auto main(int argc, char** argv) -> int {
 
   // ── Step 4: Write analysis reports ──────────────────────────────────────
   fmt::print(stderr, "Writing analysis reports...\n");
-  WriteCategoryAnalysis(output_dir / "lcr_analysis_by_category.txt",
+  WriteCategoryAnalysis(output_dir / "longdust_analysis_by_category.txt",
                         sorted_categories, acc.global, scales, acc.rows);
 
-  WriteSubcategoryAnalysis(output_dir / "lcr_analysis_by_subcategory.txt",
+  WriteSubcategoryAnalysis(output_dir / "longdust_analysis_by_subcategory.txt",
                            sorted_subcategories, acc.rows);
 
   fmt::print(stderr, "\n=== Done: analyzed {} rows ===\n", acc.rows);

@@ -1,5 +1,5 @@
-#ifndef SRC_LANCET_BASE_LCR_SCORER_H_
-#define SRC_LANCET_BASE_LCR_SCORER_H_
+#ifndef SRC_LANCET_BASE_LONGDUST_SCORER_H_
+#define SRC_LANCET_BASE_LONGDUST_SCORER_H_
 
 #include <algorithm>
 #include <array>
@@ -18,7 +18,7 @@
 namespace lancet::base {
 
 // ============================================================================
-// LcrScorer — k-mer complexity scorer for DNA sequences
+// LongdustQScorer — k-mer complexity scorer for DNA sequences
 //
 // PROVENANCE
 // ----------
@@ -34,7 +34,31 @@ namespace lancet::base {
 // known subsequences around variants. The formula, f(ℓ) precomputation,
 // k-mer encoding, and both-strand logic are verified to produce identical
 // results via cross-validation against longdust's C implementation
-// (see tests/base/lcr_scorer_test.cpp).
+// (see tests/base/longdust_scorer_test.cpp).
+//
+// GC-BIAS CORRECTION
+// ------------------
+// The scorer supports an optional GC-bias correction via the gc_frac
+// constructor parameter. By default, gc_frac=0.41 (human genome-wide
+// average GC content, confirmed by Lander et al. 2001, Piovesan et al.
+// 2019, and Nurk et al. 2022 T2T-CHM13).
+//
+// Without correction (gc_frac=0.5), the null model assumes uniform base
+// frequencies (25% each). In AT-rich or GC-rich regions, this inflates
+// Q(x) for non-repetitive but compositionally biased DNA. The correction
+// groups 4^k possible k-mers into k+1 binomial equivalence classes based
+// on their GC content, adjusting the expected count λ for each class.
+// This only changes f(ℓ) precomputation — the hot-path Score() method
+// remains completely unchanged (zero runtime overhead).
+//
+// IMPORTANT: gc_frac must be a GLOBAL or broad regional background
+// fraction, NOT the local GC of the scored window. A poly-A insertion
+// would locally compute as 0% GC, causing the scorer to expect all-A
+// k-mers and produce Q(x)≈0, making it blind to the repeat.
+//
+// Set gc_frac=0.5 to disable GC correction (uniform model).
+// For non-human genomes, set to the organism's genome-wide GC fraction
+// (e.g., ~0.20 for P. falciparum, ~0.65 for S. cerevisiae).
 //
 // ============================================================================
 //
@@ -278,42 +302,38 @@ namespace lancet::base {
 //   - The Q(x) formula: Σ log(c!) − f(ℓ)
 //   - f(ℓ) computation: Poisson series + Stirling approximation for λ≥30
 //   - Both-strand scoring: max(forward, reverse complement)
-//   - No GC correction (longdust's gc=-1 default)
+//   - GC correction support: longdust uses gc=-1 (uniform) by default.
+//     LongdustQScorer supports an optional gc_frac parameter for GC-bias
+//     correction via a binomial null model (see GC-BIAS CORRECTION above).
 //
 // What differs:
 //   - Longdust scans long sequences with a sliding window (ws=5000) to
 //     find LCR *intervals* using backward/forward sweeps with X-drop
 //     extension (xdrop_len=50), minimum start count (min_start_cnt=3),
 //     and optional O(Lw) approximation. It outputs intervals, not scores.
-//   - LcrScorer computes Q(x)/ℓ directly on a known subsequence (the
+//   - LongdustQScorer computes Q(x)/ℓ directly on a known subsequence (the
 //     flanking region around a variant). No scanning is needed because
 //     the variant location is already known from graph assembly + MSA.
-//   - LcrScorer outputs the raw per-k-mer score, not intervals.
+//   - LongdustQScorer outputs the raw per-k-mer score, not intervals.
 //
 // ============================================================================
 
-/// Number of flanking scales for multi-scale LCR scoring.
-/// Scales 0-1: 50bp, 100bp flanks scored with k=4
-/// Scale 2: full haplotype scored with k=7
-static constexpr usize NUM_LCR_SCALES = 3;
+// NOTE: Scale configuration constants (NUM_LCR_SCALES, LCR_FLANKS, etc.) have
+// been moved to the SequenceComplexity class which manages multi-scale scoring.
+// The LongdustQScorer is now a pure scoring primitive — it takes a sequence and
+// returns the Q(x) complexity score. Scale management is handled by the caller.
 
-/// Flanking distances (in bp) for scales 0-1. Scale 2 uses full haplotype.
-static constexpr std::array<i64, NUM_LCR_SCALES - 1> LCR_FLANKS = {50, 100};
-
-/// k-mer sizes: k=4 for flanked scales, k=7 for full haplotype.
-static constexpr int LCR_FLANK_K = 4;
-static constexpr int LCR_HAPLOTYPE_K = 7;
-
-/// Default LCR scores (all zeros = no data).
-static constexpr std::array<f64, NUM_LCR_SCALES> DEFAULT_LCR_SCORES = {0, 0, 0};
+/// k-mer sizes used by SequenceComplexity for different scales.
+static constexpr int LONGDUST_FLANK_K = 4;
+static constexpr int LONGDUST_HAPLOTYPE_K = 7;
 
 // ============================================================================
-// FormatLcrScore: format a floating-point score for VCF output.
+// FormatComplexityScore: format a floating-point score for VCF output.
 //
 //   - Up to 3 decimal places, no trailing zeros
 //   - Examples: 0.0→"0", 1.5→"1.5", 0.123→"0.123", 2.100→"2.1"
 // ============================================================================
-inline auto FormatLcrScore(f64 val) -> std::string {
+inline auto FormatComplexityScore(f64 val) -> std::string {
   auto txt = fmt::format("{:.3f}", val);
   if (txt.find('.') != std::string::npos) {
     const auto last_nonzero = txt.find_last_not_of('0');
@@ -325,13 +345,15 @@ inline auto FormatLcrScore(f64 val) -> std::string {
   return txt;
 }
 
-/// Format an array of LCR scores as a comma-separated VCF INFO value.
-inline auto FormatLcrScores(const std::array<f64, NUM_LCR_SCALES>& scores) -> std::string {
+/// Format a span of scores as a comma-separated VCF INFO value.
+template <typename Container>
+inline auto FormatComplexityScores(const Container& scores) -> std::string {
   std::string result;
-  result.reserve(NUM_LCR_SCALES * 6);
-  for (usize idx = 0; idx < NUM_LCR_SCALES; ++idx) {
-    if (idx > 0) absl::StrAppend(&result, ",", FormatLcrScore(scores[idx]));
-    else absl::StrAppend(&result, FormatLcrScore(scores[idx]));
+  bool first = true;
+  for (const auto& score : scores) {
+    if (!first) absl::StrAppend(&result, ",");
+    absl::StrAppend(&result, FormatComplexityScore(static_cast<f64>(score)));
+    first = false;
   }
   return result;
 }
@@ -362,12 +384,18 @@ inline constexpr auto MakeDnaEncodeTable() -> std::array<u8, 256> {
 inline constexpr std::array<u8, 256> kDnaEncodeTable = MakeDnaEncodeTable();
 
 
-class LcrScorer {
+class LongdustQScorer {
  public:
   /// @param k       k-mer size (default 7: 4^7 = 16,384 possible k-mers)
   /// @param max_len Maximum sequence length for precomputing f(ℓ)
-  explicit LcrScorer(int k = 7, int max_len = 1024)
-      : mK(k), mMask((1U << (2 * k)) - 1), mNumKmers(1U << (2 * k)) {
+  /// @param gc_frac Global background GC fraction for compositional bias correction.
+  ///                Default 0.41 (human genome-wide average: Lander et al. 2001,
+  ///                Piovesan et al. 2019, Nurk et al. 2022). Set to 0.5 for
+  ///                uniform (no correction). For non-human genomes, set to
+  ///                the organism's genome-wide GC (e.g., 0.20 for P. falciparum).
+  explicit LongdustQScorer(int k = 7, int max_len = 1024, f64 gc_frac = 0.41)
+      : mK(k), mMask((1U << (2 * k)) - 1), mNumKmers(1U << (2 * k)),
+        mGc(std::clamp(gc_frac, 0.0, 1.0)) {
     PrecomputeF(max_len);
   }
 
@@ -482,7 +510,8 @@ class LcrScorer {
   int mK;              // k-mer size (e.g., 7 → 7-mers)
   u32 mMask;           // bitmask to extract a k-mer from the rolling integer: (1 << 2k) - 1
   u32 mNumKmers;       // total possible k-mers: 4^k (e.g., 16,384 for k=7)
-  std::vector<f64> mF; // precomputed f(ℓ) table: mF[ℓ] = expected Σ log(c!) under Poisson null
+  f64 mGc;             // global background GC fraction for bias correction
+  std::vector<f64> mF; // precomputed f(ℓ) table: mF[ℓ] = expected Σ log(c!) under null model
 
   // ============================================================================
   // ComputeFSingle: expected log-factorial per k-mer under Poisson(λ)
@@ -539,23 +568,60 @@ class LcrScorer {
   // ============================================================================
   // ComputeF: total expected log-factorial for a sequence with ℓ k-mers
   //
+  // GC-bias corrected version:
+  //   f(ℓ, g) = Σ_{c=0}^k [ C(k,c) · 2^k ] · f_single(ℓ · q_c)
+  //   where q_c = (g/2)^c · ((1-g)/2)^{k-c}
+  //
+  // Groups 4^k possible k-mers into k+1 binomial equivalence classes based
+  // on GC content. Each class has C(k,c)·2^k distinct k-mers (c positions
+  // chosen for G/C, each can be G or C, remaining k-c can be A or T).
+  //
+  // When g = 0.5 (uniform), this reduces exactly to the original formula:
   //   f(ℓ) = 4^k × f_single(ℓ / 4^k)
   //
-  // Under uniform base frequencies (no GC correction), every k-mer has the
-  // same expected count λ = ℓ/4^k, so the total over all 4^k bins is just
-  // 4^k times the per-bin expected value.
+  // This is computed during precomputation only — zero runtime overhead.
   //
-  // Example (k=7, ℓ=100):
-  //   λ = 100/16384 ≈ 0.006  →  f_single ≈ 0.0  →  f(100) ≈ 0
-  //   (In short sequences, the correction f(ℓ) is negligible.)
+  // Example (k=7, ℓ=100, g=0.5):
+  //   λ = 100/16384 ≈ 0.006  →  f(100) ≈ 0
   //
-  // Example (k=7, ℓ=5000):
-  //   λ = 5000/16384 ≈ 0.305  →  f_single ≈ 0.014  →  f(5000) ≈ 233
-  //   (In long sequences, f(ℓ) is substantial and matters.)
+  // Example (k=7, ℓ=100, g=0.41):
+  //   AT-rich k-mers get higher λ (more expected), GC-rich k-mers get
+  //   lower λ (less expected). Net effect: the null model accounts for
+  //   compositional bias, reducing false-positive scores in AT-rich regions.
   // ============================================================================
   [[nodiscard]] auto ComputeF(int ell) const -> f64 {
-    const f64 lambda = static_cast<f64>(ell) / mNumKmers;
-    return static_cast<f64>(mNumKmers) * ComputeFSingle(lambda);
+    // Fast path: if perfectly uniform (g ≈ 0.5), use the original 1-bin formula
+    if (std::abs(mGc - 0.5) < 1e-6) {
+      const f64 lambda = static_cast<f64>(ell) / mNumKmers;
+      return static_cast<f64>(mNumKmers) * ComputeFSingle(lambda);
+    }
+
+    // GC-bias corrected: group k-mers by GC content
+    const f64 safe_gc = std::clamp(mGc, 1e-6, 1.0 - 1e-6);
+    const f64 p_gc = safe_gc / 2.0;         // probability of G or C
+    const f64 p_at = (1.0 - safe_gc) / 2.0; // probability of A or T
+    const f64 two_pow_k = static_cast<f64>(1ULL << mK);
+    f64 total_f = 0.0;
+
+    for (int c = 0; c <= mK; ++c) {
+      // Binomial coefficient: C(k, c)
+      f64 comb = 1.0;
+      for (int j = 1; j <= c; ++j) {
+        comb *= static_cast<f64>(mK - j + 1) / static_cast<f64>(j);
+      }
+
+      // Number of distinct k-mers with exactly c G/C bases: C(k,c) · 2^k
+      const f64 num_kmers = comb * two_pow_k;
+
+      // Probability of one specific k-mer from this composition group
+      const f64 prob_kmer = std::pow(p_gc, c) * std::pow(p_at, mK - c);
+
+      // Expected count (λ) for this k-mer
+      const f64 lambda = static_cast<f64>(ell) * prob_kmer;
+
+      total_f += num_kmers * ComputeFSingle(lambda);
+    }
+    return total_f;
   }
 
   /// Precompute f(ℓ) for all lengths 0..max_len to avoid recomputation.
@@ -569,4 +635,4 @@ class LcrScorer {
 
 }  // namespace lancet::base
 
-#endif  // SRC_LANCET_BASE_LCR_SCORER_H_
+#endif  // SRC_LANCET_BASE_LONGDUST_SCORER_H_
