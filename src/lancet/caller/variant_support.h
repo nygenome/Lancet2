@@ -32,18 +32,18 @@ enum class Strand : bool { FWD, REV };
 // aggregate metrics for VCF FORMAT fields. Designed for multi-allelic sites.
 //
 //  ┌──────────────────┐
-//  │  Read Evidence    │  ← one per aligned read at this variant
-//  │  {allele, quals}  │
+//  │  Read Evidence   │  ← one per aligned read at this variant
+//  │  {allele, quals} │
 //  └────────┬─────────┘
 //           ▼
 //  ┌──────────────────┐
-//  │  PerAlleleData    │  ← one per allele (REF, ALT1, ALT2...)
+//  │  PerAlleleData   │  ← one per allele (REF, ALT1, ALT2...)
 //  │  [fwd_bq, rev_bq │     stored in dense vector indexed by AlleleIndex
 //  │   map_quals, ...]│
 //  └────────┬─────────┘
 //           ▼
 //  ┌──────────────────┐
-//  │ Aggregation       │  → PL, PBQ, RMQ, SB, GQ for VCF FORMAT
+//  │ Aggregation      │  → PL, NPBQ, RMQ, SB, GQ for VCF FORMAT
 //  └──────────────────┘
 //
 // The PerAlleleData is stored as std::vector<PerAlleleData> indexed directly

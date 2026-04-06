@@ -13,8 +13,8 @@ Lancet2 operates in two modes that affect which INFO fields are present:
 
 | Mode | Inputs | INFO State Tags | QUAL Source |
 |:-----|:-------|:----------------|:------------|
-| **Tumor-Normal** (somatic) | ≥ 1 tumor AND ≥ 1 normal BAM/CRAM | `SHARED`, `NORMAL`, `TUMOR` | Somatic Fisher score (right-tailed) |
-| **Normal-Only** (germline) | Normal BAM/CRAM only | *(none — state is UNKNOWN)* | REF-homozygous PL |
+| **Tumor-Normal** (somatic) | ≥ 1 tumor AND ≥ 1 normal BAM/CRAM | `SHARED`, `NORMAL`, `TUMOR` | Somatic log odds ratio (SOLOR) |
+| **Normal-Only** (germline) | Normal BAM/CRAM only | *(none — state is UNKNOWN)* | Per-read evidence: min(PL[0]/DP, 10) |
 
 In tumor-normal mode, state tags classify each variant by ALT allele
 presence across sample types. In normal-only mode, state classification

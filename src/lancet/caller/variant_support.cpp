@@ -562,7 +562,7 @@ auto VariantSupport::ComputePLs() const -> std::vector<int> {
   std::vector<f64> gt_log_lks(num_genotypes, 0.0);
 
   // Walk every read once. Fwd and rev strands use identical math —
-  // strand information is already captured in the SB (Phred-scaled Fisher strand bias) field.
+  // strand information is already captured in the SB (strand bias log odds ratio) field.
   for (int allele_idx = 0; allele_idx < num_alleles; ++allele_idx) {
     const auto& allele_data = mAlleleData[allele_idx];
 
