@@ -28,7 +28,7 @@ class WindowBuilder {
   /// Batch size for pipelined window generation. Used by both WindowBuilder
   /// and PipelineRunner to control memory footprint during WGS runs.
   /// Small enough to avoid OOM, large enough to keep worker threads saturated.
-  static constexpr usize BATCH_SIZE = 524288;
+  static constexpr usize BATCH_SIZE = 65536;
 
   struct Params {
     u32 mWindowLength = DEFAULT_WINDOW_LENGTH;

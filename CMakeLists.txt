@@ -8,7 +8,7 @@ project(lancet LANGUAGES C CXX
 # https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 include(cmake/version.cmake)
 set(PROJECT_VERSION ${LANCET2_GIT_TAG})
-message(STATUS "Lancet ${PROJECT_VERSION}")
+message(STATUS "Lancet v${PROJECT_VERSION}")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
 option(LANCET_BENCHMARKS "Builds the Lancet benchmarks executable" "OFF")
 option(LANCET_PROFILE_MODE "Enables CPU profiling for the Lancet executable" "OFF")

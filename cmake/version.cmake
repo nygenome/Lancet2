@@ -9,16 +9,20 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=10 --verify HEAD WOR
 		OUTPUT_VARIABLE LANCET2_GIT_REVISION ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 if (NOT LANCET2_GIT_TAG)
-	set(LANCET2_GIT_TAG "2.8.5")
+	set(LANCET2_GIT_TAG "2.8.7")
 endif ()
 
 if (NOT LANCET2_GIT_BRANCH)
-	set(LANCET2_GIT_BRANCH "UNKNOWN-HEAD")
+	set(LANCET2_GIT_BRANCH "UNKNOWN")
 endif ()
 
 if (NOT LANCET2_GIT_REVISION)
 	set(LANCET2_GIT_REVISION "xxxxxxxxxx")
 endif ()
+
+
+# Strip the 'v' prefix if it exists at the start of the string
+string(REGEX REPLACE "^v" "" LANCET2_GIT_TAG "${LANCET2_GIT_TAG}")
 
 set(LANCET2_VERSION_HEADER "${CMAKE_BINARY_DIR}/generated/lancet_version.h")
 configure_file("${CMAKE_SOURCE_DIR}/src/lancet/version.h.inc" ${LANCET2_VERSION_HEADER} @ONLY)
