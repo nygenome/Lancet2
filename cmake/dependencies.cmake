@@ -78,7 +78,7 @@ add_dependencies(htslib zlibstatic libdeflate_static)
 
 set(MM2_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_deps/minimap2")
 set(LIB_MM2 "${MM2_ROOT_DIR}/libminimap2.a")
-set(MM2_BUILD_PARAMS ${MM2_ROOT_DIR} ${CMAKE_C_COMPILER})
+set(MM2_BUILD_PARAMS ${MM2_ROOT_DIR} ${CMAKE_C_COMPILER} ${CMAKE_HOST_SYSTEM_PROCESSOR})
 ExternalProject_Add(minimap2
 		URL https://github.com/lh3/minimap2/releases/download/v2.30/minimap2-2.30.tar.bz2
 		URL_MD5 e016e3578bf6c763cefe08e7f22f440c PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_deps"
