@@ -3,20 +3,23 @@ authors = ["Rajeeva Musunuri <rmusunuri@nygenome.org>"]
 channels = ["conda-forge"]
 name = "Lancet2"
 platforms = ["linux-64"]
-version = "0.1.0"
+version = "2.8.7"
 
 [tasks]
 
 [dependencies]
-gcc = "==15.2.0"
-gxx = "==15.2.0"
-libstdcxx = "==15.2.0"
+git = "==2.53.0"
+make = "==4.4.1"
 cmake = "==4.3.1"
 ninja = "==1.13.2"
-make = "==4.4.1"
-git = "==2.53.0"
 bzip2 = "==1.0.8"
 liblzma = "==5.8.2"
 liblzma-devel = "==5.8.2"
 liblzma-static = "==5.8.2"
+gcc = "==15.2.0"
+clang = "==22.1.0"
+gxx = "==15.2.0"
+clangxx = "==22.1.0"
+libstdcxx = "==15.2.0"
+libcxx = "==22.1.2"
 gdb = "==17.1"
