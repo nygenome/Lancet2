@@ -79,7 +79,7 @@ chmod +x Lancet2
     to use the pre-built public docker images. Custom docker images for older CPUs can be built by the user by
     modifying the `BUILD_ARCH` argument in the [Dockerfile](https://github.com/nygenome/Lancet2/blob/main/Dockerfile).
 
-Public docker images hosted on the GitHub Container Registry are available for [recent tagged releases](https://github.com/nygenome/Lancet2/pkgs/container/lancet2).
+Public docker images hosted on Google Cloud are available for [recent tagged releases](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet).
 
 ## Basic Usage
 The following command demonstrates the basic usage of the Lancet2 variant calling pipeline for a tumor and normal bam file pair on chr22.
