@@ -30,6 +30,20 @@ cd Lancet2 && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
 ```
 
+!!! note "macOS Homebrew Configuration"
+
+    To fix CMake failing to find Homebrew-installed BZip2 on macOS, explicitly set the `CMAKE_PREFIX_PATH` to the Homebrew prefix when running CMake. Homebrew often skips linking `bzip2` into the shared prefix to prevent conflicts with system libraries.
+    
+    For Apple Silicon (M1/M2/M3):
+    ```bash
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/bzip2 ..
+    ```
+    
+    For Intel Mac:
+    ```bash
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/local/opt/bzip2 ..
+    ```
+
 ### Static binary
 
 !!! note "Note"
