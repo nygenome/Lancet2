@@ -3,7 +3,9 @@
 #include "absl/cleanup/cleanup.h"
 #include "lancet/base/logging.h"
 #include "lancet/cli/cli_interface.h"
+#ifndef __APPLE__
 #include "mimalloc-override.h"  // NOLINT(misc-include-cleaner)
+#endif
 #include "mimalloc.h"
 #include "spdlog/spdlog.h"
 
