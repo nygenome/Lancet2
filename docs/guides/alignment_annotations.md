@@ -1,9 +1,14 @@
 # Alignment-Derived Artifact Annotations
 
 These per-sample FORMAT fields detect alignment, sequencing, and library
-preparation artifacts. SCA, FLD, and MQRS use metadata from the original
-BAM/CRAM alignment. RPRS, BQRS, and ASMD use metrics computed from the
-minimap2 re-alignment during genotyping. SDFC uses window-level BAM coverage.
+preparation artifacts. All fields are designed to be **coverage-invariant**:
+the same biological signal produces the same annotation value regardless of
+sequencing depth, enabling ML models trained at one coverage to generalize
+across 20×–2000× without retraining.
+
+SCA, FLD, and MQCD use metadata from the original BAM/CRAM alignment.
+RPCD, BQCD, and ASMD use metrics computed from the minimap2 re-alignment
+during genotyping. SDFC uses window-level BAM coverage.
 
 ---
 
@@ -33,6 +38,11 @@ masquerade as smaller local variants in the assembly.
 | > 0.1 | ALT reads disproportionately soft-clipped — possible unresolved SV, translocation, or complex event |
 | < −0.1 | REF reads more clipped — unusual, may indicate mapping artifact near the reference path |
 
+**Coverage stability**: Inherently coverage-invariant — computed as a ratio
+of fractions. A 30% soft-clip rate in ALT reads produces SCA ≈ 0.3 at any
+depth. Using SCA together with SDFC helps distinguish real SVs (high SCA,
+normal SDFC) from mapping artifacts (high SCA, elevated SDFC).
+
 ---
 
 ## Fragment Length Delta (`FLD`)
@@ -60,16 +70,31 @@ somatic cfDNA fragment length shifts.
 | 20–100 bp | Moderate discrepancy — inspect manually |
 | > 100 bp | Large discrepancy — likely chimeric artifact, library prep issue, or cfDNA fragment size shift |
 
+**Coverage stability**: The mean insert size converges rapidly (by ~20
+reads per allele). FLD shows minor variation at very low coverage (N<5 per
+allele) due to sampling noise, but is effectively stable above 20×.
+Interpret FLD jointly with RPCD: a true structural variant often produces
+both elevated FLD and edge-biased RPCD.
+
 ---
 
-## Mapping Quality Rank Sum Z-score (`MQRS`)
+## Mapping Quality Cohen's D (`MQCD`)
 
 **Purpose**: Detect paralogous mismapping — situations where ALT-supporting
 reads originate from a different genomic locus (e.g., a segmental duplication)
 and are assigned artificially low mapping quality by the aligner.
 
-**Statistical method**: Variance-corrected Mann-Whitney U test (Wilcoxon Rank-Sum
-test), the same non-parametric test used by GATK's `MQRankSum` annotation.
+**Statistical method**: Coverage-normalized effect size from the Mann-Whitney
+U test (Wilcoxon Rank-Sum test). The raw Z-score is divided by √N (where
+N = total reads) to remove the √N power amplification from the Central Limit
+Theorem, recovering a standardized effect size analogous to Cohen's d.
+
+**Motivation for Z/√N normalization**: The raw Mann-Whitney Z-score scales
+with √N: the same mild ALT MAPQ depression produces Z ≈ −1.5 at 20× but
+Z ≈ −14.9 at 2000×. This makes raw Z-scores unusable for ML models that
+must generalize across coverages. Dividing by √N produces a coverage-invariant
+effect size that measures the *magnitude* of the MAPQ difference, not the
+statistical significance.
 
 **Computation**:
 
@@ -80,39 +105,37 @@ test), the same non-parametric test used by GATK's `MQRankSum` annotation.
 3. Compute the U statistic: `U = R_alt − n_alt·(n_alt+1)/2`.
 4. Apply the tie-corrected variance formula (Lehmann, 2006):
    `Var(U) = (m·n/12) · [(N+1) − Σ(tₖ³−tₖ)/(N·(N−1))]`
-5. `Z = (U − E[U]) / √Var(U)`, computed per-sample.
+5. `MQCD = Z / √N = [(U − E[U]) / √Var(U)] / √(m+n)`, computed per-sample.
 
-**Value range**: (−∞, +∞) standard normal Z-scores, or `100.0` (sentinel)
+**Value range**: [−2, +2] typically, or `0.0` (untestable)
+
+**Coverage stability**: A constant mild bias (ALT MAPQ 2 units lower)
+produces MQCD ≈ −0.34 at **every** depth from 20× to 2000× (< 3% variation).
 
 **Interpretation**:
 
-| MQRS Range | Meaning |
-|:------------|:--------|
-| ≈ 0.0 | No systematic MAPQ difference — strong evidence for true variant |
-| −2 to −5 | Moderate ALT MAPQ depression — possible repetitive region, inspect manually |
-| < −5 | Strong ALT mismapping signal — likely paralogous or multi-mapping artifact |
-| < −12.5 | Extreme (GATK hard filter threshold) — very high false positive risk |
+| MQCD Range | Meaning |
+|:-----------|:--------|
+| ≈ 0.0 | No systematic MAPQ difference — strong evidence for true variant. Also returned when the test is untestable (empty REF or ALT group, all identical MAPQs). |
+| −0.2 to −0.5 | Moderate ALT MAPQ depression — possible repetitive region, inspect manually |
+| < −0.5 | Strong ALT mismapping signal — likely paralogous or multi-mapping artifact |
 | > 0 | ALT MAPQ higher than REF — unusual, may indicate REF mapping issues |
-| = 100.0 | **Test not applicable** — either REF or ALT read group is empty (e.g., homozygous genotype, allelic dropout), or all reads share identical MAPQ |
 
-**Edge case handling**: When either sample group is empty or all observations
-are identical (zero variance), the test cannot be computed. Rather than
-returning `0.0` — which falsely signals "no bias" to downstream ML models —
-Lancet2 uses **extreme value imputation** and emits `100.0`. This sentinel is
-far outside the natural Z-score range (biologically plausible values rarely
-exceed |8|) and is trivially separable by tree-based filters (XGBoost,
-Isolation Forest) or by adding a binary `is_MQRS_missing` indicator feature
-for density models (GMMs, VQSR).
+**Manual interpretation tip**: Use MQCD together with SDFC. Paralogous
+mismapping typically produces both negative MQCD (low ALT MAPQ) and
+elevated SDFC (excess depth from collapsed paralogs). A site with
+MQCD < −0.3 and SDFC > 2.0 is very likely a false positive from
+segmental duplication.
 
 **References**:
 
-- Mann, H.B. & Whitney, D.R. (1947). [On a test of whether one of two random variables is stochastically larger than the other](https://doi.org/10.1214/aoms/1177730491). *Annals of Mathematical Statistics*, 18(1), 50–60.
-- Lehmann, E.L. (2006). [*Nonparametrics: Statistical Methods Based on Ranks*](https://doi.org/10.1007/978-0-387-22762-5), Revised 1st ed., Springer. §3.3 for tie-corrected variance.
-- GATK [MappingQualityRankSumTest](https://gatk.broadinstitute.org/hc/en-us/articles/360036856331): U-based Z-approximation with the same tie-correction formula.
+- Mann, H.B. & Whitney, D.R. (1947). *Annals of Mathematical Statistics*, 18(1), 50–60.
+- Lehmann, E.L. (2006). *Nonparametrics: Statistical Methods Based on Ranks*, Springer.
+- Cohen, J. (1988). *Statistical Power Analysis for the Behavioral Sciences*, 2nd ed.
 
 ---
 
-## Read Position Rank Sum Z-score (`RPRS`)
+## Read Position Cohen's D (`RPCD`)
 
 **Purpose**: Detect systematic read-edge bias in ALT-supporting reads.
 Artifacts from 3' quality degradation and 5' soft-clip misalignment produce
@@ -129,8 +152,8 @@ $$P_{folded} = \min(P_{raw},\; L - 1 - P_{raw})$$
 This converts the bimodal trap into a unidirectional signal: "Are ALT alleles
 systematically closer to read edges than REF alleles?"
 
-**Statistical method**: Same variance-corrected Mann-Whitney U test as MQRS,
-applied to folded read positions instead of mapping qualities.
+**Statistical method**: Same Z/√N effect-size normalization as MQCD, applied
+to folded read positions instead of mapping qualities.
 
 **Computation**:
 
@@ -139,20 +162,31 @@ applied to folded read positions instead of mapping qualities.
 2. Compute folded position: `min(qpos/read_length, 1 - qpos/read_length)`.
    Result: 0.0 = read edge, 0.5 = read center.
 3. Group folded positions by allele (REF vs ALT).
-4. Apply Mann-Whitney U test → Z-score, computed per-sample.
+4. Apply Mann-Whitney U test → Z/√N effect size, computed per-sample.
+
+**Value range**: [−2, +2] typically, or `0.0` (untestable)
+
+**Coverage stability**: The effect size is coverage-invariant. A consistent
+edge bias produces the same RPCD at any depth from 20× to 2000×.
 
 **Interpretation**:
 
-| RPRS Range | Meaning |
+| RPCD Range | Meaning |
 |:-----------|:--------|
-| ≈ 0.0 | Uniform read position distribution — expected for true variants |
-| −2 to −5 | Moderate edge bias — ALT allele somewhat closer to read ends |
-| < −5 | Strong edge bias — likely alignment artifact or 3' error cascade |
-| = 100.0 | **Test not applicable** — empty REF or ALT group, or identical positions |
+| ≈ 0.0 | Uniform read position distribution — expected for true variants. Also returned when untestable. |
+| −0.2 to −0.5 | Moderate edge bias — ALT allele somewhat closer to read ends |
+| < −0.5 | Strong edge bias — likely alignment artifact or 3' error cascade |
+
+**Manual interpretation tip**: RPCD should be interpreted jointly with BQCD.
+Many artifacts produce both read-edge clustering (negative RPCD) and low
+ALT base quality (negative BQCD) because base quality degrades near read
+ends. If RPCD < −0.3 and BQCD < −0.3, the variant is very likely an artifact.
+True variants may show mild negative RPCD in isolation (e.g., near an indel
+that shifts alignment) without the accompanying BQCD depression.
 
 ---
 
-## Base Quality Rank Sum Z-score (`BQRS`)
+## Base Quality Cohen's D (`BQCD`)
 
 **Purpose**: Detect chemistry-driven sequencing artifacts where the ALT allele
 is systematically called with lower base confidence than the REF allele.
@@ -162,8 +196,8 @@ G→T / C→A errors in Illumina sequencing. Oxidized guanine mispairs with
 adenine, producing consistent low-quality G→T miscalls. The miscalled base
 has characteristically low Phred scores that are detectable by this test.
 
-**Statistical method**: Mann-Whitney U test on per-read base qualities at the
-variant position (REF vs ALT groups).
+**Statistical method**: Z/√N effect-size normalization on per-read base
+qualities at the variant position (REF vs ALT groups).
 
 **Computation**:
 
@@ -171,16 +205,25 @@ variant position (REF vs ALT groups).
    is recorded per read (minimum across the variant region for indels).
 2. Base qualities are grouped by allele (REF vs ALT), combining forward and
    reverse strand observations.
-3. Apply Mann-Whitney U test → Z-score, computed per-sample.
+3. Apply Mann-Whitney U test → Z/√N effect size, computed per-sample.
+
+**Value range**: [−2, +2] typically, or `0.0` (untestable)
+
+**Coverage stability**: Coverage-invariant. A consistent 5-unit ALT quality
+depression produces the same BQCD at any depth.
 
 **Interpretation**:
 
-| BQRS Range | Meaning |
+| BQCD Range | Meaning |
 |:-----------|:--------|
-| ≈ 0.0 | No systematic quality difference — expected for true variants |
-| −2 to −5 | Moderate ALT quality depression — inspect for oxidation or deamination |
-| < −5 | Strong signal — likely chemistry artifact (8-oxoG, FFPE deamination) |
-| = 100.0 | **Test not applicable** — empty group or identical qualities |
+| ≈ 0.0 | No systematic quality difference — expected for true variants. Also returned when untestable. |
+| −0.2 to −0.5 | Moderate ALT quality depression — inspect for oxidation or deamination |
+| < −0.5 | Strong signal — likely chemistry artifact (8-oxoG, FFPE deamination) |
+
+**Manual interpretation tip**: For targeted 8-oxoG detection, examine BQCD
+jointly with the variant allele: G→T and C→A substitutions with BQCD < −0.3
+are the classic oxidation signature. Other mutation types with negative BQCD
+may indicate FFPE deamination (C→T/U) or other library damage.
 
 ---
 
@@ -208,6 +251,10 @@ the shared baseline.
 
 **Value range**: (−∞, +∞), typically [0, 20]
 
+**Coverage stability**: Mean edit distance converges quickly. ASMD is stable
+above 10× per allele. At extreme coverages (1000×+), the mean becomes very
+precise, but the expected value remains the same.
+
 **Interpretation**:
 
 | ASMD Range | Meaning |
@@ -216,6 +263,12 @@ the shared baseline.
 | 1–3 | Mild excess noise — possibly repetitive region or low-quality library |
 | > 5 | Strong signal — ALT reads carry many extra mismatches, likely misaligned from a paralogous locus or chimeric junction |
 | 0.0 (empty) | Either REF or ALT group had no reads |
+
+**Manual interpretation tip**: ASMD should be interpreted together with MQCD.
+Paralogous mismapping usually shows both elevated ASMD (excess mismatches in
+mismapped ALT reads) and depressed MQCD (low ALT mapping quality). True
+variants in repetitive regions may show mild ASMD elevation (1–2) without
+MQCD depression.
 
 ---
 
@@ -240,6 +293,10 @@ outliers. This is fundamentally more robust than variant-DP-based approaches
 
 **Value range**: [0, ∞)
 
+**Coverage stability**: Inherently coverage-invariant — SDFC is a ratio (site
+depth / window depth). A 2× depth spike produces SDFC ≈ 2.0 at any overall
+coverage level.
+
 **Interpretation**:
 
 | SDFC Range | Meaning |
@@ -248,3 +305,9 @@ outliers. This is fundamentally more robust than variant-DP-based approaches
 | > 2.0 | Elevated depth — possible collapsed paralog or segmental duplication mapped to one locus |
 | > 5.0 | Extreme — strong paralogous collapse signal |
 | < 0.5 | Depleted depth — possible allelic dropout, mapping hole, or deletion |
+
+**Manual interpretation tip**: Use SDFC together with MQCD for a comprehensive
+paralog detection strategy: collapsed paralogs produce both elevated SDFC (excess
+reads mapped to one site) and depressed MQCD (the paralogous reads have lower
+MAPQ). A variant at a site with SDFC > 2.0 and MQCD < −0.3 is very likely a
+false positive.

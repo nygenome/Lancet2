@@ -31,10 +31,12 @@
 //     computing the ratio AD_Alt / AD_Ref. The entire problematic diagonal
 //     collapses into a single θ value regardless of depth.
 //
-//   Radius (r) = sqrt(AD_Ref² + AD_Alt²):
+//   Radius (PRAD) = log10(1 + sqrt(AD_Ref² + AD_Alt²)):
 //     Isolates the MAGNITUDE — total signal strength / sequencing depth.
-//     This separates confidence (how many reads support the call) from
-//     identity (what fraction they represent).
+//     The log10(1+r) compression reduces the 100× dynamic range of raw
+//     Euclidean magnitude to [0, ~3.5], enabling ML models trained at one
+//     coverage to generalize to another. The transform preserves the
+//     monotonic ordering while making inter-regime spacing uniform.
 //
 //   Together, the flaring "wedge" in Cartesian space unrolls into a
 //   uniform rectangular strip in polar space, enabling simple flat
@@ -48,16 +50,21 @@
 //     < π/6 (0.524 rad, 30°): Low-frequency signal (somatic, mosaic, or artifact).
 //     ≈ 0.0 (0°):             Homozygous REF — no ALT evidence.
 //
-//   Radius (PRAD):
-//     Acts as a confidence tie-breaker for low-angle variants:
-//       Low angle + HIGH radius → true low-frequency variant (deep sequencing).
-//       Low angle + LOW radius  → stochastic noise (insufficient evidence).
+//   Radius (PRAD = log10(1 + sqrt(AD_Ref² + AD_Alt²))):
+//     Acts as a confidence tie-breaker for low-angle variants. Log10
+//     compression maps all practical coverages to [0, ~3.5]:
+//       Low angle + HIGH PRAD (>2) → true low-frequency variant (deep seq).
+//       Low angle + LOW PRAD  (<1) → stochastic noise (insufficient evidence).
 //
 // ── Tumor-Normal "Four-Feature" Paradigm ────────────────────────────────────
 //
 //   Each sample independently computes its own (PRAD, PANG) from its
 //   own allele depths. The downstream ML model receives:
 //     [PRAD_Normal, PANG_Normal, PRAD_Tumor, PANG_Tumor]
+//
+//   PRAD's log10 compression ensures the four-feature paradigm is coverage-
+//   invariant: both angle (identity) and radius (confidence) produce bounded,
+//   comparable values regardless of whether the sample is 20× or 2000×.
 //
 //   This avoids cross-sample relational metrics that would violate VCF's
 //   per-sample FORMAT semantics and eliminates sentinel/NaN imputation
@@ -95,19 +102,27 @@
 
 namespace lancet::base {
 
-/// Polar Radius: Euclidean magnitude of the allele depth vector.
+/// Polar Radius: log10-compressed Euclidean magnitude of the allele depth vector.
 ///
-///   r = sqrt(AD_Ref² + AD_Alt²)
+///   PRAD = log10(1 + sqrt(AD_Ref² + AD_Alt²))
 ///
-/// Encodes the total signal strength (sequencing depth) orthogonal to
-/// the allele fraction. Higher radius = more confident observation.
+/// The raw Euclidean radius scales linearly with coverage (0→2800+ at 2000×),
+/// creating a 100× dynamic range that prevents ML models trained at one
+/// coverage from generalizing to another. The log10(1+r) compression:
+///   - Preserves monotonicity and ordering (log10 is strictly increasing)
+///   - Compresses the range to [0, ~3.5] across all practical coverages
+///   - Makes spacing between coverage regimes approximately uniform
+///   - Eliminates the need for downstream StandardScaler normalization
+///
+/// The "+1" ensures log10(1+0) = 0 when both inputs are zero, avoiding
+/// log10(0) = −∞ and providing a clean zero baseline for no-coverage sites.
 ///
 /// Uses direct multiplication + sqrt instead of std::hypot to avoid
 /// unnecessary overflow/underflow checks (read counts are bounded).
 ///
 /// Returns 0.0 when both inputs are zero (no reads at this locus).
 [[nodiscard]] inline auto PolarRadius(const f64 ref_depth, const f64 alt_depth) -> f64 {
-  return std::sqrt(ref_depth * ref_depth + alt_depth * alt_depth);
+  return std::log10(1.0 + std::sqrt(ref_depth * ref_depth + alt_depth * alt_depth));
 }
 
 /// Polar Angle: Fast branchless atan2 approximation, in radians.
@@ -130,6 +145,10 @@ namespace lancet::base {
 ///   - AD_Ref = 0, AD_Alt > 0: returns ≈ π/2 (homozygous ALT)
 ///   - AD_Alt = 0, AD_Ref > 0: returns ≈ 0.0 (homozygous REF)
 ///   - Both zero:              returns ≈ 0.0 (no reads)
+///
+/// Coverage stability: PERFECTLY COVERAGE-INVARIANT. PANG is a pure ratio
+/// (atan2(y,x) depends only on y/x). Identical allele fractions produce
+/// identical angles at any depth from 1× to 2000×.
 ///
 /// Output range for non-negative inputs: [0, π/2] radians.
 [[nodiscard]] inline auto PolarAngle(const f64 alt_depth, const f64 ref_depth) -> f64 {

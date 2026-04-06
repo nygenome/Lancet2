@@ -8,7 +8,7 @@
 
 #include "lancet/base/mann_whitney.h"
 #include "lancet/base/types.h"
-#include "lancet/hts/fisher_exact.h"
+
 #include "lancet/hts/phred_quality.h"
 
 namespace lancet::caller {
@@ -48,7 +48,7 @@ void VariantSupport::AddEvidence(const ReadEvidence& evidence) {
     data.proper_pair_isizes.push_back(std::abs(static_cast<f64>(evidence.insert_size)));
   }
 
-  // Track folded read position (for RPRS FORMAT tag)
+  // Track folded read position (for RPCD FORMAT tag)
   data.folded_read_positions.push_back(evidence.folded_read_pos);
 
   // Track edit distance to REF haplotype (for ASMD FORMAT tag)
@@ -137,7 +137,7 @@ auto VariantSupport::TotalAltCov() const -> usize {
 }
 
 // ============================================================================
-// PosteriorBaseQual (PBQ FORMAT field)
+// RawPosteriorBaseQual (used to compute NPBQ FORMAT field)
 //
 // Edgar & Flyvbjerg (2014): Bayesian aggregation of per-read error probs.
 //
@@ -153,12 +153,12 @@ auto VariantSupport::TotalAltCov() const -> usize {
 // In log10 space (for numerical stability via log-sum-exp):
 //   log10(posterior_err) = log_err - log10(10^log_err + 10^log_ok)
 //
-//   PBQ = -10 * log10(posterior_err), capped at 255
+//   raw PBQ = -10 * log10(posterior_err)
 //
-// Intuition: if two reads agree with PBQ=30 each, the combined posterior
-// base quality is much higher than 30, reflecting increased confidence.
+// Returns the raw uncapped value. The caller (BuildFormatFields) divides
+// by allele_depth to produce NPBQ (per-read quality) for VCF output.
 // ============================================================================
-auto VariantSupport::PosteriorBaseQual(const AlleleIndex idx) const -> f64 {
+auto VariantSupport::RawPosteriorBaseQual(const AlleleIndex idx) const -> f64 {
   if (idx >= mAlleleData.size()) {
     return 0.0;
   }
@@ -194,8 +194,7 @@ auto VariantSupport::PosteriorBaseQual(const AlleleIndex idx) const -> f64 {
   const f64 log_posterior_err = log_err - log_sum;
   const f64 posterior_bq = -10.0 * log_posterior_err;
 
-  static constexpr f64 MAX_BQ = 255.0;
-  return std::min(posterior_bq, MAX_BQ);
+  return posterior_bq;
 }
 
 // ============================================================================
@@ -220,23 +219,27 @@ auto VariantSupport::RmsMappingQual(const AlleleIndex idx) const -> f64 {
 }
 
 // ============================================================================
-// PhredStrandBias (SB FORMAT field)
+// StrandBiasLogOR (SB FORMAT field)
 //
-// Phred-scaled Fisher's Exact Test for strand bias, analogous to GATK's FS.
-// Constructs a 2×2 contingency table:
+// Natural log odds ratio for strand bias with Haldane correction (+1 to
+// all cells). Coverage-invariant: measures the effect size of strand
+// imbalance, not statistical significance.
 //
 //        |  FWD  |  REV  |
 //   -----|-------|-------|
 //   REF  | rf    | rr    |
 //   ALT  | af    | ar    |      (ALT = sum across all non-REF alleles)
 //
-// Returns −10 · log10(two-sided p-value).
-//   - 0.0  → no strand bias (balanced)
-//   - High → strong strand bias (potential artifact)
+//   SB = ln( ((rf+1)(ar+1)) / ((rr+1)(af+1)) )
 //
-// When all counts are zero or only one strand is represented, returns 0.0.
+// Positive: ALT enriched on forward strand relative to REF.
+// Negative: ALT enriched on reverse strand relative to REF.
+// Near 0.0: balanced strands (no bias).
+//
+// Coverage stability: a 3:1 strand ratio produces SB ≈ 1.1 at any depth
+// from 20× to 2000× (vs Fisher SB ranging 3.5→290 over the same range).
 // ============================================================================
-auto VariantSupport::PhredStrandBias() const -> f64 {
+auto VariantSupport::StrandBiasLogOR() const -> f64 {
   // REF strand counts
   const auto ref_fwd = static_cast<int>(FwdCount(REF_ALLELE_IDX));
   const auto ref_rev = static_cast<int>(RevCount(REF_ALLELE_IDX));
@@ -249,21 +252,13 @@ auto VariantSupport::PhredStrandBias() const -> f64 {
     alt_rev += static_cast<int>(mAlleleData[i].rev_base_quals.size());
   }
 
-  const auto total = ref_fwd + ref_rev + alt_fwd + alt_rev;
-  if (total == 0) return 0.0;
-
-  using Row = hts::FisherExact::Row;
-  const auto result = hts::FisherExact::Test({Row{ref_fwd, ref_rev}, Row{alt_fwd, alt_rev}});
-
-  // Use the two-tailed p-value (mDiffProb) because strand bias can skew in
-  // either direction (ALT enriched on FWD or REV). This differs from the somatic
-  // Fisher score (SomaticFisherScore) which uses mMoreProb (right-tail, one-sided)
-  // because it tests the directional hypothesis "tumor has more ALT than normal."
-  // htslib's kt_fisher_exact returns: _left = P(n11<=obs), _right = P(n11>=obs),
-  // two = sum of both tails with probabilities <= observed (exact two-sided test).
-  static constexpr f64 MIN_PVALUE = 1e-300;
-  const auto pvalue = std::max(result.mDiffProb, MIN_PVALUE);
-  return hts::ErrorProbToPhred(pvalue);
+  // Haldane correction: +1 to all cells handles zero-count edge cases
+  // without sentinels. When all counts are zero, returns 0.0 (no bias).
+  const auto rf1 = static_cast<f64>(ref_fwd + 1);
+  const auto rr1 = static_cast<f64>(ref_rev + 1);
+  const auto af1 = static_cast<f64>(alt_fwd + 1);
+  const auto ar1 = static_cast<f64>(alt_rev + 1);
+  return std::log((rf1 * ar1) / (rr1 * af1));
 }
 
 // ============================================================================
@@ -347,23 +342,20 @@ auto VariantSupport::FragLengthDelta() const -> f64 {
 }
 
 // ============================================================================
-// MappingQualRankSumZ (MQRS FORMAT field)
+// MappingQualCohenD (MQCD FORMAT field)
 //
-// Mann-Whitney U test Z-score comparing mapping qualities of REF-supporting
-// vs ALT-supporting reads. Uses the original alignment MAPQ stored during
-// BAM/CRAM ingestion (not re-alignment MAPQ).
+// Coverage-normalized effect size comparing mapping qualities of REF vs
+// ALT reads. Uses Mann-Whitney U Z/√N to remove √N power amplification.
+//
+// A mild ALT MAPQ depression (2 units lower) produces MQCD ≈ −0.34 at any
+// depth from 20× to 2000× (vs raw Z-score ranging −1.5 to −14.9).
 //
 // Pools all ALT alleles into a single group (REF vs all-ALT) because the
-// test is about whether ALT reads as a class are mismapped, not which
-// specific ALT allele they support.
+// test is about whether ALT reads as a class are mismapped.
 //
-// Negative Z → ALT reads systematically lower MAPQ (paralogous mismapping)
-// Near zero  → no difference (expected for true variants)
-// Returns 100.0 (MANN_WHITNEY_MISSING_SENTINEL) if either group is empty
-// (e.g., homozygous ALT/REF genotype) or all MAPQs are identical.
-// See mann_whitney.h for full sentinel rationale.
+// Returns 0.0 if either group is empty or all MAPQs are identical.
 // ============================================================================
-auto VariantSupport::MappingQualRankSumZ() const -> f64 {
+auto VariantSupport::MappingQualCohenD() const -> f64 {
   // Collect REF mapping qualities
   absl::Span<const u8> ref_mqs;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
@@ -377,21 +369,23 @@ auto VariantSupport::MappingQualRankSumZ() const -> f64 {
     alt_mqs.insert(alt_mqs.end(), mqs.begin(), mqs.end());
   }
 
-  return base::MannWhitneyUZScore<u8>(ref_mqs, absl::MakeConstSpan(alt_mqs));
+  return base::MannWhitneyEffectSize<u8>(ref_mqs, absl::MakeConstSpan(alt_mqs));
 }
 
 // ============================================================================
-// ReadPosRankSumZ (RPRS FORMAT field)
+// ReadPosCohenD (RPCD FORMAT field)
 //
-// Mann-Whitney U test Z-score comparing folded read positions of REF vs ALT
-// reads. Folded position = min(p, 1−p) where p = variant_query_pos / read_len.
+// Coverage-normalized effect size comparing folded read positions of REF vs
+// ALT reads. Folded position = min(p, 1−p) where p = variant_query_pos / read_len.
 // Maps both 5' and 3' read edges to 0.0, centers to 0.5.
 //
 // True variants should be uniformly distributed across read positions.
-// Artifacts from 3' quality degradation or 5' soft-clip misalignment cluster
-// at read edges (low folded position), producing a negative Z-score for ALT.
+// Artifacts from 3' quality degradation cluster at read edges (low folded
+// position), producing a negative effect size for ALT.
+//
+// Returns 0.0 if either group is empty or all positions are identical.
 // ============================================================================
-auto VariantSupport::ReadPosRankSumZ() const -> f64 {
+auto VariantSupport::ReadPosCohenD() const -> f64 {
   absl::Span<const f64> ref_positions;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
     ref_positions = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].folded_read_positions);
@@ -403,18 +397,20 @@ auto VariantSupport::ReadPosRankSumZ() const -> f64 {
     alt_positions.insert(alt_positions.end(), pos.begin(), pos.end());
   }
 
-  return base::MannWhitneyUZScore<f64>(ref_positions, absl::MakeConstSpan(alt_positions));
+  return base::MannWhitneyEffectSize<f64>(ref_positions, absl::MakeConstSpan(alt_positions));
 }
 
 // ============================================================================
-// BaseQualRankSumZ (BQRS FORMAT field)
+// BaseQualCohenD (BQCD FORMAT field)
 //
-// Mann-Whitney U test Z-score comparing base qualities of REF vs ALT reads.
+// Coverage-normalized effect size comparing base qualities of REF vs ALT reads.
 // Concatenates forward and reverse strand base qualities per allele.
 // Detects 8-oxoguanine oxidation artifacts where the miscalled base has
 // characteristically low Phred confidence.
+//
+// Returns 0.0 if either group is empty or all qualities are identical.
 // ============================================================================
-auto VariantSupport::BaseQualRankSumZ() const -> f64 {
+auto VariantSupport::BaseQualCohenD() const -> f64 {
   // Collect REF base qualities (fwd + rev concatenated)
   std::vector<u8> ref_bqs;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
@@ -432,7 +428,7 @@ auto VariantSupport::BaseQualRankSumZ() const -> f64 {
     alt_bqs.insert(alt_bqs.end(), alt.rev_base_quals.begin(), alt.rev_base_quals.end());
   }
 
-  return base::MannWhitneyUZScore<u8>(absl::MakeConstSpan(ref_bqs), absl::MakeConstSpan(alt_bqs));
+  return base::MannWhitneyEffectSize<u8>(absl::MakeConstSpan(ref_bqs), absl::MakeConstSpan(alt_bqs));
 }
 
 // ============================================================================

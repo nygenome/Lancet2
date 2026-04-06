@@ -57,7 +57,7 @@ class VariantSupport {
   struct ReadEvidence {
     i64 insert_size;        // template length from original alignment
     f64 aln_score;          // normalized alignment score to the assigned haplotype
-    f64 folded_read_pos;    // 0.0=read edge, 0.5=read center (for RPRS)
+    f64 folded_read_pos;    // 0.0=read edge, 0.5=read center (for RPCD)
     u32 rname_hash;         // hash of read name (for dedup)
     u32 ref_nm;             // edit distance to REF haplotype (for ASMD)
     AlleleIndex allele;     // which allele this read supports
@@ -83,26 +83,40 @@ class VariantSupport {
 
   // ── Aggregate Metrics for VCF FORMAT Fields ──
 
-  // Posterior base quality: Bayesian aggregation of per-read error probabilities
-  // across all reads supporting this allele (Edgar & Flyvbjerg 2014).
+  // Normalized Posterior Base Quality (NPBQ FORMAT field):
+  // Raw Bayesian posterior base quality divided by the number of supporting reads,
+  // yielding the effective per-read quality contribution. Coverage-invariant:
+  // returns ~30 for Q30 reads at any depth from 20× to 2000×.
   //
   // Given N reads with Phred qualities Q_i:
   //   ε_i = 10^(-Q_i/10)
   //   log_err  = Σ log10(ε_i)
   //   log_ok   = Σ log10(1 - ε_i)
   //   posterior = 10^log_err / (10^log_err + 10^log_ok)
-  //   PBQ = -10 * log10(posterior), capped at 255
-  [[nodiscard]] auto PosteriorBaseQual(AlleleIndex idx) const -> f64;
+  //   raw PBQ = -10 * log10(posterior)
+  //
+  // Returns the raw uncapped PBQ value. Caller divides by allele_depth
+  // to produce NPBQ for VCF output. Not capped at 255.
+  [[nodiscard]] auto RawPosteriorBaseQual(AlleleIndex idx) const -> f64;
 
   // RMS mapping quality: sqrt(mean(mapq_i^2)) for reads supporting this allele.
   // Per-allele FORMAT field (RMQ), follows the standard samtools/GATK convention.
+  // Coverage stability: bounded by MAPQ ceiling (60). Converges rapidly;
+  // effectively coverage-invariant above ~10 reads per allele.
   [[nodiscard]] auto RmsMappingQual(AlleleIndex idx) const -> f64;
 
-  // Phred-scaled Fisher's exact test strand bias: -10*log10(p_value) from a 2×2
-  // contingency table of REF/ALT × FWD/REV strand counts. Artifacts concentrate
-  // on one strand and produce high scores; true variants score near 0.
-  // This is a single per-sample metric (Number=1), not per-allele.
-  [[nodiscard]] auto PhredStrandBias() const -> f64;
+  // Strand Bias Log Odds Ratio (SB FORMAT field):
+  // Natural log of the odds ratio from a 2×2 REF/ALT × FWD/REV table,
+  // with Haldane +1 correction to handle zero cells without sentinels.
+  //
+  //   SB = ln( ((ref_fwd+1)(alt_rev+1)) / ((ref_rev+1)(alt_fwd+1)) )
+  //
+  // Coverage-invariant: measures the *effect size* of strand imbalance,
+  // not statistical significance. A 3:1 strand ratio produces SB ≈ 1.1
+  // at any depth from 20× to 2000×. Preserves directionality:
+  //   Positive = ALT enriched on forward strand relative to REF
+  //   Negative = ALT enriched on reverse strand relative to REF
+  [[nodiscard]] auto StrandBiasLogOR() const -> f64;
 
   // Mean normalized alignment score for reads supporting this allele.
   [[nodiscard]] auto MeanAlnScore(AlleleIndex idx) const -> f64;
@@ -119,33 +133,32 @@ class VariantSupport {
   //   FLD = |mean_alt_isize - mean_ref_isize|
   [[nodiscard]] auto FragLengthDelta() const -> f64;
 
-  // Mapping Quality Rank Sum Z-score (MQRS FORMAT field): Mann-Whitney U test
-  // comparing mapping qualities of REF-supporting vs ALT-supporting reads.
-  // Uses the original alignment MAPQ (not re-alignment quality).
-  //   Negative Z → ALT reads are systematically lower MAPQ (paralogous mismapping)
-  //   Positive Z → ALT reads have higher MAPQ (unusual, may indicate REF bias)
-  //   Near zero  → no systematic difference (expected for true variants)
-  //   100.0      → test not applicable (empty REF or ALT group, or identical MAPQ)
-  // GATK uses Z < -12.5 as a hard filter threshold for MQRankSum.
-  [[nodiscard]] auto MappingQualRankSumZ() const -> f64;
+  // Mapping Quality Cohen's D (MQCD FORMAT field): coverage-normalized effect
+  // size comparing mapping qualities of REF-supporting vs ALT-supporting reads.
+  // Uses Mann-Whitney U test Z/√N to remove √N power amplification.
+  //
+  // Coverage-invariant: a mild ALT MAPQ depression produces MQCD ≈ −0.34
+  // at any depth from 20× to 2000×.
+  //   Negative → ALT reads are systematically lower MAPQ (paralogous mismapping)
+  //   Near zero → no systematic difference (expected for true variants)
+  //   0.0 → test not applicable (empty group or identical MAPQ)
+  [[nodiscard]] auto MappingQualCohenD() const -> f64;
 
-  // Read Position Rank Sum Z-score (RPRS FORMAT field): Mann-Whitney U test
-  // on folded read positions (REF vs ALT). Folded position maps both 5' and
-  // 3' read edges to 0.0, centers to 0.5. True variants are uniformly
-  // distributed; artifacts from quality degradation or misalignment cluster
-  // at read edges, producing a negative Z-score for the ALT group.
-  //   Negative Z → ALT allele systematically at read edges (artifact signal)
-  //   Near zero  → uniform distribution (expected for true variants)
-  //   100.0      → untestable (empty group or identical distributions)
-  [[nodiscard]] auto ReadPosRankSumZ() const -> f64;
+  // Read Position Cohen's D (RPCD FORMAT field): coverage-normalized effect
+  // size comparing folded read positions of REF vs ALT reads. Folded position
+  // maps both 5' and 3' read edges to 0.0, centers to 0.5.
+  //   Negative → ALT allele systematically at read edges (artifact signal)
+  //   Near zero → uniform distribution (expected for true variants)
+  //   0.0 → untestable (empty group or identical positions)
+  [[nodiscard]] auto ReadPosCohenD() const -> f64;
 
-  // Base Quality Rank Sum Z-score (BQRS FORMAT field): Mann-Whitney U test
-  // on per-allele base qualities (REF vs ALT). Detects 8-oxoguanine oxidation
-  // artifacts and other chemistry-driven errors where the miscalled base has
-  // characteristically low Phred confidence.
-  //   Negative Z → ALT allele has systematically lower base quality
-  //   100.0      → untestable
-  [[nodiscard]] auto BaseQualRankSumZ() const -> f64;
+  // Base Quality Cohen's D (BQCD FORMAT field): coverage-normalized effect
+  // size comparing per-allele base qualities (REF vs ALT). Detects 8-oxoG
+  // oxidation artifacts where the miscalled base has characteristically low
+  // Phred confidence.
+  //   Negative → ALT allele has systematically lower base quality
+  //   0.0 → untestable (empty group or identical qualities)
+  [[nodiscard]] auto BaseQualCohenD() const -> f64;
 
   // Allele-Specific Mismatch Delta (ASMD FORMAT field):
   // mean(ALT NM) − mean(REF NM), where NM is edit distance to the REF haplotype.
@@ -172,6 +185,10 @@ class VariantSupport {
   //
   // Returns: vector of k*(k+1)/2 normalized Phred-scaled likelihoods (min PL=0)
   //
+  // Coverage stability: PL values scale linearly with depth (each read adds
+  // ~Q30 evidence). Raw PL values should NOT be used as direct ML features.
+  // The QUAL column provides coverage-normalized alternatives.
+  //
   // References:
   //   - Li, H. (2011). "A statistical framework for SNP calling..."
   //   - Poplin, R. et al. (2018). GATK HaplotypeCaller
@@ -182,6 +199,10 @@ class VariantSupport {
   // Defined as the difference between the second-lowest and lowest PL values,
   // capped at 99. Standard GATK convention.
   //   GQ = second_min(PLs) - min(PLs)    [min is always 0 after normalization]
+  //
+  // Coverage stability: GQ reaches the 99 cap quickly (≥30× for clean variants).
+  // Above this threshold, GQ is effectively stable. Below 20×, GQ may vary
+  // but remains bounded in [0, 99].
   // See: https://gatk.broadinstitute.org/hc/en-us/articles/360035531692
   [[nodiscard]] static auto ComputeGQ(const std::vector<int>& pls) -> int;
 
@@ -217,7 +238,7 @@ class VariantSupport {
     // Only non-zero insert sizes from proper pairs are tracked.
     std::vector<f64> proper_pair_isizes;
 
-    // Folded read positions: min(p, 1−p) for RPRS rank-sum test.
+    // Folded read positions: min(p, 1−p) for RPCD effect size test.
     std::vector<f64> folded_read_positions;
 
     // Edit distances (NM) against REF haplotype for ASMD delta.

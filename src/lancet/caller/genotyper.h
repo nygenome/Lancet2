@@ -227,7 +227,7 @@ class Genotyper {
     /// to ~75 — indistinguishable from a true centered variant. Folding maps
     /// both ends to the same low-value space, converting the bimodal trap
     /// into a unidirectional signal: "Are ALT alleles systematically closer
-    /// to read edges than REF alleles?" Used for RPRS FORMAT field.
+    /// to read edges than REF alleles?" Used for RPCD FORMAT field.
     f64 folded_read_pos = 0.0;
 
     i32 global_score;       // mm_map DP score of full read→haplotype alignment

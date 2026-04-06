@@ -5,6 +5,11 @@ distilled from raw multi-scale metrics (homopolymer runs, Shannon entropy,
 LongdustQ k-mer concentration, tandem repeat motifs). It requires
 `--enable-sequence-complexity-features` to enable.
 
+All 11 features are computed from assembled haplotype sequences and are
+**completely coverage-invariant**: they measure properties of the genomic
+sequence itself, not properties of the reads. A poly-A run is 12bp long
+regardless of whether 20 or 2000 reads cover it.
+
 **INFO tag**: `SEQ_CX` (11 comma-separated values)
 
 ---
@@ -95,6 +100,40 @@ AT-rich regions are scored as artificially "repetitive."
 --genome-gc-bias 0.5     # Uniform model (no correction)
 --genome-gc-bias 0.42    # Mouse genome
 ```
+
+---
+
+## Coverage Stability
+
+All 11 SEQ_CX features are **perfectly coverage-invariant** because they
+are computed from assembled haplotype sequences, not from read-level metrics.
+The scoring pipeline works as follows:
+
+1. The de Bruijn graph assembler produces haplotype sequences (contigs)
+   from the reads in each window.
+2. The sequence complexity scorer operates on these haplotype strings.
+3. Homopolymer runs, Shannon entropy, LongdustQ, and TR motif detection
+   all operate on the sequence characters, not on read counts or qualities.
+
+The only indirect coverage dependency is that the assembler itself requires
+sufficient coverage to produce correct haplotypes. Below ~10×, the
+assembler may fail to construct the ALT haplotype, in which case no variant
+is called and no SEQ_CX is computed. Above ~15×, the assembled haplotypes
+are identical regardless of depth, and all 11 features are deterministic:
+
+| Feature | Coverage dependency |
+|:--------|:--------------------|
+| ContextHRun | None — counts bases in REF string |
+| ContextEntropy | None — base frequency ratio in REF string |
+| ContextFlankLQ | None — k-mer concentration in REF string |
+| ContextHaplotypeLQ | None — k-mer concentration in full REF haplotype |
+| DeltaHRun | None — ALT string vs REF string |
+| DeltaEntropy | None — ALT string vs REF string |
+| DeltaFlankLQ | None — ALT string vs REF string |
+| TrAffinity | None — motif distance in ALT string |
+| TrPurity | None — motif purity in ALT string |
+| TrPeriod | None — motif period in ALT string |
+| IsStutterIndel | None — binary flag from ALT string |
 
 ---
 

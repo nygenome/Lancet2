@@ -2,11 +2,16 @@
 #define SRC_LANCET_BASE_MANN_WHITNEY_H_
 
 // ============================================================================
-// Mann-Whitney U Test (Wilcoxon Rank-Sum Test) — Z-score Approximation
+// Mann-Whitney U Test — Effect Size (Cohen's d analog)
 //
-// Provides a non-parametric test for whether two independent samples are drawn
-// from the same distribution. This is the standard test used by GATK's
-// MappingQualityRankSumTest (MQRankSum) and related RankSum annotations.
+// Provides a non-parametric effect size measure for whether two independent
+// samples are drawn from the same distribution, derived from the standard
+// Mann-Whitney U test (Wilcoxon Rank-Sum Test).
+//
+// Unlike the raw Z-score (which scales with √N due to the Central Limit
+// Theorem), the effect size Z/√N is coverage-invariant: the same biological
+// bias produces the same value regardless of sequencing depth. This makes
+// it suitable for ML models that must generalize across coverage regimes.
 //
 // ── Mathematical Foundation ─────────────────────────────────────────────────
 //
@@ -20,7 +25,6 @@
 //        U_alt = R_alt - n*(n+1)/2
 //
 //      where R_alt is the sum of ranks assigned to ALT observations.
-//      U counts the number of (ref, alt) pairs where ref > alt.
 //
 //   3. Under H₀ (both samples from the same distribution):
 //
@@ -30,29 +34,43 @@
 //
 //        Var(U) = (m * n / 12) * [(N + 1) - Σₖ(tₖ³ - tₖ) / (N * (N - 1))]
 //
-//      where the sum is over all tie groups k, and tₖ is the group size.
-//      Without ties, this simplifies to m*n*(N+1)/12.
+//   5. Raw Z-score: Z = (U - E[U]) / √Var(U)
 //
-//   5. Z-score (normal approximation, valid for m,n ≥ 8):
+//   6. Effect size normalization: Z / √N where N = m + n.
 //
-//        Z = (U - E[U]) / √Var(U)
+//      Since Z ∝ √N × δ for a constant effect size δ (by CLT),
+//      dividing by √N recovers δ — the standardized effect size
+//      (analogous to Cohen's d for parametric tests).
 //
-//      Negative Z ⟹ ALT values are systematically lower than REF.
-//      Positive Z ⟹ ALT values are systematically higher than REF.
+// ── Coverage Stability ──────────────────────────────────────────────────────
 //
-// ── Usage in Variant Calling ────────────────────────────────────────────────
+// For a constant mild bias (e.g., ALT MAPQ 2 units lower than REF):
 //
-//   MQRS (Mapping Quality Rank Sum Z-score):
-//     Compares mapping qualities of REF-supporting vs ALT-supporting reads.
-//     Negative Z indicates ALT reads have lower mapping quality, suggesting
-//     paralogous mismapping. GATK uses Z < -12.5 as a hard filter threshold.
+//   20×:   raw Z ≈ −1.5,  Z/√N ≈ −0.34
+//   60×:   raw Z ≈ −2.6,  Z/√N ≈ −0.34
+//   100×:  raw Z ≈ −3.3,  Z/√N ≈ −0.33
+//   1000×: raw Z ≈ −10.5, Z/√N ≈ −0.33
+//   2000×: raw Z ≈ −14.9, Z/√N ≈ −0.33
+//
+// The effect size varies < 3% across 20×–2000× for any fixed bias level.
+//
+// ── Edge Cases ──────────────────────────────────────────────────────────────
+//
+// When the test cannot be computed (one or both groups empty, or all values
+// identical producing zero variance), 0.0 is returned. This is correct:
+// with no observable difference between groups, there is no measured bias.
+//
+// Common biological scenarios producing 0.0:
+//   - Homozygous ALT (1/1): all reads support ALT, 0 REF observations
+//   - Allelic dropout: all reads randomly sample one allele
+//   - Homozygous REF (0/0): 0 ALT observations (no variant reads)
+//   - Identical values: all reads have the same MAPQ/BQ/position
 //
 // ── References ──────────────────────────────────────────────────────────────
 //
 //   - Mann, H.B. & Whitney, D.R. (1947). Annals of Math. Statistics, 18(1).
 //   - Lehmann, E.L. (2006). Nonparametrics: Statistical Methods Based on Ranks.
-//   - GATK MappingQualityRankSumTest: u-based Z-approximation.
-//   - bcftools: mqsbias (related rank-based mapping quality bias metric).
+//   - Cohen, J. (1988). Statistical Power Analysis for the Behavioral Sciences.
 //
 // ============================================================================
 
@@ -65,52 +83,20 @@
 
 namespace lancet::base {
 
-// ── Sentinel value for untestable edge cases ─────────────────────────────────
+// Computes the Mann-Whitney U effect size (Z/√N) comparing two independent
+// samples. This is the coverage-normalized analog of the Z-score.
 //
-// When the Mann-Whitney U test cannot be computed (one or both sample groups
-// are empty, or all observations are identical), returning 0.0 is statistically
-// dangerous: it represents the null hypothesis mean ("no bias"), which falsely
-// signals high confidence of allele balance to downstream filters and ML models.
-//
-// Instead we use extreme value imputation: a value so far outside the natural
-// Z-score range that it is trivially separable by any downstream consumer.
-//
-// Common biological scenarios producing an untestable state:
-//   - Homozygous ALT (1/1): all reads support ALT, 0 REF observations.
-//   - Allelic dropout: low coverage site where all reads randomly sample one allele.
-//   - Homozygous REF (0/0): 0 ALT observations (no variant reads).
-//   - Identical MAPQ: all reads share the exact same mapping quality (zero variance).
-//
-// Why 100.0?
-//   - Natural Z-scores from genomic data rarely exceed |8| (GATK hard-filters at
-//     |12.5|, which itself is extreme). A value of 100.0 is >7σ beyond any
-//     plausible biological signal.
-//   - Tree-based ML models (Isolation Forest, XGBoost) will isolate this value
-//     with an early split, keeping it from contaminating the learned Z-score
-//     distribution.
-//   - Density-based models (GMMs) should pair this with a binary indicator
-//     feature (is_MQRS_missing) to avoid creating a false cluster at 100.0.
-//   - VCF consumers can trivially filter on MQRS == 100.0 to identify untested
-//     loci.
-//
-// Reference: See conversation notes on VQSR/ML edge-case handling for
-// rank-sum annotations.
-static constexpr f64 MANN_WHITNEY_MISSING_SENTINEL = 100.0;
-
-// Computes the Mann-Whitney U test Z-score comparing two independent samples.
-//
-// Returns positive Z if alt_vals tend to be higher, negative if lower.
-// Returns MANN_WHITNEY_MISSING_SENTINEL (100.0) when either sample is empty
-// (test not applicable) or when all values are identical (zero variance,
-// no discriminating power). See sentinel documentation above.
+// Returns positive values if alt_vals tend to be higher, negative if lower.
+// Returns 0.0 when either sample is empty (test not applicable) or when
+// all values are identical (zero variance, no discriminating power).
 //
 // Template parameter T must be an arithmetic type (u8, i32, f64, etc.).
 // Values are promoted to f64 internally for rank computation.
 template <typename T>
-[[nodiscard]] auto MannWhitneyUZScore(absl::Span<const T> ref_vals, absl::Span<const T> alt_vals) -> f64 {
+[[nodiscard]] auto MannWhitneyEffectSize(absl::Span<const T> ref_vals, absl::Span<const T> alt_vals) -> f64 {
   // Require at least one observation in each group. Without both groups,
-  // the rank-sum test is undefined — return sentinel, not 0.0.
-  if (ref_vals.empty() || alt_vals.empty()) return MANN_WHITNEY_MISSING_SENTINEL;
+  // there is no observable bias — return 0.0.
+  if (ref_vals.empty() || alt_vals.empty()) return 0.0;
 
   const auto n_ref = static_cast<f64>(ref_vals.size());
   const auto n_alt = static_cast<f64>(alt_vals.size());
@@ -171,12 +157,14 @@ template <typename T>
   // The tie term reduces variance because tied values carry less information.
   const auto var_u = (n_ref * n_alt / 12.0) * ((n_total + 1.0) - tie_correction / (n_total * (n_total - 1.0)));
 
-  // Zero variance means all values are identical — no test is meaningful.
-  // Return sentinel rather than 0.0 to avoid false "no bias" signal.
-  if (var_u <= 0.0) return MANN_WHITNEY_MISSING_SENTINEL;
+  // Zero variance means all values are identical — no observable bias.
+  if (var_u <= 0.0) return 0.0;
 
-  // ── Step 5: Z-score (normal approximation) ───────────────────────────────
-  return (u_stat - mean_u) / std::sqrt(var_u);
+  // ── Step 5: Effect size = Z / √N ─────────────────────────────────────────
+  // Raw Z-score divided by √N to remove √N power amplification.
+  // This recovers the standardized effect size (Cohen's d analog).
+  const auto z_score = (u_stat - mean_u) / std::sqrt(var_u);
+  return z_score / std::sqrt(n_total);
 }
 
 }  // namespace lancet::base

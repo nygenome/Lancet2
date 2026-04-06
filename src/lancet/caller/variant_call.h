@@ -30,7 +30,7 @@ using VariantID = u64;
 //     Output: VCF record: chr1 100 . A T,G ... (comma-separated ALTs)
 //
 // FORMAT fields (per-sample):
-//   GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ
+//   GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ
 //
 //   GT   - Genotype (e.g., 0/1, 1/2 for multi-allelic)
 //   AD   - Number=R: read depth per allele (REF, ALT1, ALT2, ...)
@@ -38,16 +38,16 @@ using VariantID = u64;
 //   ADR  - Number=R: reverse strand depth per allele
 //   DP   - Total read depth
 //   RMQ  - Number=R: RMS mapping quality per allele
-//   PBQ  - Number=R: posterior base quality per allele
-//   SB   - Number=1: Phred-scaled Fisher's exact test strand bias
+//   NPBQ - Number=R: normalized posterior base quality per allele (PBQ/N)
+//   SB   - Number=1: Strand bias log odds ratio (Haldane-corrected)
 //   SCA  - Number=1: Soft Clip Asymmetry (ALT - REF soft-clip fraction)
 //   FLD  - Number=1: Fragment Length Delta (|mean ALT isize - mean REF isize|)
-//   RPRS - Number=1: Read Position Rank Sum Z-score (folded read position)
-//   BQRS - Number=1: Base Quality Rank Sum Z-score
-//   MQRS - Number=1: Mapping Quality Rank Sum Z-score (Mann-Whitney U)
+//   RPCD - Number=1: Read Position Cohen's D (folded position effect size)
+//   BQCD - Number=1: Base Quality Cohen's D (base quality effect size)
+//   MQCD - Number=1: Mapping Quality Cohen's D (MAPQ effect size)
 //   ASMD - Number=1: Allele-Specific Mismatch Delta (mean ALT NM - mean REF NM)
 //   SDFC - Number=1: Site Depth Fold Change (DP / window mean coverage)
-//   PRAD - Number=1: Polar Radius sqrt(AD_Ref² + AD_Alt²)
+//   PRAD - Number=1: Polar Radius log10(1 + sqrt(AD_Ref² + AD_Alt²))
 //   PANG - Number=1: Polar Angle atan2(AD_Alt, AD_Ref) in radians
 //   PL   - Number=G: Phred-scaled genotype likelihoods
 //   GQ   - Genotype quality (second-lowest PL, capped at 99)
@@ -152,7 +152,7 @@ class VariantCall {
 
   // ── Modular field builders ─────────────────────────────────────────────
 
-  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ).
+  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ).
   /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
   struct AltPresence {
     bool in_normal = false;
@@ -173,8 +173,8 @@ class VariantCall {
   /// Convert a GL index back to genotype string (e.g., GL=4 with k=3 → "1/2")
   [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
 
-  /// Fisher's exact test for somatic variant evidence.
-  [[nodiscard]] static auto SomaticFisherScore(const core::SampleInfo& curr,
+  /// Somatic log odds ratio: tumor ALT enrichment vs normal.
+  [[nodiscard]] static auto SomaticLogOddsRatio(const core::SampleInfo& curr,
                                                 const PerSampleEvidence& supports) -> f64;
 };
 

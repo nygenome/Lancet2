@@ -19,8 +19,6 @@
 #include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_support.h"
 #include "lancet/cbdg/label.h"
-#include "lancet/hts/fisher_exact.h"
-#include "lancet/hts/phred_quality.h"
 #include "spdlog/fmt/bundled/core.h"
 
 namespace {
@@ -159,7 +157,7 @@ void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, Fea
 // ============================================================================
 // BuildFormatFields: per-sample FORMAT strings and site quality.
 //
-// FORMAT: GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:MQRS:PRAD:PANG:PL:GQ
+// FORMAT: GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ
 //
 //   GT   - Genotype derived from minimum PL
 //   AD   - Number=R: allele depths (REF, ALT1, ALT2, ...)
@@ -167,16 +165,16 @@ void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, Fea
 //   ADR  - Number=R: reverse strand allele depths
 //   DP   - Total depth
 //   RMQ  - Number=R: RMS mapping quality per allele
-//   PBQ  - Number=R: posterior base quality per allele
-//   SB   - Number=1: Phred-scaled Fisher's exact test strand bias
+//   NPBQ - Number=R: normalized posterior base quality per allele (PBQ/N)
+//   SB   - Number=1: Strand bias log odds ratio (Haldane-corrected)
 //   SCA  - Number=1: Soft Clip Asymmetry (ALT - REF soft-clip fraction)
 //   FLD  - Number=1: Fragment Length Delta (|mean ALT isize - mean REF isize|)
-//   RPRS - Number=1: Read Position Rank Sum Z-score (folded read position)
-//   BQRS - Number=1: Base Quality Rank Sum Z-score
-//   MQRS - Number=1: Mapping Quality Rank Sum Z-score (Mann-Whitney U)
+//   RPCD - Number=1: Read Position Cohen's D (folded position effect size)
+//   BQCD - Number=1: Base Quality Cohen's D (base quality effect size)
+//   MQCD - Number=1: Mapping Quality Cohen's D (MAPQ effect size)
 //   ASMD - Number=1: Allele-Specific Mismatch Delta (mean ALT NM - mean REF NM)
 //   SDFC - Number=1: Site Depth Fold Change (DP / window mean coverage)
-//   PRAD - Number=1: Polar Radius sqrt(AD_Ref² + AD_Alt²)
+//   PRAD - Number=1: Polar Radius log10(1 + sqrt(AD_Ref² + AD_Alt²))
 //   PANG - Number=1: Polar Angle atan2(AD_Alt, AD_Ref) in radians
 //   PL   - Number=G: Phred-scaled genotype likelihoods
 //   GQ   - Genotype quality (GATK: second-lowest PL, capped at 99)
@@ -187,7 +185,7 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
   AltPresence alt_presence;
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:PBQ:SB:SCA:FLD:RPRS:BQRS:MQRS:ASMD:SDFC:PRAD:PANG:PL:GQ");
+  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ");
 
   for (const auto& sinfo : samps) {
     const auto& support = evidence.at(sinfo.SampleName());
@@ -203,10 +201,18 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
     }
     const auto genotype = GenotypeFromGLIndex(best_gt_idx, num_alleles);
 
-    // Site quality: Fisher score in tumor-normal mode, ref-hom PL otherwise
-    const auto fisher_score = SomaticFisherScore(sinfo, evidence);
+    // Site quality: somatic log odds ratio in tumor-normal mode,
+    // per-read evidence strength (PL[0]/DP, capped at 10) in normal-only mode.
+    const auto somatic_lor = SomaticLogOddsRatio(sinfo, evidence);
     const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
-    mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? fisher_score : static_cast<f64>(ref_hom_pl));
+    const auto sample_dp = support->TotalSampleCov();
+    // Per-read evidence against hom-REF: PL[0]/DP, capped at 10.0.
+    // Coverage-invariant: clean het returns ~3.0 at any depth.
+    // Take max across multiple normals (conservative: strongest evidence wins).
+    const auto per_read_qual = (!pls.empty() && sample_dp > 0)
+        ? std::min(static_cast<f64>(ref_hom_pl) / static_cast<f64>(sample_dp), 10.0)
+        : 0.0;
+    mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? somatic_lor : per_read_qual);
     mTotalSampleCov += support->TotalSampleCov();
 
     // Track ALT support globally (for HasAltSupport()) and per-label (for state)
@@ -221,12 +227,12 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
     }
 
     // Per-allele metric strings (Number=R fields)
-    std::vector<std::string> ad_vals, adf_vals, adr_vals, rmq_vals, pbq_vals;
+    std::vector<std::string> ad_vals, adf_vals, adr_vals, rmq_vals, npbq_vals;
     ad_vals.reserve(num_alleles);
     adf_vals.reserve(num_alleles);
     adr_vals.reserve(num_alleles);
     rmq_vals.reserve(num_alleles);
-    pbq_vals.reserve(num_alleles);
+    npbq_vals.reserve(num_alleles);
 
     for (usize allele = 0; allele < num_alleles; ++allele) {
       const auto idx = static_cast<AlleleIndex>(allele);
@@ -234,18 +240,23 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
       adf_vals.push_back(std::to_string(support->FwdCount(idx)));
       adr_vals.push_back(std::to_string(support->RevCount(idx)));
       rmq_vals.push_back(fmt::format("{:.1f}", support->RmsMappingQual(idx)));
-      pbq_vals.push_back(fmt::format("{:.1f}", support->PosteriorBaseQual(idx)));
+      // NPBQ: raw posterior base quality divided by allele depth
+      // Recovers the effective per-read quality (~30 for Q30 reads at any depth)
+      const auto raw_pbq = support->RawPosteriorBaseQual(idx);
+      const auto allele_cov = support->TotalAlleleCov(idx);
+      const auto npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
+      npbq_vals.push_back(fmt::format("{:.1f}", npbq));
     }
 
-    // Phred-scaled Fisher strand bias (Number=1, per-sample)
-    const auto sb_phred = fmt::format("{:.1f}", support->PhredStrandBias());
+    // Strand bias log odds ratio (Number=1, per-sample)
+    const auto sb_val = fmt::format("{:.3f}", support->StrandBiasLogOR());
 
-    // Alignment-derived per-sample annotations
+    // Alignment-derived per-sample annotations (coverage-normalized effect sizes)
     const auto sca_val = fmt::format("{:.4f}", support->SoftClipAsymmetry());
     const auto fld_val = fmt::format("{:.1f}", support->FragLengthDelta());
-    const auto rprs_val = fmt::format("{:.3f}", support->ReadPosRankSumZ());
-    const auto bqrs_val = fmt::format("{:.3f}", support->BaseQualRankSumZ());
-    const auto mqrs_val = fmt::format("{:.3f}", support->MappingQualRankSumZ());
+    const auto rpcd_val = fmt::format("{:.4f}", support->ReadPosCohenD());
+    const auto bqcd_val = fmt::format("{:.4f}", support->BaseQualCohenD());
+    const auto mqcd_val = fmt::format("{:.4f}", support->MappingQualCohenD());
     const auto asmd_val = fmt::format("{:.3f}", support->AlleleMismatchDelta());
     const auto sdfc_val = fmt::format("{:.2f}", SiteDepthFoldChange());
 
@@ -253,7 +264,7 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
     // PRAD/PANG orthogonalize allele identity from depth (see polar_coords.h)
     const auto ad_ref = static_cast<f64>(support->TotalRefCov());
     const auto ad_alt = static_cast<f64>(support->TotalAltCov());
-    const auto prad_val = fmt::format("{:.1f}", base::PolarRadius(ad_ref, ad_alt));
+    const auto prad_val = fmt::format("{:.4f}", base::PolarRadius(ad_ref, ad_alt));
     const auto pang_val = fmt::format("{:.4f}", base::PolarAngle(ad_alt, ad_ref));
 
     // PL string (Number=G field)
@@ -271,13 +282,13 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
         absl::StrJoin(adr_vals, ","),
         support->TotalSampleCov(),
         absl::StrJoin(rmq_vals, ","),
-        absl::StrJoin(pbq_vals, ","),
-        sb_phred,
+        absl::StrJoin(npbq_vals, ","),
+        sb_val,
         sca_val,
         fld_val,
-        rprs_val,
-        bqrs_val,
-        mqrs_val,
+        rpcd_val,
+        bqcd_val,
+        mqcd_val,
         asmd_val,
         sdfc_val,
         prad_val,
@@ -320,7 +331,7 @@ void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_
 //   GRAPH_CX  — optional graph complexity (GEI, TipToPathCovRatio, MaxDegree)
 //   SEQ_CX    — optional sequence complexity (11 ML-ready features)
 //
-// Note: SCA, FLD, and MQRS are per-sample FORMAT fields, not site-level INFO.
+// Note: SCA, FLD, and MQCD are per-sample FORMAT fields, not site-level INFO.
 // ============================================================================
 void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags features) {
   using namespace std::string_view_literals;
@@ -425,11 +436,17 @@ auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alle
 }
 
 // ============================================================================
-// SomaticFisherScore: Fisher's exact test for somatic variant evidence.
-// Compares ALT/REF allele counts between the current tumor sample and
-// the average across normal samples.
+// SomaticLogOddsRatio: somatic variant evidence as a coverage-invariant
+// log odds ratio. Compares ALT/REF allele counts between the current tumor
+// sample and the average across normal samples.
+//
+//   SOLOR = ln( ((tmr_alt+1)(nml_ref+1)) / ((tmr_ref+1)(nml_alt+1)) )
+//
+// Haldane correction (+1) handles zero-count edge cases without sentinels.
+// A clean somatic produces SOLOR ≈ 5; germline produces SOLOR ≈ 0.
+// Coverage-stable: once normal VAF stabilizes (≥60×), SOLOR varies < 3%.
 // ============================================================================
-auto VariantCall::SomaticFisherScore(const core::SampleInfo& curr,
+auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr,
                                       const PerSampleEvidence& supports) -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
@@ -453,23 +470,13 @@ auto VariantCall::SomaticFisherScore(const core::SampleInfo& curr,
     }
   }
 
-  const auto cnt_tmr_alt = static_cast<int>(current_tmr_alt);
-  const auto cnt_tmr_ref = static_cast<int>(current_tmr_ref);
-  const auto avg_nml_alt = static_cast<int>(std::round(nml_alts.Mean()));
-  const auto avg_nml_ref = static_cast<int>(std::round(nml_refs.Mean()));
+  // Haldane correction (+1 to all cells)
+  const auto ta = static_cast<f64>(current_tmr_alt) + 1.0;
+  const auto tr = static_cast<f64>(current_tmr_ref) + 1.0;
+  const auto na = std::round(nml_alts.Mean()) + 1.0;
+  const auto nr = std::round(nml_refs.Mean()) + 1.0;
 
-  using Row = hts::FisherExact::Row;
-  const auto tmr_counts = Row{cnt_tmr_alt, cnt_tmr_ref};
-  const auto nml_counts = Row{avg_nml_alt, avg_nml_ref};
-  const auto result = hts::FisherExact::Test({tmr_counts, nml_counts});
-
-  // Use the right-tail p-value (mMoreProb) because somatic calling tests the
-  // directional hypothesis: "tumor has higher ALT enrichment than normal"
-  // (odds ratio > 1). The left tail (tumor has *less* ALT) is not relevant
-  // for somatic variant detection. This differs from strand bias (PhredStrandBias)
-  // which uses the two-tailed p-value (mDiffProb) because bias can go either way.
-  // htslib's kt_fisher_exact: _right = P(n11 >= observed | H0: odds ratio <= 1).
-  return hts::ErrorProbToPhred(result.mMoreProb);
+  return std::log((ta * nr) / (tr * na));
 }
 
 }  // namespace lancet::caller

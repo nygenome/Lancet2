@@ -70,14 +70,18 @@ class RawVariant {
   // Populated when --enable-graph-complexity-features is set.
   // 3 fields matching the GRAPH_CX VCF INFO tag.
   //
+  // Coverage stability: GEI uses CovCV (σ/μ, self-normalizing ratio),
+  // TipToPathCovRatio is a coverage ratio, MaxSingleDirDegree is pure
+  // topology. All three are coverage-stable above 20×.
+  //
   // Raw topology metrics (CC, BP, EdgeDensity, UnitigRatio, CoverageCv) are
   // mathematically collinear and compressed into the Graph Entanglement Index.
   // Color-based metrics (UnsharedColorRatio, ColorDiscordantBranches) are not
   // topological and are captured by other biologically relevant annotations.
   struct GraphMetrics {
     f64 graph_entanglement_index = 0.0;  ///< GEI: log₁₀(1 + CC×BP×CovCV / UnitigRatio)
-    f64 tip_to_path_cov_ratio = 0.0;    ///< assembly tearing: tip cov / unitig cov
-    usize max_single_dir_degree = 0;    ///< hub k-mer detection: max outgoing edges
+    f64 tip_to_path_cov_ratio = 0.0;    ///< assembly tearing: tip cov / unitig cov (ratio, self-normalizing)
+    usize max_single_dir_degree = 0;    ///< hub k-mer detection: max outgoing edges (topology, invariant)
 
     /// Format as 3 comma-separated values for VCF GRAPH_CX INFO tag.
     [[nodiscard]] auto FormatVcfValue() const -> std::string {

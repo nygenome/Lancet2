@@ -122,6 +122,14 @@ one axis but not entangled.
 | 2.0–3.0 | **Complex region** — multiple overlapping events, possible SV breakpoints. |
 | > 3.0 | **Paralogous collapse** — segmental duplication or centromeric satellite. Reads from multiple genomic loci collapse into the same graph. Any variant called here is almost certainly an artifact. |
 
+**Coverage stability**: GEI is computed purely from graph topology and node
+coverage ratios — it does not use raw read counts. The CoverageCv component
+is a coefficient of variation (σ/μ), which is inherently self-normalizing.
+However, at very low coverage (≤10×), the graph structure itself changes
+(fewer nodes, simpler topology), so GEI may be lower simply because the
+graph fails to assemble complex regions. Above 20×, GEI is effectively
+stable for a given genomic region.
+
 ---
 
 ## TipToPathCovRatio
@@ -136,6 +144,11 @@ independent of loop topology.
 | 0.5–2.0 | Moderate — some assembly fragmentation |
 | > 2.0 | High — assembly is tearing apart, likely SV or mapping artifact |
 
+**Coverage stability**: TipToPathCovRatio is a ratio of mean coverages
+(tip nodes vs unitig nodes) and is self-normalizing. The same assembly
+tearing event produces the same ratio at any depth. Below ~15×, tips
+may not form because the assembler prunes low-coverage dead ends.
+
 ---
 
 ## MaxSingleDirDegree
@@ -149,3 +162,9 @@ holes, pulling in many unrelated graph paths.
 | ≤ 3 | Normal |
 | 4–5 | Elevated — possible low-complexity region |
 | > 5 | Hub k-mer — likely homopolymer or simple repeat causing BFS blowup |
+
+**Coverage stability**: MaxSingleDirDegree is a pure topological property
+(integer count of outgoing edges) and is completely independent of read
+depth. The number of distinct k-mer successors in the graph depends only
+on the underlying sequence, not on how many reads support each edge.
+Perfectly coverage-invariant at any depth.

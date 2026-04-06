@@ -337,16 +337,16 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 ##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Reverse strand allele depth">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth">
 ##FORMAT=<ID=RMQ,Number=R,Type=Float,Description="RMS mapping quality per allele">
-##FORMAT=<ID=PBQ,Number=R,Type=Float,Description="Posterior base quality per allele">
-##FORMAT=<ID=SB,Number=1,Type=Float,Description="Phred-scaled strand bias">
+##FORMAT=<ID=NPBQ,Number=R,Type=Float,Description="Normalized posterior base quality per allele (raw PBQ / allele depth)">
+##FORMAT=<ID=SB,Number=1,Type=Float,Description="Strand bias log odds ratio (Haldane-corrected, coverage-invariant)">
 ##FORMAT=<ID=SCA,Number=1,Type=Float,Description="Soft clip asymmetry (ALT minus REF)">
 ##FORMAT=<ID=FLD,Number=1,Type=Float,Description="Fragment length delta (ALT vs REF)">
-##FORMAT=<ID=RPRS,Number=1,Type=Float,Description="Read position rank sum Z-score (100.0 if untestable)">
-##FORMAT=<ID=BQRS,Number=1,Type=Float,Description="Base quality rank sum Z-score (100.0 if untestable)">
-##FORMAT=<ID=MQRS,Number=1,Type=Float,Description="Mapping quality rank sum Z-score (100.0 if untestable)">
+##FORMAT=<ID=RPCD,Number=1,Type=Float,Description="Read position Cohen's D effect size (0.0 if untestable)">
+##FORMAT=<ID=BQCD,Number=1,Type=Float,Description="Base quality Cohen's D effect size (0.0 if untestable)">
+##FORMAT=<ID=MQCD,Number=1,Type=Float,Description="Mapping quality Cohen's D effect size (0.0 if untestable)">
 ##FORMAT=<ID=ASMD,Number=1,Type=Float,Description="Allele-specific mismatch delta (mean ALT NM minus mean REF NM)">
 ##FORMAT=<ID=SDFC,Number=1,Type=Float,Description="Site depth fold change (DP / window mean coverage)">
-##FORMAT=<ID=PRAD,Number=1,Type=Float,Description="Polar radius: signal magnitude sqrt(AD_Ref^2 + AD_Alt^2)">
+##FORMAT=<ID=PRAD,Number=1,Type=Float,Description="Polar radius: log10(1 + sqrt(AD_Ref^2 + AD_Alt^2))">
 ##FORMAT=<ID=PANG,Number=1,Type=Float,Description="Polar angle: allele identity ratio atan2(AD_Alt, AD_Ref) in radians">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">

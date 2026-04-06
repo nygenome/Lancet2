@@ -50,6 +50,10 @@ struct VariantTRFeatures {
 // entropy, LongdustQ k-mer concentration, tandem repeat motifs) into an
 // orthogonal feature set designed for additive ML models (EBMs/GAMs).
 //
+// Coverage stability: All 11 features are PERFECTLY COVERAGE-INVARIANT.
+// They are computed from assembled haplotype strings, not from read-level
+// metrics. A poly-A run has the same length regardless of read depth.
+//
 // Three conceptual groups:
 //
 // ── Context (4 features, strictly REF) ──────────────────────────────
