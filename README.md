@@ -14,9 +14,9 @@ In addition to variant calling accuracy and improved somatic filtering, Lancet2 
 ## Installation
 
 ### Build prerequisites
-- [Linux](https://kernel.org/) [x86-64 system](https://en.wikipedia.org/wiki/X86-64)
+- [Linux](https://kernel.org/) or [macOS](https://www.apple.com/macos/) (x86-64 or ARM64 architectures)
 - [Git](https://command-not-found.com/git), [Make](https://command-not-found.com/make)
-- [GCC](https://gcc.gnu.org) (12.x or greater)
+- [GCC](https://gcc.gnu.org) (12.x or greater) or [Clang](https://clang.llvm.org) (14.x or greater)
 - [CMake](https://cmake.org/download) (3.25 or greater)
 - [BZip2](https://sourceware.org/bzip2/), [LibLZMA](https://tukaani.org/xz/)
 

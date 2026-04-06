@@ -1,14 +1,14 @@
-FROM gcc:14 AS builder
+FROM gcc:15 AS builder
 LABEL maintainer="Rajeeva Musunuri <rmusunuri@nygenome.org>"
 
 RUN DEBIAN_FRONTEND="noninteractive" apt-get update && apt-get upgrade --yes --no-install-recommends && \
     apt-get install --yes --no-install-recommends ca-certificates libbz2-dev liblzma-dev git make unzip wget && \
-    wget -cq "https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-linux-x86_64.sh" && \
-    wget -cq "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip" && \
-    /bin/bash "cmake-3.30.3-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
-    unzip -d /usr/bin ninja-linux.zip && rm -f cmake-3.30.3-linux-x86_64.sh ninja-linux.zip
+    wget -cq "https://github.com/Kitware/CMake/releases/download/v4.3.1/cmake-4.3.1-linux-x86_64.sh" && \
+    wget -cq "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux.zip" && \
+    /bin/bash "cmake-4.3.1-linux-x86_64.sh" --skip-license --exclude-subdir --prefix=/usr && \
+    unzip -d /usr/bin ninja-linux.zip && rm -f cmake-4.3.1-linux-x86_64.sh ninja-linux.zip
 
-ARG BUILD_ARCH="skylake-avx512"
+ARG BUILD_ARCH="x86-64-v3"
 RUN DEBIAN_FRONTEND="noninteractive" git clone https://github.com/nygenome/Lancet2.git && cd Lancet2 && mkdir build && \
     cd build && cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DLANCET_BUILD_ARCH=${BUILD_ARCH} .. && ninja -v
 
