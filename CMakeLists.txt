@@ -7,6 +7,7 @@ project(lancet LANGUAGES C CXX
 
 # https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 include(cmake/version.cmake)
+include(CMakeDependentOption)
 set(PROJECT_VERSION ${LANCET2_GIT_TAG})
 message(STATUS "Lancet v${PROJECT_VERSION}")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
@@ -19,14 +20,23 @@ set_property(CACHE LANCET_BENCHMARKS PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_PROFILE_MODE PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_BUILD_STATIC PROPERTY STRINGS "OFF" "ON")
 
+cmake_dependent_option(LANCET_ENABLE_CLOUD_IO
+	"Enables native S3 and GCS streaming via libcurl" OFF
+	"NOT LANCET_BUILD_STATIC" OFF)
+set_property(CACHE LANCET_ENABLE_CLOUD_IO PROPERTY STRINGS "OFF" "ON")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
+
 message(STATUS "CMAKE_HOST_SYSTEM_NAME: ${CMAKE_HOST_SYSTEM_NAME}")
 message(STATUS "CMAKE_HOST_SYSTEM_PROCESSOR: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 MESSAGE(STATUS "CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
 MESSAGE(STATUS "CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
+
+if (LANCET_BUILD_STATIC)
+	set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
+endif ()
 
 if (NOT (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" OR CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin"))
 	message(WARNING "Running Lancet build on a ${CMAKE_HOST_SYSTEM_NAME} machine")
@@ -67,6 +77,11 @@ endif ()
 find_package(BZip2 REQUIRED)
 find_package(LibLZMA REQUIRED)
 
+if (LANCET_ENABLE_CLOUD_IO)
+	find_package(CURL REQUIRED)
+	find_package(OpenSSL REQUIRED)
+endif ()
+
 include(cmake/defaults.cmake)
 include(cmake/dependencies.cmake)
 
@@ -100,6 +115,10 @@ target_include_directories(lancet_hts SYSTEM PUBLIC ${HTSLIB_ROOT_DIR})
 target_include_directories(lancet_hts PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(lancet_hts PUBLIC lancet_base absl::statusor absl::fixed_array absl::flat_hash_set ${LIB_HTS}
 		PRIVATE absl::flat_hash_map INTERFACE BZip2::BZip2 LibLZMA::LibLZMA zlibstatic libdeflate_static)
+
+if (LANCET_ENABLE_CLOUD_IO)
+	target_link_libraries(lancet_hts INTERFACE CURL::libcurl OpenSSL::Crypto)
+endif ()
 
 add_library(lancet_cbdg STATIC src/lancet/cbdg/label.h
 		src/lancet/cbdg/kmer.cpp src/lancet/cbdg/kmer.h
@@ -162,7 +181,7 @@ if (LANCET_PROFILE_MODE AND ${CMAKE_BUILD_TYPE} MATCHES Release)
 endif ()
 
 # Helpful links to run tests
-# https://github.com/catchorg/Catch2/blob/v3.3.2/docs/Readme.md
+# https://github.com/catchorg/Catch2/blob/v3.14.0/docs/Readme.md
 if (LANCET_TESTS)
 	add_subdirectory(tests)
 endif ()

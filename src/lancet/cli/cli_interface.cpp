@@ -11,7 +11,13 @@
 #include <thread>
 
 #include "CLI/CLI.hpp"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+
+extern "C" {
+#include "htslib/hfile.h"
+}
+
 #include "lancet/base/logging.h"
 #include "lancet/base/types.h"
 #include "lancet/base/version.h"
@@ -36,6 +42,45 @@ inline auto MakeCmdLine(const int argc, const char** argv) -> std::string {
   result.shrink_to_fit();
   return result;
 }
+
+class CliExistingUriOrFile : public CLI::Validator {
+public:
+  CliExistingUriOrFile() {
+    name_ = "EXISTING_URI_OR_FILE";
+    func_ = [](const std::string &str) -> std::string {
+      // By natively injecting HTSlib remote read pings here, we decouple the strict
+      // local filepath assertions baked inherently into CLI::ExistingFile checking logic.
+      // This allows Lancet2 pipeline execution to gracefully accept and validate 
+      // network streams (S3/GCS paths) uniformly alongside traditional local system binaries.
+      if (absl::StartsWith(str, "gs://") || absl::StartsWith(str, "s3://") || 
+          absl::StartsWith(str, "http://") || absl::StartsWith(str, "https://") ||
+          absl::StartsWith(str, "ftp://") || absl::StartsWith(str, "ftps://")) {
+        hFILE* fp = hopen(str.c_str(), "r");
+        if (fp == nullptr) return fmt::format("Could not open existing cloud/web resource: {}", str);
+        if (hclose(fp) < 0) return fmt::format("Failed to properly close existing cloud/web resource connection: {}", str);
+        return "";
+      }
+      return CLI::ExistingFile(str);
+    };
+  }
+};
+
+class CliNonexistentUriOrPath : public CLI::Validator {
+public:
+  CliNonexistentUriOrPath() {
+    name_ = "NONEXISTENT_URI_OR_PATH";
+    func_ = [](const std::string &str) -> std::string {
+      // Skips native CLI11 filesystem bounds checking specifically for cloud output schemas 
+      // ensuring that Lancet2 doesn't immediately abort if `--out-vcfgz` points completely off-disk. 
+      if (absl::StartsWith(str, "gs://") || absl::StartsWith(str, "s3://") || 
+          absl::StartsWith(str, "http://") || absl::StartsWith(str, "https://") ||
+          absl::StartsWith(str, "ftp://") || absl::StartsWith(str, "ftps://")) {
+        return "";
+      }
+      return CLI::NonexistentPath(str);
+    };
+  }
+};
 
 }  // namespace
 
@@ -122,11 +167,11 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
   subcmd->add_option("-r,--reference", rc_prms.mRefPath, "Path to the reference FASTA file")
       ->required(true)
       ->group("Required")
-      ->check(CLI::ExistingFile);
+      ->check(CliExistingUriOrFile{});
   subcmd->add_option("-o,--out-vcfgz", params->mOutVcfGz, "Output path to the compressed VCF file")
       ->required(true)
       ->group("Required")
-      ->check(CLI::ExistingFile | CLI::NonexistentPath);
+      ->check(CliExistingUriOrFile{} | CliNonexistentUriOrPath{});
 
   // Regions
   subcmd->add_option("-R,--region", params->mInRegions, "One (or) more regions (1-based both inclusive)")
@@ -134,7 +179,7 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->type_name("REF:[:START[-END]]");
   subcmd->add_option("-b,--bed-file", params->mBedFile, "Path to BED file with regions to process")
       ->group("Regions")
-      ->check(CLI::ExistingFile);
+      ->check(CliExistingUriOrFile{});
   subcmd->add_option("-P,--padding", wb_prms.mRegionPadding, "Padding for both sides of all input regions")
       ->group("Regions")
       ->check(CLI::Range(u32(0), core::WindowBuilder::MAX_ALLOWED_REGION_PAD));

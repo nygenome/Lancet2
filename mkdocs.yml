@@ -99,6 +99,7 @@ nav:
     - Alignment-Derived Annotations: guides/alignment_annotations.md
     - Polar Coordinate Features: guides/polar_features.md
     - Scoring Somatic Variants: guides/scoring_somatic_variants.md
+    - Native Cloud Streaming: guides/cloud_streaming.md
     - Custom Visualization: guides/custom_visualization.md
   - Reference: reference.md
   - Publications: publications.md

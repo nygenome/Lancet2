@@ -37,6 +37,7 @@ class BgzfStreambuf : public std::streambuf {
   auto underflow() -> int override;
   auto overflow(int dat = EOF) -> int override;  // NOLINT
   auto xsputn(const char* data, std::streamsize len) -> std::streamsize override;
+  auto sync() -> int override;
 
  private:
   static constexpr int SENTINEL_BUFFER_POSITION = -999;

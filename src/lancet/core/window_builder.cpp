@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <ios>
 #include <memory>
 #include <stdexcept>
@@ -12,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -21,6 +21,11 @@
 #include "lancet/base/types.h"
 #include "lancet/core/window.h"
 #include "spdlog/fmt/bundled/core.h"
+
+extern "C" {
+#include "htslib/hts.h"
+#include "htslib/kstring.h"
+}
 
 namespace lancet::core {
 
@@ -60,19 +65,21 @@ void WindowBuilder::AddBatchRegions(absl::Span<const std::string> region_specs) 
 
 void WindowBuilder::AddBatchRegions(const std::filesystem::path &bed_file) {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (bed_file.empty() || !std::filesystem::exists(bed_file)) return;
+  if (bed_file.empty()) return;
 
-  std::ifstream fhandle(bed_file, std::ios_base::in);
-  std::string contents;
-
-  if (fhandle) {
-    fhandle.seekg(0, std::ifstream::end);
-    const std::int64_t length = fhandle.tellg();
-    fhandle.seekg(0, std::ifstream::beg);
-    contents.resize(static_cast<std::size_t>(length), '\0');
-    fhandle.read(contents.data(), length);
-    fhandle.close();
+  // Open the BED file using HTSlib's htsFile API instead of standard C++ streams.
+  // This natively leverages the libcurl plugins built into Lancet2, allowing
+  // direct streaming of BED files over s3://, gs://, and http(s):// protocols.
+  htsFile *fp = hts_open(bed_file.c_str(), "r");
+  if (fp == nullptr) {
+    throw std::runtime_error(fmt::format("Could not open bed file: {}", bed_file.string()));
   }
+
+  const absl::Cleanup stream_cleaner = [fp, &bed_file] {
+    if (hts_close(fp) < 0) {
+      LOG_WARN("Failed to properly close BED file stream: {}", bed_file.string());
+    }
+  };
 
   usize line_num = 0;
   i64 region_start = 0;
@@ -81,14 +88,19 @@ void WindowBuilder::AddBatchRegions(const std::filesystem::path &bed_file) {
   std::string curr_chrom;
   std::vector<std::string_view> tokens;
   tokens.reserve(3);
+  
+  kstring_t line = KS_INITIALIZE;
+  const absl::Cleanup kstring_cleaner = [&line] { ks_free(&line); };
 
-  for (const auto &line : absl::StrSplit(contents, absl::ByChar('\n'))) {
+  // Stream exactly line-by-line avoiding full-file buffering to minimize memory footprint
+  while (hts_getline(fp, '\n', &line) > 0) {
     line_num++;
+    const std::string_view line_view(line.s, line.l);
 
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (line.starts_with('#') || line.empty()) continue;
+    if (line_view.starts_with('#') || line_view.empty()) continue;
 
-    tokens = absl::StrSplit(line, absl::ByChar('\t'));
+    tokens = absl::StrSplit(line_view, absl::ByChar('\t'));
 
     if (tokens.size() != 3) {
       const auto msg = fmt::format("Invalid bed line with {} columns at line number {}", tokens.size(), line_num);

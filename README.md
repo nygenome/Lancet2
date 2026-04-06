@@ -19,12 +19,20 @@ In addition to variant calling accuracy and improved somatic filtering, Lancet2 
 - [GCC](https://gcc.gnu.org) (12.x or greater) or [Clang](https://clang.llvm.org) (14.x or greater)
 - [CMake](https://cmake.org/download) (3.25 or greater)
 - [BZip2](https://sourceware.org/bzip2/), [LibLZMA](https://tukaani.org/xz/)
+- [CURL](https://curl.se/) and [OpenSSL](https://www.openssl.org/) (optional, required for native Cloud I/O)
 
 ### Build commands
 ```bash
 git clone https://github.com/nygenome/Lancet2.git
 cd Lancet2 && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
+```
+
+### Cloud I/O Support (GCS, S3, HTTP/S, FTP/S)
+Native support for network streaming from Google Cloud Storage (`gs://`), Amazon S3 (`s3://`), and standard web endpoints (`http(s)://` & `ftp(s)://`) can be enabled by setting `-DLANCET_ENABLE_CLOUD_IO=ON` during CMake configuration. This feature is opt-in and is only permitted when configuring a dynamically linked build (`-DLANCET_BUILD_STATIC=OFF`). It requires the system to have `libcurl` and `openssl` installed. For exact usage instructions, required environment variables, and authentication configuration, please refer to the [Native Cloud Streaming Guide](docs/guides/cloud_streaming.md).
+```bash
+cmake -DCMAKE_BUILD_TYPE=Release -DLANCET_BUILD_STATIC=OFF -DLANCET_ENABLE_CLOUD_IO=ON ..
+make -j$(nproc)
 ```
 
 ## Documentation

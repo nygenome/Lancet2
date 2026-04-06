@@ -1,8 +1,11 @@
 #include "lancet/hts/bgzf_ostream.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <ios>
+
+#include "lancet/base/logging.h"
 
 extern "C" {
 #include "htslib/bgzf.h"
@@ -24,7 +27,14 @@ auto BgzfStreambuf::Open(const std::filesystem::path &path, const char *mode) ->
 
 void BgzfStreambuf::Close() {
   if (mFilePtr != nullptr) {
-    bgzf_close(mFilePtr);
+    // If bgzf_close executes on a network stream (Cloud S3/GCS buckets), it aggressively blocks
+    // and flushes all internally cached Multipart fragments entirely onto the remote server. 
+    // Failure to affirmatively intercept this return code (-1) implicitly swallows the network 
+    // authentication exception natively, causing fatal pipeline termination to drop essentially silently.
+    if (bgzf_close(mFilePtr) < 0) {
+      LOG_CRITICAL("Failed to close BGZF stream. If writing to cloud URIs, check remote auth/permissions: {}", mFileName.string())
+      std::exit(EXIT_FAILURE);
+    }
     mFilePtr = nullptr;
   }
 }
@@ -77,6 +87,18 @@ auto BgzfStreambuf::xsputn(const char *data, std::streamsize len) -> std::stream
   return bgzf_write(mFilePtr, data, static_cast<std::size_t>(len));
 }
 
+auto BgzfStreambuf::sync() -> int {
+  if (mFilePtr == nullptr) return 0;
+
+  // std::ostream::flush invokes sync(). Because HTSlib handles buffered remote streams, 
+  // overriding this is intrinsically required to enforce explicit writes across the network layer.
+  if (bgzf_flush(mFilePtr) < 0) {
+    LOG_CRITICAL("Failed to flush BGZF stream. If writing to cloud URIs, check remote auth/permissions: {}", mFileName.string())
+    std::exit(EXIT_FAILURE);
+  }
+  return 0;
+}
+
 }  // namespace detail
 
 auto BgzfOstream::Open(const std::filesystem::path &path, BgzfFormat ofmt) -> bool {
@@ -93,18 +115,24 @@ void BgzfOstream::Close() {
 }
 
 void BgzfOstream::BuildIndex() {
+  int result = 0;
   switch (mOutFmt) {
     case BgzfFormat::VCF:
-      tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_vcf);
+      result = tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_vcf);
       break;
     case BgzfFormat::GFF:
-      tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_gff);
+      result = tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_gff);
       break;
     case BgzfFormat::BED:
-      tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_bed);
+      result = tbx_index_build(mBgzfBuffer.mFileName.c_str(), 0, &tbx_conf_bed);
       break;
     default:
       break;
+  }
+
+  if (result < 0) {
+    LOG_CRITICAL("Failed to build secondary tabix index for output file: {}", mBgzfBuffer.mFileName.string())
+    std::exit(EXIT_FAILURE);
   }
 }
 

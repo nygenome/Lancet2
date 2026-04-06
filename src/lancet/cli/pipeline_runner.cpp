@@ -18,6 +18,10 @@
 #include "gperftools/profiler.h"
 #endif
 
+extern "C" {
+  #include "htslib/hfile.h"
+  }
+
 #include "absl/container/btree_map.h"
 #include "absl/container/fixed_array.h"
 #include "absl/hash/hash.h"
@@ -174,9 +178,37 @@ void PipelineRunner::Run() {
     std::filesystem::create_directories(mParamsPtr->mVariantBuilder.mOutGraphsDir);
   }
 
-  mParamsPtr->mOutVcfGz = std::filesystem::absolute(mParamsPtr->mOutVcfGz);
-  if (!std::filesystem::exists(mParamsPtr->mOutVcfGz.parent_path())) {
-    std::filesystem::create_directories(mParamsPtr->mOutVcfGz.parent_path());
+  // Helper lambda to identify remote web/cloud buckets natively.
+  // We explicitly bypass std::filesystem::absolute() for these paths, 
+  // since local systems interpret anything without a leading `/` as a relative local directory.
+  const auto is_cloud_uri = [](const std::filesystem::path& p) {
+    const auto s = p.string();
+    return absl::StartsWith(s, "gs://") || absl::StartsWith(s, "s3://") || 
+           absl::StartsWith(s, "http://") || absl::StartsWith(s, "https://") ||
+           absl::StartsWith(s, "ftp://") || absl::StartsWith(s, "ftps://");
+  };
+
+  if (!is_cloud_uri(mParamsPtr->mOutVcfGz)) {
+    mParamsPtr->mOutVcfGz = std::filesystem::absolute(mParamsPtr->mOutVcfGz);
+    if (!std::filesystem::exists(mParamsPtr->mOutVcfGz.parent_path())) {
+      std::filesystem::create_directories(mParamsPtr->mOutVcfGz.parent_path());
+    }
+  }
+
+  // AWS and GCP inherently employ 5MB+ Multipart Chunk caching over libcurl natively.
+  // Because small VCF headers won't surpass this local threshold, libcurl deliberately 
+  // defers all HTTP network handshakes securely until BgzfOstream::Close() finishes 
+  // the very last component flush of the 40-hour pipeline execution logic.
+  // To avoid failing entirely silently after 40 hours due to missing access tokens, 
+  // we deliberately force an immediate zero-byte HTTP PUT directly using standard hopen("w"). 
+  // This explicitly bypasses the Multipart chunk cache algorithms and violently validates 
+  // cloud authentication upfront instantly against the API.
+  if (is_cloud_uri(mParamsPtr->mOutVcfGz)) {
+    auto* fp = hopen(mParamsPtr->mOutVcfGz.c_str(), "w");
+    if (fp == nullptr || hclose(fp) < 0) {
+      LOG_CRITICAL("Cloud authentication failed! Cannot write to remote bucket: {}", mParamsPtr->mOutVcfGz.string())
+      std::exit(EXIT_FAILURE);
+    }
   }
 
   hts::BgzfOstream output_vcf;
@@ -186,6 +218,7 @@ void PipelineRunner::Run() {
   }
 
   output_vcf << BuildVcfHeader(*mParamsPtr);
+  output_vcf.flush();
 
   // Initialize the window builder with sorted regions
   auto window_builder = InitWindowBuilder(*mParamsPtr);

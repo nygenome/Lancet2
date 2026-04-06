@@ -22,6 +22,7 @@ In addition to variant calling accuracy and improved somatic filtering, Lancet2 
 - [GCC](https://gcc.gnu.org) (12.x or greater) or [Clang](https://clang.llvm.org) (14.x or greater)
 - [CMake](https://cmake.org/download) (3.25 or greater)
 - [BZip2](https://sourceware.org/bzip2/), [LibLZMA](https://tukaani.org/xz/)
+- [CURL](https://curl.se/) and [OpenSSL](https://www.openssl.org/) (optional, required for native Cloud I/O)
 
 ### Build commands
 ```bash
@@ -44,6 +45,13 @@ cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/local/opt/bzip2 ..
     ```
 
+### Cloud I/O Support (GCS, S3, HTTP/S, FTP/S)
+Native support for network streaming from Google Cloud Storage (`gs://`), Amazon S3 (`s3://`), and standard web endpoints (`http(s)://` & `ftp(s)://`) can be enabled by setting `-DLANCET_ENABLE_CLOUD_IO=ON` during CMake configuration. This feature is opt-in and is only permitted when configuring a dynamically linked build (`-DLANCET_BUILD_STATIC=OFF`). It requires the system to have `libcurl` and `openssl` installed. For exact usage instructions, required environment variables, and authentication configuration, please refer to the [Native Cloud Streaming Guide](guides/cloud_streaming.md).
+```bash
+cmake -DCMAKE_BUILD_TYPE=Release -DLANCET_BUILD_STATIC=OFF -DLANCET_ENABLE_CLOUD_IO=ON ..
+make -j$(nproc)
+```
+
 ### Static binary
 
 !!! note "Note"
@@ -53,12 +61,15 @@ cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
 
 If you have a Linux based operating system and a [CPU that supports AVX2 instructions](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#CPUs_with_AVX2).
 The simplest way to use `Lancet2` is to download the binary from the [latest available release](https://github.com/nygenome/Lancet2/releases).
-The binary from releases is static, with no dependencies and needs only executable permissions before it can be used.
+The binary from releases is static, with no dependencies and needs only executable permissions before it can be used. 
 
 ```bash
 chmod +x Lancet2
 ./Lancet2 --help
 ```
+
+> [!WARNING]
+> Because Cloud I/O fundamentally requires dynamically linking the underlying host OS's network stack (`libcurl` / `openssl`), these statically compiled release binaries **do not** support Native Cloud Streaming (`gs://`, `s3://`). If you require direct cloud network capabilities without compiling from source, please use the official **Docker** containers (Conda packaging is actively in-progress), which organically provide dynamic networking dependencies out-of-the-box.
 
 ### Docker images
 
@@ -68,7 +79,7 @@ chmod +x Lancet2
     to use the pre-built public docker images. Custom docker images for older CPUs can be built by the user by
     modifying the `BUILD_ARCH` argument in the [Dockerfile](https://github.com/nygenome/Lancet2/blob/main/Dockerfile).
 
-Public docker images hosted on Google Cloud are available for [recent tagged releases](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet).
+Public docker images hosted on the GitHub Container Registry are available for [recent tagged releases](https://github.com/nygenome/Lancet2/pkgs/container/lancet2).
 
 ## Basic Usage
 The following command demonstrates the basic usage of the Lancet2 variant calling pipeline for a tumor and normal bam file pair on chr22.
