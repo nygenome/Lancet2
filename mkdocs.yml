@@ -96,7 +96,7 @@ nav:
     - VCF Output Reference: guides/vcf_output.md
     - Graph Complexity: guides/graph_complexity.md
     - Sequence Complexity: guides/sequence_complexity.md
-    - Alignment Annotations: guides/alignment_annotations.md
+    - Alignment-Derived Annotations: guides/alignment_annotations.md
     - Polar Coordinate Features: guides/polar_features.md
     - Scoring Somatic Variants: guides/scoring_somatic_variants.md
     - Custom Visualization: guides/custom_visualization.md

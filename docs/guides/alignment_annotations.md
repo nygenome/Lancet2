@@ -1,4 +1,4 @@
-# Alignment-Derived Artifact Annotations
+# Alignment-Derived Annotations
 
 These per-sample FORMAT fields detect alignment, sequencing, and library
 preparation artifacts. All fields are designed to be **coverage-invariant**:

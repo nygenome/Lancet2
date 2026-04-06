@@ -1,4 +1,4 @@
-# Polar Coordinate Features (PRAD / PANG)
+# Polar Coordinate Features
 
 These per-sample FORMAT fields transform Cartesian allele depth coordinates
 (`AD_Ref`, `AD_Alt`) into polar coordinates, orthogonalizing biological
