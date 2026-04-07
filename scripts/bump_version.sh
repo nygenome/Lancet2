@@ -12,22 +12,9 @@ function main() {
   local PROJECT_DIR=$(git rev-parse --show-toplevel)
   local BUMP_KIND="${1:-patch}"
 
-  #local MOST_RECENT_TAG=$(git describe --abbrev=0 --tags | cut -d'.' -f1-3)
-  #MOST_RECENT_TAG="${MOST_RECENT_TAG:-0.0.0}"
-  #echo "MOST_RECENT_TAG VERSION: ${MOST_RECENT_TAG}"
-
   echo "BUMP_KIND: ${BUMP_KIND}"
-  #echo "sembump ${MOST_RECENT_TAG} ${BUMP_KIND}"
-  #local NEW_VERSION=$(sembump "${MOST_RECENT_TAG}"  "${BUMP_KIND}")
-
-  #if [[ -z ${NEW_VERSION} ]]; then
-  #    exit 1
-  #fi
-
-  #echo "Bumping version from ${MOST_RECENT_TAG} to ${NEW_VERSION}"
-  git push && semtag "${BUMP_KIND}" && git-chglog --config "${PROJECT_DIR}/.chglog/config.yml" -o "${PROJECT_DIR}"/CHANGELOG.md && \
+  git push && semtag --brave --no-tty "${BUMP_KIND}" && git-chglog --config "${PROJECT_DIR}/.chglog/config.yml" -o "${PROJECT_DIR}"/CHANGELOG.md && \
   git add "${PROJECT_DIR}"/CHANGELOG.md && git commit -vsm "chore: Update release notes in changelog" && git push --tags
-  #git tag -m "${NEW_VERSION}" -sa "${NEW_VERSION}"
 }
 
 export PATH=$PATH:$GOBIN
