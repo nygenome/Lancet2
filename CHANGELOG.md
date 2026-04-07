@@ -1,14 +1,18 @@
 
-<a name="Unreleased"></a>
-## [Unreleased](https://github.com/nygenome/Lancet2/compare/v2.8.7...Unreleased) (2026-04-04)
+<a name="v2.9.0"></a>
+## [v2.9.0](https://github.com/nygenome/Lancet2/compare/v2.8.7...v2.9.0) (2026-04-07)
 
 ### Bug Fixes
 
+* disable mimalloc overrides on macOS to prevent trace trap crashes
+* enable minimap2 compilation on macOS ARM64 Apple Silicon
 * revert dynamic spectrum-based thresholding to restore variant calling sensitivity
 * bug in Graph::BuildGraph: correct AddNodes label
 
 ### New Features
 
+* enable native cloud streaming and GHCR automation
+* add RPRS, BQRS, ASMD, SDFC FORMAT fields and refactor annotation pipeline
 * Add multi-scale LCR scoring with dual k-mer sizes and calibration tooling
 * optimize spoa parameters for local variant extraction
 
@@ -20,6 +24,30 @@
 
 ### Refactoring
 
+* separate bump & changelog scripts
+* update bump script
+* update bump script
+* add gobin to path before bump
+* add gcs logging bucket to build script
+* add sa to build script
+* add sa to build script
+* add sa to build script
+* add sa to build script
+* resolve cmake cache crash and transition gcp artifact service account
+* introduce Lancet2 pipeline architecture guide
+* add conda package local test scaffold
+* update docker build script
+* update action & use gcp artifacts
+* run action to push to ghcr everytime
+* sync stale comments and docs with post-normalization codebase
+* minor edit to fix render
+* add note about macOS homebrew bzip2 config
+* align documentation and Dockerfile with x86-64-v3 modernizations
+* modernize CMake config for cross-platform support and x86-64-v3
+* minor edits and refactoring
+* rename pages section titles
+* reorder documentation sections on pages
+* update changelog config
 * add mike versioning, sync docs, and clean up release tags
 * use same prealloc
 * only compile gperftools in profile mode
