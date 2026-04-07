@@ -21,6 +21,10 @@ if [ "${ENABLE_CLOUD_IO}" = "ON" ]; then
     CLOUD_FLAGS="--enable-libcurl --enable-s3 --enable-gcs"
 fi
 
-env CC="${C_COMPILER}" CFLAGS="${LANCET_OPT_FLAGS}" \
+# Note: Use ${CPPFLAGS:-} and ${LDFLAGS:-} to safely inherit existing flags if they are set. 
+# This is explicitly required for Conda/Rattler builds to correctly dynamically inject downstream 
+# dependency headers/paths (e.g. libcurl, openssl within $PREFIX) without throwing `set -u` unbound locally.
+env CC="${C_COMPILER}" CFLAGS="${LANCET_OPT_FLAGS:-}" \
   "${ROOT_DIR}"/configure --prefix="${ROOT_DIR}" ${CLOUD_FLAGS} --disable-plugins --with-libdeflate \
-  CPPFLAGS="-I${ZLIBNG_BUILD_DIR} -I${LIBDEFLATE_INC_DIR}" LDFLAGS="-L${ZLIBNG_BUILD_DIR} -L${LIBDEFLATE_LIB_DIR}"
+  CPPFLAGS="${CPPFLAGS:-} -I${ZLIBNG_BUILD_DIR} -I${LIBDEFLATE_INC_DIR}" \
+  LDFLAGS="${LDFLAGS:-} -L${ZLIBNG_BUILD_DIR} -L${LIBDEFLATE_LIB_DIR}"

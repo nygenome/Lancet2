@@ -16,6 +16,18 @@ In addition to variant calling accuracy and improved somatic filtering, Lancet2 
 
 ## Installation
 
+### Pixi / Bioconda (Recommended)
+Lancet2 is natively distributed and dynamically linked via the global Bioconda network, with **full native Cloud I/O support** (`s3://`, `gs://`, `http(s)://`, etc.) completely enabled cleanly by default out of the box.
+
+For significantly faster and strictly isolated local environment resolution, the recommended method is using [Pixi](https://pixi.sh/):
+```bash
+pixi global install lancet2
+```
+Alternatively, using the standard Conda ecosystem:
+```bash
+conda install -c bioconda lancet2
+```
+
 ### Build prerequisites
 - [Linux](https://kernel.org/) or [macOS](https://www.apple.com/macos/) (x86-64 or ARM64 architectures)
 - [Git](https://command-not-found.com/git), [Make](https://command-not-found.com/make)

@@ -166,6 +166,7 @@ target_include_directories(Lancet2 PRIVATE "${CMAKE_SOURCE_DIR}")
 target_link_libraries(Lancet2 PRIVATE lancet_cli absl::cleanup mimalloc-static)
 set_target_properties(Lancet2 PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 set_property(TARGET Lancet2 PROPERTY $<$<ENABLE_LTO>:INTERPROCEDURAL_OPTIMIZATION TRUE>)
+install(TARGETS Lancet2 DESTINATION bin)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
 	add_compile_definitions(LANCET_DEVELOP_MODE)
