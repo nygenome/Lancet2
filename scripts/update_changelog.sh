@@ -4,9 +4,10 @@
 set -e
 
 function ensure_deps() {
-  local PROJECT_DIR=$(git rev-parse --show-toplevel)
-  echo "Building git-chglog from source..."
-  (cd "${PROJECT_DIR}/cmake-build-release/git-chglog" && go build -o "${GOBIN:-$HOME/go/bin}/git-chglog" ./cmd/git-chglog)
+  if ! command -v git-chglog &> /dev/null; then
+    echo "Installing git-chglog via go install..."
+    go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
+  fi
 }
 
 function main() {
