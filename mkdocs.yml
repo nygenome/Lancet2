@@ -57,6 +57,7 @@ plugins:
   - git-revision-date-localized:
       type: datetime
       fallback_to_build_date: true
+  - mermaid2
 markdown_extensions:
   - abbr
   - admonition
@@ -88,9 +89,15 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
 nav:
   - Getting Started: index.md
   - Guides:
+    - Lancet2 pipeline architecture: guides/architecture.md
     - Whole Genome Analysis: guides/wgs_analysis.md
     - Targeted Analysis: guides/targeted_analysis.md
     - VCF Output Reference: guides/vcf_output.md
