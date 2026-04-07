@@ -3,7 +3,9 @@
 !!! warning "Model Compatibility"
 
     The somatic scoring script (`score_variants.py`) and ML model are compatible with Lancet2
-    up to **v2.8.7** VCF output. Work is in progress to support the latest version soon.
+    up to [**v2.8.7**](https://nygenome.github.io/Lancet2/2.8.7/) VCF output.
+    You can find the v.2.8.7 tag release [here](https://github.com/nygenome/Lancet2/releases/tag/v2.8.7).
+    Work is in progress to support the later versions soon.
 
 ## Setup & Installation
 
