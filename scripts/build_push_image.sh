@@ -16,5 +16,5 @@ gcloud builds submit \
   --project nygc-comp-s-fd4e \
   --machine-type n1-highcpu-32 \
   --timeout 60m \
-  --service-account "projects/nygc-app-c-148c/serviceAccounts/lancet2-build@nygc-app-c-148c.iam.gserviceaccount.com" \
+  --service-account "projects/nygc-comp-s-fd4e/serviceAccounts/lancet2-build@nygc-comp-s-fd4e.iam.gserviceaccount.com" \
   --tag "us-central1-docker.pkg.dev/nygc-app-c-148c/lancet-public/lancet:$(generate_tag)"
