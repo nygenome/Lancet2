@@ -30,4 +30,5 @@ function main() {
   #git tag -m "${NEW_VERSION}" -sa "${NEW_VERSION}"
 }
 
+export PATH=$PATH:$GOBIN
 ensure_deps && main "$1"
