@@ -4,7 +4,7 @@
 set -e
 
 function ensure_deps() {
-  go install github.com/flaticols/bump@latest
+  go install github.com/flaticols/semtag@latest
   go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
 }
 
@@ -25,7 +25,7 @@ function main() {
   #fi
 
   #echo "Bumping version from ${MOST_RECENT_TAG} to ${NEW_VERSION}"
-  git push && bump "${BUMP_KIND}" && git-chglog --config "${PROJECT_DIR}/.chglog/config.yml" -o "${PROJECT_DIR}"/CHANGELOG.md && \
+  git push && semtag "${BUMP_KIND}" && git-chglog --config "${PROJECT_DIR}/.chglog/config.yml" -o "${PROJECT_DIR}"/CHANGELOG.md && \
   git add "${PROJECT_DIR}"/CHANGELOG.md && git commit -vsm "chore: Update release notes in changelog" && git push --tags
   #git tag -m "${NEW_VERSION}" -sa "${NEW_VERSION}"
 }
