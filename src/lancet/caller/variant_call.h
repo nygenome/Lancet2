@@ -62,15 +62,10 @@ class VariantCall {
     bool enable_sequence_complexity = false;
   };
 
-  // Single-variant (bi-allelic) constructor
-  using Supports = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  VariantCall(const RawVariant* var, Supports&& supports, Samples samps, FeatureFlags features, f64 window_cov);
-
-  // Multi-allelic constructor: group of variants at the same locus
+  // Unified multi-variant constructor (groups variants occurring at exact same locus)
   using VariantGroup = absl::Span<const RawVariant* const>;
-  using SupportsByVariant = absl::flat_hash_map<const RawVariant*, Supports>;
-  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, FeatureFlags features,
-              f64 window_cov);
+  using SupportsByVariant = absl::flat_hash_map<const RawVariant*, SupportArray>;
+  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, FeatureFlags features, f64 window_cov);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
@@ -144,11 +139,9 @@ class VariantCall {
   std::vector<std::string> mFormatFields;
 
   // ── Evidence collection (shared by both constructors) ──────────────────
-  using PerSampleEvidence = absl::flat_hash_map<const core::SampleInfo, std::unique_ptr<VariantSupport>,
-                                                core::SampleInfo::Hash, core::SampleInfo::Equal>;
 
   /// Common finalization after evidence is assembled: builds FORMAT, state, and INFO fields.
-  void Finalize(const PerSampleEvidence& evidence, Samples samps, FeatureFlags features);
+  void Finalize(const SupportArray& evidence, Samples samps, FeatureFlags features);
 
   // ── Modular field builders ─────────────────────────────────────────────
 
@@ -159,7 +152,7 @@ class VariantCall {
     bool in_tumor = false;
   };
 
-  auto BuildFormatFields(const PerSampleEvidence& evidence, Samples samps, bool tumor_normal_mode) -> AltPresence;
+  auto BuildFormatFields(const SupportArray& evidence, Samples samps, bool tumor_normal_mode) -> AltPresence;
 
   /// Compute SHARED/NORMAL/TUMOR/UNKNOWN state from ALT presence flags.
   /// In non-tumor-normal mode (i.e. normal-only), state is always UNKNOWN.
@@ -174,8 +167,7 @@ class VariantCall {
   [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
 
   /// Somatic log odds ratio: tumor ALT enrichment vs normal.
-  [[nodiscard]] static auto SomaticLogOddsRatio(const core::SampleInfo& curr,
-                                                const PerSampleEvidence& supports) -> f64;
+  [[nodiscard]] static auto SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64;
 };
 
 }  // namespace lancet::caller

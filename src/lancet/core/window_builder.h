@@ -56,11 +56,12 @@ class WindowBuilder {
   /// Returns all windows at once. Suitable for small region sets (targeted panels).
   [[nodiscard]] auto BuildWindows() const -> std::vector<WindowPtr>;
 
-  /// Returns the next batch of up to BATCH_SIZE windows, starting from the given offset.
-  /// The offset parameter tracks progress and should be initialized to 0 on the first call.
-  /// Returns an empty vector when all windows have been emitted.
+  /// Returns the next batch of up to BATCH_SIZE windows.
+  /// The region_idx, window_start, and global_idx parameters track progress across
+  /// multiple invocations. They should all be initialized to 0 on the first call.
+  /// Returns an empty vector when all windows have been emitted across all regions.
   /// Input regions must be sorted (via SortInputRegions) before the first call.
-  [[nodiscard]] auto BuildWindowsBatch(usize& offset) const -> std::vector<WindowPtr>;
+  [[nodiscard]] auto BuildWindowsBatch(usize& region_idx, i64& window_start, usize& global_idx) const -> std::vector<WindowPtr>;
 
   /// Sorts input regions by chromosome index and start position. Must be called before
   /// using BuildWindowsBatch() to ensure sequential emission order.

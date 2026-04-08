@@ -173,8 +173,8 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
     auto grouped = vset.GroupByLocus();
 
     // Drop variants where the graph assembled a haplotype but no reads actually support it.
-    static const auto HasAltSupport = [](const caller::Genotyper::PerSampleEvidence& evidence) {
-      return std::ranges::any_of(evidence, [](const auto& kv) { return kv.second && kv.second->TotalAltCov() > 0; });
+    static const auto HasAltSupport = [](const caller::SupportArray& evidence) {
+      return std::ranges::any_of(evidence, [](const auto& item) { return item.data && item.data->TotalAltCov() > 0; });
     };
 
     for (const auto& [locus_key, locus_variants] : grouped) {
@@ -218,12 +218,7 @@ auto VariantBuilder::MakeGfaPath(const Window &win, const usize comp_id) const -
 }
 
 auto ToString(const VariantBuilder::StatusCode status_code) -> std::string {
-  using VariantBuilder::StatusCode::FOUND_GENOTYPED_VARIANT;
-  using VariantBuilder::StatusCode::MISSING_NO_MSA_VARIANTS;
-  using VariantBuilder::StatusCode::SKIPPED_INACTIVE_REGION;
-  using VariantBuilder::StatusCode::SKIPPED_NOASM_HAPLOTYPE;
-  using VariantBuilder::StatusCode::SKIPPED_NONLY_REF_BASES;
-  using VariantBuilder::StatusCode::SKIPPED_REF_REPEAT_SEEN;
+  using enum VariantBuilder::StatusCode;
 
   switch (status_code) {
     case SKIPPED_NONLY_REF_BASES:

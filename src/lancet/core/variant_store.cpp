@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/hash/hash.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "lancet/base/logging.h"
@@ -20,74 +21,87 @@ void VariantStore::AddVariants(std::vector<Value> &&variants) {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (variants.empty()) return;
 
-  const absl::MutexLock lock(mMutex);
   for (auto &&curr : variants) {
     const auto identifier = curr->Identifier();
-    auto prev = mData.find(identifier);
-    if (prev == mData.end()) {
-      mData.emplace(identifier, std::move(curr));
+    const usize shard_idx = absl::Hash<Key>()(identifier) & (NUM_SHARDS - 1);
+    
+    // Independent lock specifically for this shard
+    const absl::MutexLock lock(mBuckets[shard_idx].mutex);
+    auto& map = mBuckets[shard_idx].data;
+
+    auto prev = map.find(identifier);
+    if (prev == map.end()) {
+      map.emplace(identifier, std::move(curr));
       continue;
     }
 
     if (prev->second->TotalCoverage() < curr->TotalCoverage() && prev->second->Quality() < curr->Quality()) {
-      mData.erase(prev);
-      mData.emplace(identifier, std::move(curr));
+      map.erase(prev);
+      map.emplace(identifier, std::move(curr));
     }
   }
 }
 
 void VariantStore::FlushVariantsBeforeWindow(const Window &win, std::ostream &out) {
-  const absl::MutexLock lock(mMutex);
-  const auto variant_keys_to_extract = KeysBeforeWindow(win);
-  ExtractKeysAndDumpToStream(absl::MakeConstSpan(variant_keys_to_extract), out);
+  std::vector<Value> variants_to_write;
+
+  // Extract variants from each bucket completely independently
+  for (auto& bucket : mBuckets) {
+    const absl::MutexLock lock(bucket.mutex);
+    
+    std::vector<Key> keys_to_extract;
+    for (const auto& item : bucket.data) {
+      const auto &var_ptr = item.second;
+      const auto is_before_window = var_ptr->ChromIndex() != win.ChromIndex() ? var_ptr->ChromIndex() < win.ChromIndex()
+                                                                              : var_ptr->StartPos1() < win.EndPos1();
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (is_before_window) keys_to_extract.emplace_back(item.first);
+    }
+
+    using caller::RawVariant::Type::REF;
+    static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
+
+    for (const auto& key : keys_to_extract) {
+      auto handle = bucket.data.extract(key);
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (handle.empty() || has_no_support(handle.mapped())) continue;
+      variants_to_write.emplace_back(std::move(handle.mapped()));
+    }
+  }
+
+  // Complete the sort & output without holding any locks
+  std::ranges::sort(variants_to_write, [](const Value &lhs, const Value &rhs) -> bool { return *lhs < *rhs; });
+  std::ranges::for_each(variants_to_write, [&out](const Value &item) { fmt::print(out, "{}\n", item->AsVcfRecord()); });
+
+  if (!variants_to_write.empty()) {
+    out.flush();
+    LOG_DEBUG("Flushed {} variant(s) from VariantStore to output VCF file", variants_to_write.size())
+  }
 }
 
 void VariantStore::FlushAllVariantsInStore(std::ostream &out) {
-  const absl::MutexLock lock(mMutex);
-  std::vector<Key> variant_keys_to_extract;
-  variant_keys_to_extract.reserve(mData.size());
+  std::vector<Value> variants_to_write;
 
-  std::ranges::transform(mData, std::back_inserter(variant_keys_to_extract),
-                         [](const Item &item) -> Key { return item.first; });
+  for (auto& bucket : mBuckets) {
+    const absl::MutexLock lock(bucket.mutex);
+    
+    using caller::RawVariant::Type::REF;
+    static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
 
-  ExtractKeysAndDumpToStream(absl::MakeConstSpan(variant_keys_to_extract), out);
-}
+    for (auto& item : bucket.data) {
+      // NOLINTNEXTLINE(readability-braces-around-statements)
+      if (has_no_support(item.second)) continue;
+      variants_to_write.emplace_back(std::move(item.second));
+    }
+    bucket.data.clear();
+  }
 
-auto VariantStore::KeysBeforeWindow(const Window &win) const -> std::vector<Key> {
-  std::vector<Key> results;
-  results.reserve(mData.size());
+  std::ranges::sort(variants_to_write, [](const Value &lhs, const Value &rhs) -> bool { return *lhs < *rhs; });
+  std::ranges::for_each(variants_to_write, [&out](const Value &item) { fmt::print(out, "{}\n", item->AsVcfRecord()); });
 
-  std::ranges::for_each(mData, [&win, &results](const Item &item) {
-    const auto &var_ptr = item.second;
-    const auto is_before_window = var_ptr->ChromIndex() != win.ChromIndex() ? var_ptr->ChromIndex() < win.ChromIndex()
-                                                                            : var_ptr->StartPos1() < win.EndPos1();
-
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (is_before_window) results.emplace_back(item.first);
-  });
-
-  return results;
-}
-
-void VariantStore::ExtractKeysAndDumpToStream(absl::Span<const Key> keys, std::ostream &out) {
-  std::vector<Value> variants;
-  variants.reserve(keys.size());
-
-  using caller::RawVariant::Type::REF;
-  static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
-  std::ranges::for_each(keys, [&variants, this](const Key &key) {
-    auto handle = this->mData.extract(key);
-    // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (handle.empty() || has_no_support(handle.mapped())) return;
-    variants.emplace_back(std::move(handle.mapped()));
-  });
-
-  std::ranges::sort(variants, [](const Value &lhs, const Value &rhs) -> bool { return *lhs < *rhs; });
-  std::ranges::for_each(variants, [&out](const Value &item) { fmt::print(out, "{}\n", item->AsVcfRecord()); });
-
-  if (!variants.empty()) {
+  if (!variants_to_write.empty()) {
     out.flush();
-    LOG_DEBUG("Flushed {} variant(s) from VariantStore to output VCF file", variants.size())
+    LOG_DEBUG("Flushed {} variant(s) from VariantStore to output VCF file", variants_to_write.size())
   }
 }
 

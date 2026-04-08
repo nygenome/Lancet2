@@ -242,14 +242,13 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
 // BuildWindowsBatch: pipelined emission for WGS memory control
 //
 // Requires SortInputRegions() to have been called first.
-// The `offset` parameter is used to track which input region and which
-// position within that region we are currently generating from.
-// We encode the offset as: (region_index * large_factor + intra_region_step)
-// For simplicity, we use a flat global window index approach.
+// Uses explicit reference parameters (region_idx, window_start, global_idx)
+// to accurately track iteration state across repeated invocations, completely
+// dropping the older complex offset encoding scheme.
 // ---------------------------------------------------------------------------
 
-auto WindowBuilder::BuildWindowsBatch(usize &offset) const -> std::vector<WindowPtr> {
-  if (mInputRegions.empty()) return {};
+auto WindowBuilder::BuildWindowsBatch(usize& region_idx, i64& window_start, usize& global_idx) const -> std::vector<WindowPtr> {
+  if (mInputRegions.empty() || region_idx >= mInputRegions.size()) return {};
 
   const auto window_len = static_cast<i64>(mParams.mWindowLength);
   const auto step_size = StepSize(mParams);
@@ -258,52 +257,55 @@ auto WindowBuilder::BuildWindowsBatch(usize &offset) const -> std::vector<Window
   std::vector<WindowPtr> batch;
   batch.reserve(BATCH_SIZE);
 
-  // We iterate through all regions from the start, skipping `offset` windows,
-  // then emit up to BATCH_SIZE windows.
-  usize global_idx = 0;
-  const auto target_start = offset;
-  const auto target_end = offset + BATCH_SIZE;
-
-  for (auto region : mInputRegions) {
+  while (region_idx < mInputRegions.size() && batch.size() < BATCH_SIZE) {
+    auto region = mInputRegions[region_idx];
     PadInputRegion(region);
+    
     const auto chrom = mRefPtr->FindChromByName(region.mChromName);
-    if (!chrom.ok()) continue;
+    if (!chrom.ok()) {
+      region_idx++;
+      window_start = -1;
+      continue;
+    }
 
     if (region.Length() <= window_len) {
-      if (global_idx >= target_start && global_idx < target_end) {
+      if (window_start == -1) {
         auto wptr = std::make_shared<Window>(std::move(region), chrom.value(), mRefPtr->FastaPath());
-        wptr->SetGenomeIndex(global_idx);
+        wptr->SetGenomeIndex(global_idx++);
         batch.emplace_back(std::move(wptr));
+        window_start = 1; // mark as done for this iteration
       }
-      global_idx++;
-      if (global_idx >= target_end) break;
+      region_idx++;
+      window_start = -1;
       continue;
     }
 
     const auto chrom_has_colon = region.mChromName.find(':') != std::string::npos;
-    auto curr_window_start = static_cast<i64>(region.mRegionSpan[0].value());
+    if (window_start == -1) {
+      window_start = static_cast<i64>(region.mRegionSpan[0].value());
+    }
+    
     const auto max_window_pos = static_cast<i64>(region.mRegionSpan[1].value());
 
-    while ((curr_window_start + window_len) <= max_window_pos) {
-      if (global_idx >= target_start && global_idx < target_end) {
-        const i64 curr_window_end = curr_window_start + window_len;
-        rspec = chrom_has_colon
-                    ? fmt::format("{{{}}}:{}-{}", region.mChromName, curr_window_start, curr_window_end)
-                    : fmt::format("{}:{}-{}", region.mChromName, curr_window_start, curr_window_end);
+    while ((window_start + window_len) <= max_window_pos && batch.size() < BATCH_SIZE) {
+      const i64 curr_window_end = window_start + window_len;
+      rspec = chrom_has_colon
+                  ? fmt::format("{{{}}}:{}-{}", region.mChromName, window_start, curr_window_end)
+                  : fmt::format("{}:{}-{}", region.mChromName, window_start, curr_window_end);
 
-        auto wptr = std::make_shared<Window>(mRefPtr->ParseRegion(rspec.c_str()), chrom.value(), mRefPtr->FastaPath());
-        wptr->SetGenomeIndex(global_idx);
-        batch.emplace_back(std::move(wptr));
-      }
-      global_idx++;
-      curr_window_start += step_size;
-      if (global_idx >= target_end) break;
+      auto wptr = std::make_shared<Window>(mRefPtr->ParseRegion(rspec.c_str()), chrom.value(), mRefPtr->FastaPath());
+      wptr->SetGenomeIndex(global_idx++);
+      batch.emplace_back(std::move(wptr));
+      
+      window_start += step_size;
     }
 
-    if (global_idx >= target_end) break;
+    if ((window_start + window_len) > max_window_pos) {
+      region_idx++;
+      window_start = -1;
+    }
   }
 
-  offset = global_idx;
   return batch;
 }
 

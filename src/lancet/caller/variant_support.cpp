@@ -620,4 +620,33 @@ void VariantSupport::EnsureAlleleSlot(const AlleleIndex idx) {
   }
 }
 
+// ============================================================================
+// SupportArray Accessors
+// ============================================================================
+auto SupportArray::Find(std::string_view sample_name) const -> const VariantSupport* {
+  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
+  return it != mItems.end() ? it->data.get() : nullptr;
+}
+
+auto SupportArray::FindOrCreate(std::string_view sample_name) -> VariantSupport& {
+  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
+  if (it != mItems.end()) {
+    return *it->data;
+  }
+  mItems.push_back(NamedSupport{sample_name, std::make_unique<VariantSupport>()});
+  return *mItems.back().data;
+}
+
+auto SupportArray::Extract(std::string_view sample_name) -> std::unique_ptr<VariantSupport> {
+  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
+  if (it != mItems.end()) {
+    auto extracted_data = std::move(it->data);
+    mItems.erase(it);
+    return extracted_data;
+  }
+  return nullptr;
+}
+
+// SupportArray inline definitions placed in the header for performance.
+
 }  // namespace lancet::caller

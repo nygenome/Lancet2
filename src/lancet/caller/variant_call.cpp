@@ -43,34 +43,6 @@ namespace {
 namespace lancet::caller {
 
 // ============================================================================
-// Single-variant constructor (bi-allelic, backwards compatible)
-// Delegates to multi-allelic BuildFormatFields.
-// ============================================================================
-VariantCall::VariantCall(const RawVariant* var, Supports&& supports, Samples samps, FeatureFlags features,
-                         const f64 window_cov)
-    : mVariantId(HashRawVariant(var)), mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeStart1),
-      mTotalSampleCov(0), mChromName(var->mChromName), mRefAllele(var->mRefAllele),
-      mVariantLength(var->mAlleleLength), mSiteQuality(0), mCategory(var->mType),
-      mGraphMetrics(var->mGraphMetrics),
-      mSeqCx(var->mSeqCx), mFeatureFlags(features), mWindowCov(window_cov) {
-  mAltAlleles.push_back(var->mAltAllele);
-
-  PerSampleEvidence per_sample_evidence;
-  per_sample_evidence.reserve(supports.size());
-  for (const auto& sinfo : samps) {
-    auto itr = supports.find(sinfo.SampleName());
-    if (itr == supports.end()) {
-      per_sample_evidence.emplace(sinfo, std::make_unique<VariantSupport>());
-    } else {
-      auto handle = supports.extract(itr);
-      per_sample_evidence.emplace(sinfo, std::move(handle.mapped()));
-    }
-  }
-
-  Finalize(per_sample_evidence, samps, features);
-}
-
-// ============================================================================
 // Multi-allelic constructor
 //
 // Takes a group of RawVariants at the same locus and merges their per-sample
@@ -109,8 +81,7 @@ VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports
   //
   // REF reads are shared — we merge REF(0) from all variants into merged allele 0
   // (deduplication by read name hash prevents double-counting).
-  PerSampleEvidence per_sample_evidence;
-  per_sample_evidence.reserve(samps.size());
+  SupportArray per_sample_evidence;
 
   for (const auto& sinfo : samps) {
     auto merged = std::make_unique<VariantSupport>();
@@ -119,17 +90,16 @@ VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports
       auto var_it = all_supports.find(variants[var_idx]);
       if (var_it == all_supports.end()) continue;
 
-      auto sample_it = var_it->second.find(sinfo.SampleName());
-      if (sample_it == var_it->second.end() || !sample_it->second) continue;
+      const auto* src = var_it->second.Find(sinfo.SampleName());
+      if (src == nullptr) continue;
 
-      const auto& src = *sample_it->second;
       // Merge REF reads (allele 0 → 0) from all variants, dedup handles overlaps
-      merged->MergeAlleleFrom(src, REF_ALLELE_IDX, REF_ALLELE_IDX);
+      merged->MergeAlleleFrom(*src, REF_ALLELE_IDX, REF_ALLELE_IDX);
       // Remap this variant's ALT (allele 1) → its multi-allelic position (var_idx + 1)
-      merged->MergeAlleleFrom(src, AlleleIndex{1}, static_cast<AlleleIndex>(var_idx + 1));
+      merged->MergeAlleleFrom(*src, AlleleIndex{1}, static_cast<AlleleIndex>(var_idx + 1));
     }
 
-    per_sample_evidence.emplace(sinfo, std::move(merged));
+    per_sample_evidence.Insert(sinfo.SampleName(), std::move(merged));
   }
 
   Finalize(per_sample_evidence, samps, features);
@@ -144,7 +114,7 @@ VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports
 //   2. ComputeState       — SHARED/NORMAL/TUMOR classification
 //   3. BuildInfoField     — INFO string assembly
 // ============================================================================
-void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, FeatureFlags features) {
+void VariantCall::Finalize(const SupportArray& evidence, Samples samps, FeatureFlags features) {
   static const auto is_tumor = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::TUMOR; };
   static const auto is_normal = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::NORMAL; };
   const auto tumor_normal_mode = std::ranges::any_of(samps, is_tumor) && std::ranges::any_of(samps, is_normal);
@@ -179,8 +149,7 @@ void VariantCall::Finalize(const PerSampleEvidence& evidence, Samples samps, Fea
 //   PL   - Number=G: Phred-scaled genotype likelihoods
 //   GQ   - Genotype quality (GATK: second-lowest PL, capped at 99)
 // ============================================================================
-auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples samps,
-                                    const bool tumor_normal_mode) -> AltPresence {
+auto VariantCall::BuildFormatFields(const SupportArray& evidence, Samples samps, const bool tumor_normal_mode) -> AltPresence {
   const auto num_alleles = mAltAlleles.size() + 1;  // +1 for REF
   AltPresence alt_presence;
 
@@ -188,7 +157,8 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
   mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ");
 
   for (const auto& sinfo : samps) {
-    const auto& support = evidence.at(sinfo.SampleName());
+    const auto* support = evidence.Find(sinfo.SampleName());
+    if (support == nullptr) continue;
 
     const auto pls = support->ComputePLs();
     const auto gq_value = VariantSupport::ComputeGQ(pls);
@@ -203,7 +173,7 @@ auto VariantCall::BuildFormatFields(const PerSampleEvidence& evidence, Samples s
 
     // Site quality: somatic log odds ratio in tumor-normal mode,
     // per-read evidence strength (PL[0]/DP, capped at 10) in normal-only mode.
-    const auto somatic_lor = SomaticLogOddsRatio(sinfo, evidence);
+    const auto somatic_lor = SomaticLogOddsRatio(sinfo, evidence, samps);
     const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
     const auto sample_dp = support->TotalSampleCov();
     // Per-read evidence against hom-REF: PL[0]/DP, capped at 10.0.
@@ -446,8 +416,7 @@ auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alle
 // A clean somatic produces SOLOR ≈ 5; germline produces SOLOR ≈ 0.
 // Coverage-stable: once normal VAF stabilizes (≥60×), SOLOR varies < 3%.
 // ============================================================================
-auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr,
-                                      const PerSampleEvidence& supports) -> f64 {
+auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64 {
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
 
@@ -456,17 +425,22 @@ auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr,
   OnlineStats nml_alts;
   OnlineStats nml_refs;
 
-  for (const auto &[sample_info, evidence] : supports) {
-    // Ignore other tumor samples even if present
-    if (sample_info.SampleName() == curr.SampleName()) {
-      current_tmr_alt = evidence->TotalAltCov();
-      current_tmr_ref = evidence->TotalRefCov();
+  for (const auto& sinfo : samps) {
+    if (sinfo.SampleName() == curr.SampleName()) {
+      const auto* evidence = supports.Find(sinfo.SampleName());
+      if (evidence != nullptr) {
+        current_tmr_alt = evidence->TotalAltCov();
+        current_tmr_ref = evidence->TotalRefCov();
+      }
       continue;
     }
 
-    if (sample_info.TagKind() == cbdg::Label::NORMAL) {
-      nml_alts.Add(evidence->TotalAltCov());
-      nml_refs.Add(evidence->TotalRefCov());
+    if (sinfo.TagKind() == cbdg::Label::NORMAL) {
+      const auto* evidence = supports.Find(sinfo.SampleName());
+      if (evidence != nullptr) {
+        nml_alts.Add(evidence->TotalAltCov());
+        nml_refs.Add(evidence->TotalRefCov());
+      }
     }
   }
 

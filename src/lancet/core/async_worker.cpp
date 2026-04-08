@@ -2,7 +2,7 @@
 
 #include <stop_token>
 
-#include "concurrentqueue.h"
+#include "blockingconcurrentqueue.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/timer.h"
 #include "lancet/base/types.h"
@@ -19,15 +19,19 @@ void AsyncWorker::Process(std::stop_token stop_token, const moodycamel::Producer
   usize num_done = 0;
   auto window_ptr = std::make_shared<Window>();
   const moodycamel::ProducerToken out_token(*mOutPtr);
+  constexpr auto QUEUE_TIMEOUT = std::chrono::milliseconds(10);
 
   while (true) {
     // Check if stop is requested for this thread by the RunMain/caller thread
     // NOLINTNEXTLINE(readability-braces-around-statements)
     if (stop_token.stop_requested()) break;
 
-    // Get the next available unprocessed window from the RunMain/caller thread
+    // Get the next available unprocessed window from the RunMain/caller thread.
+    // NOTE: wait_dequeue_timed serves as a blocking futex call preventing hardware thread-spin.
+    // If the timeout triggers without a payload, we seamlessly `continue` the loop,
+    // structurally allowing the top-level stop_token evaluation to re-poll state.
     // NOLINTNEXTLINE(readability-braces-around-statements)
-    if (!mInPtr->try_dequeue_from_producer(in_token, window_ptr)) continue;
+    if (!mInPtr->wait_dequeue_timed(window_ptr, QUEUE_TIMEOUT)) continue;
 
     timer.Reset();
     auto variants = mBuilderPtr->ProcessWindow(std::const_pointer_cast<const Window>(window_ptr));

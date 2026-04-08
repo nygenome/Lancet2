@@ -449,14 +449,11 @@ void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read,
   for (const auto& [var_ptr, assignment] : assignments) {
     // Look up (or create) the per-sample evidence aggregator for this variant.
     // Result is keyed: variant → sample_name → VariantSupport.
-    // operator[] default-inserts at both levels if the key is absent:
-    //   rslt[var_ptr]              → inserts empty PerSampleEvidence map
-    //   rslt[var_ptr][sample_name] → inserts null unique_ptr<VariantSupport>
-    // The null check below then constructs the VariantSupport on first access.
-    auto& support = rslt[var_ptr][sample_name];
-    if (!support) {
-      support = std::make_unique<VariantSupport>();
-    }
+    // Default insertion occurs seamlessly at both tier levels:
+    //   rslt[var_ptr]               → inserts an empty SupportArray interface
+    //   .FindOrCreate(sample_name)  → intercepts key searches, appending and allocating 
+    //                                 a unique_ptr<VariantSupport> on-the-fly dynamically.
+    auto& support = rslt[var_ptr].FindOrCreate(sample_name);
 
     VariantSupport::ReadEvidence evidence;
     evidence.rname_hash = static_cast<u32>(rname_hash);
@@ -471,25 +468,25 @@ void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read,
     evidence.insert_size = read.InsertSize();
     evidence.ref_nm = assignment.ref_nm;
 
-    support->AddEvidence(evidence);
+    support.AddEvidence(evidence);
   }
 }
 
 // ============================================================================
 // Genotype: main entry point — orchestrates alignment and evidence collection.
 //
-//  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-//  │  Haplotypes   │   │    Reads     │   │  VariantSet  │
-//  │ (REF + ALTs)  │   │  (all samps) │   │ (raw vars)   │
-//  └───────┬───────┘   └──────┬───────┘   └──────┬───────┘
-//          │                  │                   │
-//          ▼                  │                   │
-//   ResetData()               │                   │
-//   (build mm2 indices)       │                   │
-//          │                  │                   │
-//          │    ┌─────────────┘                   │
-//          │    │                                 │
-//          ▼    ▼                                 │
+//  ┌──────────────┐    ┌──────────────┐    ┌─────────────┐
+//  │  Haplotypes  │    │    Reads     │    │  VariantSet │
+//  │ (REF + ALTs) │    │  (all samps) │    │ (raw vars)  │
+//  └───────┬──────┘    └──────┬───────┘    └─────┬───────┘
+//          │                  │                  │
+//          ▼                  │                  │
+//   ResetData()               │                  │
+//   (build mm2 indices)       │                  │
+//          │                  │                  │
+//          │    ┌─────────────┘                  │
+//          │    │                                │
+//          ▼    ▼                                │
 //   AssignReadToAlleles() ◄──────────────────────┘
 //   (mm_map per hap,
 //    local scoring per var)
@@ -500,10 +497,10 @@ void Genotyper::AddToTable(Result& rslt, const cbdg::Read& read,
 //          │
 //          ▼
 //   ┌──────────────┐
-//   │    Result     │
-//   │  per-variant  │
-//   │  per-sample   │
-//   │  support      │
+//   │    Result    │
+//   │  per-variant │
+//   │  per-sample  │
+//   │  support     │
 //   └──────────────┘
 // ============================================================================
 auto Genotyper::Genotype(Haplotypes haps, Reads reads, const VariantSet& vset) -> Result {

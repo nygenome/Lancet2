@@ -1,12 +1,13 @@
 #ifndef SRC_LANCET_CBDG_NODE_H_
 #define SRC_LANCET_CBDG_NODE_H_
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/inlined_vector.h"
 #include "lancet/base/types.h"
 #include "lancet/cbdg/edge.h"
 #include "lancet/cbdg/kmer.h"
@@ -19,7 +20,7 @@ using NodeIDPair = std::array<NodeID, 2>;
 
 class Node {
  public:
-  using EdgeSet = absl::flat_hash_set<Edge>;
+  using EdgeList = absl::InlinedVector<Edge, 8>;
 
   Node() = default;
   Node(Kmer&& mer, Label label) : mKmer(std::move(mer)), mLabel(label) {}
@@ -29,10 +30,16 @@ class Node {
 
   template <class... Args>
   void EmplaceEdge(Args&&... args) {
-    mEdges.emplace(std::forward<Args>(args)...);
+    Edge new_edge(std::forward<Args>(args)...);
+    if (std::ranges::find(mEdges, new_edge) == mEdges.end()) {
+      mEdges.push_back(std::move(new_edge));
+    }
   }
 
-  void EraseEdge(const Edge& edge) { mEdges.erase(edge); }
+  void EraseEdge(const Edge& edge) {
+    auto it = std::ranges::find(mEdges, edge);
+    if (it != mEdges.end()) mEdges.erase(it);
+  }
   void EraseAllEdges() { mEdges.clear(); }
 
   [[nodiscard]] auto NumOutEdges() const noexcept -> usize { return mEdges.size(); }
@@ -72,8 +79,8 @@ class Node {
   [[nodiscard]] auto HasSelfLoop() const -> bool;
   [[nodiscard]] auto FindEdgesInDirection(Kmer::Ordering ord) const -> std::vector<Edge>;
 
-  using EdgeIterator = EdgeSet::iterator;
-  using EdgeConstIterator = EdgeSet::const_iterator;
+  using EdgeIterator = EdgeList::iterator;
+  using EdgeConstIterator = EdgeList::const_iterator;
 
   [[nodiscard]] auto begin() -> EdgeIterator { return mEdges.begin(); }
   [[nodiscard]] auto end() -> EdgeIterator { return mEdges.end(); }
@@ -88,12 +95,11 @@ class Node {
   static constexpr usize TUMOR_COUNT_INDEX = 1;
   using Counts = std::array<u32, 2>;
 
+  EdgeList mEdges;
   Kmer mKmer;
-  Label mLabel;
-  EdgeSet mEdges;
-
   usize mCompId = 0;
   Counts mCounts = {0, 0};
+  Label mLabel;
 };
 
 }  // namespace lancet::cbdg

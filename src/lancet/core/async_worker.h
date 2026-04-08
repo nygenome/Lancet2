@@ -6,7 +6,7 @@
 #include <utility>
 
 #include "absl/time/time.h"
-#include "concurrentqueue.h"
+#include "blockingconcurrentqueue.h"
 #include "lancet/base/types.h"
 #include "lancet/core/variant_builder.h"
 #include "lancet/core/variant_store.h"
@@ -24,8 +24,8 @@ class AsyncWorker {
     // NOLINTEND(misc-non-private-member-variables-in-classes)
   };
 
-  using InputQueue = moodycamel::ConcurrentQueue<WindowPtr>;
-  using OutputQueue = moodycamel::ConcurrentQueue<Result>;
+  using InputQueue = moodycamel::BlockingConcurrentQueue<WindowPtr>;
+  using OutputQueue = moodycamel::BlockingConcurrentQueue<Result>;
 
   using InQueuePtr = std::shared_ptr<InputQueue>;
   using OutQueuePtr = std::shared_ptr<OutputQueue>;

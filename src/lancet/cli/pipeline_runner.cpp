@@ -58,14 +58,7 @@ using WindowStats = absl::btree_map<VariantBuilder::StatusCode, u64>;
 namespace {
 
 [[nodiscard]] inline auto InitWindowStats() -> absl::btree_map<VariantBuilder::StatusCode, u64> {
-  using VariantBuilder::StatusCode::FOUND_GENOTYPED_VARIANT;
-  using VariantBuilder::StatusCode::MISSING_NO_MSA_VARIANTS;
-  using VariantBuilder::StatusCode::SKIPPED_INACTIVE_REGION;
-  using VariantBuilder::StatusCode::SKIPPED_NOASM_HAPLOTYPE;
-  using VariantBuilder::StatusCode::SKIPPED_NONLY_REF_BASES;
-  using VariantBuilder::StatusCode::SKIPPED_REF_REPEAT_SEEN;
-  using VariantBuilder::StatusCode::UNKNOWN;
-
+  using enum VariantBuilder::StatusCode;
   return WindowStats{{UNKNOWN, 0},
                      {SKIPPED_NONLY_REF_BASES, 0},
                      {SKIPPED_REF_REPEAT_SEEN, 0},
@@ -76,13 +69,6 @@ namespace {
 }
 
 void LogWindowStats(const WindowStats &stats) {
-  using VariantBuilder::StatusCode::FOUND_GENOTYPED_VARIANT;
-  using VariantBuilder::StatusCode::MISSING_NO_MSA_VARIANTS;
-  using VariantBuilder::StatusCode::SKIPPED_INACTIVE_REGION;
-  using VariantBuilder::StatusCode::SKIPPED_NOASM_HAPLOTYPE;
-  using VariantBuilder::StatusCode::SKIPPED_NONLY_REF_BASES;
-  using VariantBuilder::StatusCode::SKIPPED_REF_REPEAT_SEEN;
-
   using CodeCounts = std::pair<const VariantBuilder::StatusCode, u64>;
   static const auto summer = [](const u64 sum, const CodeCounts &item) -> u64 { return sum + item.second; };
   const auto nwindows = std::accumulate(stats.cbegin(), stats.cend(), 0, summer);
@@ -90,28 +76,8 @@ void LogWindowStats(const WindowStats &stats) {
   std::ranges::for_each(stats, [&nwindows](const CodeCounts &item) {
     const auto [status_code, count] = item;
     const auto pct_count = (100.0 * static_cast<f64>(count)) / static_cast<f64>(nwindows);
-    switch (status_code) {
-      case SKIPPED_NONLY_REF_BASES:
-        LOG_INFO("SKIPPED_NONLY_REF_BASES | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      case SKIPPED_REF_REPEAT_SEEN:
-        LOG_INFO("SKIPPED_REF_REPEAT_SEEN | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      case SKIPPED_INACTIVE_REGION:
-        LOG_INFO("SKIPPED_INACTIVE_REGION | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      case SKIPPED_NOASM_HAPLOTYPE:
-        LOG_INFO("SKIPPED_NOASM_HAPLOTYPE | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      case MISSING_NO_MSA_VARIANTS:
-        LOG_INFO("MISSING_NO_MSA_VARIANTS | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      case FOUND_GENOTYPED_VARIANT:
-        LOG_INFO("FOUND_GENOTYPED_VARIANT | {:>8.4f}% of total windows | {} windows", pct_count, count)
-        break;
-      default:
-        break;
-    }
+    const auto status_str = lancet::core::ToString(status_code);
+    LOG_INFO("{} | {:>8.4f}% of total windows | {} windows", status_str, pct_count, count)
   });
 }
 
@@ -244,13 +210,15 @@ void PipelineRunner::Run() {
   const auto recv_qptr = std::make_shared<AsyncWorker::OutputQueue>(num_total_windows);
   const moodycamel::ProducerToken producer_token(*send_qptr);
 
-  usize batch_offset = 0;
+  usize region_idx = 0;
+  i64 window_start = -1;
+  usize global_idx = 0;
 
   // Generates the next batch of windows from the builder, enqueues them for
   // workers, and appends them to the tracking vector. Callers are responsible
   // for checking whether more windows are needed before invoking.
-  const auto feed_next_batch = [&window_builder, &batch_offset, &send_qptr, &producer_token, &windows]() {
-    auto next_batch = window_builder.BuildWindowsBatch(batch_offset);
+  const auto feed_next_batch = [&window_builder, &region_idx, &window_start, &global_idx, &send_qptr, &producer_token, &windows]() {
+    auto next_batch = window_builder.BuildWindowsBatch(region_idx, window_start, global_idx);
     if (!next_batch.empty()) {
       send_qptr->enqueue_bulk(producer_token, next_batch.begin(), next_batch.size());
       windows.insert(windows.end(), next_batch.begin(), next_batch.end());
@@ -263,7 +231,7 @@ void PipelineRunner::Run() {
   } else {
     // Small run: generate all windows upfront, no batching overhead
     windows = window_builder.BuildWindows();
-    batch_offset = num_total_windows;  // Mark all as emitted
+    global_idx = num_total_windows;  // Mark all as emitted
     send_qptr->enqueue_bulk(producer_token, windows.begin(), windows.size());
   }
 
@@ -277,15 +245,11 @@ void PipelineRunner::Run() {
     worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params, window_length);
   }
 
-  static const auto all_windows_upto_idx_done = [](const absl::FixedArray<bool> &dw, const usize window_idx) -> bool {
-    const auto *last_itr = window_idx >= dw.size() ? dw.cend() : dw.cbegin() + window_idx;
-    return std::all_of(dw.cbegin(), last_itr, [](const bool is_done) { return is_done; });
-  };
-
   const auto percent_done = [&num_total_windows](const usize ndone) -> f64 {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
+  usize last_contiguous_done = 0;
   usize idx_to_flush = 0;
   usize num_completed = 0;
   core::AsyncWorker::Result async_worker_result;
@@ -298,15 +262,21 @@ void PipelineRunner::Run() {
   // ---------------------------------------------------------------------------
   // Main pipeline loop: process results and dynamically feed new window batches
   // ---------------------------------------------------------------------------
+  // NOTE: The feed_next_batch check operates unconditionally at the top of the loop.
+  // This guarantees that worker queues are consistently supplied regardless of 
+  // whether the subsequent queue read succeeds or times out.
+  // 
+  // wait_dequeue_timed serves as a blocking futex call preventing hardware thread-spin.
+  // If the timeout triggers without a payload, we seamlessly `continue` the loop,
+  // structurally allowing the top-level feed evaluation to re-poll state.
+  constexpr auto QUEUE_TIMEOUT = std::chrono::milliseconds(10);
   while (num_completed != num_total_windows) {
-    if (!recv_qptr->try_dequeue(result_consumer_token, async_worker_result)) {
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(1s);
-      if (use_batching && batch_offset < num_total_windows && send_qptr->size_approx() < BATCH_SIZE) {
-        feed_next_batch();
-      }
-      continue;
+    if (use_batching && global_idx < num_total_windows && send_qptr->size_approx() < BATCH_SIZE) {
+      feed_next_batch();
     }
+
+    // NOTE: Sleep is natively handled by the wait_dequeue_timed futex block.
+    if (!recv_qptr->wait_dequeue_timed(result_consumer_token, async_worker_result, QUEUE_TIMEOUT)) continue;
 
     num_completed++;
     stats.at(async_worker_result.mStatus) += 1;
@@ -323,13 +293,37 @@ void PipelineRunner::Run() {
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
              percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
 
-    if (all_windows_upto_idx_done(done_windows, idx_to_flush + nbuffer_windows)) {
-      varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
-      idx_to_flush++;
+    // -------------------------------------------------------------------------
+    // VCF Output Synchronization & Bulk Flushing
+    // -------------------------------------------------------------------------
+    // Worker threads finish windows out-of-order. We use `done_windows` to track
+    // all completions, and `last_contiguous_done` traces the furthest unbroken 
+    // chain of sequentially finished windows starting from the beginning.
+    while (last_contiguous_done < num_total_windows && done_windows[last_contiguous_done]) {
+      last_contiguous_done++;
     }
 
-    if (use_batching && batch_offset < num_total_windows && send_qptr->size_approx() < BATCH_SIZE) {
-      feed_next_batch();
+    // Rather than writing to disk immediately, we lag behind by `nbuffer_windows`.
+    // This safety gap allows active upstream threads to resolve large structural 
+    // variants that might overlap across sequential window boundaries.
+    usize target_flush_idx = 0;
+    if (last_contiguous_done > nbuffer_windows) target_flush_idx = last_contiguous_done - nbuffer_windows;
+      
+    // varstore->FlushVariantsBeforeWindow takes a target window and dumps ALL 
+    // buffered variants chronologically up to that genomic threshold in one shot.
+    // 
+    // Example Scenario (If nbuffer_windows = 2):
+    //  - `last_contiguous_done` evaluates to 3.
+    //  - Thread A finishes window #5 (done_windows[5] = true, chain unbroken, cursor stays 3).
+    //  - Thread B finishes window #4 (done_windows[4] = true, chain completes!).
+    //  - `last_contiguous_done` instantly slides from 3 up to 5.
+    //  - `target_flush_idx` evaluates to (5 - 2) = 3.
+    //  - `idx_to_flush` jumps from its old state directly to 3.
+    //  - A single FlushVariantsBeforeWindow(*windows[3]) call fires, sweeping
+    //    the store and safely dumping all variants prior to window #3 to disk.
+    if (idx_to_flush < target_flush_idx) {
+      idx_to_flush = target_flush_idx;
+      varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
     }
   }
 

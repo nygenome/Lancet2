@@ -115,9 +115,7 @@ class Genotyper {
 
   using Reads = absl::Span<const cbdg::Read>;
   using Haplotypes = absl::Span<const std::string>;
-
-  using PerSampleEvidence = absl::flat_hash_map<std::string_view, std::unique_ptr<VariantSupport>>;
-  using Result = absl::flat_hash_map<const RawVariant*, PerSampleEvidence>;
+  using Result = absl::flat_hash_map<const RawVariant*, SupportArray>;
 
   [[nodiscard]] auto Genotype(Haplotypes haps, Reads reads, const VariantSet& vset) -> Result;
 

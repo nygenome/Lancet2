@@ -1,10 +1,14 @@
 #ifndef SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 #define SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 
+#include <algorithm>
 #include <array>
+#include <memory>
+#include <string_view>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/inlined_vector.h"
 #include "lancet/base/types.h"
 
 namespace lancet::caller {
@@ -251,6 +255,27 @@ class VariantSupport {
 
   // Grow the vector to accommodate a new allele index.
   void EnsureAlleleSlot(AlleleIndex idx);
+};
+
+class SupportArray {
+ public:
+  struct NamedSupport {
+    std::string_view sample_name;
+    std::unique_ptr<VariantSupport> data;
+  };
+
+  [[nodiscard]] auto Find(std::string_view sample_name) const -> const VariantSupport*;
+  [[nodiscard]] auto FindOrCreate(std::string_view sample_name) -> VariantSupport&;
+  [[nodiscard]] auto Extract(std::string_view sample_name) -> std::unique_ptr<VariantSupport>;
+  void Insert(std::string_view sample_name, std::unique_ptr<VariantSupport> data) {
+    mItems.emplace_back(sample_name, std::move(data));
+  }
+
+  auto begin() const { return mItems.begin(); }
+  auto end() const { return mItems.end(); }
+
+ private:
+  absl::InlinedVector<NamedSupport, 8> mItems;
 };
 
 }  // namespace lancet::caller
