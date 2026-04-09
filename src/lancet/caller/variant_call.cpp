@@ -222,7 +222,9 @@ auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alle
   return fmt::format("{}/{}", i, j);
 }
 
-void VariantCall::UpdateSiteQuality(const core::SampleInfo& sinfo, const VariantSupport* support, const SupportArray& evidence, Samples samps, bool tumor_normal_mode, absl::Span<const int> pls) {
+void VariantCall::UpdateSiteQuality(const core::SampleInfo& sinfo, const VariantSupport* support,
+                                    const SupportArray& evidence, Samples samps,
+                                    bool tumor_normal_mode, absl::Span<const int> pls) {
   const auto somatic_lor = tumor_normal_mode ? SomaticLogOddsRatio(sinfo, evidence, samps) : 0.0;
   const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
   const auto sample_dp = support->TotalSampleCov();
@@ -274,7 +276,8 @@ auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr, const Suppor
   return std::log((ta * nr) / (tr * na));
 }
 
-void VariantCall::TrackAltPresence(const VariantSupport* support, const core::SampleInfo& sinfo, bool tumor_normal_mode, AltPresence& alt_presence) {
+void VariantCall::TrackAltPresence(const VariantSupport* support, const core::SampleInfo& sinfo,
+                                   bool tumor_normal_mode, AltPresence& alt_presence) {
   if (support->TotalAltCov() > 0) {
     mHasAltSupport = true;
     if (tumor_normal_mode) {
@@ -294,14 +297,16 @@ auto VariantCall::BuildPerAlleleMetrics(const VariantSupport* support, usize num
     absl::StrAppend(&metrics.ad, support->TotalAlleleCov(idx));
     absl::StrAppend(&metrics.adf, support->FwdCount(idx));
     absl::StrAppend(&metrics.adr, support->RevCount(idx));
-    absl::StrAppendFormat(&metrics.rmq, "{:.1f}", support->RmsMappingQual(idx));
+    // NOTE: absl::StrAppendFormat uses printf-style format specifiers, not fmt-style
+    absl::StrAppendFormat(&metrics.rmq, "%.1f", support->RmsMappingQual(idx));
     
     // NPBQ: raw posterior base quality divided by allele depth
     // Recovers the effective per-read quality (~30 for Q30 reads at any depth)
     const auto raw_pbq = support->RawPosteriorBaseQual(idx);
     const auto allele_cov = support->TotalAlleleCov(idx);
     const auto npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
-    absl::StrAppendFormat(&metrics.npbq, "{:.1f}", npbq);
+    // NOTE: absl::StrAppendFormat uses printf-style format specifiers, not fmt-style
+    absl::StrAppendFormat(&metrics.npbq, "%.1f", npbq);
   }
   return metrics;
 }
