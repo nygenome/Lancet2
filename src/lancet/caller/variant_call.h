@@ -122,14 +122,14 @@ class VariantCall {
     return lhs.mVariantId == rhs.mVariantId;
   }
   friend auto operator<(VariantCall const& lhs, VariantCall const& rhs) -> bool {
-    if (lhs.mChromIndex != rhs.mChromIndex)
-      return lhs.mChromIndex < rhs.mChromIndex;
-    if (lhs.mStartPos1 != rhs.mStartPos1)
-      return lhs.mStartPos1 < rhs.mStartPos1;
-    if (lhs.mRefAllele != rhs.mRefAllele)
-      return lhs.mRefAllele < rhs.mRefAllele;
-    if (lhs.mTotalSampleCov != rhs.mTotalSampleCov)
+    if (lhs.mChromIndex != rhs.mChromIndex) return lhs.mChromIndex < rhs.mChromIndex;
+    if (lhs.mStartPos1 != rhs.mStartPos1) return lhs.mStartPos1 < rhs.mStartPos1;
+    if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
+
+    if (lhs.mTotalSampleCov != rhs.mTotalSampleCov) {
       return lhs.mTotalSampleCov < rhs.mTotalSampleCov;
+    }
+
     return lhs.mVariantId < rhs.mVariantId;
   }
 
@@ -191,8 +191,8 @@ class VariantCall {
   };
 
   /// Build per-sample FORMAT strings
-  /// (GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ). Also computes
-  /// site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
+  /// (GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ).
+  /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
   auto BuildFormatFields(SupportArray const& evidence, Samples samps, bool tumor_normal_mode)
       -> AltPresence;
 

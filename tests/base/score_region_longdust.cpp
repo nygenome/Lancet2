@@ -158,19 +158,15 @@ auto ParsePlainBed(std::filesystem::path const& filepath, CachedReference const&
   std::string line;
   while (std::getline(file, line)) {
     absl::StripTrailingAsciiWhitespace(&line);
-    if (line.empty() || line[0] == '#' || line[0] == 't')
-      continue;
+    if (line.empty() || line[0] == '#' || line[0] == 't') continue;
 
     std::vector<std::string_view> const fields = absl::StrSplit(line, '\t');
-    if (fields.size() < 3)
-      continue;
+    if (fields.size() < 3) continue;
     auto const chrom = std::string(fields[0]);
-    if (!IsValidChrom(chrom))
-      continue;
+    if (!IsValidChrom(chrom)) continue;
 
     auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end())
-      continue;
+    if (it == cache.chrom_order.end()) continue;
 
     std::string name = fixed_name;
     if (subcat_column >= 0 && static_cast<usize>(subcat_column) < fields.size()) {
@@ -198,19 +194,15 @@ auto ParseGzippedBed(std::filesystem::path const& filepath, CachedReference cons
   while (gzgets(gz, buf, sizeof(buf)) != nullptr) {
     std::string line(buf);
     absl::StripTrailingAsciiWhitespace(&line);
-    if (line.empty() || line[0] == '#' || line[0] == 't')
-      continue;
+    if (line.empty() || line[0] == '#' || line[0] == 't') continue;
 
     std::vector<std::string_view> const fields = absl::StrSplit(line, '\t');
-    if (fields.size() < 3)
-      continue;
+    if (fields.size() < 3) continue;
     auto const chrom = std::string(fields[0]);
-    if (!IsValidChrom(chrom))
-      continue;
+    if (!IsValidChrom(chrom)) continue;
 
     auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end())
-      continue;
+    if (it == cache.chrom_order.end()) continue;
 
     result.push_back({chrom, std::stol(std::string(fields[1])), std::stol(std::string(fields[2])),
                       source, fixed_name, it->second});
@@ -225,8 +217,7 @@ auto LoadGiab(std::filesystem::path const& data_dir, CachedReference const& cach
     -> std::vector<BedAnnotation> {
   std::vector<BedAnnotation> all;
   auto const giab_dir = data_dir / "chm13_giab_genome_stratifications";
-  if (!std::filesystem::exists(giab_dir))
-    return all;
+  if (!std::filesystem::exists(giab_dir)) return all;
 
   struct GiabTarget {
     std::filesystem::path path;
@@ -243,10 +234,8 @@ auto LoadGiab(std::filesystem::path const& data_dir, CachedReference const& cach
     }
     auto strat = entry.path().stem().stem().string();
     auto const pfx = strat.find("CHM13v2.0_");
-    if (pfx != std::string::npos)
-      strat = strat.substr(pfx + 10);
-    if (ShouldSkipGiab(strat))
-      continue;
+    if (pfx != std::string::npos) strat = strat.substr(pfx + 10);
+    if (ShouldSkipGiab(strat)) continue;
 
     targets.push_back({entry.path(),
                        absl::StrCat("GIAB/", entry.path().parent_path().filename().string()),
@@ -298,17 +287,13 @@ auto LoadTelomere(std::filesystem::path const& data_dir, CachedReference const& 
   std::string line;
   while (std::getline(file, line)) {
     absl::StripTrailingAsciiWhitespace(&line);
-    if (line.empty())
-      continue;
+    if (line.empty()) continue;
     std::vector<std::string_view> const fields = absl::StrSplit(line, '\t');
-    if (fields.size() < 3)
-      continue;
+    if (fields.size() < 3) continue;
     auto const chrom = std::string(fields[0]);
-    if (!IsValidChrom(chrom))
-      continue;
+    if (!IsValidChrom(chrom)) continue;
     auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end())
-      continue;
+    if (it == cache.chrom_order.end()) continue;
 
     auto const start = std::stol(std::string(fields[1]));
     auto const end = std::stol(std::string(fields[2]));
@@ -384,8 +369,7 @@ auto ExpandAndSortWindows(std::vector<BedAnnotation> const& annotations,
     for (auto const scale : SCALES) {
       i64 const ws = std::max<i64>(0, center - scale);
       i64 const we = std::min(chrom_len, center + scale);
-      if (we - ws < 7)
-        continue;
+      if (we - ws < 7) continue;
 
       windows.push_back({ann_idx, ann.chrom_idx, ws, we, scale, region_length});
     }
@@ -393,12 +377,9 @@ auto ExpandAndSortWindows(std::vector<BedAnnotation> const& annotations,
 
   fmt::print(stderr, "Sorting {} windows by genome position...\n", windows.size());
   std::ranges::sort(windows, [](ScoringWindow const& a, ScoringWindow const& b) {
-    if (a.chrom_idx != b.chrom_idx)
-      return a.chrom_idx < b.chrom_idx;
-    if (a.window_start != b.window_start)
-      return a.window_start < b.window_start;
-    if (a.window_end != b.window_end)
-      return a.window_end < b.window_end;
+    if (a.chrom_idx != b.chrom_idx) return a.chrom_idx < b.chrom_idx;
+    if (a.window_start != b.window_start) return a.window_start < b.window_start;
+    if (a.window_end != b.window_end) return a.window_end < b.window_end;
     return a.scale < b.scale;
   });
 
@@ -450,10 +431,8 @@ void ScoringWorker(std::stop_token stoken, moodycamel::ProducerToken const& in_t
   usize win_idx = 0;
 
   while (true) {
-    if (stoken.stop_requested())
-      break;
-    if (!in_queue->try_dequeue_from_producer(in_token, win_idx))
-      continue;
+    if (stoken.stop_requested()) break;
+    if (!in_queue->try_dequeue_from_producer(in_token, win_idx)) continue;
 
     auto const& win = (*windows)[win_idx];
     auto const& ann = (*annotations)[win.parent_idx];
@@ -484,15 +463,13 @@ class EtaTimer {
   void Increment() {
     done_++;
     double const secs = absl::ToDoubleSeconds(timer_.Runtime());
-    if (secs > 0)
-      rate_ = static_cast<double>(done_) / secs;
+    if (secs > 0) rate_ = static_cast<double>(done_) / secs;
   }
 
   [[nodiscard]] auto Elapsed() -> absl::Duration { return timer_.Runtime(); }
 
   [[nodiscard]] auto EstimatedEta() const -> absl::Duration {
-    if (rate_ <= 0)
-      return absl::InfiniteDuration();
+    if (rate_ <= 0) return absl::InfiniteDuration();
     return absl::Seconds(static_cast<double>(total_ - done_) / rate_);
   }
 

@@ -373,8 +373,7 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
         // increase read position on insertion, genome position only if @usePadded is true
       case CigarOp::INSERTION:
         read_position += cig_unit.Length();
-        if (use_padded)
-          ref_position += cig_unit.Length();
+        if (use_padded) ref_position += cig_unit.Length();
         break;
 
       case CigarOp::SOFT_CLIP:
@@ -394,16 +393,12 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
         //
         // NOTE: This only needs to be done if the soft clip is the _first_ CIGAR op.
         //////////////////////////////////////////////////////////////////////////////
-        if (first_cigar_op)
-          read_position += cig_unit.Length();
+        if (first_cigar_op) read_position += cig_unit.Length();
 
         // track the soft clip's size, read position, and genome position
-        if (clip_sizes != nullptr)
-          clip_sizes->push_back(cig_unit.Length());
-        if (read_positions != nullptr)
-          read_positions->push_back(read_position);
-        if (genome_positions != nullptr)
-          genome_positions->push_back(ref_position);
+        if (clip_sizes != nullptr) clip_sizes->push_back(cig_unit.Length());
+        if (read_positions != nullptr) read_positions->push_back(read_position);
+        if (genome_positions != nullptr) genome_positions->push_back(ref_position);
         break;
 
         // any other CIGAR operations have no effect

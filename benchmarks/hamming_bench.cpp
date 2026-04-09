@@ -7,7 +7,7 @@
 #include <random>
 #include <string>
 
-[[nodiscard]] inline auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
+[[nodiscard]] inline static auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
   static constexpr std::array<char, 4> BASES = {'A', 'C', 'G', 'T'};
 
   std::random_device device;

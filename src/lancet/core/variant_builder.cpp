@@ -252,8 +252,7 @@ auto VariantBuilder::ProcessWindow(std::shared_ptr<Window const> const& window) 
 
 auto VariantBuilder::MakeGfaPath(Window const& win, usize const comp_id) const
     -> std::filesystem::path {
-  if (mParamsPtr->mOutGraphsDir.empty())
-    return {};
+  if (mParamsPtr->mOutGraphsDir.empty()) return {};
 
   auto const fname = fmt::format("msa__{}_{}_{}__c{}.gfa", win.ChromName(), win.StartPos1(),
                                  win.EndPos1(), comp_id);

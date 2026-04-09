@@ -28,8 +28,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "AGCG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -54,8 +53,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "AG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -87,8 +85,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATGTGC", "ACGTGC", "AGC", "ATGTAC"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -109,12 +106,9 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     bool found_a_snv = false;
 
     std::ranges::for_each(first_var.mAlts, [&](auto const& alt) {
-      if (alt.mLocalHapStart0Idxs.contains(2))
-        found_del = true;
-      if (alt.mLocalHapStart0Idxs.contains(1))
-        found_c_snv = true;
-      if (alt.mLocalHapStart0Idxs.contains(3))
-        found_a_snv = true;
+      if (alt.mLocalHapStart0Idxs.contains(2)) found_del = true;
+      if (alt.mLocalHapStart0Idxs.contains(1)) found_c_snv = true;
+      if (alt.mLocalHapStart0Idxs.contains(3)) found_a_snv = true;
     });
 
     REQUIRE(found_del == true);
@@ -136,8 +130,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "ATAACG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -162,8 +155,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "AAAG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -189,8 +181,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "AAAAG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -230,8 +221,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     // Note: A C G logically skips the T, merging identically into C!
     spoa::Graph graph{};
     std::vector<std::string> seqs = {"ATCG", "AGCG", "AACG", "ACG"};
-    for (auto const& s : seqs)
-      graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -249,12 +239,10 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     bool found_del = false;
 
     std::ranges::for_each(var.mAlts, [&](auto const& alt) {
-      if (alt.mSequence == "AG")
-        found_g = true;
-      if (alt.mSequence == "AA")
-        found_a = true;
-      if (alt.mSequence == "A")
-        found_del = true;  // Deletions strictly hold the universal 'A' Anchor!
+      if (alt.mSequence == "AG") found_g = true;
+      if (alt.mSequence == "AA") found_a = true;
+      // Deletions strictly hold the universal 'A' Anchor!
+      if (alt.mSequence == "A") found_del = true;
     });
 
     REQUIRE(found_g == true);

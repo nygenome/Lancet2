@@ -108,8 +108,7 @@ namespace lancet::hts {
       case CigarOp::SEQUENCE_MATCH:
       case CigarOp::SEQUENCE_MISMATCH:
         for (u32 i = 0; i < len; ++i, ++qpos, ++tpos) {
-          if (tpos == ref_pos)
-            return qpos;
+          if (tpos == ref_pos) return qpos;
         }
         break;
       case CigarOp::INSERTION:
@@ -118,8 +117,7 @@ namespace lancet::hts {
       case CigarOp::DELETION:
       case CigarOp::REFERENCE_SKIP:
         for (u32 i = 0; i < len; ++i, ++tpos) {
-          if (tpos == ref_pos)
-            return qpos;
+          if (tpos == ref_pos) return qpos;
         }
         break;
       case CigarOp::SOFT_CLIP:

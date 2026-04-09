@@ -129,8 +129,8 @@ AllowShortEnumsOnASingleLine: true
 # Matches Lancet2 convention: `[[nodiscard]] auto Length() -> usize { return mKmer.Length(); }`
 AllowShortFunctionsOnASingleLine: Inline
 # Single-statement if/loops NOT collapsed — safety against dangling-else bugs.
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
 # Short lambdas (1-2 statements) allowed inline — matches existing cleanup patterns.
 AllowShortLambdasOnASingleLine: All
 # case labels keep verbose multi-line form.

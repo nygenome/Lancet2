@@ -90,11 +90,9 @@ class OnlineStats {
 
 template <Number T>
 [[nodiscard]] inline auto Mean(absl::Span<T const> data) -> f64 {
-  if (data.empty())
-    return 0.0;
+  if (data.empty()) return 0.0;
 
-  if (data.size() == 1)
-    return data[0];
+  if (data.size() == 1) return data[0];
 
   static auto const SUMMER = [](f64 const sum, T const& num) -> f64 {
     return sum + static_cast<f64>(num);
@@ -105,17 +103,14 @@ template <Number T>
 
 template <Number T>
 [[nodiscard]] inline auto Median(absl::Span<T const> data) -> T {
-  if (data.empty())
-    return 0;
+  if (data.empty()) return 0;
 
-  if (data.size() == 1)
-    return data[0];
+  if (data.size() == 1) return data[0];
 
   std::vector<T> dcopy(data.cbegin(), data.cend());
   std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2), dcopy.end());
   T const half_item = dcopy[data.length() / 2];
-  if (data.length() % 2 == 1)
-    return half_item;
+  if (data.length() % 2 == 1) return half_item;
 
   std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2) - 1, dcopy.end());
   T const half_minus_one_item = dcopy[(data.length() / 2) - 1];

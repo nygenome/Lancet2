@@ -18,8 +18,7 @@ namespace lancet::hts {
 namespace detail {
 
 auto BgzfStreambuf::Open(std::filesystem::path const& path, char const* mode) -> bool {
-  if (mFilePtr != nullptr)
-    Close();
+  if (mFilePtr != nullptr) Close();
 
   mFileName = path;
   mFilePtr = bgzf_open(mFileName.c_str(), mode);
@@ -50,8 +49,7 @@ auto BgzfStreambuf::uflow() -> int {
     return res;
   }
 
-  if (mFilePtr == nullptr)
-    return EOF;
+  if (mFilePtr == nullptr) return EOF;
 
   mCurrPos = bgzf_getc(mFilePtr);
   switch (mCurrPos) {
@@ -64,10 +62,8 @@ auto BgzfStreambuf::uflow() -> int {
 }
 
 auto BgzfStreambuf::underflow() -> int {
-  if (mFilePtr == nullptr)
-    return EOF;
-  if (mCurrPos != SENTINEL_BUFFER_POSITION)
-    return mCurrPos;
+  if (mFilePtr == nullptr) return EOF;
+  if (mCurrPos != SENTINEL_BUFFER_POSITION) return mCurrPos;
 
   mCurrPos = bgzf_getc(mFilePtr);
   switch (mCurrPos) {
@@ -86,8 +82,7 @@ auto BgzfStreambuf::overflow(int dat) -> int {
 }
 
 auto BgzfStreambuf::xsputn(char const* data, std::streamsize len) -> std::streamsize {
-  if (mFilePtr == nullptr)
-    return 0;
+  if (mFilePtr == nullptr) return 0;
   return bgzf_write(mFilePtr, data, static_cast<std::size_t>(len));
 }
 
@@ -118,8 +113,7 @@ auto BgzfOstream::Open(std::filesystem::path const& path, BgzfFormat ofmt) -> bo
 
 void BgzfOstream::Close() {
   mBgzfBuffer.Close();
-  if (mOutFmt != BgzfFormat::UNSPECIFIED)
-    BuildIndex();
+  if (mOutFmt != BgzfFormat::UNSPECIFIED) BuildIndex();
 }
 
 void BgzfOstream::BuildIndex() {

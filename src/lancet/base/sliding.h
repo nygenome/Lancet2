@@ -11,8 +11,7 @@
 
 using SeqMers = absl::FixedArray<std::string_view>;
 [[nodiscard]] inline auto SlidingView(std::string_view seq, usize const window) -> SeqMers {
-  if (seq.length() < window)
-    return absl::FixedArray<std::string_view>(0);
+  if (seq.length() < window) return absl::FixedArray<std::string_view>(0);
 
   auto const end_position = seq.length() - window;
   absl::FixedArray<std::string_view> result(end_position + 1);

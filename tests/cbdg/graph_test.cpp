@@ -106,8 +106,7 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   usize branches = 0;
 
   for (auto const& [nid, node_ptr] : tg.mNodes) {
-    if (node_ptr->GetComponentId() != 1)
-      continue;
+    if (node_ptr->GetComponentId() != 1) continue;
     num_nodes++;
     auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
@@ -121,8 +120,7 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
     num_edges_raw += dflt_edges + oppo_edges;
     auto const md = std::max(dflt_edges, oppo_edges);
     max_dir = std::max(max_dir, md);
-    if (dflt_edges >= 2 || oppo_edges >= 2)
-      branches++;
+    if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
   }
   usize const num_edges = num_edges_raw / 2;
 
@@ -163,8 +161,7 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
   usize branches = 0;
 
   for (auto const& [nid, node_ptr] : tg.mNodes) {
-    if (node_ptr->GetComponentId() != 1)
-      continue;
+    if (node_ptr->GetComponentId() != 1) continue;
     num_nodes++;
     auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
@@ -178,8 +175,7 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
     num_edges_raw += dflt_edges + oppo_edges;
     auto const md = std::max(dflt_edges, oppo_edges);
     max_dir = std::max(max_dir, md);
-    if (dflt_edges >= 2 || oppo_edges >= 2)
-      branches++;
+    if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
   }
   usize const num_edges = num_edges_raw / 2;
 

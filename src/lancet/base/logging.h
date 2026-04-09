@@ -27,8 +27,7 @@ void RegisterLancetLogger(Args&&... args) {
                 "Sink must implement spdlog::sinks::sink interface");
 
   // Already registered logger previously, so we can return early
-  if (spdlog::default_logger_raw()->name() == LOGGER_NAME)
-    return;
+  if (spdlog::default_logger_raw()->name() == LOGGER_NAME) return;
 
   auto sink = std::make_shared<Sink>(std::forward<Args>(args)...);
   if constexpr (std::is_same_v<spdlog::async_logger, Logger>) {

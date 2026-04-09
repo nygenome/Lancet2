@@ -396,17 +396,17 @@ inline constexpr std::array<u8, 256> DNA_ENCODE_TABLE = MakeDnaEncodeTable();
 
 class LongdustQScorer {
  public:
-  /// @param k       k-mer size (default 7: 4^7 = 16,384 possible k-mers)
-  /// @param max_len Maximum sequence length for precomputing f(ℓ)
-  /// @param gc_frac Global background GC fraction for compositional bias correction.
-  ///                Default 0.41 (human genome-wide average: Lander et al. 2001,
-  ///                Piovesan et al. 2019, Nurk et al. 2022). Set to 0.5 for
-  ///                uniform (no correction). For non-human genomes, set to
-  ///                the organism's genome-wide GC (e.g., 0.20 for P. falciparum).
-  explicit LongdustQScorer(int k = 7, int max_len = 1024, f64 gc_frac = 0.41)
-      : mK(k),
-        mMask((1U << (2 * k)) - 1),
-        mNumKmers(1U << (2 * k)),
+  /// @param kmer_len       k-mer size (default 7: 4^7 = 16,384 possible k-mers)
+  /// @param max_len        Maximum sequence length for precomputing f(ℓ)
+  /// @param gc_frac        Global background GC fraction for compositional bias correction.
+  ///                       Default 0.41 (human genome-wide average: Lander et al. 2001,
+  ///                       Piovesan et al. 2019, Nurk et al. 2022). Set to 0.5 for
+  ///                       uniform (no correction). For non-human genomes, set to
+  ///                       the organism's genome-wide GC (e.g., 0.20 for P. falciparum).
+  explicit LongdustQScorer(int kmer_len = 7, int max_len = 1024, f64 gc_frac = 0.41)
+      : mK(kmer_len),
+        mMask((1U << (2 * kmer_len)) - 1),
+        mNumKmers(1U << (2 * kmer_len)),
         mGc(std::clamp(gc_frac, 0.0, 1.0)) {
     PrecomputeF(max_len);
   }
@@ -576,9 +576,9 @@ class LongdustQScorer {
     f64 accum = 0.0;
     f64 sum_n = 0.0;
     f64 scaled = lambda;
-    for (int n = 2; n <= 10'000; ++n) {
-      sum_n += std::log(static_cast<f64>(n));  // sum_n = log(n!)
-      scaled *= lambda / n;                    // scaled = λ^n / n!
+    for (int count = 2; count <= 10'000; ++count) {
+      sum_n += std::log(static_cast<f64>(count));  // sum_n = log(count!)
+      scaled *= lambda / count;                    // scaled = λ^count / count!
       f64 const zscore = scaled * sum_n;
       if (zscore < accum * 1e-9) {
         break;  // convergence check when contribution is negligible

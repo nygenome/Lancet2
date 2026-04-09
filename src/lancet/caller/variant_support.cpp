@@ -476,8 +476,7 @@ auto VariantSupport::AlleleMismatchDelta() const -> f64 {
     alt_count += nms.size();
   }
 
-  if (alt_count == 0)
-    return 0.0;
+  if (alt_count == 0) return 0.0;
   auto const alt_mean = alt_sum / static_cast<f64>(alt_count);
   return alt_mean - ref_mean;
 }

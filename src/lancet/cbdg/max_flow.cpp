@@ -91,8 +91,7 @@ auto MaxFlow::BuildSequence(WalkView const walk) const -> Result {
     path.AddNodeCoverage(dst_itr->second->TotalReadSupport());
   }
 
-  if (uniq_seqs.empty())
-    return std::nullopt;
+  if (uniq_seqs.empty()) return std::nullopt;
 
   path.ReserveSequence(total_seq_len);
   for (auto const& item : uniq_seqs) {
@@ -193,8 +192,7 @@ auto MaxFlow::NextPath() -> Result {
   }
 
   // No walk with any new edge found → enumeration complete
-  if (!best_leaf.has_value())
-    return std::nullopt;
+  if (!best_leaf.has_value()) return std::nullopt;
 
   // Reconstruct the walk and mark its edges as traversed.
   // Walk the arena parent chain to collect ordinals directly — no linear scan.

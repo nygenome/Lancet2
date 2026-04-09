@@ -55,8 +55,7 @@ void WindowBuilder::AddAllReferenceRegions() {
   mInputRegions.reserve(mInputRegions.size() + ref_chroms.size());
 
   std::ranges::for_each(ref_chroms, [this](hts::Reference::Chrom const& chrom) -> void {
-    if (SHOULD_EXCLUDE_CHROM(chrom.Name()))
-      return;
+    if (SHOULD_EXCLUDE_CHROM(chrom.Name())) return;
     this->mInputRegions.emplace_back(
         ParseRegionResult{.mChromName = chrom.Name(), .mRegionSpan = {1, chrom.Length()}});
   });
@@ -74,8 +73,7 @@ void WindowBuilder::AddBatchRegions(absl::Span<std::string const> region_specs) 
 }
 
 void WindowBuilder::AddBatchRegions(std::filesystem::path const& bed_file) {
-  if (bed_file.empty())
-    return;
+  if (bed_file.empty()) return;
 
   // Open the BED file using HTSlib's htsFile API instead of standard C++ streams.
   // This natively leverages the libcurl plugins built into Lancet2, allowing
@@ -107,8 +105,7 @@ void WindowBuilder::AddBatchRegions(std::filesystem::path const& bed_file) {
     line_num++;
     std::string_view const line_view(line.s, line.l);
 
-    if (line_view.starts_with('#') || line_view.empty())
-      continue;
+    if (line_view.starts_with('#') || line_view.empty()) continue;
 
     tokens = absl::StrSplit(line_view, absl::ByChar('\t'));
 
@@ -204,8 +201,7 @@ void WindowBuilder::SortInputRegions() {
 // ---------------------------------------------------------------------------
 
 auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
-  if (mInputRegions.empty())
-    return {};
+  if (mInputRegions.empty()) return {};
 
   std::string rspec;
   auto const nregs = mInputRegions.size();
@@ -249,10 +245,14 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
 
   static auto const WINDOW_PTR_COMPARATOR = [](WindowPtr const& first,
                                                WindowPtr const& second) -> bool {
-    if (first->ChromIndex() != second->ChromIndex())
+    if (first->ChromIndex() != second->ChromIndex()) {
       return first->ChromIndex() < second->ChromIndex();
-    if (first->StartPos1() != second->StartPos1())
+    }
+
+    if (first->StartPos1() != second->StartPos1()) {
       return first->StartPos1() < second->StartPos1();
+    }
+
     return first->EndPos1() < second->EndPos1();
   };
 
@@ -373,8 +373,8 @@ void WindowBuilder::PadInputRegion(ParseRegionResult& result) const {
   if (result.Length() < mParams.mWindowLength) {
     u64 const diff =
         std::abs(static_cast<i64>(result.Length()) - static_cast<i64>(mParams.mWindowLength) - 1);
-    // PadInputRegion unconditionally sets both mRegionSpan entries; value_or defaults are
-    // unreachable
+    // PadInputRegion unconditionally sets both mRegionSpan entries;
+    // value_or defaults are unreachable
     auto const curr_left = result.mRegionSpan[0].value_or(1);
     auto const curr_right = result.mRegionSpan[1].value_or(contig_max_len);
     auto const left_new_val = (diff / 2) > curr_left ? curr_left - 1 : curr_left - (diff / 2);

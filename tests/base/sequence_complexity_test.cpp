@@ -173,8 +173,7 @@ TEST_CASE("Score: non-repetitive REF produces low context scores",
 
   // Balanced, non-repetitive haplotype
   std::string hap;
-  for (int i = 0; i < 50; ++i)
-    hap += "ACGT";  // 200bp
+  for (int i = 0; i < 50; ++i) hap += "ACGT";  // 200bp
 
   // REF = ALT (no change) at position 100, length 1
   auto const cx = scorer.Score(hap, 100, 1, hap, 100, 1);
@@ -258,8 +257,7 @@ TEST_CASE("GC-bias: structural repeats still score high with gc=0.41",
 
   // Microsatellite (CA repeat): clearly repetitive
   std::string micro;
-  for (int i = 0; i < 25; ++i)
-    micro += "CA";
+  for (int i = 0; i < 25; ++i) micro += "CA";
   CHECK(human_scorer.Score(micro) > 0.5);
 }
 

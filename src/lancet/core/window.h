@@ -67,8 +67,7 @@ class Window {
   mutable RegionPtr mRegPtr = nullptr;
 
   void EnsureRegionBuilt() const {
-    if (mRegPtr != nullptr || mRefPath.empty() || mSpec.mChromName.empty())
-      return;
+    if (mRegPtr != nullptr || mRefPath.empty() || mSpec.mChromName.empty()) return;
 
     hts::Reference const reference(mRefPath);
     mRegPtr = std::make_shared<hts::Reference::Region const>(reference.MakeRegion(mSpec));

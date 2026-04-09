@@ -35,8 +35,7 @@ namespace {
 
 inline auto ParseMd(std::string_view md_val, absl::Span<u8 const> quals, i64 const start,
                     CountMap* result) -> bool {
-  if (start < 0)
-    return false;
+  if (start < 0) return false;
 
   std::string token;
   token.reserve(md_val.length());
@@ -54,8 +53,7 @@ inline auto ParseMd(std::string_view md_val, absl::Span<u8 const> quals, i64 con
 
     auto const base_pos = static_cast<usize>(genome_pos - start);
     static constexpr u8 MIN_BASE_QUAL = 20;
-    if (quals.at(base_pos) < MIN_BASE_QUAL)
-      continue;
+    if (quals.at(base_pos) < MIN_BASE_QUAL) continue;
 
     auto const base = absl::ascii_toupper(static_cast<unsigned char>(character));
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
@@ -204,8 +202,7 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
       auto const bflag = aln.Flag();
       if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
         continue;
-      if (!keep_qnames.contains(HashQname(aln.QnameView())))
-        continue;
+      if (!keep_qnames.contains(HashQname(aln.QnameView()))) continue;
 
       // Only kept reads trigger BuildSequence/BuildQualities via the Read constructor
       sampled_reads.emplace_back(aln, sample_name, sinfo.TagKind());
@@ -239,8 +236,7 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
         for (auto const& aln : *extractor) {
           auto const mate_qhash = HashQname(aln.QnameView());
           auto const itr = expected_mates.find(mate_qhash);
-          if (itr == expected_mates.end())
-            continue;
+          if (itr == expected_mates.end()) continue;
 
           sampled_reads.emplace_back(aln, sample_name, sinfo.TagKind());
           sampled_base_count += sampled_reads.back().Length();
@@ -262,12 +258,9 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     }
     if (lhs.TagKind() != rhs.TagKind())
       return static_cast<u8>(lhs.TagKind()) < static_cast<u8>(rhs.TagKind());
-    if (lhs.SampleName() != rhs.SampleName())
-      return lhs.SampleName() < rhs.SampleName();
-    if (lhs.QnameView() != rhs.QnameView())
-      return lhs.QnameView() < rhs.QnameView();
-    if (lhs.ChromIndex() != rhs.ChromIndex())
-      return lhs.ChromIndex() < rhs.ChromIndex();
+    if (lhs.SampleName() != rhs.SampleName()) return lhs.SampleName() < rhs.SampleName();
+    if (lhs.QnameView() != rhs.QnameView()) return lhs.QnameView() < rhs.QnameView();
+    if (lhs.ChromIndex() != rhs.ChromIndex()) return lhs.ChromIndex() < rhs.ChromIndex();
     return lhs.StartPos0() < rhs.StartPos0();
   });
 
@@ -324,8 +317,10 @@ auto ReadCollector::IsActiveRegion(Params const& params, Region const& region) -
       };
 
       for (auto const& cig_unit : cigar_units) {
-        if (cig_unit.ConsumesReference())
+        if (cig_unit.ConsumesReference()) {
           curr_genome_pos += cig_unit.Length();
+        }
+
         switch (cig_unit.Operation()) {
           case hts::CigarOp::INSERTION:
             if (INCREMENT_GENOME_POS(insertions, curr_genome_pos)) {

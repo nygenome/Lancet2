@@ -17,8 +17,7 @@
 namespace lancet::core {
 
 void VariantStore::AddVariants(std::vector<Value>&& variants) {
-  if (variants.empty())
-    return;
+  if (variants.empty()) return;
 
   for (auto&& curr : variants) {
     auto const identifier = curr->Identifier();
@@ -56,8 +55,7 @@ void VariantStore::FlushVariantsBeforeWindow(Window const& win, std::ostream& ou
       auto const is_before_window = var_ptr->ChromIndex() != win.ChromIndex()
                                         ? var_ptr->ChromIndex() < win.ChromIndex()
                                         : var_ptr->StartPos1() < win.EndPos1();
-      if (is_before_window)
-        keys_to_extract.emplace_back(item.first);
+      if (is_before_window) keys_to_extract.emplace_back(item.first);
     }
 
     using caller::RawVariant::Type::REF;
@@ -68,8 +66,7 @@ void VariantStore::FlushVariantsBeforeWindow(Window const& win, std::ostream& ou
 
     for (auto const& key : keys_to_extract) {
       auto handle = bucket.mData.extract(key);
-      if (handle.empty() || HAS_NO_SUPPORT(handle.mapped()))
-        continue;
+      if (handle.empty() || HAS_NO_SUPPORT(handle.mapped())) continue;
       variants_to_write.emplace_back(std::move(handle.mapped()));
     }
   }
@@ -101,8 +98,7 @@ void VariantStore::FlushAllVariantsInStore(std::ostream& out) {
     };
 
     for (auto& item : bucket.mData) {
-      if (HAS_NO_SUPPORT(item.second))
-        continue;
+      if (HAS_NO_SUPPORT(item.second)) continue;
       variants_to_write.emplace_back(std::move(item.second));
     }
     bucket.mData.clear();

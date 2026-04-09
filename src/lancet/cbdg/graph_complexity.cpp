@@ -28,10 +28,9 @@ auto ComputeGraphComplexity(Graph const& graph, usize const component_id) -> Gra
   std::vector<f64> unitig_coverages;
 
   for (auto const& [nid, node_ptr] : graph.Nodes()) {
-    if (node_ptr->GetComponentId() != component_id)
-      continue;
-    num_nodes++;
+    if (node_ptr->GetComponentId() != component_id) continue;
 
+    num_nodes++;
     auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_dir_edges = 0;
     usize oppo_dir_edges = 0;

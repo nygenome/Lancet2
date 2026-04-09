@@ -46,8 +46,7 @@ Extractor::Extractor(std::filesystem::path aln_file, Reference const& ref,
   EnsureValidBamOrCram(mFilePtr.get(), bc_path);
   mHdrPtr = InitSamHdr(mFilePtr.get(), bc_path);
 
-  if (!skip_ref_contig_check)
-    HeaderContigsCheck(mHdrPtr.get(), ref);
+  if (!skip_ref_contig_check) HeaderContigsCheck(mHdrPtr.get(), ref);
 
   SetDefaultHtsOpts(mFilePtr.get(), ref, bc_path);
   mIdxPtr = InitHtsIdx(mFilePtr.get(), bc_path);

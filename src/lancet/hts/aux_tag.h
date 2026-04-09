@@ -178,14 +178,12 @@ class AuxTag {
   template <typename ResultType>
   [[nodiscard]] auto GetResultIfAvailable() const noexcept -> absl::StatusOr<ResultType> {
     if constexpr (std::is_same<char, ResultType>::value) {
-      if (mCharData == MISSING_CHAR)
-        return MakeInvalidTypeStatus<ResultType>(mTagName);
+      if (mCharData == MISSING_CHAR) return MakeInvalidTypeStatus<ResultType>(mTagName);
       return static_cast<char>(mCharData);
     }
 
     if constexpr (std::is_same<i64, ResultType>::value) {
-      if (mIntData == MISSING_INT)
-        return MakeInvalidTypeStatus<ResultType>(mTagName);
+      if (mIntData == MISSING_INT) return MakeInvalidTypeStatus<ResultType>(mTagName);
       return mIntData;
     }
 
@@ -196,19 +194,16 @@ class AuxTag {
     }
 
     if constexpr (std::is_same<std::string_view, ResultType>::value) {
-      if (mStrData == nullptr)
-        return MakeInvalidTypeStatus<ResultType>(mTagName);
+      if (mStrData == nullptr) return MakeInvalidTypeStatus<ResultType>(mTagName);
       return std::string_view(*mStrData);
     }
 
     if constexpr (std::is_same<absl::Span<i64 const>, ResultType>::value) {
-      if (mArrIntData == nullptr)
-        return MakeInvalidTypeStatus<ResultType>(mTagName);
+      if (mArrIntData == nullptr) return MakeInvalidTypeStatus<ResultType>(mTagName);
       return absl::MakeConstSpan(*mArrIntData);
     }
     if constexpr (std::is_same<absl::Span<f64 const>, ResultType>::value) {
-      if (mArrFloatData == nullptr)
-        return MakeInvalidTypeStatus<ResultType>(mTagName);
+      if (mArrFloatData == nullptr) return MakeInvalidTypeStatus<ResultType>(mTagName);
       return absl::MakeConstSpan(*mArrFloatData);
     }
   }

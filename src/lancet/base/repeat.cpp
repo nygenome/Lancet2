@@ -68,12 +68,10 @@ auto HasApproximateRepeat(absl::Span<std::string_view const> kmers,
                           usize const num_allowed_mismatches) -> bool {
   for (auto const& first_kmer : kmers) {
     for (auto const& second_kmer : kmers) {
-      if (std::addressof(first_kmer) == std::addressof(second_kmer))
-        continue;
+      if (std::addressof(first_kmer) == std::addressof(second_kmer)) continue;
 
       auto const dist = HammingDistWord64(first_kmer, second_kmer);
-      if (dist < num_allowed_mismatches)
-        return true;
+      if (dist < num_allowed_mismatches) return true;
     }
   }
 

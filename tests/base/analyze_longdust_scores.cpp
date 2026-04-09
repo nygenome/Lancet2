@@ -75,25 +75,21 @@ struct ScoreAccumulator {
   [[nodiscard]] auto Count() const -> usize { return scores.size(); }
 
   [[nodiscard]] auto Median() -> double {
-    if (scores.empty())
-      return 0.0;
+    if (scores.empty()) return 0.0;
     auto const mid = scores.size() / 2;
     std::nth_element(scores.begin(), scores.begin() + static_cast<i64>(mid), scores.end());
     return scores[mid];
   }
 
   [[nodiscard]] auto Mean() const -> double {
-    if (scores.empty())
-      return 0.0;
-    double sum = 0;
-    for (auto const val : scores)
-      sum += val;
+    if (scores.empty()) return 0.0;
+
+    double const sum = std::accumulate(scores.cbegin(), scores.cend(), 0.0);
     return sum / static_cast<double>(scores.size());
   }
 
   [[nodiscard]] auto Max() -> double {
-    if (scores.empty())
-      return 0.0;
+    if (scores.empty()) return 0.0;
     return *std::max_element(scores.begin(), scores.end());
   }
 
@@ -163,8 +159,8 @@ void WriteCategoryAnalysis(std::filesystem::path const& path,
   for (auto const scale : scales) {
     auto& acc = global_data[scale];
     auto const n = acc.Count();
-    if (n == 0)
-      continue;
+    if (n == 0) continue;
+
     auto const nonzero = acc.CountAbove(0.0);
     auto const gt01 = acc.CountAbove(0.1);
     auto const gt06 = acc.CountAbove(0.6);
@@ -269,12 +265,10 @@ auto main(int argc, char** argv) -> int {
   while (gzgets(gz, buf, sizeof(buf)) != nullptr) {
     std::string line(buf);
     absl::StripTrailingAsciiWhitespace(&line);
-    if (line.empty() || line[0] == '#' || line.starts_with("chrom"))
-      continue;
+    if (line.empty() || line[0] == '#' || line.starts_with("chrom")) continue;
 
     std::vector<std::string_view> const fields = absl::StrSplit(line, '\t');
-    if (fields.size() < MIN_COLUMNS)
-      continue;
+    if (fields.size() < MIN_COLUMNS) continue;
 
     auto const source = std::string(fields[COL_SOURCE]);
     auto const name = std::string(fields[COL_NAME]);

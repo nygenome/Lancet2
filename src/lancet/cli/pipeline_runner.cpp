@@ -97,8 +97,7 @@ static void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken
                            AsyncWorker::BuilderParamsPtr params, u32 window_length) {
   // NOLINTEND(performance-unnecessary-value-param)
 #ifdef LANCET_PROFILE_MODE
-  if (ProfilingIsEnabledForAllThreads() != 0)
-    ProfilerRegisterThread();
+  if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
 #endif
   auto worker = std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue),
                                               std::move(vstore), std::move(params), window_length);
@@ -475,8 +474,7 @@ auto PipelineRunner::BuildVcfHeader(CliParams const& params) -> std::string {
 // ---------------------------------------------------------------------------
 
 void PipelineRunner::ValidateAndPopulateParams() {
-  if (mParamsPtr->mVariantBuilder.mSkipActiveRegion)
-    return;
+  if (mParamsPtr->mVariantBuilder.mSkipActiveRegion) return;
 
   using lancet::hts::Alignment;
   static constexpr usize NUM_READS_TO_PEEK = 1000;
@@ -488,10 +486,8 @@ void PipelineRunner::ValidateAndPopulateParams() {
     usize peeked_read_count = 0;
     lancet::hts::Extractor extractor(aln_path, ref, Alignment::Fields::AUX_RGAUX, TAGS, true);
     for (auto const& aln : extractor) {
-      if (peeked_read_count > NUM_READS_TO_PEEK)
-        break;
-      if (aln.HasTag("MD"))
-        return false;
+      if (peeked_read_count > NUM_READS_TO_PEEK) break;
+      if (aln.HasTag("MD")) return false;
       peeked_read_count++;
     }
     return true;

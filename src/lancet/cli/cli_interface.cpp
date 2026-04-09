@@ -293,10 +293,8 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CLI::Range(0.0, 1.0));
 
   subcmd->callback([params]() -> void {
-    if (static_cast<bool>(isatty(fileno(stderr))))
-      fmt::print(std::cerr, FIGLET_LANCET_LOGO);
-    if (params->mEnableVerboseLogging)
-      SetLancetLoggerLevel(spdlog::level::trace);
+    if (static_cast<bool>(isatty(fileno(stderr)))) fmt::print(std::cerr, FIGLET_LANCET_LOGO);
+    if (params->mEnableVerboseLogging) SetLancetLoggerLevel(spdlog::level::trace);
 
     LOG_INFO("Starting Lancet {}", LancetFullVersion())
     PipelineRunner pipeline_runner(params);

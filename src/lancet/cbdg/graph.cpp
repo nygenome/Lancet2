@@ -16,14 +16,15 @@
 #include "lancet/hts/phred_quality.h"
 
 #include "absl/container/chunked_queue.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 #include "spdlog/fmt/bundled/ostream.h"
 
-#include <absl/container/flat_hash_map.h>
-#include <absl/strings/str_cat.h>
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -32,7 +33,6 @@
 #include <memory>
 #include <numeric>
 #include <optional>
-#include <spdlog/fmt/bundled/format.h>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -51,32 +51,25 @@ void Graph::Path::AddNodeCoverage(u32 cov) {
 }
 
 void Graph::Path::Finalize() {
-  if (mNodeCoverages.empty()) {
-    return;
-  }
+  if (mNodeCoverages.empty()) return;
 
   OnlineStats stats;
-  for (auto const cov : mNodeCoverages) {
-    stats.Add(cov);
-  }
+  std::for_each(mNodeCoverages.begin(), mNodeCoverages.end(),
+                [&stats](auto const cov) { stats.Add(cov); });
 
   mMeanCov = stats.Mean();
   mStdDevCov = stats.StdDev();
   mTotalCov = mMeanCov * static_cast<f64>(stats.Count());
-  if (mMeanCov > 0.0) {
-    mCvCov = mStdDevCov / mMeanCov;
-  }
+  if (mMeanCov > 0.0) mCvCov = mStdDevCov / mMeanCov;
 
   mMedianCov = static_cast<f64>(Median(absl::MakeConstSpan(mNodeCoverages)));
 
-  // Quartile CV = (Q3 - Q1) / (Q3 + Q1)
   if (mNodeCoverages.size() >= 4) {
     std::ranges::sort(mNodeCoverages);
     auto const quart1 = static_cast<f64>(mNodeCoverages[mNodeCoverages.size() / 4]);
     auto const quart3 = static_cast<f64>(mNodeCoverages[(mNodeCoverages.size() * 3) / 4]);
-    if (quart3 + quart1 > 0.0) {
-      mQCvCov = (quart3 - quart1) / (quart3 + quart1);
-    }
+    // Quartile CV = (Q3 - Q1) / (Q3 + Q1)
+    if (quart3 + quart1 > 0.0) mQCvCov = (quart3 - quart1) / (quart3 + quart1);
   }
 }
 /// Pipeline architecture for haplotype assembly from a colored de Bruijn graph:
@@ -117,7 +110,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   mRegion = std::move(region);
 
   Timer timer;
-  GraphHaps per_comp_haplotypes;
+  GraphHaps per_comp_haps;
   std::string_view ref_anchor_seq;
   std::vector<usize> anchor_start_idxs;
   std::vector<GraphComplexity> component_metrics;
@@ -133,7 +126,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
   // Outer loop: increment k and retry until haplotypes are found or k is exhausted.
   // Replaces the old `goto IncrementKmerAndRetry` with structured control flow.
-  while (per_comp_haplotypes.empty() && (mCurrK + mParams.mKmerStepLen) <= mParams.mMaxKmerLen) {
+  while (per_comp_haps.empty() && (mCurrK + mParams.mKmerStepLen) <= mParams.mMaxKmerLen) {
     mCurrK += mParams.mKmerStepLen;
     timer.Reset();
     mSourceAndSinkIds = {0, 0};
@@ -141,8 +134,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
     // Skip this k if the reference itself has a repeated k-mer — the de Bruijn
     // graph would contain a cycle by construction, making assembly pointless.
-    if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK))
-      continue;
+    if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK)) continue;
 
     mNodes.clear();
     BuildGraph(mate_mers);
@@ -154,7 +146,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
     WriteDotDevelop(FIRST_LOW_COV_REMOVAL, 0);
 
     auto const components = MarkConnectedComponents();
-    per_comp_haplotypes.reserve(components.size());
+    per_comp_haps.reserve(components.size());
     anchor_start_idxs.reserve(components.size());
     LOG_TRACE("Found {} connected components in graph for {} with k={}", components.size(), reg_str,
               mCurrK)
@@ -164,10 +156,8 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
     // remaining components at this k and retry at a higher k value.
     bool should_retry_kmer = false;
     for (auto const& cinfo : components) {
-      if (should_retry_kmer)
-        break;
-      if (cinfo.mPctNodes < DEFAULT_PCT_NODES_NEEDED)
-        continue;
+      if (should_retry_kmer) break;
+      if (cinfo.mPctNodes < DEFAULT_PCT_NODES_NEEDED) continue;
 
       auto const comp_id = cinfo.mCompId;
       auto const source = FindSource(comp_id);
@@ -180,8 +170,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
       }
 
       auto const current_anchor_length = RefAnchorLength(source, sink, mCurrK);
-      if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH)
-        continue;
+      if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH) continue;
 
       LOG_TRACE("Found {}bp ref anchor for {} comp={} with k={}", current_anchor_length, reg_str,
                 comp_id, mCurrK)
@@ -221,7 +210,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
       auto haplotypes = EnumerateAndSortHaplotypes(comp_id, trav_idx, ref_anchor_seq);
       if (!haplotypes.empty()) {
-        per_comp_haplotypes.emplace_back(std::move(haplotypes));
+        per_comp_haps.emplace_back(std::move(haplotypes));
         anchor_start_idxs.emplace_back(source.mRefOffset);
         component_metrics.emplace_back(cplx);
       }
@@ -229,7 +218,7 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
     // If any component triggered a retry, discard partial results and try next k
     if (should_retry_kmer) {
-      per_comp_haplotypes.clear();
+      per_comp_haps.clear();
       anchor_start_idxs.clear();
       component_metrics.clear();
       continue;
@@ -239,16 +228,16 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   static auto const SUMMER = [](u64 const sum, auto const& comp_haps) -> u64 {
     return sum + comp_haps.size() - 1;
   };
-  auto const num_asm_haps =
-      std::accumulate(per_comp_haplotypes.cbegin(), per_comp_haplotypes.cend(), 0, SUMMER);
+
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
+  auto const num_haps = std::accumulate(per_comp_haps.cbegin(), per_comp_haps.cend(), 0, SUMMER);
 
   // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
   auto const human_rt = timer.HumanRuntime();
 
-  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", num_asm_haps, reg_str, mCurrK,
-            human_rt)
+  LOG_TRACE("Assembled {} haplotypes for {} with k={} in {}", num_haps, reg_str, mCurrK, human_rt)
 
-  return {.mGraphHaplotypes = per_comp_haplotypes,
+  return {.mGraphHaplotypes = per_comp_haps,
           .mAnchorStartIdxs = anchor_start_idxs,
           .mComponentMetrics = std::move(component_metrics)};
 }
@@ -277,6 +266,7 @@ auto Graph::EnumerateAndSortHaplotypes(usize comp_id, TraversalIndex const& trav
 
   LOG_TRACE("Starting walk enumeration for {} with k={}, num_nodes={}", reg_str, mCurrK,
             mNodes.size())
+
   MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, &trav_idx);
   auto path_seq = max_flow.NextPath();
 
@@ -315,12 +305,8 @@ void Graph::CompressGraph(usize const component_id) {
   remove_nids.reserve(mNodes.size());
 
   for (NodeTable::const_reference item : mNodes) {
-    if (item.second->GetComponentId() != component_id) {
-      continue;
-    }
-    if (remove_nids.contains(item.first)) {
-      continue;
-    }
+    if (item.second->GetComponentId() != component_id) continue;
+    if (remove_nids.contains(item.first)) continue;
 
     CompressNode(item.first, Kmer::Ordering::DEFAULT, remove_nids);
     CompressNode(item.first, Kmer::Ordering::OPPOSITE, remove_nids);
@@ -331,8 +317,7 @@ void Graph::CompressGraph(usize const component_id) {
     auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Compressed {} nodes for {} in comp{} with k={}", remove_nids.size(), region_str,
               component_id, mCurrK)
-    for (auto const nid : remove_nids)
-      RemoveNode(mNodes.find(nid));
+    for (auto const nid : remove_nids) RemoveNode(mNodes.find(nid));
   }
 }
 
@@ -355,8 +340,7 @@ void Graph::CompressNode(NodeID nid, Kmer::Ordering const ord, NodeIdSet& compre
     auto const rev_src2obdy_src_sign = Kmer::RevSign(src2obdy.SrcSign());
     for (Edge const& obdy2nbdy : *(obdy_itr->second)) {
       // Skip if this is old_buddy --> src edge before merging edges
-      if (obdy2nbdy == src2obdy.MirrorEdge())
-        continue;
+      if (obdy2nbdy == src2obdy.MirrorEdge()) continue;
 
       LANCET_ASSERT(!obdy2nbdy.IsSelfLoop())
       LANCET_ASSERT(obdy2nbdy.DstId() != node_itr->second->Identifier())
@@ -388,30 +372,30 @@ auto Graph::FindCompressibleEdge(Node const& src, Kmer::Ordering const ord) cons
   // abc_nbour <-- abc_bdy <-- src <-- xyz_bdy --> xyz_nbour
   //
   // Pre-requisites:
-  // * Assume we are trying to merge contents of abc_bdy into src. Then result will be src -->
-  // abc_bdy edge.
-  // * If ord == Default, then result src --> abc_bdy edge must have SrcSign() same as src's default
-  // sign
-  // * If ord == Opposite, then result src --> abc_bdy edge must have SrcSign() same as src's
-  // opposite sign
-  // * This expected SrcSign for the result src --> abc_bdy edge is named as `merge_sign`
+  // * Assume we are trying to merge contents of abc_bdy into src.
+  // * Then result will be src --> abc_bdy edge.
+  // * If ord == Default, then result src --> abc_bdy edge must have
+  //   SrcSign() same as src's default sign.
+  // * If ord == Opposite, then result src --> abc_bdy edge must have
+  //   SrcSign() same as src's opposite sign.
+  // * This expected SrcSign for the result src --> abc_bdy edge is named as `merge_sign`.
   //
-  // In order for src to be compressible with abc_bdy node, we need to fulfill the following
-  // conditions:
-  // 1. src must have atmost 2 and atleast 1 outgoing edges and not contain any self loops.
-  // 2. src must only have only one out edge where SrcSign is same as merge_sign. i.e. the src -->
-  // abc_bdy edge.
-  // 3. Another src out edge if present must be in opposite direction of src --> abc_bdy to xyz_bdy.
+  // In order for src to be compressible with abc_bdy node,
+  // we need to fulfill the following conditions:
+  // 1. src must have at most 2 and at least 1 outgoing edges and not contain any self loops.
+  // 2. src must only have only one out edge where SrcSign is same as merge_sign,
+  //    i.e. the src --> abc_bdy edge.
+  // 3. Another src out edge, if present, must be in opposite direction
+  //    of src --> abc_bdy to xyz_bdy.
   // 4. Both src --> abc_bdy && src --> xyz_bdy must be buddy edges from src node.
-  // If all these conditions are satisfied, then src --> abc_bdy edge is returned. std::nullopt is
-  // returned otherwise.
+  //
+  // If all these conditions are satisfied, then src --> abc_bdy edge is returned.
+  // std::nullopt is returned otherwise.
 
-  if (src.NumOutEdges() > 2 || src.NumOutEdges() == 0 || src.HasSelfLoop())
-    return std::nullopt;
+  if (src.NumOutEdges() > 2 || src.NumOutEdges() == 0 || src.HasSelfLoop()) return std::nullopt;
 
   auto const mergeable_edges = src.FindEdgesInDirection(ord);
-  if (mergeable_edges.size() != 1)
-    return std::nullopt;
+  if (mergeable_edges.size() != 1) return std::nullopt;
 
   auto const potential_result_edge = mergeable_edges[0];
   auto const [source_id, sink_id] = mSourceAndSinkIds;
@@ -420,30 +404,29 @@ auto Graph::FindCompressibleEdge(Node const& src, Kmer::Ordering const ord) cons
   }
 
   // Check if src --> abc_bdy is a potential buddy edge
-  if (!IsPotentialBuddyEdge(src, potential_result_edge))
-    return std::nullopt;
+  if (!IsPotentialBuddyEdge(src, potential_result_edge)) return std::nullopt;
 
   auto const opp_dir_edges = src.FindEdgesInDirection(Kmer::RevOrdering(ord));
-  if (opp_dir_edges.empty())
-    return potential_result_edge;
-  if (opp_dir_edges.size() > 1)
-    return std::nullopt;
+  if (opp_dir_edges.empty()) return potential_result_edge;
+  if (opp_dir_edges.size() > 1) return std::nullopt;
 
   // Check if src --> abc_bdy is a potential buddy edge
-  if (!IsPotentialBuddyEdge(src, opp_dir_edges[0]))
-    return std::nullopt;
+  if (!IsPotentialBuddyEdge(src, opp_dir_edges[0])) return std::nullopt;
 
   return potential_result_edge;
 }
 
 auto Graph::IsPotentialBuddyEdge(Node const& src, Edge const& conn) const -> bool {
-  // conn is an outgoing edge from src node. conn's dst node is called nbour for "neighbour" node.
-  // * nbour node has atmost 2 and atleast 1 outgoing edges and not contain any self loops.
-  // * One of nbour outgoing edges must be a mirror of src --> nbour. i.e. nbour --> src.
-  // * Another nbour outgoing edge if present, must in the opposite direction of nbour --> src to
-  // nbour's nbour `nnb`
-  // * Neighbour's neighbour `nnb` if present, can atmost have 2 outgoing edges
-  // If all of these checks pass, then `conn` is a potential buddy edge from src --> neighbour
+  // conn is an outgoing edge from src node.
+  // conn's dst node is called nbour for "neighbour" node.
+  // * nbour node has at most 2 and at least 1 outgoing edges and not contain any self loops.
+  // * One of nbour outgoing edges must be a mirror of src --> nbour, i.e. nbour --> src.
+  // * Another nbour outgoing edge, if present, must be in the opposite direction
+  //   of nbour --> src to nbour's nbour `nnb`.
+  // * Neighbour's neighbour `nnb`, if present, can at most have 2 outgoing edges.
+  //
+  // If all of these checks pass, then `conn` is a
+  // potential buddy edge from src --> neighbour.
   auto const nbour_itr = mNodes.find(conn.DstId());
   LANCET_ASSERT(nbour_itr != mNodes.end())
   LANCET_ASSERT(nbour_itr->second != nullptr)
@@ -459,8 +442,7 @@ auto Graph::IsPotentialBuddyEdge(Node const& src, Edge const& conn) const -> boo
     }
   }
 
-  if (nbour.NumOutEdges() > 2 || nbour.NumOutEdges() == 0 || nbour.HasSelfLoop())
-    return false;
+  if (nbour.NumOutEdges() > 2 || nbour.NumOutEdges() == 0 || nbour.HasSelfLoop()) return false;
 
   auto const expected_nbour2src = conn.MirrorEdge();
   auto const start_sign_nbour2src = expected_nbour2src.SrcSign();
@@ -474,8 +456,9 @@ auto Graph::IsPotentialBuddyEdge(Node const& src, Edge const& conn) const -> boo
 
   auto const nb_edges_in_opp_dir = nbour.FindEdgesInDirection(Kmer::RevOrdering(dir_nbour2src));
   // Check if nbour loops back in a cycle to src node in opposite direction again
-  if (nb_edges_in_opp_dir.size() != 1 || nb_edges_in_opp_dir[0].DstId() == conn.SrcId())
+  if (nb_edges_in_opp_dir.size() != 1 || nb_edges_in_opp_dir[0].DstId() == conn.SrcId()) {
     return false;
+  }
 
   auto const nnb_itr = mNodes.find(nb_edges_in_opp_dir[0].DstId());
   LANCET_ASSERT(nnb_itr != mNodes.end())
@@ -498,14 +481,14 @@ void Graph::RemoveTips(usize const component_id) {
     std::ranges::for_each(
         mNodes, [&remove_nids, &component_id, this](NodeTable::const_reference item) -> void {
           auto const [source_id, sink_id] = this->mSourceAndSinkIds;
-          if (item.second->GetComponentId() != component_id || item.second->NumOutEdges() > 1)
+          if (item.second->GetComponentId() != component_id || item.second->NumOutEdges() > 1) {
             return;
-          if (item.first == source_id || item.first == sink_id)
-            return;
+          }
 
-          auto const uniq_seq_len = item.second->SeqLength() - mCurrK + 1;
-          if (uniq_seq_len >= this->mCurrK)
-            return;
+          if (item.first == source_id || item.first == sink_id) return;
+
+          auto const uniq_sequence_length = item.second->SeqLength() - mCurrK + 1;
+          if (uniq_sequence_length >= this->mCurrK) return;
 
           remove_nids.emplace_back(item.first);
         });
@@ -523,7 +506,7 @@ void Graph::RemoveTips(usize const component_id) {
     // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
     auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removed {} tips for {} in comp{} with k={}", total_tips, region_str, component_id,
-              mCurrK)
+              mCurrK);
   }
 }
 
@@ -532,8 +515,7 @@ auto Graph::FindSource(usize const component_id) const -> RefAnchor {
 
   for (usize ref_idx = 0; ref_idx < mRefNodeIds.size(); ++ref_idx) {
     auto const itr = mNodes.find(mRefNodeIds[ref_idx]);
-    if (itr == mNodes.end())
-      continue;
+    if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
     if (itr->second->GetComponentId() != component_id ||
@@ -555,8 +537,7 @@ auto Graph::FindSink(usize const component_id) const -> RefAnchor {
 
   for (i64 ref_idx = static_cast<i64>(mRefNodeIds.size() - 1); ref_idx >= 0; --ref_idx) {
     auto const itr = mNodes.find(mRefNodeIds[ref_idx]);
-    if (itr == mNodes.end())
-      continue;
+    if (itr == mNodes.end()) continue;
 
     LANCET_ASSERT(itr->second != nullptr)
     if (itr->second->GetComponentId() != component_id ||
@@ -607,11 +588,11 @@ auto Graph::FindSink(usize const component_id) const -> RefAnchor {
 //
 //   Example: DFS from source(+)
 //   ┌──────────────────────────────────────────────────────┐
-//   │  Visit state (A,+) → GRAY                           │
-//   │    Edge to (B,+) → WHITE → push (B,+)               │
-//   │      Edge to (C,-) → WHITE → push (C,-)             │
-//   │        Edge to (A,+) → GRAY! → CYCLE FOUND          │
-//   │      Edge to (A,-) → WHITE → push (A,-)             │ ← same node, different sign
+//   │  Visit state (A,+) → GRAY                            │
+//   │    Edge to (B,+) → WHITE → push (B,+)                │
+//   │      Edge to (C,-) → WHITE → push (C,-)              │
+//   │        Edge to (A,+) → GRAY! → CYCLE FOUND           │
+//   │      Edge to (A,-) → WHITE → push (A,-)              │ ← same node, different sign
 //   │        ...no back edge → BLACK                       │
 //   └──────────────────────────────────────────────────────┘
 //
@@ -653,12 +634,9 @@ auto Graph::HasCycle(TraversalIndex const& idx) -> bool {
     auto const& out = idx.mAdjList[range.mStart + frame.mEdgePos];
     frame.mEdgePos++;
 
-    if (color[out.mDstState] == Color::GRAY) {
-      return true;  // Back edge → cycle!
-    }
-    if (color[out.mDstState] != Color::WHITE) {
-      continue;  // BLACK → already finished, skip
-    }
+    if (color[out.mDstState] == Color::GRAY) return true;  // Back edge → cycle!
+
+    if (color[out.mDstState] != Color::WHITE) continue;  // BLACK → already finished, skip
 
     // WHITE → unvisited. Push child onto DFS stack.
     color[out.mDstState] = Color::GRAY;
@@ -688,72 +666,75 @@ auto Graph::HasCycle(TraversalIndex const& idx) -> bool {
 // during construction; all subsequent operations are flat-array-only.
 //
 auto Graph::BuildTraversalIndex(usize const component_id) const -> TraversalIndex {
-  TraversalIndex idx;
+  TraversalIndex traversal_index;
 
   // Phase 1: Assign contiguous u32 indices to nodes in this component
   absl::flat_hash_map<NodeID, u32> nid_to_flat;
   nid_to_flat.reserve(mNodes.size());
 
-  for (auto const& [nid, node_ptr] : mNodes) {
-    if (node_ptr->GetComponentId() != component_id)
-      continue;
-    auto const flat = static_cast<u32>(idx.mNodes.size());
-    idx.mNodes.push_back(node_ptr.get());
-    idx.mNodeIds.push_back(nid);
-    nid_to_flat.emplace(nid, flat);
+  for (auto const& [node_id, node_ptr] : mNodes) {
+    if (node_ptr->GetComponentId() != component_id) continue;
+
+    auto const flat = static_cast<u32>(traversal_index.mNodes.size());
+    traversal_index.mNodes.push_back(node_ptr.get());
+    traversal_index.mNodeIds.push_back(node_id);
+    nid_to_flat.emplace(node_id, flat);
   }
 
-  u32 const num_nodes = idx.NumNodes();
+  u32 const num_nodes = traversal_index.NumNodes();
   u32 const num_states = num_nodes * 2;
-  idx.mAdjRanges.resize(num_states, {.mStart = 0, .mCount = 0});
+  traversal_index.mAdjRanges.resize(num_states, {.mStart = 0, .mCount = 0});
 
   // Phase 2: Count outgoing edges per state (for range sizing)
-  for (u32 ni = 0; ni < num_nodes; ni++) {
-    Node const* node = idx.mNodes[ni];
+  for (u32 node_idx = 0; node_idx < num_nodes; node_idx++) {
+    Node const* node = traversal_index.mNodes[node_idx];
     for (Edge const& edge : *node) {
       // Only count edges whose destination is in this component
-      if (nid_to_flat.find(edge.DstId()) == nid_to_flat.end())
-        continue;
-      u32 const state = TraversalIndex::MakeState(ni, edge.SrcSign());
-      idx.mAdjRanges[state].mCount++;
+      if (nid_to_flat.find(edge.DstId()) == nid_to_flat.end()) continue;
+
+      u32 const state = TraversalIndex::MakeState(node_idx, edge.SrcSign());
+      traversal_index.mAdjRanges[state].mCount++;
     }
   }
 
   // Phase 3: Compute starting offsets via prefix sum
   u32 offset = 0;
-  for (u32 s = 0; s < num_states; s++) {
-    idx.mAdjRanges[s].mStart = offset;
-    offset += idx.mAdjRanges[s].mCount;
-    idx.mAdjRanges[s].mCount = 0;  // reset count; re-filled in phase 4
+  for (u32 state_idx = 0; state_idx < num_states; state_idx++) {
+    traversal_index.mAdjRanges[state_idx].mStart = offset;
+    offset += traversal_index.mAdjRanges[state_idx].mCount;
+    traversal_index.mAdjRanges[state_idx].mCount = 0;  // reset count; re-filled in phase 4
   }
-  idx.mAdjList.resize(offset);
+  traversal_index.mAdjList.resize(offset);
 
   // Phase 4: Fill adjacency list entries and assign edge ordinals
   absl::flat_hash_map<Edge, u32> edge_to_ordinal;
   edge_to_ordinal.reserve(offset);
 
-  for (u32 ni = 0; ni < num_nodes; ni++) {
-    Node const* node = idx.mNodes[ni];
+  for (u32 node_idx = 0; node_idx < num_nodes; node_idx++) {
+    Node const* node = traversal_index.mNodes[node_idx];
     for (Edge const& edge : *node) {
       auto const dst_it = nid_to_flat.find(edge.DstId());
-      if (dst_it == nid_to_flat.end())
-        continue;
+      if (dst_it == nid_to_flat.end()) continue;
 
-      u32 const src_state = TraversalIndex::MakeState(ni, edge.SrcSign());
+      u32 const src_state = TraversalIndex::MakeState(node_idx, edge.SrcSign());
       u32 const dst_state = TraversalIndex::MakeState(dst_it->second, edge.DstSign());
 
       // Assign or reuse edge ordinal (edges appear at both endpoints as forward + mirror)
       u32 ordinal = 0;
-      auto [it, inserted] = edge_to_ordinal.emplace(edge, static_cast<u32>(idx.mOrigEdges.size()));
+      auto [iter, inserted] =
+          edge_to_ordinal.emplace(edge, static_cast<u32>(traversal_index.mOrigEdges.size()));
+
       if (inserted) {
-        ordinal = it->second;
-        idx.mOrigEdges.push_back(edge);
+        ordinal = iter->second;
+        traversal_index.mOrigEdges.push_back(edge);
       } else {
-        ordinal = it->second;
+        ordinal = iter->second;
       }
 
-      auto& range = idx.mAdjRanges[src_state];
-      idx.mAdjList[range.mStart + range.mCount] = {.mDstState = dst_state, .mEdgeOrdinal = ordinal};
+      auto& range = traversal_index.mAdjRanges[src_state];
+      traversal_index.mAdjList[range.mStart + range.mCount] = {.mDstState = dst_state,
+                                                               .mEdgeOrdinal = ordinal};
+
       range.mCount++;
     }
   }
@@ -762,11 +743,11 @@ auto Graph::BuildTraversalIndex(usize const component_id) const -> TraversalInde
   auto const [source_id, sink_id] = mSourceAndSinkIds;
   auto const src_flat = nid_to_flat.at(source_id);
   auto const snk_flat = nid_to_flat.at(sink_id);
-  auto const src_sign = idx.mNodes[src_flat]->SignFor(Kmer::Ordering::DEFAULT);
-  idx.mSrcState = TraversalIndex::MakeState(src_flat, src_sign);
-  idx.mSnkNodeIdx = snk_flat;
+  auto const src_sign = traversal_index.mNodes[src_flat]->SignFor(Kmer::Ordering::DEFAULT);
+  traversal_index.mSrcState = TraversalIndex::MakeState(src_flat, src_sign);
+  traversal_index.mSnkNodeIdx = snk_flat;
 
-  return idx;
+  return traversal_index;
 }
 
 // ============================================================================
@@ -805,8 +786,7 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   LANCET_ASSERT(static_cast<usize>(std::ranges::count_if(mNodes, is_unassigned)) == mNodes.size())
 
   for (NodeTable::reference item : mNodes) {
-    if (item.second->GetComponentId() != 0)
-      continue;
+    if (item.second->GetComponentId() != 0) continue;
 
     current_component++;
     results_info.emplace_back(ComponentInfo{.mCompId = current_component, .mNumNodes = 0});
@@ -858,10 +838,8 @@ void Graph::RemoveLowCovNodes(usize const component_id) {
       std::as_const(mNodes),
       [&remove_nids, &component_id, this](NodeTable::const_reference item) -> void {
         auto const [source_id, sink_id] = this->mSourceAndSinkIds;
-        if (item.second->GetComponentId() != component_id)
-          return;
-        if (item.first == source_id || item.first == sink_id)
-          return;
+        if (item.second->GetComponentId() != component_id) return;
+        if (item.first == source_id || item.first == sink_id) return;
 
         auto const is_nml_singleton = item.second->NormalReadSupport() == 1;
         auto const is_tmr_singleton = item.second->TumorReadSupport() == 1;
@@ -885,17 +863,14 @@ void Graph::RemoveLowCovNodes(usize const component_id) {
 }
 
 void Graph::RemoveNode(NodeTable::iterator itr) {
-  if (itr == mNodes.end())
-    return;
+  if (itr == mNodes.end()) return;
 
   // remove all incoming edges to the node first
   for (Edge const& conn : *itr->second) {
-    if (conn.IsSelfLoop())
-      continue;
+    if (conn.IsSelfLoop()) continue;
 
     auto nbour_itr = mNodes.find(conn.DstId());
-    if (nbour_itr != mNodes.end())
-      nbour_itr->second->EraseEdge(conn.MirrorEdge());
+    if (nbour_itr != mNodes.end()) nbour_itr->second->EraseEdge(conn.MirrorEdge());
   }
 
   mNodes.erase(itr);
@@ -928,8 +903,7 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
   mate_mers.clear();
   for (auto const& read : mReads) {
-    if (!read.PassesAlnFilters())
-      continue;
+    if (!read.PassesAlnFilters()) continue;
 
     usize offset = 0;
     auto added_nodes = AddNodes(read.SeqView(), read.SrcLabel());
@@ -940,8 +914,7 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
       auto const curr_qual = read.QualView().subspan(offset, this->mCurrK);
       offset++;
 
-      if (IS_LOW_QUAL_KMER(curr_qual) || mate_mers.contains(mm_pair))
-        return;
+      if (IS_LOW_QUAL_KMER(curr_qual) || mate_mers.contains(mm_pair)) return;
       node->IncrementReadSupport(read.SrcLabel());
       mate_mers.emplace(mm_pair);
     });
@@ -968,8 +941,7 @@ auto Graph::AddNodes(std::string_view sequence, Label const label) -> std::vecto
     auto& first = mNodes.at(left_id);
     auto& second = mNodes.at(right_id);
 
-    if (mer_idx == 0)
-      result.emplace_back(first.get());
+    if (mer_idx == 0) result.emplace_back(first.get());
 
     static constexpr auto DEFAULT_ORDER = Kmer::Ordering::DEFAULT;
     auto const fwd_edge =
@@ -1019,8 +991,7 @@ auto Graph::ToString(State const state) -> std::string {
 #endif
 
 void Graph::WriteDot([[maybe_unused]] State state, usize comp_id) {
-  if (mParams.mOutGraphsDir.empty())
-    return;
+  if (mParams.mOutGraphsDir.empty()) return;
 
 #ifdef LANCET_DEVELOP_MODE
   auto const graph_state = ToString(state);
@@ -1056,8 +1027,7 @@ edge [color=gray,fontsize=8,fontcolor=floralwhite,len=3,fixedsize=false,headclip
   fmt::print(out_handle, "subgraph {} {{\n", out_path.stem().string());
 
   for (NodeTable::const_reference item : graph) {
-    if (item.second->GetComponentId() != comp_id)
-      continue;
+    if (item.second->GetComponentId() != comp_id) continue;
 
     auto const dflt_seq = item.second->SequenceFor(Kmer::Ordering::DEFAULT);
     auto const oppo_seq = item.second->SequenceFor(Kmer::Ordering::OPPOSITE);

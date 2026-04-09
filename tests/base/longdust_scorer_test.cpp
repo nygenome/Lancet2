@@ -86,8 +86,7 @@ inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector
   std::string line;
   std::getline(infile, line);  // skip header
   while (std::getline(infile, line)) {
-    if (line.empty())
-      continue;
+    if (line.empty()) continue;
     CalibrationRow r;
     std::istringstream iss(line);
     std::string start_s, end_s, scale_s, rlen_s, score_s;

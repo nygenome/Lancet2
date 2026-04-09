@@ -29,15 +29,13 @@ void AsyncWorker::Process(std::stop_token stop_token,
 
   while (true) {
     // Check if stop is requested for this thread by the RunMain/caller thread
-    if (stop_token.stop_requested())
-      break;
+    if (stop_token.stop_requested()) break;
 
     // Get the next available unprocessed window from the RunMain/caller thread.
     // NOTE: wait_dequeue_timed serves as a blocking futex call preventing hardware thread-spin.
     // If the timeout triggers without a payload, we seamlessly `continue` the loop,
     // structurally allowing the top-level stop_token evaluation to re-poll state.
-    if (!mInPtr->wait_dequeue_timed(window_ptr, QUEUE_TIMEOUT))
-      continue;
+    if (!mInPtr->wait_dequeue_timed(window_ptr, QUEUE_TIMEOUT)) continue;
 
     timer.Reset();
     auto variants = mBuilderPtr->ProcessWindow(std::const_pointer_cast<Window const>(window_ptr));
