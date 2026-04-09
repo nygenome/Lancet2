@@ -21,12 +21,11 @@
 
 namespace {
 
+// Variant identity is defined by CHROM+POS+REF (locus-level, no ALTs).
+// Uses mChromIndex (integer, always correctly set) instead of mChromName for robustness.
+// See the identity design note on VariantCall::operator< for full rationale.
 [[nodiscard]] inline auto HashRawVariant(const lancet::caller::RawVariant* var) -> u64 {
-  std::size_t h = absl::HashOf(var->mChromName, var->mGenomeChromPos1, var->mRefAllele);
-  std::for_each(var->mAlts.cbegin(), var->mAlts.cend(), [&h](const auto& alt) {
-    h = absl::HashOf(h, alt.mSequence, alt.mLength, alt.mType);
-  });
-  return static_cast<u64>(h);
+  return static_cast<u64>(absl::HashOf(var->mChromIndex, var->mGenomeChromPos1, var->mRefAllele));
 }
 
 }  // namespace

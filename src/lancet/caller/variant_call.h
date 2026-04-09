@@ -86,6 +86,32 @@ class VariantCall {
 
   [[nodiscard]] auto AsVcfRecord() const -> std::string;
 
+  // ── VARIANT IDENTITY & ORDERING DESIGN ──────────────────────────────────
+  // Identity (operator==) and ordering (operator<) both use the same
+  // conceptual key: CHROM + POS + REF (locus-level, ALTs excluded).
+  //
+  // WHY NO ALTs IN IDENTITY:
+  //   Overlapping genomic windows independently assemble the same locus.
+  //   Window A might produce chr1:100 A→T at 80x, while Window B produces
+  //   chr1:100 A→T,G at 120x. These are the same locus — the higher-coverage
+  //   window assembled a more complete multi-allelic picture. With ALTs in the
+  //   hash, they'd be treated as *different* variants, producing duplicate VCF
+  //   records at the same locus (poor practice per VCF v4.5 spec). With
+  //   CHROM+POS+REF identity, VariantStore dedup keeps only the higher-coverage
+  //   call, ensuring at most one VCF record per locus.
+  //
+  // DOWNSTREAM INVARIANT (VariantStore):
+  //   VariantStore uses Identifier() (== mVariantId) as flat_hash_map key.
+  //   When a duplicate is found (same CHROM+POS+REF), the variant with higher
+  //   TotalCoverage() replaces the existing one. This means after dedup, at
+  //   most one variant per locus exists, so the TotalCov and mVariantId
+  //   tiebreakers in operator< are purely for mathematical completeness.
+  //
+  // WARNING: Do NOT add ALT alleles to HashRawVariant or change the fields
+  //   used by operator== / operator< without updating VariantStore's dedup
+  //   logic. Mismatched identity semantics will produce duplicate VCF records
+  //   and break tabix indexing.
+  // ────────────────────────────────────────────────────────────────────────
   friend auto operator==(const VariantCall& lhs, const VariantCall& rhs) -> bool {
     return lhs.mVariantId == rhs.mVariantId;
   }
@@ -94,7 +120,8 @@ class VariantCall {
     if (lhs.mChromIndex != rhs.mChromIndex) return lhs.mChromIndex < rhs.mChromIndex;
     if (lhs.mStartPos1 != rhs.mStartPos1) return lhs.mStartPos1 < rhs.mStartPos1;
     if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
-    return lhs.mTotalSampleCov > rhs.mTotalSampleCov;
+    if (lhs.mTotalSampleCov != rhs.mTotalSampleCov) return lhs.mTotalSampleCov < rhs.mTotalSampleCov;
+    return lhs.mVariantId < rhs.mVariantId;
     // NOLINTEND(readability-braces-around-statements)
   }
 

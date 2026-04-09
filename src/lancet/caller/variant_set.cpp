@@ -405,6 +405,7 @@ private:
         // Instantiate unified multiallelic VCF bucket correctly capturing complex fields.
         RawVariant multiallelic_var;
         multiallelic_var.mChromIndex = win_.ChromIndex();
+        multiallelic_var.mChromName = win_.ChromName();
         multiallelic_var.mGenomeChromPos1 = bubble.genome_start_pos;
         multiallelic_var.mLocalRefStart0Idx = bubble.hap_starts[REF_HAP_IDX]; // Statically locks to REF coordinate flawlessly 
         multiallelic_var.mRefAllele = std::move(bubble.ref_allele);

@@ -35,9 +35,11 @@ void VariantStore::AddVariants(std::vector<Value> &&variants) {
       continue;
     }
 
-    if (prev->second->TotalCoverage() < curr->TotalCoverage() && prev->second->Quality() < curr->Quality()) {
-      map.erase(prev);
-      map.emplace(identifier, std::move(curr));
+    // Duplicate found (same CHROM+POS+REF locus). Keep the variant with higher
+    // total coverage — the better-covered window likely assembled a more complete
+    // multi-allelic picture. See identity design note on VariantCall::operator<.
+    if (prev->second->TotalCoverage() < curr->TotalCoverage()) {
+      prev->second = std::move(curr);
     }
   }
 }

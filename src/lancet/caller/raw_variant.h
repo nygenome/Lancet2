@@ -1,6 +1,7 @@
 #ifndef SRC_LANCET_CALLER_RAW_VARIANT_H_
 #define SRC_LANCET_CALLER_RAW_VARIANT_H_
 
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,16 +83,16 @@ class RawVariant {
   };
 
   // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-  usize mChromIndex = -1;
+  usize mChromIndex = SIZE_MAX;
   
   // 1. GLOBAL GENOMIC COORDINATE: Strictly tracks where the variant structurally lands
   // on the actual reference genome. Only strictly used for VCF sorting and emitting.
-  usize mGenomeChromPos1 = -1;
+  usize mGenomeChromPos1 = SIZE_MAX;
   
   // 2. LOCAL MATRIX COORDINATE (REF): The exact 0-indexed position within the 
   // specific Reference string array spanning this exact Micro-Assembly window.
   // Necessary to exactly bind structural CIGAR strings backwards.
-  usize mLocalRefStart0Idx = -1;
+  usize mLocalRefStart0Idx = SIZE_MAX;
   
   std::string mChromName;
   // Contains the universal left-aligned bounding sequence encompassing ALL ALTs
