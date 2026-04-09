@@ -5,7 +5,7 @@
 
 #include <iostream>
 #ifndef __APPLE__
-#include "mimalloc-override.h"  // NOLINT(misc-include-cleaner)
+#include "mimalloc-override.h"
 #endif
 #include "mimalloc.h"
 #include "spdlog/spdlog.h"

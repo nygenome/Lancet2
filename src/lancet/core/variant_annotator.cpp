@@ -45,7 +45,6 @@ void VariantAnnotator::AnnotateSequenceComplexity(caller::VariantSet const& vset
       continue;
     }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const& ref_hap = haplotypes[REF_HAP_IDX];
     auto const ref_len = var.mRefAllele.size();
 
@@ -61,7 +60,6 @@ void VariantAnnotator::AnnotateSequenceComplexity(caller::VariantSet const& vset
           continue;
         }
 
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         auto cplx =
             mSeqCxScorer.Score(ref_hap, ref_pos, ref_len, haplotypes[hap_idx], hap_pos, alt_len);
         var.mSeqCx.MergeMax(cplx);

@@ -170,11 +170,9 @@ auto VariantBuilder::ProcessWindow(std::shared_ptr<Window const> const& window) 
 
   WindowResults variants;
   for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const nhaps = component_haplotypes[idx].size();
     auto const anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
     std::vector<cbdg::Graph::Path> const& comp_paths = component_haplotypes[idx];
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     std::vector<std::string> comp_haps;
     comp_haps.reserve(comp_paths.size());
@@ -198,7 +196,6 @@ auto VariantBuilder::ProcessWindow(std::shared_ptr<Window const> const& window) 
       mAnnotator.AnnotateSequenceComplexity(vset, absl::MakeConstSpan(comp_haps));
     }
     if (mParamsPtr->mEnableGraphComplexity && idx < dbg_rslt.mComponentMetrics.size()) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       VariantAnnotator::AnnotateGraphComplexity(vset, dbg_rslt.mComponentMetrics[idx]);
     }
 
@@ -255,7 +252,6 @@ auto VariantBuilder::ProcessWindow(std::shared_ptr<Window const> const& window) 
 
 auto VariantBuilder::MakeGfaPath(Window const& win, usize const comp_id) const
     -> std::filesystem::path {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mParamsPtr->mOutGraphsDir.empty())
     return {};
 

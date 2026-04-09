@@ -14,7 +14,6 @@ namespace {
 
 inline auto WeightedAverage(std::array<u32, 2> const& numbers, std::array<usize, 2> const& weights)
     -> u32 {
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return ((numbers[0] * weights[0]) + (numbers[1] * weights[1])) / (weights[0] + weights[1]);
 }
 
@@ -27,7 +26,6 @@ void Node::AddLabel(Label const& label) {
 }
 
 void Node::IncrementReadSupport(Label const& label) {
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   if (label.HasTag(Label::NORMAL)) {
     mCounts[NORMAL_COUNT_INDEX] += 1;
   }
@@ -43,7 +41,6 @@ auto Node::NormalReadSupport() const noexcept -> u32 {
 auto Node::TumorReadSupport() const noexcept -> u32 {
   return mCounts[TUMOR_COUNT_INDEX];
 }
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 auto Node::TotalReadSupport() const noexcept -> u32 {
   return NormalReadSupport() + TumorReadSupport();
 }
@@ -51,10 +48,8 @@ auto Node::TotalReadSupport() const noexcept -> u32 {
 void Node::Merge(Node const& other, EdgeKind const conn_kind, usize const currk) {
   mKmer.Merge(other.mKmer, conn_kind, currk);
   mLabel.Merge(other.mLabel);
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   mCounts[0] = WeightedAverage({mCounts[0], other.mCounts[0]}, {mKmer.Length(), other.Length()});
   mCounts[1] = WeightedAverage({mCounts[1], other.mCounts[1]}, {mKmer.Length(), other.Length()});
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }
 
 auto Node::HasSelfLoop() const -> bool {

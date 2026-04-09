@@ -14,7 +14,6 @@ constexpr auto MakeDnaComplementTable() -> std::array<char, 256> {
   for (auto& val : tbl) {
     val = 'N';
   }
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   tbl['A'] = 'T';
   tbl['a'] = 't';
   tbl['T'] = 'A';
@@ -25,14 +24,12 @@ constexpr auto MakeDnaComplementTable() -> std::array<char, 256> {
   tbl['g'] = 'c';
   tbl['N'] = 'N';
   tbl['n'] = 'n';
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return tbl;
 }
 
 inline constexpr std::array<char, 256> DNA_COMPLEMENT_TABLE = MakeDnaComplementTable();
 
 [[nodiscard]] inline auto RevComp(char const& base) -> char {
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return DNA_COMPLEMENT_TABLE[static_cast<u8>(base)];
 }
 
@@ -40,7 +37,6 @@ inline constexpr std::array<char, 256> DNA_COMPLEMENT_TABLE = MakeDnaComplementT
   std::string rev_comp_seq(seq.size(), 'N');
   usize rc_idx = 0;
   for (char const& itr : std::ranges::reverse_view(seq)) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     rev_comp_seq[rc_idx] = DNA_COMPLEMENT_TABLE[static_cast<u8>(itr)];
     ++rc_idx;
   }

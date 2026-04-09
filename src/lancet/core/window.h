@@ -30,12 +30,10 @@ class Window {
   [[nodiscard]] auto GenomeIndex() const -> usize { return mGenIdx; }
   [[nodiscard]] auto ChromIndex() const -> usize { return mChrom.Index(); }
   [[nodiscard]] auto ChromName() const -> std::string { return mChrom.Name(); }
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   [[nodiscard]] auto StartPos1() const -> u64 { return mSpec.mRegionSpan[0].value_or(1); }
   [[nodiscard]] auto EndPos1() const -> u64 {
     return mSpec.mRegionSpan[1].value_or(mChrom.Length());
   }
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   [[nodiscard]] auto Length() const -> usize {
     return mSpec.Length() != 0 ? mSpec.Length() : mChrom.Length();
   }
@@ -69,7 +67,6 @@ class Window {
   mutable RegionPtr mRegPtr = nullptr;
 
   void EnsureRegionBuilt() const {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (mRegPtr != nullptr || mRefPath.empty() || mSpec.mChromName.empty())
       return;
 

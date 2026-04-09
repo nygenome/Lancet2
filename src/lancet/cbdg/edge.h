@@ -12,7 +12,6 @@ namespace lancet::cbdg {
 class Edge {
  public:
   Edge() = default;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   explicit Edge(std::array<u64, 2> src_dst_ids, EdgeKind kind)
       : mSrcId(src_dst_ids[0]), mDstId(src_dst_ids[1]), mEdgeKind(kind) {}
 
@@ -20,14 +19,12 @@ class Edge {
   [[nodiscard]] auto DstId() const noexcept -> u64 { return mDstId; }
   [[nodiscard]] auto Kind() const noexcept -> EdgeKind { return mEdgeKind; }
 
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   [[nodiscard]] auto SrcSign() const noexcept -> Kmer::Sign {
     return SplitIntoSignPair(mEdgeKind)[0];
   }
   [[nodiscard]] auto DstSign() const noexcept -> Kmer::Sign {
     return SplitIntoSignPair(mEdgeKind)[1];
   }
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
   [[nodiscard]] auto IsSelfLoop() const noexcept -> bool { return mSrcId == mDstId; }
   [[nodiscard]] auto IsSelfMirror() const noexcept -> bool {

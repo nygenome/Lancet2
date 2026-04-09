@@ -29,7 +29,6 @@ void AsyncWorker::Process(std::stop_token stop_token,
 
   while (true) {
     // Check if stop is requested for this thread by the RunMain/caller thread
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (stop_token.stop_requested())
       break;
 
@@ -37,7 +36,6 @@ void AsyncWorker::Process(std::stop_token stop_token,
     // NOTE: wait_dequeue_timed serves as a blocking futex call preventing hardware thread-spin.
     // If the timeout triggers without a payload, we seamlessly `continue` the loop,
     // structurally allowing the top-level stop_token evaluation to re-poll state.
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (!mInPtr->wait_dequeue_timed(window_ptr, QUEUE_TIMEOUT))
       continue;
 

@@ -27,7 +27,6 @@ void RegisterLancetLogger(Args&&... args) {
                 "Sink must implement spdlog::sinks::sink interface");
 
   // Already registered logger previously, so we can return early
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (spdlog::default_logger_raw()->name() == LOGGER_NAME)
     return;
 

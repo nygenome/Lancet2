@@ -15,7 +15,6 @@ class CliParams {
  public:
   CliParams() = default;
 
-  // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
   std::string mFullCmdLine;
   std::filesystem::path mOutVcfGz;
   std::filesystem::path mBedFile;
@@ -26,7 +25,6 @@ class CliParams {
 
   core::WindowBuilder::Params mWindowBuilder;
   core::VariantBuilder::Params mVariantBuilder;
-  // NOLINTEND(misc-non-private-member-variables-in-classes)
 };
 
 }  // namespace lancet::cli

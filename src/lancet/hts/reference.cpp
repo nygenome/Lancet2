@@ -81,7 +81,6 @@ auto Reference::FindChromByIndex(i64 chrom_index) const noexcept -> absl::Status
                                     chrom_index, nchroms));
   }
 
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return mChroms[chrom_index];
 }
 
@@ -94,10 +93,8 @@ auto Reference::MakeRegion(std::string const& chrom_name,
     throw std::invalid_argument(msg);
   }
 
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   u64 const given_start = interval[0].value_or(1);
   u64 const given_end = interval[1].value_or(matching_chrom->Length());
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
   if (given_start == 0 || given_end == 0) {
     throw std::invalid_argument("Expected 1-based co-ordinates for start and end positions");
@@ -176,17 +173,16 @@ auto Reference::FetchSeq(std::string const& chrom, OneBasedClosedInterval const&
   auto const sequence_length = static_cast<usize>(parsed_len);
   std::string result_seq(sequence_length, 'N');
   for (usize base_idx = 0; base_idx < sequence_length; ++base_idx) {
-    auto const base = absl::ascii_toupper(static_cast<unsigned char>(raw_seq[base_idx]));  // NOLINT
+    auto const base = absl::ascii_toupper(
+        static_cast<unsigned char>(raw_seq[base_idx]));  // NOLINT(bugprone-signed-char-misuse)
     switch (base) {
       case 'A':
       case 'C':
       case 'G':
       case 'T':
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         result_seq[base_idx] = base;
         break;
       default:
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         result_seq[base_idx] = 'N';
     }
   }
@@ -203,13 +199,11 @@ auto Reference::Region::ToSamtoolsRegion() const -> std::string {
 }
 
 auto Reference::ParseRegionResult::Length() const noexcept -> usize {
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   if (mRegionSpan[0] == std::nullopt || mRegionSpan[1] == std::nullopt) {
     return 0;
   }
 
   return mRegionSpan[1].value_or(1) - mRegionSpan[0].value_or(0) + 1;
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }
 
 }  // namespace lancet::hts

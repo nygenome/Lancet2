@@ -46,7 +46,6 @@ namespace lancet::hts {
         // M op: must compare sequences base-by-base for mismatches.
         // Encoded bases are numeric (0-4), so comparison is case-insensitive.
         for (u32 i = 0; i < len; ++i, ++qpos, ++tpos) {
-          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           if (qpos < encoded_query.size() &&
               tpos < encoded_target.size() &&
               encoded_query[qpos] != encoded_target[tpos]) {
@@ -109,7 +108,6 @@ namespace lancet::hts {
       case CigarOp::SEQUENCE_MATCH:
       case CigarOp::SEQUENCE_MISMATCH:
         for (u32 i = 0; i < len; ++i, ++qpos, ++tpos) {
-          // NOLINTNEXTLINE(readability-braces-around-statements)
           if (tpos == ref_pos)
             return qpos;
         }
@@ -120,7 +118,6 @@ namespace lancet::hts {
       case CigarOp::DELETION:
       case CigarOp::REFERENCE_SKIP:
         for (u32 i = 0; i < len; ++i, ++tpos) {
-          // NOLINTNEXTLINE(readability-braces-around-statements)
           if (tpos == ref_pos)
             return qpos;
         }

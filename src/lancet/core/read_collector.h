@@ -25,7 +25,6 @@ class ReadCollector {
   static constexpr f64 DEFAULT_MAX_WINDOW_COVERAGE = 1000.0;
 
   struct Params {
-    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     std::filesystem::path mRefPath;
     std::vector<std::filesystem::path> mNormalPaths;
     std::vector<std::filesystem::path> mTumorPaths;
@@ -33,7 +32,6 @@ class ReadCollector {
     f64 mMaxSampleCov = DEFAULT_MAX_WINDOW_COVERAGE;
     bool mNoCtgCheck = false;
     bool mExtractPairs = false;
-    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     [[nodiscard]] auto SamplesCount() const -> usize {
       return mNormalPaths.size() + mTumorPaths.size();

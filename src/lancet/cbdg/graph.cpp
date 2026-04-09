@@ -41,7 +41,6 @@
 #include <cmath>
 
 namespace lancet::cbdg {
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 void Graph::Path::AppendSequence(std::string_view seq) {
   absl::StrAppend(&mSequence, seq);
@@ -142,7 +141,6 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
     // Skip this k if the reference itself has a repeated k-mer — the de Bruijn
     // graph would contain a cycle by construction, making assembly pointless.
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (HasExactOrApproxRepeat(mRegion->SeqView(), mCurrK))
       continue;
 
@@ -166,10 +164,8 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
     // remaining components at this k and retry at a higher k value.
     bool should_retry_kmer = false;
     for (auto const& cinfo : components) {
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (should_retry_kmer)
         break;
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (cinfo.mPctNodes < DEFAULT_PCT_NODES_NEEDED)
         continue;
 
@@ -184,7 +180,6 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
       }
 
       auto const current_anchor_length = RefAnchorLength(source, sink, mCurrK);
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (current_anchor_length < DEFAULT_MIN_ANCHOR_LENGTH)
         continue;
 
@@ -321,10 +316,10 @@ void Graph::CompressGraph(usize const component_id) {
 
   for (NodeTable::const_reference item : mNodes) {
     if (item.second->GetComponentId() != component_id) {
-      continue;  // NOLINT(readability-braces-around-statements)
+      continue;
     }
     if (remove_nids.contains(item.first)) {
-      continue;  // NOLINT(readability-braces-around-statements)
+      continue;
     }
 
     CompressNode(item.first, Kmer::Ordering::DEFAULT, remove_nids);
@@ -336,7 +331,6 @@ void Graph::CompressGraph(usize const component_id) {
     auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Compressed {} nodes for {} in comp{} with k={}", remove_nids.size(), region_str,
               component_id, mCurrK)
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     for (auto const nid : remove_nids)
       RemoveNode(mNodes.find(nid));
   }
@@ -361,7 +355,6 @@ void Graph::CompressNode(NodeID nid, Kmer::Ordering const ord, NodeIdSet& compre
     auto const rev_src2obdy_src_sign = Kmer::RevSign(src2obdy.SrcSign());
     for (Edge const& obdy2nbdy : *(obdy_itr->second)) {
       // Skip if this is old_buddy --> src edge before merging edges
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (obdy2nbdy == src2obdy.MirrorEdge())
         continue;
 
@@ -413,12 +406,10 @@ auto Graph::FindCompressibleEdge(Node const& src, Kmer::Ordering const ord) cons
   // If all these conditions are satisfied, then src --> abc_bdy edge is returned. std::nullopt is
   // returned otherwise.
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (src.NumOutEdges() > 2 || src.NumOutEdges() == 0 || src.HasSelfLoop())
     return std::nullopt;
 
   auto const mergeable_edges = src.FindEdgesInDirection(ord);
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mergeable_edges.size() != 1)
     return std::nullopt;
 
@@ -429,20 +420,16 @@ auto Graph::FindCompressibleEdge(Node const& src, Kmer::Ordering const ord) cons
   }
 
   // Check if src --> abc_bdy is a potential buddy edge
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (!IsPotentialBuddyEdge(src, potential_result_edge))
     return std::nullopt;
 
   auto const opp_dir_edges = src.FindEdgesInDirection(Kmer::RevOrdering(ord));
-  // NOLINTBEGIN(readability-braces-around-statements)
   if (opp_dir_edges.empty())
     return potential_result_edge;
   if (opp_dir_edges.size() > 1)
     return std::nullopt;
-  // NOLINTEND(readability-braces-around-statements)
 
   // Check if src --> abc_bdy is a potential buddy edge
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (!IsPotentialBuddyEdge(src, opp_dir_edges[0]))
     return std::nullopt;
 
@@ -472,7 +459,6 @@ auto Graph::IsPotentialBuddyEdge(Node const& src, Edge const& conn) const -> boo
     }
   }
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (nbour.NumOutEdges() > 2 || nbour.NumOutEdges() == 0 || nbour.HasSelfLoop())
     return false;
 
@@ -488,7 +474,6 @@ auto Graph::IsPotentialBuddyEdge(Node const& src, Edge const& conn) const -> boo
 
   auto const nb_edges_in_opp_dir = nbour.FindEdgesInDirection(Kmer::RevOrdering(dir_nbour2src));
   // Check if nbour loops back in a cycle to src node in opposite direction again
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (nb_edges_in_opp_dir.size() != 1 || nb_edges_in_opp_dir[0].DstId() == conn.SrcId())
     return false;
 
@@ -513,15 +498,12 @@ void Graph::RemoveTips(usize const component_id) {
     std::ranges::for_each(
         mNodes, [&remove_nids, &component_id, this](NodeTable::const_reference item) -> void {
           auto const [source_id, sink_id] = this->mSourceAndSinkIds;
-          // NOLINTBEGIN(readability-braces-around-statements)
           if (item.second->GetComponentId() != component_id || item.second->NumOutEdges() > 1)
             return;
           if (item.first == source_id || item.first == sink_id)
             return;
-          // NOLINTEND(readability-braces-around-statements)
 
           auto const uniq_seq_len = item.second->SeqLength() - mCurrK + 1;
-          // NOLINTNEXTLINE(readability-braces-around-statements)
           if (uniq_seq_len >= this->mCurrK)
             return;
 
@@ -550,7 +532,6 @@ auto Graph::FindSource(usize const component_id) const -> RefAnchor {
 
   for (usize ref_idx = 0; ref_idx < mRefNodeIds.size(); ++ref_idx) {
     auto const itr = mNodes.find(mRefNodeIds[ref_idx]);
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (itr == mNodes.end())
       continue;
 
@@ -574,7 +555,6 @@ auto Graph::FindSink(usize const component_id) const -> RefAnchor {
 
   for (i64 ref_idx = static_cast<i64>(mRefNodeIds.size() - 1); ref_idx >= 0; --ref_idx) {
     auto const itr = mNodes.find(mRefNodeIds[ref_idx]);
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (itr == mNodes.end())
       continue;
 
@@ -715,7 +695,6 @@ auto Graph::BuildTraversalIndex(usize const component_id) const -> TraversalInde
   nid_to_flat.reserve(mNodes.size());
 
   for (auto const& [nid, node_ptr] : mNodes) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (node_ptr->GetComponentId() != component_id)
       continue;
     auto const flat = static_cast<u32>(idx.mNodes.size());
@@ -733,7 +712,6 @@ auto Graph::BuildTraversalIndex(usize const component_id) const -> TraversalInde
     Node const* node = idx.mNodes[ni];
     for (Edge const& edge : *node) {
       // Only count edges whose destination is in this component
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (nid_to_flat.find(edge.DstId()) == nid_to_flat.end())
         continue;
       u32 const state = TraversalIndex::MakeState(ni, edge.SrcSign());
@@ -758,7 +736,6 @@ auto Graph::BuildTraversalIndex(usize const component_id) const -> TraversalInde
     Node const* node = idx.mNodes[ni];
     for (Edge const& edge : *node) {
       auto const dst_it = nid_to_flat.find(edge.DstId());
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (dst_it == nid_to_flat.end())
         continue;
 
@@ -828,7 +805,6 @@ auto Graph::MarkConnectedComponents() -> std::vector<ComponentInfo> {
   LANCET_ASSERT(static_cast<usize>(std::ranges::count_if(mNodes, is_unassigned)) == mNodes.size())
 
   for (NodeTable::reference item : mNodes) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (item.second->GetComponentId() != 0)
       continue;
 
@@ -882,12 +858,10 @@ void Graph::RemoveLowCovNodes(usize const component_id) {
       std::as_const(mNodes),
       [&remove_nids, &component_id, this](NodeTable::const_reference item) -> void {
         auto const [source_id, sink_id] = this->mSourceAndSinkIds;
-        // NOLINTBEGIN(readability-braces-around-statements)
         if (item.second->GetComponentId() != component_id)
           return;
         if (item.first == source_id || item.first == sink_id)
           return;
-        // NOLINTEND(readability-braces-around-statements)
 
         auto const is_nml_singleton = item.second->NormalReadSupport() == 1;
         auto const is_tmr_singleton = item.second->TumorReadSupport() == 1;
@@ -911,18 +885,15 @@ void Graph::RemoveLowCovNodes(usize const component_id) {
 }
 
 void Graph::RemoveNode(NodeTable::iterator itr) {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (itr == mNodes.end())
     return;
 
   // remove all incoming edges to the node first
   for (Edge const& conn : *itr->second) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (conn.IsSelfLoop())
       continue;
 
     auto nbour_itr = mNodes.find(conn.DstId());
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (nbour_itr != mNodes.end())
       nbour_itr->second->EraseEdge(conn.MirrorEdge());
   }
@@ -957,7 +928,6 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
 
   mate_mers.clear();
   for (auto const& read : mReads) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (!read.PassesAlnFilters())
       continue;
 
@@ -970,7 +940,6 @@ void Graph::BuildGraph(absl::flat_hash_set<MateMer>& mate_mers) {
       auto const curr_qual = read.QualView().subspan(offset, this->mCurrK);
       offset++;
 
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (IS_LOW_QUAL_KMER(curr_qual) || mate_mers.contains(mm_pair))
         return;
       node->IncrementReadSupport(read.SrcLabel());
@@ -999,7 +968,6 @@ auto Graph::AddNodes(std::string_view sequence, Label const label) -> std::vecto
     auto& first = mNodes.at(left_id);
     auto& second = mNodes.at(right_id);
 
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (mer_idx == 0)
       result.emplace_back(first.get());
 
@@ -1051,7 +1019,6 @@ auto Graph::ToString(State const state) -> std::string {
 #endif
 
 void Graph::WriteDot([[maybe_unused]] State state, usize comp_id) {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mParams.mOutGraphsDir.empty())
     return;
 
@@ -1089,7 +1056,6 @@ edge [color=gray,fontsize=8,fontcolor=floralwhite,len=3,fixedsize=false,headclip
   fmt::print(out_handle, "subgraph {} {{\n", out_path.stem().string());
 
   for (NodeTable::const_reference item : graph) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (item.second->GetComponentId() != comp_id)
       continue;
 
@@ -1131,5 +1097,4 @@ edge [color=gray,fontsize=8,fontcolor=floralwhite,len=3,fixedsize=false,headclip
   out_handle.close();
 }
 
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }  // namespace lancet::cbdg

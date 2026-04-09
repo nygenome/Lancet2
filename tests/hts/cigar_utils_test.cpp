@@ -24,7 +24,6 @@ namespace {
 /// encoding convention (A=0, C=1, G=2, T=3, N/other=4).
 [[nodiscard]] auto EncodeSeq(std::string_view seq) -> std::vector<u8> {
   // Same ENCODE_TABLE as genotyper_detail but inline for test isolation.
-  // NOLINTNEXTLINE(readability-magic-numbers)
   static constexpr std::array<u8, 256> ENCODE = []() {
     std::array<u8, 256> table{};
     table.fill(4);

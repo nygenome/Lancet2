@@ -28,7 +28,6 @@ auto ComputeGraphComplexity(Graph const& graph, usize const component_id) -> Gra
   std::vector<f64> unitig_coverages;
 
   for (auto const& [nid, node_ptr] : graph.Nodes()) {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (node_ptr->GetComponentId() != component_id)
       continue;
     num_nodes++;

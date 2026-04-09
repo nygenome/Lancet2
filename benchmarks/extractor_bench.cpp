@@ -85,7 +85,7 @@ void ExtractorBamAuxRgaux(benchmark::State& state) {
 
 }  // namespace
 
-// NOLINTBEGIN
+// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)
 BENCHMARK(ExtractorCramCoreQname)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
 BENCHMARK(ExtractorCramCigarSeqQual)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
 BENCHMARK(ExtractorCramAuxRgaux)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
@@ -93,4 +93,4 @@ BENCHMARK(ExtractorCramAuxRgaux)->Unit(benchmark::kMillisecond)->DenseThreadRang
 BENCHMARK(ExtractorBamCoreQname)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
 BENCHMARK(ExtractorBamCigarSeqQual)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
 BENCHMARK(ExtractorBamAuxRgaux)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
-// NOLINTEND
+// NOLINTEND(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)

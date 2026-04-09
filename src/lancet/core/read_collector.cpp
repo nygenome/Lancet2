@@ -35,7 +35,6 @@ namespace {
 
 inline auto ParseMd(std::string_view md_val, absl::Span<u8 const> quals, i64 const start,
                     CountMap* result) -> bool {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (start < 0)
     return false;
 
@@ -55,13 +54,11 @@ inline auto ParseMd(std::string_view md_val, absl::Span<u8 const> quals, i64 con
 
     auto const base_pos = static_cast<usize>(genome_pos - start);
     static constexpr u8 MIN_BASE_QUAL = 20;
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (quals.at(base_pos) < MIN_BASE_QUAL)
       continue;
 
     auto const base = absl::ascii_toupper(static_cast<unsigned char>(character));
     if (base == 'A' || base == 'C' || base == 'T' || base == 'G') {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       if (++(*result)[genome_pos] == 2) {
         return true;
       }
@@ -155,10 +152,8 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     extractor->SetRegionToExtract(region_spec);
     for (auto const& aln : *extractor) {
       auto const bflag = aln.Flag();
-      // NOLINTBEGIN(readability-braces-around-statements)
       if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
         continue;
-      // NOLINTEND(readability-braces-around-statements)
 
       auto const qhash = HashQname(aln.QnameView());
       bool const passes_filters = aln.MapQual() >= 20;
@@ -176,12 +171,10 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
         } else {
           seen_in_region.insert(qhash);
 
-          // NOLINTBEGIN(readability-braces-around-statements)
           if (!aln.Flag().IsMateUnmapped() &&
               (!aln.Flag().IsMappedProperPair() || aln.HasTag("SA"))) {
             expected_mates.try_emplace(qhash, aln.MateLocation());
           }
-          // NOLINTEND(readability-braces-around-statements)
         }
       }
     }
@@ -197,7 +190,7 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     // Shuffle unique qname hashes and select the first `sampled_read_count` entries.
     // This guarantees that if Mate1 is accepted, Mate2 is symmetrically accepted.
     std::shuffle(pass_qname_hashes.begin(), pass_qname_hashes.end(),
-                 std::default_random_engine(0));  // NOLINT
+                 std::default_random_engine(0));  // NOLINT(cert-msc51-cpp)
     absl::flat_hash_set<u64> const keep_qnames(pass_qname_hashes.begin(),
                                                pass_qname_hashes.begin() +
                                                    static_cast<i64>(sampled_read_count));
@@ -209,12 +202,10 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     extractor->SetRegionToExtract(region_spec);
     for (auto const& aln : *extractor) {
       auto const bflag = aln.Flag();
-      // NOLINTBEGIN(readability-braces-around-statements)
       if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
         continue;
       if (!keep_qnames.contains(HashQname(aln.QnameView())))
         continue;
-      // NOLINTEND(readability-braces-around-statements)
 
       // Only kept reads trigger BuildSequence/BuildQualities via the Read constructor
       sampled_reads.emplace_back(aln, sample_name, sinfo.TagKind());
@@ -248,7 +239,6 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
         for (auto const& aln : *extractor) {
           auto const mate_qhash = HashQname(aln.QnameView());
           auto const itr = expected_mates.find(mate_qhash);
-          // NOLINTNEXTLINE(readability-braces-around-statements)
           if (itr == expected_mates.end())
             continue;
 
@@ -270,7 +260,6 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     if (lhs.PassesAlnFilters() != rhs.PassesAlnFilters()) {
       return static_cast<int>(lhs.PassesAlnFilters()) > static_cast<int>(rhs.PassesAlnFilters());
     }
-    // NOLINTBEGIN(readability-braces-around-statements)
     if (lhs.TagKind() != rhs.TagKind())
       return static_cast<u8>(lhs.TagKind()) < static_cast<u8>(rhs.TagKind());
     if (lhs.SampleName() != rhs.SampleName())
@@ -280,7 +269,6 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     if (lhs.ChromIndex() != rhs.ChromIndex())
       return lhs.ChromIndex() < rhs.ChromIndex();
     return lhs.StartPos0() < rhs.StartPos0();
-    // NOLINTEND(readability-braces-around-statements)
   });
 
   return {.mSampleReads = std::move(sampled_reads), .mSampleList = mSampleList};
@@ -314,10 +302,8 @@ auto ReadCollector::IsActiveRegion(Params const& params, Region const& region) -
 
     for (auto const& aln : extractor) {
       auto const bflag = aln.Flag();
-      // NOLINTBEGIN(readability-braces-around-statements)
       if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
         continue;
-      // NOLINTEND(readability-braces-around-statements)
 
       if (aln.HasTag("MD")) {
         auto const md_tag = aln.GetTag<std::string_view>("MD");
@@ -334,12 +320,10 @@ auto ReadCollector::IsActiveRegion(Params const& params, Region const& region) -
 
       // lambda function to increment the counter for `genome_positions`
       static auto const INCREMENT_GENOME_POS = [](CountMap& counts, u32 genome_pos) -> bool {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         return ++counts[genome_pos] == 2;
       };
 
       for (auto const& cig_unit : cigar_units) {
-        // NOLINTNEXTLINE(readability-braces-around-statements)
         if (cig_unit.ConsumesReference())
           curr_genome_pos += cig_unit.Length();
         switch (cig_unit.Operation()) {

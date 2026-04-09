@@ -18,9 +18,7 @@ namespace detail {
 
 class BgzfStreambuf : public std::streambuf {
  public:
-  // NOLINTBEGIN(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
   std::filesystem::path mFileName{};
-  // NOLINTEND(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
 
   BgzfStreambuf() = default;
   BgzfStreambuf(BgzfStreambuf const& other) = default;
@@ -36,7 +34,7 @@ class BgzfStreambuf : public std::streambuf {
   // NOLINTBEGIN(misc-override-with-different-visibility)
   auto uflow() -> int override;
   auto underflow() -> int override;
-  auto overflow(int dat = EOF) -> int override;  // NOLINT
+  auto overflow(int dat = EOF) -> int override;
   auto xsputn(char const* data, std::streamsize len) -> std::streamsize override;
   auto sync() -> int override;
   // NOLINTEND(misc-override-with-different-visibility)

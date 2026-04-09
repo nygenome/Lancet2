@@ -1,7 +1,7 @@
 #include "lancet/cli/pipeline_runner.h"
 
 #include <algorithm>
-#include <chrono>  // NOLINT(misc-include-cleaner)
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -89,15 +89,14 @@ void LogWindowStats(WindowStats const& stats) {
 
 }  // namespace
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
+// NOLINTBEGIN(performance-unnecessary-value-param)
 // NOLINTNEXTLINE(readability-function-size)  // TODO(lancet): refactor to reduce function size
 static void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken const* in_token,
                            AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
                            AsyncWorker::VariantStorePtr vstore,
                            AsyncWorker::BuilderParamsPtr params, u32 window_length) {
-  // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
+  // NOLINTEND(performance-unnecessary-value-param)
 #ifdef LANCET_PROFILE_MODE
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (ProfilingIsEnabledForAllThreads() != 0)
     ProfilerRegisterThread();
 #endif
@@ -304,10 +303,8 @@ void PipelineRunner::Run() {
 
     num_completed++;
     stats.at(async_worker_result.mStatus) += 1;
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     done_windows[async_worker_result.mGenomeIdx] = true;
     core::WindowPtr const& curr_win = windows[async_worker_result.mGenomeIdx];
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const win_name = curr_win->ToSamtoolsRegion();
     auto const win_status = core::ToString(async_worker_result.mStatus);
 
@@ -328,7 +325,6 @@ void PipelineRunner::Run() {
     // Worker threads finish windows out-of-order. We use `done_windows` to track
     // all completions, and `last_contiguous_done` traces the furthest unbroken
     // chain of sequentially finished windows starting from the beginning.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     while (last_contiguous_done < num_total_windows && done_windows[last_contiguous_done]) {
       last_contiguous_done++;
     }
@@ -355,7 +351,6 @@ void PipelineRunner::Run() {
     //    the store and safely dumping all variants prior to window #3 to disk.
     if (idx_to_flush < target_flush_idx) {
       idx_to_flush = target_flush_idx;
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
     }
   }
@@ -480,7 +475,6 @@ auto PipelineRunner::BuildVcfHeader(CliParams const& params) -> std::string {
 // ---------------------------------------------------------------------------
 
 void PipelineRunner::ValidateAndPopulateParams() {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mParamsPtr->mVariantBuilder.mSkipActiveRegion)
     return;
 
@@ -494,12 +488,10 @@ void PipelineRunner::ValidateAndPopulateParams() {
     usize peeked_read_count = 0;
     lancet::hts::Extractor extractor(aln_path, ref, Alignment::Fields::AUX_RGAUX, TAGS, true);
     for (auto const& aln : extractor) {
-      // NOLINTBEGIN(readability-braces-around-statements)
       if (peeked_read_count > NUM_READS_TO_PEEK)
         break;
       if (aln.HasTag("MD"))
         return false;
-      // NOLINTEND(readability-braces-around-statements)
       peeked_read_count++;
     }
     return true;

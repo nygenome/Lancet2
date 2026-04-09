@@ -28,7 +28,6 @@ inline auto NonOvlSuffix(std::string_view data, usize const kval) {
 
 /// Logic to merge sequence and quality data from k2 into k1. See comments below for details
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void MergeCords(std::string& k1_dflt, std::string_view k2_dflt, lancet::cbdg::EdgeKind const ekind,
                 usize const currk) {
   k1_dflt.reserve(k1_dflt.length() + k2_dflt.length() - currk);

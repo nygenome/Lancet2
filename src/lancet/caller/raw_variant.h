@@ -86,7 +86,6 @@ class RawVariant {
     }
   };
 
-  // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
   usize mChromIndex = SIZE_MAX;
 
   // 1. GLOBAL GENOMIC COORDINATE: Strictly tracks where the variant structurally lands
@@ -146,7 +145,6 @@ class RawVariant {
   // Distilled from raw multi-scale metrics (HRun, Entropy, LongdustQ, TR motifs)
   // into 3 groups: Context (REF), Delta (ALT−REF), TR Motif (ALT).
   mutable base::SequenceComplexity mSeqCx;
-  // NOLINTEND(misc-non-private-member-variables-in-classes)
 
   template <typename HashState>
   friend auto AbslHashValue(HashState hash_state, RawVariant const& var) -> HashState {
@@ -164,7 +162,6 @@ class RawVariant {
   }
 
   friend auto operator<(RawVariant const& lhs, RawVariant const& rhs) -> bool {
-    // NOLINTBEGIN(readability-braces-around-statements)
     if (lhs.mChromIndex != rhs.mChromIndex)
       return lhs.mChromIndex < rhs.mChromIndex;
     if (lhs.mGenomeChromPos1 != rhs.mGenomeChromPos1)
@@ -173,7 +170,6 @@ class RawVariant {
       return lhs.mRefAllele < rhs.mRefAllele;
     // Lexical vector comparison behaves safely
     return lhs.mAlts < rhs.mAlts;
-    // NOLINTEND(readability-braces-around-statements)
   }
 
   friend auto operator!=(RawVariant const& lhs, RawVariant const& rhs) -> bool {
@@ -227,7 +223,6 @@ class RawVariant {
 // =========================================================================================
 inline auto RawVariant::ClassifyVariant(std::string_view ref, std::string_view alt) -> Type {
   usize start_match = 0;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   while (start_match < ref.length() &&
          start_match < alt.length() &&
          ref[start_match] == alt[start_match]) {
@@ -240,7 +235,6 @@ inline auto RawVariant::ClassifyVariant(std::string_view ref, std::string_view a
 
   usize end_match =
       0;  // Ensures bounding pointers do not violently overlap or double-count characters
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   while (end_match < (ref.length() - start_match) &&
          end_match < (alt.length() - start_match) &&
          ref[ref.length() - 1 - end_match] == alt[alt.length() - 1 - end_match]) {

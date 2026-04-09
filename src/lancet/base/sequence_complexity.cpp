@@ -51,7 +51,6 @@ auto SequenceComplexityScorer::MaxHomopolymerRun(std::string_view seq) -> i32 {
   i32 max_run = 1;
   i32 current_run = 1;
   for (usize i = 1; i < seq.size(); ++i) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     if (seq[i] == seq[i - 1]) {
       current_run++;
       max_run = std::max(max_run, current_run);
@@ -81,7 +80,6 @@ auto SequenceComplexityScorer::LocalShannonEntropy(std::string_view seq) -> f32 
   std::array<usize, 4> counts = {};
   for (char const chr : seq) {
     switch (chr) {
-      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       case 'A':
       case 'a':
         counts[0]++;
@@ -98,13 +96,11 @@ auto SequenceComplexityScorer::LocalShannonEntropy(std::string_view seq) -> f32 
       case 't':
         counts[3]++;
         break;
-      // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       default:
         break;  // N or other → ignored
     }
   }
 
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   auto const total = static_cast<f32>(counts[0] + counts[1] + counts[2] + counts[3]);
   if (total <= 0.0F) {
     return 0.0F;
@@ -137,7 +133,6 @@ auto SequenceComplexityScorer::IsPrimitiveMotif(std::string_view motif) -> bool 
     }
     bool all_match = true;
     for (i32 i = period; i < len; ++i) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       if (motif[i] != motif[i % period]) {
         all_match = false;
         break;
@@ -180,7 +175,6 @@ auto SequenceComplexityScorer::FindExactRepeats(std::string_view seq, i32 const 
       while (start + match_len + period <= seq_len) {
         bool matches = true;
         for (i32 j = 0; j < period; ++j) {
-          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           if (seq[start + match_len + j] != motif[j]) {
             matches = false;
             break;
@@ -196,7 +190,6 @@ auto SequenceComplexityScorer::FindExactRepeats(std::string_view seq, i32 const 
       i32 partial = 0;
       while (start + match_len + partial < seq_len &&
              partial < period &&
-             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
              seq[start + match_len + partial] == motif[partial]) {
         partial++;
       }
@@ -249,7 +242,6 @@ auto SequenceComplexityScorer::FindApproxRepeats(std::string_view seq, i32 const
       while (start + total_span + period <= seq_len) {
         i32 unit_errors = 0;
         for (i32 j = 0; j < period; ++j) {
-          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           if (seq[start + total_span + j] != motif[j]) {
             unit_errors++;
           }

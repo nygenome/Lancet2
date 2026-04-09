@@ -23,9 +23,6 @@ auto HammingDistWord64(std::string_view first, std::string_view second) -> usize
   auto const* bptr = reinterpret_cast<unsigned long long const*>(second.data());
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
 
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-
   for (usize idx = 0; idx < num_words; ++idx) {
     auto val = (aptr[idx] ^ bptr[idx]);
     val |= val >> 4;
@@ -49,9 +46,6 @@ auto HammingDistWord64(std::string_view first, std::string_view second) -> usize
     result += std::popcount((val & ((1ULL << (rem_words << 3ULL)) - 1ULL)));
   }
 
-  // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-
   return result;
 }
 
@@ -60,7 +54,6 @@ auto HammingDistNaive(std::string_view first, std::string_view second) -> usize 
   usize result = 0;
   auto const length = first.length();
   for (usize idx = 0; idx < length; ++idx) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     result += static_cast<usize>(first[idx] != second[idx]);
   }
   return result;
@@ -75,12 +68,10 @@ auto HasApproximateRepeat(absl::Span<std::string_view const> kmers,
                           usize const num_allowed_mismatches) -> bool {
   for (auto const& first_kmer : kmers) {
     for (auto const& second_kmer : kmers) {
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (std::addressof(first_kmer) == std::addressof(second_kmer))
         continue;
 
       auto const dist = HammingDistWord64(first_kmer, second_kmer);
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (dist < num_allowed_mismatches)
         return true;
     }

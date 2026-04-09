@@ -381,7 +381,6 @@ constexpr auto MakeDnaEncodeTable() -> std::array<u8, 256> {
   for (auto& val : tbl) {
     val = 4;
   }
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   tbl['A'] = 0;
   tbl['a'] = 0;
   tbl['C'] = 1;
@@ -390,7 +389,6 @@ constexpr auto MakeDnaEncodeTable() -> std::array<u8, 256> {
   tbl['g'] = 2;
   tbl['T'] = 3;
   tbl['t'] = 3;
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return tbl;
 }
 
@@ -491,12 +489,10 @@ class LongdustQScorer {
     usize valid_kmers = 0;
 
     for (char const chr : seq) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       auto const base = DNA_ENCODE_TABLE[static_cast<u8>(chr)];
       if (base < 4) {
         kmer = ((kmer << 2) | base) & mMask;
         if (++run >= mK) {
-          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           counts[kmer]++;
           valid_kmers++;
         }
@@ -512,16 +508,13 @@ class LongdustQScorer {
     // Step 2: Σ_t log(c_x(t)!) — only counts ≥ 2 contribute (log(0!)=log(1!)=0)
     f64 sum_log_factorial = 0.0;
     for (u32 idx = 0; idx < mNumKmers; ++idx) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       if (counts[idx] >= 2) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         sum_log_factorial += std::lgamma(static_cast<f64>(counts[idx] + 1));
       }
     }
 
     // Step 3: Q(x) = Σ log(c!) − f(ℓ)
     auto const ell = static_cast<int>(valid_kmers);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     f64 const f_val = (std::cmp_less(ell, mF.size())) ? mF[ell] : ComputeF(ell);
     f64 const q_score = sum_log_factorial - f_val;
 
@@ -658,7 +651,6 @@ class LongdustQScorer {
   void PrecomputeF(int max_len) {
     mF.resize(max_len + 1, 0.0);
     for (int ell = 1; ell <= max_len; ++ell) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       mF[ell] = ComputeF(ell);
     }
   }

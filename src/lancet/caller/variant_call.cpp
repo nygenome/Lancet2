@@ -246,7 +246,6 @@ void VariantCall::UpdateSiteQuality(core::SampleInfo const& sinfo, VariantSuppor
                                     SupportArray const& evidence, Samples samps,
                                     bool tumor_normal_mode, absl::Span<int const> pls) {
   auto const somatic_lor = tumor_normal_mode ? SomaticLogOddsRatio(sinfo, evidence, samps) : 0.0;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   auto const ref_hom_pl = pls.empty() ? 0 : pls[0];
   auto const sample_dp = support->TotalSampleCov();
   auto const per_read_qual =

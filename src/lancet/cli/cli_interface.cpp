@@ -37,10 +37,9 @@ inline auto MakeCmdLine(int const argc, char const** argv) -> std::string {
   std::string result;
   static constexpr usize LINUX_MAX_CMDLINE_LENGTH = 2'097'152;
   result.reserve(LINUX_MAX_CMDLINE_LENGTH);
-  absl::StrAppend(&result, argv[0]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  absl::StrAppend(&result, argv[0]);
   for (auto idx = 1; idx < argc; ++idx) {
-    absl::StrAppend(&result, " ",
-                    argv[idx]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    absl::StrAppend(&result, " ", argv[idx]);
   }
   result.shrink_to_fit();
   return result;
@@ -243,7 +242,6 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->add_option("-s,--kmer-step", vb_prms.mGraphParams.mKmerStepLen,
                    "Kmer step length to try for graph nodes")
       ->group("Parameters")
-      // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
       ->check(CLI::IsMember({2, 4, 6, 8, 10}));
   subcmd
       ->add_option("--min-anchor-cov", grph_prms.mMinAnchorCov,
@@ -295,12 +293,10 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CLI::Range(0.0, 1.0));
 
   subcmd->callback([params]() -> void {
-    // NOLINTBEGIN(readability-braces-around-statements)
     if (static_cast<bool>(isatty(fileno(stderr))))
       fmt::print(std::cerr, FIGLET_LANCET_LOGO);
     if (params->mEnableVerboseLogging)
       SetLancetLoggerLevel(spdlog::level::trace);
-    // NOLINTEND(readability-braces-around-statements)
 
     LOG_INFO("Starting Lancet {}", LancetFullVersion())
     PipelineRunner pipeline_runner(params);

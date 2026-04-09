@@ -18,7 +18,6 @@ namespace lancet::hts {
 namespace detail {
 
 auto BgzfStreambuf::Open(std::filesystem::path const& path, char const* mode) -> bool {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mFilePtr != nullptr)
     Close();
 
@@ -51,7 +50,6 @@ auto BgzfStreambuf::uflow() -> int {
     return res;
   }
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mFilePtr == nullptr)
     return EOF;
 
@@ -66,12 +64,10 @@ auto BgzfStreambuf::uflow() -> int {
 }
 
 auto BgzfStreambuf::underflow() -> int {
-  // NOLINTBEGIN(readability-braces-around-statements)
   if (mFilePtr == nullptr)
     return EOF;
   if (mCurrPos != SENTINEL_BUFFER_POSITION)
     return mCurrPos;
-  // NOLINTEND(readability-braces-around-statements)
 
   mCurrPos = bgzf_getc(mFilePtr);
   switch (mCurrPos) {
@@ -90,7 +86,6 @@ auto BgzfStreambuf::overflow(int dat) -> int {
 }
 
 auto BgzfStreambuf::xsputn(char const* data, std::streamsize len) -> std::streamsize {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mFilePtr == nullptr)
     return 0;
   return bgzf_write(mFilePtr, data, static_cast<std::size_t>(len));
@@ -123,7 +118,6 @@ auto BgzfOstream::Open(std::filesystem::path const& path, BgzfFormat ofmt) -> bo
 
 void BgzfOstream::Close() {
   mBgzfBuffer.Close();
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mOutFmt != BgzfFormat::UNSPECIFIED)
     BuildIndex();
 }

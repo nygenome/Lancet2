@@ -18,11 +18,9 @@ namespace lancet::core {
 class AsyncWorker {
  public:
   struct Result {
-    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     usize mGenomeIdx = 0;
     absl::Duration mRuntime = absl::ZeroDuration();
     VariantBuilder::StatusCode mStatus = VariantBuilder::StatusCode::UNKNOWN;
-    // NOLINTEND(misc-non-private-member-variables-in-classes)
   };
 
   using InputQueue = moodycamel::BlockingConcurrentQueue<WindowPtr>;

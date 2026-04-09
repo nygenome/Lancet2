@@ -47,7 +47,6 @@ void MsaBuilder::WriteFasta(FsPath const& gfa_path, absl::Span<std::string const
   fa_path += ".fasta";
   std::ofstream out_handle(fa_path);
   for (usize idx = 0; idx < msa_alns.size(); ++idx) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     fmt::print(out_handle, ">{}{}\n{}\n", idx == 0 ? "ref" : "hap", idx, msa_alns[idx]);
   }
   out_handle.close();
@@ -77,7 +76,6 @@ void MsaBuilder::WriteGfa(FsPath const& out_path) const {
     fmt::print(out_handle, "P\t{}{}\t", hap_prefix, seq_idx);
 
     // Iteratively trace node Successors to construct the sequence path organically
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     spoa::Graph::Node const* curr_node = mGraph.sequences()[seq_idx];
     bool is_first = true;
     while (curr_node != nullptr) {

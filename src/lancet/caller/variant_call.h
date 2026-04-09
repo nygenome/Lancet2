@@ -122,7 +122,6 @@ class VariantCall {
     return lhs.mVariantId == rhs.mVariantId;
   }
   friend auto operator<(VariantCall const& lhs, VariantCall const& rhs) -> bool {
-    // NOLINTBEGIN(readability-braces-around-statements)
     if (lhs.mChromIndex != rhs.mChromIndex)
       return lhs.mChromIndex < rhs.mChromIndex;
     if (lhs.mStartPos1 != rhs.mStartPos1)
@@ -132,7 +131,6 @@ class VariantCall {
     if (lhs.mTotalSampleCov != rhs.mTotalSampleCov)
       return lhs.mTotalSampleCov < rhs.mTotalSampleCov;
     return lhs.mVariantId < rhs.mVariantId;
-    // NOLINTEND(readability-braces-around-statements)
   }
 
  private:

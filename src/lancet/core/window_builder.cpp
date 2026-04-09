@@ -31,7 +31,6 @@ extern "C" {
 }
 
 namespace lancet::core {
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 WindowBuilder::WindowBuilder(std::filesystem::path const& ref_path, Params const& params)
     : mParams(params), mRefPtr(std::make_unique<hts::Reference>(ref_path)) {
@@ -56,7 +55,6 @@ void WindowBuilder::AddAllReferenceRegions() {
   mInputRegions.reserve(mInputRegions.size() + ref_chroms.size());
 
   std::ranges::for_each(ref_chroms, [this](hts::Reference::Chrom const& chrom) -> void {
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (SHOULD_EXCLUDE_CHROM(chrom.Name()))
       return;
     this->mInputRegions.emplace_back(
@@ -76,7 +74,6 @@ void WindowBuilder::AddBatchRegions(absl::Span<std::string const> region_specs) 
 }
 
 void WindowBuilder::AddBatchRegions(std::filesystem::path const& bed_file) {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (bed_file.empty())
     return;
 
@@ -110,7 +107,6 @@ void WindowBuilder::AddBatchRegions(std::filesystem::path const& bed_file) {
     line_num++;
     std::string_view const line_view(line.s, line.l);
 
-    // NOLINTNEXTLINE(readability-braces-around-statements)
     if (line_view.starts_with('#') || line_view.empty())
       continue;
 
@@ -208,7 +204,6 @@ void WindowBuilder::SortInputRegions() {
 // ---------------------------------------------------------------------------
 
 auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (mInputRegions.empty())
     return {};
 
@@ -233,7 +228,8 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
     }
 
     auto const chrom_has_colon = region.mChromName.find(':') != std::string::npos;
-    // PadInputRegion unconditionally sets both mRegionSpan entries; value_or defaults are unreachable
+    // PadInputRegion unconditionally sets both mRegionSpan entries; value_or defaults are
+    // unreachable
     auto curr_window_start = static_cast<i64>(region.mRegionSpan[0].value_or(1));
     auto const max_window_pos = static_cast<i64>(region.mRegionSpan[1].value_or(0));
 
@@ -253,13 +249,11 @@ auto WindowBuilder::BuildWindows() const -> std::vector<WindowPtr> {
 
   static auto const WINDOW_PTR_COMPARATOR = [](WindowPtr const& first,
                                                WindowPtr const& second) -> bool {
-    // NOLINTBEGIN(readability-braces-around-statements)
     if (first->ChromIndex() != second->ChromIndex())
       return first->ChromIndex() < second->ChromIndex();
     if (first->StartPos1() != second->StartPos1())
       return first->StartPos1() < second->StartPos1();
     return first->EndPos1() < second->EndPos1();
-    // NOLINTEND(readability-braces-around-statements)
   };
 
   usize current_idx = 0;
@@ -321,7 +315,8 @@ auto WindowBuilder::BuildWindowsBatch(usize& region_idx, i64& window_start, usiz
 
     auto const chrom_has_colon = region.mChromName.find(':') != std::string::npos;
     if (window_start == -1) {
-      // PadInputRegion unconditionally sets both mRegionSpan entries; value_or default is unreachable
+      // PadInputRegion unconditionally sets both mRegionSpan entries; value_or default is
+      // unreachable
       window_start = static_cast<i64>(region.mRegionSpan[0].value_or(1));
     }
 
@@ -378,7 +373,8 @@ void WindowBuilder::PadInputRegion(ParseRegionResult& result) const {
   if (result.Length() < mParams.mWindowLength) {
     u64 const diff =
         std::abs(static_cast<i64>(result.Length()) - static_cast<i64>(mParams.mWindowLength) - 1);
-    // PadInputRegion unconditionally sets both mRegionSpan entries; value_or defaults are unreachable
+    // PadInputRegion unconditionally sets both mRegionSpan entries; value_or defaults are
+    // unreachable
     auto const curr_left = result.mRegionSpan[0].value_or(1);
     auto const curr_right = result.mRegionSpan[1].value_or(contig_max_len);
     auto const left_new_val = (diff / 2) > curr_left ? curr_left - 1 : curr_left - (diff / 2);
@@ -389,5 +385,4 @@ void WindowBuilder::PadInputRegion(ParseRegionResult& result) const {
   }
 }
 
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }  // namespace lancet::core

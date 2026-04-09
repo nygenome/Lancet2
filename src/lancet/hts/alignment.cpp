@@ -120,7 +120,6 @@ auto Alignment::BuildSequence() const -> std::string {
   auto const* raw_seq = bam_get_seq(mRawAln);
   std::string result(seq_len, 'N');
   for (usize idx = 0; idx < seq_len; ++idx) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     result[idx] = SEQ_4BIT_TO_CHAR[bam_seqi(raw_seq, idx)];
   }
   return result;
@@ -343,7 +342,6 @@ auto Alignment::operator!=(Alignment const& rhs) const -> bool {
 // Soft-clip detection (reads directly from bam1_t cigar)
 // ---------------------------------------------------------------------------
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* read_positions,
                              std::vector<u32>* genome_positions, bool use_padded) const -> bool {
   if (mRawAln == nullptr) {
@@ -375,7 +373,6 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
         // increase read position on insertion, genome position only if @usePadded is true
       case CigarOp::INSERTION:
         read_position += cig_unit.Length();
-        // NOLINTNEXTLINE(readability-braces-around-statements)
         if (use_padded)
           ref_position += cig_unit.Length();
         break;
@@ -397,7 +394,6 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
         //
         // NOTE: This only needs to be done if the soft clip is the _first_ CIGAR op.
         //////////////////////////////////////////////////////////////////////////////
-        // NOLINTBEGIN(readability-braces-around-statements)
         if (first_cigar_op)
           read_position += cig_unit.Length();
 
@@ -408,7 +404,6 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
           read_positions->push_back(read_position);
         if (genome_positions != nullptr)
           genome_positions->push_back(ref_position);
-        // NOLINTEND(readability-braces-around-statements)
         break;
 
         // any other CIGAR operations have no effect

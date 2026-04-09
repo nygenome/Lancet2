@@ -49,10 +49,10 @@ void BenchHamming64(benchmark::State& state) {
 
 }  // namespace
 
-// NOLINTBEGIN
+// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)
 BENCHMARK(BenchHammingNaive)->DenseRange(11, 101, 4);
 BENCHMARK(BenchHamming64)->DenseRange(11, 101, 4);
 
 BENCHMARK(BenchHammingNaive)->RangeMultiplier(2)->Range(2 << 2, 2 << 10);
 BENCHMARK(BenchHamming64)->RangeMultiplier(2)->Range(2 << 2, 2 << 10);
-// NOLINTEND
+// NOLINTEND(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)

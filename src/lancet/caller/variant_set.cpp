@@ -50,7 +50,6 @@ inline auto CalculateVariantLength(std::string_view ref, std::string_view alt,
   // E.g., REF="ATGC", ALT="ACCC". Squeezing `start=1` ('A') and `end=1` ('C') bounds
   // explicitly extracts the pure mutation core `TG`->`CC` (length 4 - 1 - 1 = 2).
   usize start_match = 0;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   while (std::cmp_less(start_match, ref_len) &&
          std::cmp_less(start_match, alt_len) &&
          ref[start_match] == alt[start_match]) {
@@ -58,7 +57,6 @@ inline auto CalculateVariantLength(std::string_view ref, std::string_view alt,
   }
 
   usize end_match = 0;
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   while (end_match < (ref_len - start_match) &&
          end_match < (alt_len - start_match) &&
          ref[ref_len - 1 - end_match] == alt[alt_len - 1 - end_match]) {
@@ -199,7 +197,6 @@ class VariantBubble {
       for (auto& [alt_seq, haps] : mAltAllelesToHaps) {
         std::string new_alt = alt_seq;
         do_trim(new_alt);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         rehashed_map[std::move(new_alt)] = std::move(haps);
       }
       mAltAllelesToHaps = std::move(rehashed_map);
@@ -245,7 +242,6 @@ class VariantExtractor {
     // Instantiate graph memory maps matching natively biological pathways.
     mActivePtrs.assign(num_seqs_, nullptr);
     mNodeToRank.assign(graph_.nodes().size(), std::numeric_limits<u32>::max());
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     for (u32 rank = 0; rank < topological_order.size(); ++rank) {
       mNodeToRank[topological_order[rank]->id] = rank;
     }
@@ -254,7 +250,6 @@ class VariantExtractor {
     for (usize i = 0; i < num_seqs_; ++i) {
       mActivePtrs[i] = graph_.sequences()[i];
     }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   }
 
   // ===================================================================================================
@@ -332,7 +327,6 @@ class VariantExtractor {
   spoa::Graph::Node const* mPrevMatchNode = nullptr;
 
   // O(M_paths) inline evaluating if NO multiallelic divergence exists currently locally
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   [[nodiscard]] auto AreAllPathsConverged() const -> bool {
     auto const* target = mActivePtrs[REF_HAP_IDX];
     for (usize i = 1; i < num_seqs_; ++i) {
@@ -354,7 +348,6 @@ class VariantExtractor {
     }
     mCurrentRefPos++;
   }
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
   // Controller natively consuming open bubbles and emitting clean Multiallelic Set payloads!
   void EatTopologicalBubble(absl::btree_set<RawVariant>& out_variants) {
@@ -398,11 +391,9 @@ class VariantExtractor {
     }
 
     // Branchlessly record matrix boundaries uniformly
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     for (usize i = 0; i < num_seqs_; ++i) {
       out_hap_starts[i] = mCurrentHapPos[i] - anchor_offset;
     }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     return bubble_start_pos;
   }
@@ -437,7 +428,6 @@ class VariantExtractor {
 
   // Phase 2: Selectively consume and roll exclusively paths pinned precisely against that lowest
   // rank
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   void ConsumePathsAtRank(u32 target_rank, absl::Span<std::string> raw_alleles) {
     for (usize i = 0; i < num_seqs_; ++i) {
       if (mActivePtrs[i] != nullptr && mNodeToRank.at(mActivePtrs[i]->id) == target_rank) {
@@ -454,7 +444,6 @@ class VariantExtractor {
       }
     }
   }
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
   // Phase 3: Cluster disjoint sequence strings upon convergence organically, and precisely purge
   // parsimony padding.
@@ -462,7 +451,6 @@ class VariantExtractor {
       -> VariantBubble {
     VariantBubble bubble;
     bubble.mGenomeStartPos = genome_start_pos;
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     bubble.mRefAllele = std::move(raw_alleles[REF_HAP_IDX]);
 
     // Exclude the pure identical reference tracks. Everything else goes into the variant parser
@@ -471,7 +459,6 @@ class VariantExtractor {
         bubble.mAltAllelesToHaps[raw_alleles[alt_idx]].push_back(alt_idx);
       }
     }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     bubble.NormalizeVcfParsimony();
     return bubble;
@@ -485,7 +472,6 @@ class VariantExtractor {
     multiallelic_var.mChromIndex = mWin.ChromIndex();
     multiallelic_var.mChromName = mWin.ChromName();
     multiallelic_var.mGenomeChromPos1 = bubble.mGenomeStartPos;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     multiallelic_var.mLocalRefStart0Idx =
         bubble.mHapStarts[REF_HAP_IDX];  // Statically locks to REF coordinate flawlessly
     multiallelic_var.mRefAllele = std::move(bubble.mRefAllele);
@@ -499,7 +485,6 @@ class VariantExtractor {
           CalculateVariantLength(multiallelic_var.mRefAllele, sub_alt.mSequence, sub_alt.mType);
 
       for (usize const hap_id : haps) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         sub_alt.mLocalHapStart0Idxs.emplace(hap_id, bubble.mHapStarts[hap_id]);
       }
 

@@ -46,7 +46,6 @@ Extractor::Extractor(std::filesystem::path aln_file, Reference const& ref,
   EnsureValidBamOrCram(mFilePtr.get(), bc_path);
   mHdrPtr = InitSamHdr(mFilePtr.get(), bc_path);
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (!skip_ref_contig_check)
     HeaderContigsCheck(mHdrPtr.get(), ref);
 
@@ -134,8 +133,10 @@ auto Extractor::ChromName(i32 chrom_index) const -> std::string {
 
 void Extractor::SetCramRequiredFields(Alignment::Fields fields) {
   if (mFilePtr->format.format == cram && fields != Alignment::Fields::AUX_RGAUX) {
-    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_REQUIRED_FIELDS, fields);  // NOLINT
-    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_DECODE_MD, 0);             // NOLINT
+    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_REQUIRED_FIELDS,
+                    fields);  // NOLINT(cppcoreguidelines-pro-type-vararg)
+    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_DECODE_MD,
+                    0);  // NOLINT(cppcoreguidelines-pro-type-vararg)
   }
 }
 
@@ -245,7 +246,7 @@ void Extractor::EnsureValidBamOrCram(htsFile* raw_fp, std::string_view aln_path)
     auto* format_description = hts_format_description(&raw_fp->format);
     auto const err_msg =
         fmt::format("Got unexpected alignment file with format: {}", format_description);
-    std::free(format_description);  // NOLINT
+    std::free(format_description);  // NOLINT(cppcoreguidelines-no-malloc)
     throw std::invalid_argument(err_msg);
   }
 

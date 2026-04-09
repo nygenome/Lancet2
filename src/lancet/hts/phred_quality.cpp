@@ -98,10 +98,10 @@ auto PhredToErrorProb(u32 phred_score) -> f64 {
 
 auto ErrorProbToPhred(f64 prob) -> f64 {
   if (prob == 1.0) {
-    return 0;  // NOLINT(readability-braces-around-statements)
+    return 0;
   }
   if (prob == 0.0) {
-    return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
+    return MAX_PHRED_SCORE;
   }
   static constexpr f64 PHRED_MULTIPLIER = -10.0;
   return PHRED_MULTIPLIER * std::log10(prob);

@@ -1,6 +1,7 @@
 #include "benchmark/benchmark.h"
 #ifndef __APPLE__
-#include "mimalloc-override.h"  // NOLINT(misc-include-cleaner)
+#include "mimalloc-override.h"
 #endif
 
-BENCHMARK_MAIN();  // NOLINT
+// NOLINTNEXTLINE(misc-include-cleaner, cppcoreguidelines-pro-type-vararg, cppcoreguidelines-owning-memory, cert-err58-cpp)
+BENCHMARK_MAIN();

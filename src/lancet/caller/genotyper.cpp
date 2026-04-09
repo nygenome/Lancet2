@@ -43,10 +43,8 @@ constexpr auto MakeScoringMatrix() -> std::array<i8, 25> {
   for (i8 i = 0; i < ALPHABET_SIZE; ++i) {
     for (i8 j = 0; j < ALPHABET_SIZE; ++j) {
       if (i == ALPHABET_SIZE - 1 || j == ALPHABET_SIZE - 1) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         mat[(i * ALPHABET_SIZE) + j] = 0;
       } else {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         mat[(i * ALPHABET_SIZE) + j] =
             (i == j) ? static_cast<i8>(SCORING_MATCH) : static_cast<i8>(-SCORING_MISMATCH);
       }
@@ -63,7 +61,6 @@ constexpr auto MakeEncodingTable() -> std::array<u8, 256> {
   for (auto& val : tbl) {
     val = 4;
   }
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   tbl['A'] = 0;
   tbl['a'] = 0;
   tbl['C'] = 1;
@@ -72,7 +69,6 @@ constexpr auto MakeEncodingTable() -> std::array<u8, 256> {
   tbl['g'] = 2;
   tbl['T'] = 3;
   tbl['t'] = 3;
-  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return tbl;
 }
 
@@ -183,13 +179,11 @@ struct RegionAccumulator {
       return;
     }
 
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const raw = mScoringMatrix[(mTarget[tpos_rel] * 5) + mQuery[qpos]];
     mRawScore += static_cast<f64>(raw);
     f64 const weight = (qpos < mBaseQuals.size()) ? PhredToConfidence(mBaseQuals[qpos]) : 1.0;
     mPbqScore += static_cast<f64>(raw) * weight;
     mMatches += static_cast<usize>(mQuery[qpos] == mTarget[tpos_rel]);
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   }
 
   // Track the minimum base quality at an isolated read position natively.
@@ -203,14 +197,12 @@ struct RegionAccumulator {
   // Instead, we estimate the deletion's confidence by checking the quality of
   // the adjacent bases immediately surrounding the deletion.
   void TrackDeletionBounds(usize qpos) {
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     if (qpos > 0 && qpos - 1 < mBaseQuals.size()) {
       mMinBq = std::min(mMinBq, mBaseQuals[qpos - 1]);
     }
     if (qpos < mBaseQuals.size()) {
       mMinBq = std::min(mMinBq, mBaseQuals[qpos]);
     }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   }
 
   // Finalize stats. min_bq defaults to 0 if we lacked base quality evidence entirely.
@@ -557,7 +549,6 @@ auto Genotyper::AlignToAllHaplotypes(cbdg::Read const& qry_read) -> std::vector<
   auto const read_len = static_cast<int>(qry_read.Length());
 
   for (usize idx = 0; idx < mIndices.size(); ++idx) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const* hap_mm_idx = mIndices[idx].get();
     auto* regs = mm_map(hap_mm_idx, read_len, qry_read.SeqPtr(), &nregs, tbuffer, map_opts,
                         qry_read.QnamePtr());
@@ -568,7 +559,6 @@ auto Genotyper::AlignToAllHaplotypes(cbdg::Read const& qry_read) -> std::vector<
     }
 
     // Take the top hit only (best_n = 1)
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     mm_reg1_t const* top_hit = &regs[0];
 
     Mm2AlnResult result;
@@ -600,7 +590,6 @@ auto Genotyper::AlignToAllHaplotypes(cbdg::Read const& qry_read) -> std::vector<
 auto Genotyper::EncodeSequence(std::string_view const raw_seq) -> std::vector<u8> {
   std::vector<u8> encoded(raw_seq.size());
   for (usize i = 0; i < raw_seq.size(); ++i) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     encoded[i] = ENCODE_TABLE[static_cast<u8>(raw_seq[i])];
   }
   return encoded;
@@ -618,7 +607,6 @@ auto Genotyper::ComputeRefEditDistance(std::vector<Mm2AlnResult> const& alns,
       continue;
     }
     auto const ref_aln_len = static_cast<usize>(aln.mRefEnd - aln.mRefStart);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const ref_target = absl::MakeConstSpan(mEncodedHaplotypes[REF_HAP_IDX])
                                 .subspan(static_cast<usize>(aln.mRefStart), ref_aln_len);
     u32 edist = hts::ComputeEditDistance(aln.mCigar, qry_seq_encoded, ref_target);
@@ -661,7 +649,6 @@ auto Genotyper::EvaluateAlignment(Mm2AlnResult const& aln, RawVariant const& var
   }
 
   auto const aln_len = static_cast<usize>(aln.mRefEnd - aln.mRefStart);
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   auto const target = absl::MakeConstSpan(mEncodedHaplotypes[aln.mHapIdx])
                           .subspan(static_cast<usize>(aln.mRefStart), aln_len);
 
@@ -721,7 +708,6 @@ auto Genotyper::ExtractHapBounds(RawVariant const& variant, usize aln_hap_idx,
     return true;
   }
   for (usize alt_pos = 0; alt_pos < variant.mAlts.size(); ++alt_pos) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     auto const& alt_allele = variant.mAlts[alt_pos];
     auto iter = alt_allele.mLocalHapStart0Idxs.find(aln_hap_idx);
     if (iter != alt_allele.mLocalHapStart0Idxs.end()) {

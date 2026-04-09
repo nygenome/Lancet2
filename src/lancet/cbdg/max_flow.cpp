@@ -18,7 +18,6 @@
 #include <cstddef>
 
 namespace lancet::cbdg {
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 MaxFlow::MaxFlow(Graph::NodeTable const* graph, NodeIDPair const& /*src_and_snk*/,
                  usize const currk, TraversalIndex const* trav_idx)
@@ -92,7 +91,6 @@ auto MaxFlow::BuildSequence(WalkView const walk) const -> Result {
     path.AddNodeCoverage(dst_itr->second->TotalReadSupport());
   }
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (uniq_seqs.empty())
     return std::nullopt;
 
@@ -195,7 +193,6 @@ auto MaxFlow::NextPath() -> Result {
   }
 
   // No walk with any new edge found → enumeration complete
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (!best_leaf.has_value())
     return std::nullopt;
 
@@ -280,5 +277,4 @@ void MaxFlow::EnqueueOutgoingEdges(u32 const state_idx, u32 const parent_ai, u32
   }
 }
 
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }  // namespace lancet::cbdg

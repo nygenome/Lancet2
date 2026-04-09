@@ -33,7 +33,6 @@ auto Iterator::operator++(int) -> Iterator {
   return old_val;
 }
 
-// NOLINTNEXTLINE(misc-no-recursion)
 void Iterator::FetchNextAlignment() {
   auto const next_result = sam_itr_next(mRawFilePtr, mRawItrPtr, mRawAlnPtr);
   if (next_result < -1) {
@@ -61,7 +60,7 @@ void Iterator::FetchNextAlignment() {
 
 auto Iterator::PassesFilter() const -> bool {
   if (mRawFiltrPtr == nullptr) {
-    return true;  // NOLINT(readability-braces-around-statements)
+    return true;
   }
 
   // Filter expression present, so we need to apply filters to check

@@ -137,7 +137,6 @@ template <typename T>
   for (usize i = 0; i < total;) {
     // Find the extent of this tie group: [i, jdx)
     usize jdx = i;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     while (jdx < total && pooled[jdx].mValue == pooled[i].mValue) {
       ++jdx;
     }
@@ -151,7 +150,6 @@ template <typename T>
 
     // Accumulate rank sum for ALT observations only
     for (usize k = i; k < jdx; ++k) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       if (pooled[k].mIsAlt) {
         alt_rank_sum += mid_rank;
       }

@@ -105,6 +105,8 @@ Checks: >-
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-type-vararg,
@@ -198,7 +200,8 @@ CheckOptions:
   # 4 = if > for > if > if — already deeply nested; catches problematic code.
   readability-function-size.NestingThreshold: '4'
   # Require braces on ALL single-statement if/for/while (0 = no exceptions).
-  readability-braces-around-statements.ShortStatementLines: '0'
+  # Changed to 1: allow 1-line single-statement bodies without braces.
+  readability-braces-around-statements.ShortStatementLines: '1'
   # Allow implicit bool conversion for pointers: `if (ptr)` is idiomatic.
   readability-implicit-bool-conversion.AllowPointerConditions: 'true'
   # Don't allow implicit int-to-bool: `if (count)` should be `if (count != 0)`.

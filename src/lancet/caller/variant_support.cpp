@@ -16,7 +16,6 @@
 #include <cmath>
 
 namespace lancet::caller {
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 // ============================================================================
 // AddEvidence
@@ -477,7 +476,6 @@ auto VariantSupport::AlleleMismatchDelta() const -> f64 {
     alt_count += nms.size();
   }
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (alt_count == 0)
     return 0.0;
   auto const alt_mean = alt_sum / static_cast<f64>(alt_count);
@@ -527,7 +525,6 @@ auto ReadLikelihoodsPerAllele(int const read_allele, u8 const base_qual, int con
   f64 const mismatch_prob = error_prob / std::max(1, num_alleles - 1);
 
   std::vector<f64> likelihoods(num_alleles, mismatch_prob);
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   likelihoods[read_allele] = match_prob;
   return likelihoods;
 }
@@ -549,7 +546,6 @@ void AccumulateReadIntoGLs(std::vector<f64> const& read_lks, int const num_allel
       f64 const diploid_prob = (0.5 * read_lks[allele_a]) + (0.5 * read_lks[allele_b]);
 
       // Guard against log10(0); floor at 10^-300 ≈ -300 in log space
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       gt_log_likelihoods[gt_idx] += std::log10(std::max(diploid_prob, 1e-300));
     }
   }
@@ -565,7 +561,6 @@ auto NormalizeLogLikelihoodsToPLs(std::vector<f64> const& gt_log_lks) -> std::ve
   std::vector<int> pls(gt_log_lks.size());
   for (usize idx = 0; idx < gt_log_lks.size(); ++idx) {
     f64 const raw_pl = -10.0 * (gt_log_lks[idx] - best_ll);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     pls[idx] = static_cast<int>(std::round(std::min(raw_pl, PL_CAP)));
   }
   return pls;
@@ -674,5 +669,4 @@ auto SupportArray::Extract(std::string_view sample_name) -> std::unique_ptr<Vari
 
 // SupportArray inline definitions placed in the header for performance.
 
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }  // namespace lancet::caller

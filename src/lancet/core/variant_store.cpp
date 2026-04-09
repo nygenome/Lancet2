@@ -17,7 +17,6 @@
 namespace lancet::core {
 
 void VariantStore::AddVariants(std::vector<Value>&& variants) {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (variants.empty())
     return;
 
@@ -26,10 +25,8 @@ void VariantStore::AddVariants(std::vector<Value>&& variants) {
     usize const shard_idx = absl::Hash<Key>()(identifier) & (NUM_SHARDS - 1);
 
     // Independent lock specifically for this shard
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     absl::MutexLock const lock(mBuckets[shard_idx].mUtex);
     auto& map = mBuckets[shard_idx].mData;
-    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     auto prev = map.find(identifier);
     if (prev == map.end()) {
@@ -59,7 +56,6 @@ void VariantStore::FlushVariantsBeforeWindow(Window const& win, std::ostream& ou
       auto const is_before_window = var_ptr->ChromIndex() != win.ChromIndex()
                                         ? var_ptr->ChromIndex() < win.ChromIndex()
                                         : var_ptr->StartPos1() < win.EndPos1();
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (is_before_window)
         keys_to_extract.emplace_back(item.first);
     }
@@ -72,7 +68,6 @@ void VariantStore::FlushVariantsBeforeWindow(Window const& win, std::ostream& ou
 
     for (auto const& key : keys_to_extract) {
       auto handle = bucket.mData.extract(key);
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (handle.empty() || HAS_NO_SUPPORT(handle.mapped()))
         continue;
       variants_to_write.emplace_back(std::move(handle.mapped()));
@@ -106,7 +101,6 @@ void VariantStore::FlushAllVariantsInStore(std::ostream& out) {
     };
 
     for (auto& item : bucket.mData) {
-      // NOLINTNEXTLINE(readability-braces-around-statements)
       if (HAS_NO_SUPPORT(item.second))
         continue;
       variants_to_write.emplace_back(std::move(item.second));

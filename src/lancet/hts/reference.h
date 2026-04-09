@@ -52,10 +52,8 @@ class Reference {
   static constexpr auto NULL_INTERVAL = OneBasedClosedOptional{std::nullopt, std::nullopt};
 
   struct ParseRegionResult {
-    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     std::string mChromName;
     OneBasedClosedOptional mRegionSpan = NULL_INTERVAL;
-    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     [[nodiscard]] auto Length() const noexcept -> usize;
 

@@ -90,11 +90,9 @@ class OnlineStats {
 
 template <Number T>
 [[nodiscard]] inline auto Mean(absl::Span<T const> data) -> f64 {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.empty())
     return 0.0;
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.size() == 1)
     return data[0];
 
@@ -107,24 +105,19 @@ template <Number T>
 
 template <Number T>
 [[nodiscard]] inline auto Median(absl::Span<T const> data) -> T {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.empty())
     return 0;
 
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.size() == 1)
-    return data[0];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    return data[0];
 
   std::vector<T> dcopy(data.cbegin(), data.cend());
   std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2), dcopy.end());
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   T const half_item = dcopy[data.length() / 2];
-  // NOLINTNEXTLINE(readability-braces-around-statements)
   if (data.length() % 2 == 1)
     return half_item;
 
   std::nth_element(dcopy.begin(), dcopy.begin() + (data.length() / 2) - 1, dcopy.end());
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   T const half_minus_one_item = dcopy[(data.length() / 2) - 1];
   return (half_item + half_minus_one_item) / 2;
 }
