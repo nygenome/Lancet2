@@ -1,16 +1,17 @@
 #ifndef SRC_LANCET_CORE_ASYNC_WORKER_H_
 #define SRC_LANCET_CORE_ASYNC_WORKER_H_
 
-#include <memory>
-#include <stop_token>
-#include <utility>
-
-#include "absl/time/time.h"
-#include "blockingconcurrentqueue.h"
 #include "lancet/base/types.h"
 #include "lancet/core/variant_builder.h"
 #include "lancet/core/variant_store.h"
 #include "lancet/core/window.h"
+
+#include "absl/time/time.h"
+#include "blockingconcurrentqueue.h"
+
+#include <memory>
+#include <stop_token>
+#include <utility>
 
 namespace lancet::core {
 
@@ -31,13 +32,16 @@ class AsyncWorker {
   using OutQueuePtr = std::shared_ptr<OutputQueue>;
   using VariantStorePtr = std::shared_ptr<VariantStore>;
   using VariantBuilderPtr = std::unique_ptr<VariantBuilder>;
-  using BuilderParamsPtr = std::shared_ptr<const VariantBuilder::Params>;
+  using BuilderParamsPtr = std::shared_ptr<VariantBuilder::Params const>;
 
-  AsyncWorker(InQueuePtr in_queue, OutQueuePtr out_queue, VariantStorePtr vstore, BuilderParamsPtr prms, u32 window_length)
-      : mInPtr(std::move(in_queue)), mOutPtr(std::move(out_queue)), mStorePtr(std::move(vstore)),
+  AsyncWorker(InQueuePtr in_queue, OutQueuePtr out_queue, VariantStorePtr vstore,
+              BuilderParamsPtr prms, u32 window_length)
+      : mInPtr(std::move(in_queue)),
+        mOutPtr(std::move(out_queue)),
+        mStorePtr(std::move(vstore)),
         mBuilderPtr(std::make_unique<VariantBuilder>(std::move(prms), window_length)) {}
 
-  void Process(std::stop_token stop_token, const moodycamel::ProducerToken& in_token);
+  void Process(std::stop_token stop_token, moodycamel::ProducerToken const& in_token);
 
  private:
   InQueuePtr mInPtr;

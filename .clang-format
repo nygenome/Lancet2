@@ -1,0 +1,377 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tool version: clang-format 22.1.0 (LLVM 22.1.3)
+# Language: C++20
+# Philosophy: Tighten formatting, enforce east-const, 100-col limit,
+#             project-aware include grouping.
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+Language: Cpp
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LINE WIDTH
+# ═══════════════════════════════════════════════════════════════════════════════
+# 100 is the sweet spot: wide enough for descriptive names + templates,
+# narrow enough for comfortable side-by-side diff review. Existing codebase
+# has lines ranging from 80-130, so 100 wraps the widest cases moderately.
+ColumnLimit: 100
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INDENTATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2-space indent is the existing de facto convention across all Lancet2 files.
+IndentWidth: 2
+# Tab width set to match indent — purely for display if tabs slip in.
+TabWidth: 2
+# Hard requirement: spaces only. Matches .editorconfig and existing code.
+UseTab: Never
+# Continuation lines (wrapped function args, binary ops) get +4 spaces,
+# providing clear visual distinction from structural indent.
+ContinuationIndentWidth: 4
+# Constructor initializer lists indented 4 spaces from ctor name,
+# matching the existing spacing in async_worker.h, graph.h, etc.
+ConstructorInitializerIndentWidth: 4
+# Access modifier labels (public:, private:) outdented 1 space from class body.
+# Results in: ` public:` at 1-space indent, member code at 2-space indent.
+# Matches 100% of existing Lancet2 headers.
+AccessModifierOffset: -1
+# Don't indent the body inside `namespace {}`. Lancet2 namespaces are shallow
+# (lancet::cbdg, lancet::hts) and indenting would waste 2 cols per nesting level.
+NamespaceIndentation: None
+# `case:` labels indented one level inside `switch` — improves visual grouping
+# of switch bodies. The case body itself indents one more level.
+IndentCaseLabels: true
+# Don't further indent the block inside case: — the CaseLabel indent is enough.
+IndentCaseBlocks: false
+# Preprocessor directives (#if, #endif) stay at column 0.
+# Not deeply nested in Lancet2, so no need for IndentPPDirectives.
+IndentPPDirectives: None
+# `extern "C" {}` — indent the body after the extern block (matches htslib FFI).
+IndentExternBlock: AfterExternBlock
+# `requires` clause body indented relative to the outer scope.
+IndentRequiresClause: true
+# access modifiers are NOT further indented beyond AccessModifierOffset.
+IndentAccessModifiers: false
+# Wrapped function names don't get an extra indent level.
+IndentWrappedFunctionNames: false
+# Goto labels — no goto in this codebase, but safe default.
+IndentGotoLabels: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BRACE / BRACKET STYLE
+# ═══════════════════════════════════════════════════════════════════════════════
+# K&R "Attach" style: opening brace on the same line as the statement.
+# Matches 100% of existing Lancet2 code.
+BreakBeforeBraces: Attach
+# Empty bodies (functions, classes, namespaces) compacted to `{}` on one line.
+BraceWrapping:
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LINE BREAKING RULES
+# ═══════════════════════════════════════════════════════════════════════════════
+# Constructor initializer `:` placed on the line BEFORE the first initializer.
+# Matches existing: `AsyncWorker(InQueuePtr in_queue, ...)\n    : mInPtr(...)`
+BreakConstructorInitializers: BeforeColon
+# Inheritance `:` placed on the line BEFORE base classes (same as ctor style).
+BreakInheritanceList: BeforeColon
+# `template<...>` always gets its own line, even for single-line templates.
+# Ensures template parameters are never compressed into the function signature.
+BreakTemplateDeclarations: Yes
+# Return type stays on the same line as function name. Lancet2 uses trailing
+# return types exclusively, so this primarily affects the `auto` keyword.
+BreakAfterReturnType: None
+# C++20 `concept` declarations always get their own line before the requires.
+BreakBeforeConceptDeclarations: Always
+# Ternary `?` and `:` placed BEFORE the operand when wrapping.
+# `result = condition\n    ? true_val\n    : false_val`
+BreakBeforeTernaryOperators: true
+# Binary operators (+, -, <<, etc.) stay AFTER the operand (standard K&R).
+# `int x = a +\n         b;`
+BreakBeforeBinaryOperators: None
+# When breaking binary operations across lines, respect operator precedence.
+# Keeps `a + b * c` together since `*` binds tighter than `+`.
+BreakBinaryOperations: RespectPrecedence
+# Allow breaking long string literals across lines.
+BreakStringLiterals: true
+# Adjacent string literals ("a" "b") can break between them.
+BreakAdjacentStringLiterals: true
+# Don't force function definition params onto a new line.
+BreakFunctionDefinitionParameters: false
+# noexcept specifier stays on the same line — never break before it.
+AllowBreakBeforeNoexceptSpecifier: Never
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PACKING RULES (argument/parameter layout)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Function call arguments: pack as many as fit on one line (bin-packing).
+# Uses horizontal space efficiently for calls with many args.
+BinPackArguments: true
+# Function declaration params: same bin-packing strategy.
+BinPackParameters: BinPack
+# Constructor initializers: try to pack all on the NEXT line after `:`.
+# If they don't fit, each gets its own line. Matches existing Lancet2 style.
+PackConstructorInitializers: NextLine
+# All args/params allowed on the next line (don't force first arg on same line).
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHORT FORMS (single-line compression)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Empty blocks `{}` can go on one line.
+AllowShortBlocksOnASingleLine: Empty
+# Short enums can stay on one line: `enum class Strand : bool { FWD, REV };`
+AllowShortEnumsOnASingleLine: true
+# Only INLINE member functions can be on one line (getters, trivial methods).
+# Free functions and out-of-line definitions always multi-line.
+# Matches Lancet2 convention: `[[nodiscard]] auto Length() -> usize { return mKmer.Length(); }`
+AllowShortFunctionsOnASingleLine: Inline
+# Single-statement if/loops NOT collapsed — safety against dangling-else bugs.
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+# Short lambdas (1-2 statements) allowed inline — matches existing cleanup patterns.
+AllowShortLambdasOnASingleLine: All
+# case labels keep verbose multi-line form.
+AllowShortCaseLabelsOnASingleLine: false
+# Short case expressions (C++23 pattern matching) on one line.
+AllowShortCaseExpressionOnASingleLine: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ALIGNMENT
+# ═══════════════════════════════════════════════════════════════════════════════
+# After an open bracket `(`, align wrapped args to the bracket column.
+AlignAfterOpenBracket: true
+# Trailing comments on consecutive lines get aligned vertically.
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+# Escaped newlines in macros aligned to the right column.
+AlignEscapedNewlines: Right
+# Multi-line expression operands aligned: `int x = a\n         + b;`
+AlignOperands: Align
+# DON'T align consecutive assignments — would cause excessive diff churn.
+# `int a = 1;` and `int bbb = 2;` are NOT padded to align `=` signs.
+AlignConsecutiveAssignments:
+  Enabled: false
+# DON'T align consecutive variable declarations.
+AlignConsecutiveDeclarations:
+  Enabled: false
+# DO align consecutive bit-field widths within packed structs.
+# Improves readability of `struct { int a : 3; int b : 5; }`.
+AlignConsecutiveBitFields:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+# DON'T align consecutive macro definitions.
+AlignConsecutiveMacros:
+  Enabled: false
+# DO align short case statements in compact switch blocks.
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCaseColons: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SPACING
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pointer/reference LEFT-aligned: `Type* ptr`, `const Type& ref`.
+# Google C++ style. Matches 90%+ of existing Lancet2 code.
+PointerAlignment: Left
+# Reference follows pointer alignment convention.
+ReferenceAlignment: Pointer
+# Space before parens ONLY for control statements: `if (`, `for (`, `while (`.
+# Function calls/decls: `foo()`, NOT `foo ()`.
+SpaceBeforeParens: ControlStatements
+# No space after C-style casts: `(int)x`, not `(int) x`.
+SpaceAfterCStyleCast: false
+# No space after `!`: `!condition`, not `! condition`.
+SpaceAfterLogicalNot: false
+# Space after `template` keyword: `template <typename T>`.
+SpaceAfterTemplateKeyword: true
+# Spaces around colons in ctor init, inheritance, range-for.
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+# No space before C++11 braced-init list: `Foo{1, 2}`, not `Foo {1, 2}`.
+SpaceBeforeCpp11BracedList: false
+# No space before square brackets: `arr[i]`, not `arr [i]`.
+SpaceBeforeSquareBrackets: false
+# No spaces inside parentheses: `(a + b)`, not `( a + b )`.
+SpacesInParens: Never
+# No spaces inside angle brackets: `vector<int>`, not `vector< int >`.
+SpacesInAngles: Never
+# No spaces inside square brackets: `arr[i]`, not `arr[ i ]`.
+SpacesInSquareBrackets: false
+# 2 spaces before trailing comments (Google convention).
+# `int x = 42;  // comment`
+SpacesBeforeTrailingComments: 2
+# No space inside empty braces: `{}`, not `{ }`.
+SpaceInEmptyBraces: Never
+# Both sides of bit-field colon: `int x : 3`, not `int x:3`.
+BitFieldColonSpacing: Both
+# Space around assignment operators: `x = 1`, not `x=1`.
+SpaceBeforeAssignmentOperators: true
+# No space before case colon: `case FOO:`, not `case FOO :`.
+SpaceBeforeCaseColon: false
+# No space after `operator` keyword: `operator==`, not `operator ==`.
+SpaceAfterOperatorKeyword: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INCLUDE SORTING & GROUPING
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sort includes alphabetically within each group.
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+# Regroup: remove existing blank lines between includes and re-sort into
+# the categories defined below. This enforces consistent grouping across
+# the entire codebase.
+IncludeBlocks: Regroup
+# Include categories (lower Priority = appears earlier in file):
+#   Priority 0: Main header (auto-detected — e.g., node.cpp → "lancet/cbdg/node.h")
+#   Priority 1: Project headers ("lancet/...")
+#   Priority 2: Third-party quoted headers ("absl/...", "spdlog/...", etc.)
+#   Priority 3: C++ standard library headers (<vector>, <string>, ...)
+#   Priority 4: C standard library headers (<cstdint>, <cmath>, ...)
+IncludeCategories:
+  # Lancet2 project headers: "lancet/base/...", "lancet/hts/...", etc.
+  - Regex:           '^"lancet/'
+    Priority:        1
+    SortPriority:    1
+  # Third-party quoted headers: "absl/...", "spdlog/...", "spoa/...", etc.
+  - Regex:           '^"'
+    Priority:        2
+    SortPriority:    2
+  # C standard library wrappers: <cstdint>, <cstddef>, <cmath>, etc.
+  - Regex:           '^<c(std|type|errno|signal|string|math|assert|limits|float|locale|time|wchar|wctype|setjmp|stdarg|complex|fenv|inttypes|stdbool|stddef|stdio|stdlib|uchar)'
+    Priority:        4
+    SortPriority:    4
+  # C++ standard headers: <vector>, <string>, <memory>, <algorithm>, etc.
+  - Regex:           '^<'
+    Priority:        3
+    SortPriority:    3
+# Regex to detect "main header" in .cpp files: matches _test.cpp, _bench.cpp.
+IncludeIsMainRegex: '(_test|_bench)?$'
+# Main header uses quote-style includes ("foo.h", not <foo.h>).
+MainIncludeChar: Quote
+# Using declarations sorted lexicographically with numeric awareness.
+SortUsingDeclarations: LexicographicNumeric
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# C++20 FEATURES
+# ═══════════════════════════════════════════════════════════════════════════════
+# Parse source as latest C++ standard — enables proper C++20/23 formatting.
+Standard: Latest
+# C++20 `requires` clause placed on its own line for readability.
+RequiresClausePosition: OwnLine
+# `requires` expression body indented relative to outer scope.
+RequiresExpressionIndentation: OuterScope
+# Don't break before template closer `>` — keep `<T, U>` compact.
+BreakBeforeTemplateCloser: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUALIFIER ORDER (EAST CONST)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Enforce "East Const" placement: `int const x` instead of `const int x`.
+# East const is more consistent with how pointers/references work:
+#   int const* p;   — pointer to const int (reads right-to-left consistently)
+#   int* const p;   — const pointer to int
+# The `type` keyword represents the base type in the ordering.
+QualifierAlignment: Custom
+QualifierOrder:
+  - inline
+  - static
+  - constexpr
+  - type
+  - const
+  - volatile
+  - restrict
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTEGER LITERAL SEPARATORS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Insert `'` digit separators in large integer literals for readability.
+# Decimal: groups of 3 (e.g., 1048576 → 1'048'576)
+# Hex: groups of 2 (e.g., 0xFF00FF → 0xFF'00'FF)
+# Binary: groups of 4 (e.g., 0b11110000 → 0b1111'0000)
+# Only inserted when the literal has ≥5 digits.
+IntegerLiteralSeparator:
+  Decimal: 3
+  DecimalMinDigitsInsert: 5
+  Hex: 2
+  HexMinDigitsInsert: 5
+  Binary: 4
+  BinaryMinDigitsInsert: 5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MISCELLANEOUS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Auto-insert `// namespace foo` comment at closing brace.
+FixNamespaceComments: true
+# Don't auto-insert braces around single-statement bodies (Profile C does this).
+InsertBraces: false
+# Ensure every file ends with a newline (matches .editorconfig).
+InsertNewlineAtEOF: true
+# Keep at most 1 consecutive empty line.
+MaxEmptyLinesToKeep: 1
+# Remove empty lines at start/end of blocks and files.
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: false
+# Reflow long comments to fit within the column limit.
+ReflowComments: Always
+# Derive line endings from existing file content (LF on Linux).
+LineEnding: DeriveLF
+# Don't remove braces (conservative — leave structural decisions to developer).
+RemoveBracesLLVM: false
+# Don't remove parentheses in return statements.
+RemoveParentheses: Leave
+# Don't remove trailing semicolons.
+RemoveSemicolon: false
+# Leave existing blank lines between function definitions as-is.
+SeparateDefinitionBlocks: Leave
+# Lambda body indented relative to the lambda signature line.
+LambdaBodyIndentation: Signature
+# Each namespace on its own line (no compaction).
+CompactNamespaces: false
+# Recognize IWYU and NOLINT pragmas — don't reformat them.
+CommentPragmas: '^ IWYU pragma:|NOLINT'
+# Don't derive pointer alignment from existing code — enforce our setting.
+DerivePointerAlignment: false
+# No empty line after access modifiers (public:/private:).
+EmptyLineAfterAccessModifier: Never
+# Empty line before access modifiers when they start a new logical block.
+EmptyLineBeforeAccessModifier: LogicalBlock
+# Braced init lists follow C++11 rules.
+Cpp11BracedListStyle: AlignFirstComment
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PENALTY TUNING
+# ═══════════════════════════════════════════════════════════════════════════════
+# These weights control how clang-format decides WHERE to break lines
+# when a line exceeds ColumnLimit. Higher penalty = clang-format tries harder
+# to avoid that break.
+#
+# Break before first call parameter: low-ish penalty to keep function name visible.
+PenaltyBreakBeforeFirstCallParameter: 19
+# Breaking a comment is moderately penalized.
+PenaltyBreakComment: 300
+# Breaking a string literal is heavily penalized (keep strings intact).
+PenaltyBreakString: 1000
+# Template declarations break cheaply (they should be on their own line anyway).
+PenaltyBreakTemplateDeclaration: 10
+# Exceeding column limit is extremely expensive — force wrapping.
+PenaltyExcessCharacter: 1000000
+# Putting return type on its own line is penalized (keep `auto foo() -> T`).
+PenaltyReturnTypeOnItsOwnLine: 200
+# Breaking at member access (`.` / `->`) is moderately penalized.
+PenaltyBreakBeforeMemberAccess: 150
+# Breaking before `<<` (stream output) has moderate penalty.
+PenaltyBreakFirstLessLess: 120
+# Breaking at scope resolution `::` is heavily penalized (keep qualified names).
+PenaltyBreakScopeResolution: 500
+...

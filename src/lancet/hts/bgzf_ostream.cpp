@@ -1,11 +1,12 @@
 #include "lancet/hts/bgzf_ostream.h"
 
-#include <cstdio>
-#include <cstdlib>
+#include "lancet/base/logging.h"
+
 #include <filesystem>
 #include <ios>
 
-#include "lancet/base/logging.h"
+#include <cstdio>
+#include <cstdlib>
 
 extern "C" {
 #include "htslib/bgzf.h"
@@ -16,9 +17,10 @@ namespace lancet::hts {
 
 namespace detail {
 
-auto BgzfStreambuf::Open(const std::filesystem::path &path, const char *mode) -> bool {
+auto BgzfStreambuf::Open(std::filesystem::path const& path, char const* mode) -> bool {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mFilePtr != nullptr) Close();
+  if (mFilePtr != nullptr)
+    Close();
 
   mFileName = path;
   mFilePtr = bgzf_open(mFileName.c_str(), mode);
@@ -28,11 +30,14 @@ auto BgzfStreambuf::Open(const std::filesystem::path &path, const char *mode) ->
 void BgzfStreambuf::Close() {
   if (mFilePtr != nullptr) {
     // If bgzf_close executes on a network stream (Cloud S3/GCS buckets), it aggressively blocks
-    // and flushes all internally cached Multipart fragments entirely onto the remote server. 
-    // Failure to affirmatively intercept this return code (-1) implicitly swallows the network 
-    // authentication exception natively, causing fatal pipeline termination to drop essentially silently.
+    // and flushes all internally cached Multipart fragments entirely onto the remote server.
+    // Failure to affirmatively intercept this return code (-1) implicitly swallows the network
+    // authentication exception natively, causing fatal pipeline termination to drop essentially
+    // silently.
     if (bgzf_close(mFilePtr) < 0) {
-      LOG_CRITICAL("Failed to close BGZF stream. If writing to cloud URIs, check remote auth/permissions: {}", mFileName.string())
+      LOG_CRITICAL("Failed to close BGZF stream. If writing to cloud URIs, check remote "
+                   "auth/permissions: {}",
+                   mFileName.string())
       std::exit(EXIT_FAILURE);
     }
     mFilePtr = nullptr;
@@ -41,13 +46,14 @@ void BgzfStreambuf::Close() {
 
 auto BgzfStreambuf::uflow() -> int {
   if (mCurrPos != SENTINEL_BUFFER_POSITION) {
-    const auto res = mCurrPos;
+    auto const res = mCurrPos;
     mCurrPos = SENTINEL_BUFFER_POSITION;
     return res;
   }
 
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mFilePtr == nullptr) return EOF;
+  if (mFilePtr == nullptr)
+    return EOF;
 
   mCurrPos = bgzf_getc(mFilePtr);
   switch (mCurrPos) {
@@ -61,8 +67,10 @@ auto BgzfStreambuf::uflow() -> int {
 
 auto BgzfStreambuf::underflow() -> int {
   // NOLINTBEGIN(readability-braces-around-statements)
-  if (mFilePtr == nullptr) return EOF;
-  if (mCurrPos != SENTINEL_BUFFER_POSITION) return mCurrPos;
+  if (mFilePtr == nullptr)
+    return EOF;
+  if (mCurrPos != SENTINEL_BUFFER_POSITION)
+    return mCurrPos;
   // NOLINTEND(readability-braces-around-statements)
 
   mCurrPos = bgzf_getc(mFilePtr);
@@ -76,24 +84,29 @@ auto BgzfStreambuf::underflow() -> int {
 }
 
 auto BgzfStreambuf::overflow(int dat) -> int {
-  const auto cdat = static_cast<char>(dat);
-  const auto num_bytes = bgzf_write(mFilePtr, &cdat, 1);
+  auto const cdat = static_cast<char>(dat);
+  auto const num_bytes = bgzf_write(mFilePtr, &cdat, 1);
   return num_bytes < 0 ? static_cast<int>(num_bytes) : dat;
 }
 
-auto BgzfStreambuf::xsputn(const char *data, std::streamsize len) -> std::streamsize {
+auto BgzfStreambuf::xsputn(char const* data, std::streamsize len) -> std::streamsize {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mFilePtr == nullptr) return 0;
+  if (mFilePtr == nullptr)
+    return 0;
   return bgzf_write(mFilePtr, data, static_cast<std::size_t>(len));
 }
 
 auto BgzfStreambuf::sync() -> int {
-  if (mFilePtr == nullptr) return 0;
+  if (mFilePtr == nullptr) {
+    return 0;
+  }
 
-  // std::ostream::flush invokes sync(). Because HTSlib handles buffered remote streams, 
+  // std::ostream::flush invokes sync(). Because HTSlib handles buffered remote streams,
   // overriding this is intrinsically required to enforce explicit writes across the network layer.
   if (bgzf_flush(mFilePtr) < 0) {
-    LOG_CRITICAL("Failed to flush BGZF stream. If writing to cloud URIs, check remote auth/permissions: {}", mFileName.string())
+    LOG_CRITICAL(
+        "Failed to flush BGZF stream. If writing to cloud URIs, check remote auth/permissions: {}",
+        mFileName.string())
     std::exit(EXIT_FAILURE);
   }
   return 0;
@@ -101,7 +114,7 @@ auto BgzfStreambuf::sync() -> int {
 
 }  // namespace detail
 
-auto BgzfOstream::Open(const std::filesystem::path &path, BgzfFormat ofmt) -> bool {
+auto BgzfOstream::Open(std::filesystem::path const& path, BgzfFormat ofmt) -> bool {
   mOutFmt = ofmt;
   auto result = mBgzfBuffer.Open(path, "w");
   rdbuf(&mBgzfBuffer);
@@ -111,7 +124,8 @@ auto BgzfOstream::Open(const std::filesystem::path &path, BgzfFormat ofmt) -> bo
 void BgzfOstream::Close() {
   mBgzfBuffer.Close();
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mOutFmt != BgzfFormat::UNSPECIFIED) BuildIndex();
+  if (mOutFmt != BgzfFormat::UNSPECIFIED)
+    BuildIndex();
 }
 
 void BgzfOstream::BuildIndex() {
@@ -131,7 +145,8 @@ void BgzfOstream::BuildIndex() {
   }
 
   if (result < 0) {
-    LOG_CRITICAL("Failed to build secondary tabix index for output file: {}", mBgzfBuffer.mFileName.string())
+    LOG_CRITICAL("Failed to build secondary tabix index for output file: {}",
+                 mBgzfBuffer.mFileName.string())
     std::exit(EXIT_FAILURE);
   }
 }

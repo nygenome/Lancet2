@@ -74,12 +74,14 @@
 //
 // ============================================================================
 
-#include <algorithm>
-#include <cmath>
-#include <vector>
+#include "lancet/base/types.h"
 
 #include "absl/types/span.h"
-#include "lancet/base/types.h"
+
+#include <algorithm>
+#include <vector>
+
+#include <cmath>
 
 namespace lancet::base {
 
@@ -93,29 +95,38 @@ namespace lancet::base {
 // Template parameter T must be an arithmetic type (u8, i32, f64, etc.).
 // Values are promoted to f64 internally for rank computation.
 template <typename T>
-[[nodiscard]] auto MannWhitneyEffectSize(absl::Span<const T> ref_vals, absl::Span<const T> alt_vals) -> f64 {
+[[nodiscard]] auto MannWhitneyEffectSize(absl::Span<T const> ref_vals, absl::Span<T const> alt_vals)
+    -> f64 {
   // Require at least one observation in each group. Without both groups,
   // there is no observable bias — return 0.0.
-  if (ref_vals.empty() || alt_vals.empty()) return 0.0;
+  if (ref_vals.empty() || alt_vals.empty()) {
+    return 0.0;
+  }
 
-  const auto n_ref = static_cast<f64>(ref_vals.size());
-  const auto n_alt = static_cast<f64>(alt_vals.size());
-  const auto total = ref_vals.size() + alt_vals.size();
+  auto const n_ref = static_cast<f64>(ref_vals.size());
+  auto const n_alt = static_cast<f64>(alt_vals.size());
+  auto const total = ref_vals.size() + alt_vals.size();
 
   // ── Step 1: Pool and sort ────────────────────────────────────────────────
   // Tag each value with its group membership for rank assignment.
   struct TaggedValue {
-    f64 value;
-    bool is_alt;
+    f64 mValue;
+    bool mIsAlt;
   };
 
   std::vector<TaggedValue> pooled;
   pooled.reserve(total);
-  for (const auto val : ref_vals) pooled.push_back({static_cast<f64>(val), false});
-  for (const auto val : alt_vals) pooled.push_back({static_cast<f64>(val), true});
+  for (auto const val : ref_vals) {
+    pooled.push_back({static_cast<f64>(val), false});
+  }
+  for (auto const val : alt_vals) {
+    pooled.push_back({static_cast<f64>(val), true});
+  }
 
   std::sort(pooled.begin(), pooled.end(),
-            [](const TaggedValue& lhs, const TaggedValue& rhs) { return lhs.value < rhs.value; });
+            [](TaggedValue const& lhs, TaggedValue const& rhs) -> bool {
+              return lhs.mValue < rhs.mValue;
+            });
 
   // ── Step 2: Assign mid-ranks and accumulate ALT rank sum + tie term ──────
   // Tied values receive the average of the ranks they would span.
@@ -124,46 +135,55 @@ template <typename T>
   f64 tie_correction = 0.0;  // Σ(tₖ³ - tₖ) accumulated over all tie groups
 
   for (usize i = 0; i < total;) {
-    // Find the extent of this tie group: [i, j)
-    usize j = i;
-    while (j < total && pooled[j].value == pooled[i].value) ++j;
-
-    // Mid-rank for positions [i+1, j] (1-indexed): (i+1 + j) / 2
-    const auto mid_rank = static_cast<f64>(i + 1 + j) / 2.0;
-
-    // Tie group size for variance correction
-    const auto tie_size = static_cast<f64>(j - i);
-    tie_correction += (tie_size * tie_size * tie_size - tie_size);
-
-    // Accumulate rank sum for ALT observations only
-    for (usize k = i; k < j; ++k) {
-      if (pooled[k].is_alt) alt_rank_sum += mid_rank;
+    // Find the extent of this tie group: [i, jdx)
+    usize jdx = i;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    while (jdx < total && pooled[jdx].mValue == pooled[i].mValue) {
+      ++jdx;
     }
 
-    i = j;
+    // Mid-rank for positions [i+1, jdx] (1-indexed): (i+1 + jdx) / 2
+    auto const mid_rank = static_cast<f64>(i + 1 + jdx) / 2.0;
+
+    // Tie group size for variance correction
+    auto const tie_size = static_cast<f64>(jdx - i);
+    tie_correction += ((tie_size * tie_size * tie_size) - tie_size);
+
+    // Accumulate rank sum for ALT observations only
+    for (usize k = i; k < jdx; ++k) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+      if (pooled[k].mIsAlt) {
+        alt_rank_sum += mid_rank;
+      }
+    }
+
+    i = jdx;
   }
 
   // ── Step 3: Compute U statistic ──────────────────────────────────────────
   // U_alt = R_alt - n_alt*(n_alt+1)/2
   // Counts the number of (ref, alt) pairs where ref value > alt value.
-  const auto u_stat = alt_rank_sum - (n_alt * (n_alt + 1.0)) / 2.0;
+  auto const u_stat = alt_rank_sum - ((n_alt * (n_alt + 1.0)) / 2.0);
 
   // ── Step 4: Expected value and variance under H₀ ─────────────────────────
-  const auto mean_u = (n_ref * n_alt) / 2.0;
-  const auto n_total = static_cast<f64>(total);
+  auto const mean_u = (n_ref * n_alt) / 2.0;
+  auto const n_total = static_cast<f64>(total);
 
   // Variance with tie correction (Lehmann, 2006, §1.4):
   //   Var(U) = (m*n/12) * [(N+1) - Σ(t³-t) / (N*(N-1))]
   // The tie term reduces variance because tied values carry less information.
-  const auto var_u = (n_ref * n_alt / 12.0) * ((n_total + 1.0) - tie_correction / (n_total * (n_total - 1.0)));
+  auto const var_u =
+      (n_ref * n_alt / 12.0) * ((n_total + 1.0) - (tie_correction / (n_total * (n_total - 1.0))));
 
   // Zero variance means all values are identical — no observable bias.
-  if (var_u <= 0.0) return 0.0;
+  if (var_u <= 0.0) {
+    return 0.0;
+  }
 
   // ── Step 5: Effect size = Z / √N ─────────────────────────────────────────
   // Raw Z-score divided by √N to remove √N power amplification.
   // This recovers the standardized effect size (Cohen's d analog).
-  const auto z_score = (u_stat - mean_u) / std::sqrt(var_u);
+  auto const z_score = (u_stat - mean_u) / std::sqrt(var_u);
   return z_score / std::sqrt(n_total);
 }
 

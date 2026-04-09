@@ -1,22 +1,23 @@
 #include "lancet/hts/alignment.h"
 
+#include "lancet/base/types.h"
+#include "lancet/hts/extractor.h"
+#include "lancet/hts/reference.h"
+
+#include "catch_amalgamated.hpp"
+#include "lancet_test_config.h"
+
 #include <algorithm>
 #include <iterator>
 #include <vector>
 
-#include "catch_amalgamated.hpp"
-#include "lancet/base/types.h"
-#include "lancet/hts/extractor.h"
-#include "lancet/hts/reference.h"
-#include "lancet_test_config.h"
-
 using namespace lancet::hts;
 
 TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][Alignment]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
-  const auto regions = {ref.MakeRegion("chr4:100000000")};
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  auto const regions = {ref.MakeRegion("chr4:100000000")};
 
   // NOTE: With the zero-copy Alignment proxy, BuildSequence/BuildQualities/CigarData
   // may return non-empty data even when only CORE_QNAME is requested, because htslib
@@ -25,7 +26,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("CORE_QNAME alignment fields only from cram") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
     cram_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(cram_extractor));
+    auto const aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.QnameView().empty());
   }
@@ -33,7 +34,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("CORE_QNAME alignment fields only from bam") {
     Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::CORE_QNAME);
     bam_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(bam_extractor));
+    auto const aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.QnameView().empty());
   }
@@ -41,7 +42,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("CIGAR_SEQ_QUAL alignment fields only from cram") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
     cram_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(cram_extractor));
+    auto const aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.BuildSequence().empty());
     CHECK_FALSE(aln.BuildQualities().empty());
@@ -51,7 +52,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("CIGAR_SEQ_QUAL alignment fields only from bam") {
     Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
     bam_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(bam_extractor));
+    auto const aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.BuildSequence().empty());
     CHECK_FALSE(aln.BuildQualities().empty());
@@ -61,7 +62,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("AUX_RGAUX alignment fields only from cram") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::AUX_RGAUX);
     cram_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(cram_extractor));
+    auto const aln = *(std::begin(cram_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.BuildSequence().empty());
     CHECK_FALSE(aln.BuildQualities().empty());
@@ -71,7 +72,7 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   SECTION("AUX_RGAUX alignment fields only from bam") {
     Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::AUX_RGAUX);
     bam_extractor.SetRegionBatchToExtract(regions);
-    const auto aln = *(std::begin(bam_extractor));
+    auto const aln = *(std::begin(bam_extractor));
     CHECK_FALSE(aln.IsEmpty());
     CHECK_FALSE(aln.BuildSequence().empty());
     CHECK_FALSE(aln.BuildQualities().empty());
@@ -81,32 +82,34 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Alignment]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
 
-  static constexpr auto expected_seq =
-      "GAATGGAAAGGAATGGAATGGAATGGAATGGAATGGAATGGAATCAACTCGATTGCAATCGAATGGAATGGAATGGAATTAACCCGAATAGAATGGAATGGAATGGAATGGA"
-      "ACGGAACGGAACGCAATGGAATGCATTGGAATGGAATGG";
+  static constexpr auto expected_seq = "GAATGGAAAGGAATGGAATGGAATGGAATGGAATGGAATGGAATCAACTCGATTGCAAT"
+                                       "CGAATGGAATGGAATGGAATTAACCCGAATAGAATGGAATGGAATGGAATGGA"
+                                       "ACGGAACGGAACGCAATGGAATGCATTGGAATGGAATGG";
 
-  static const std::vector<u8> expected_qual{
-      31, 34, 35, 34, 34, 32, 34, 34, 34, 33, 32, 34, 34, 33, 32, 32, 34, 34, 33, 32, 32, 34, 15, 33, 32, 32,
-      34, 13, 33, 32, 32, 34, 34, 33, 32, 32, 34, 33, 33, 32, 32, 34, 12, 33, 33, 33, 34, 31, 34, 33, 25, 34,
-      33, 35, 32, 33, 33, 34, 33, 33, 25, 34, 34, 33, 32, 32, 34, 34, 33, 32, 32, 34, 34, 33, 32, 32, 34, 34,
-      33, 35, 32, 34, 31, 33, 33, 25, 34, 34, 33, 32, 33, 34, 13, 33, 32, 32, 34, 13, 33, 32, 32, 35, 35, 33,
-      32, 32, 34, 35, 33, 32, 32, 35, 13, 31, 25, 32, 34, 13, 31, 26, 33, 35, 13, 31, 26, 34, 34, 13, 34, 33,
-      32, 35, 35, 34, 33, 34, 11, 34, 36, 33, 33, 35, 26, 34, 34, 34, 26, 26, 35, 33, 11};
+  static std::vector<u8> const expected_qual{
+      31, 34, 35, 34, 34, 32, 34, 34, 34, 33, 32, 34, 34, 33, 32, 32, 34, 34, 33, 32, 32, 34,
+      15, 33, 32, 32, 34, 13, 33, 32, 32, 34, 34, 33, 32, 32, 34, 33, 33, 32, 32, 34, 12, 33,
+      33, 33, 34, 31, 34, 33, 25, 34, 33, 35, 32, 33, 33, 34, 33, 33, 25, 34, 34, 33, 32, 32,
+      34, 34, 33, 32, 32, 34, 34, 33, 32, 32, 34, 34, 33, 35, 32, 34, 31, 33, 33, 25, 34, 34,
+      33, 32, 33, 34, 13, 33, 32, 32, 34, 13, 33, 32, 32, 35, 35, 33, 32, 32, 34, 35, 33, 32,
+      32, 35, 13, 31, 25, 32, 34, 13, 31, 26, 33, 35, 13, 31, 26, 34, 34, 13, 34, 33, 32, 35,
+      35, 34, 33, 34, 11, 34, 36, 33, 33, 35, 26, 34, 34, 34, 26, 26, 35, 33, 11};
 
-  static const std::vector<std::string_view> expected_tags{"AS", "MC", "MD", "NM", "RG", "SA", "XS", "pa"};
+  static std::vector<std::string_view> const expected_tags{"AS", "MC", "MD", "NM",
+                                                           "RG", "SA", "XS", "pa"};
 
   SECTION("Can read cram alignment records") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::AUX_RGAUX,
                              {"RG", "MC", "NM", "SA", "XS", "MD", "AS", "pa"});
 
     cram_extractor.SetFilterExpression("mapq >= 20 && tlen >= 300");
-    const auto aln = *(std::begin(cram_extractor));
-    CHECK(aln.StartPos0() == 789838);
-    CHECK(aln.MateStartPos0() == 41877838);
+    auto const aln = *(std::begin(cram_extractor));
+    CHECK(aln.StartPos0() == 789'838);
+    CHECK(aln.MateStartPos0() == 41'877'838);
     CHECK(aln.InsertSize() == 7318);
     CHECK(aln.ChromIndex() == 0);
     CHECK(aln.MateChromIndex() == 9);
@@ -117,7 +120,7 @@ TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Al
     CHECK(aln.BuildQualities() == expected_qual);
     CHECK(aln.CigarString() == "62S33M5D39M17S");
     std::for_each(expected_tags.cbegin(), expected_tags.cend(),
-                  [&aln](const auto& tag_name) { CHECK(aln.HasTag(tag_name)); });
+                  [&aln](auto const& tag_name) { CHECK(aln.HasTag(tag_name)); });
 
     CHECK(aln.GetTag<i64>("AS").ok());
     CHECK(aln.GetTag<i64>("AS").value() == 31);
@@ -151,9 +154,9 @@ TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Al
     Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::AUX_RGAUX,
                             {"RG", "MC", "NM", "SA", "XS", "MD", "AS", "pa"});
     bam_extractor.SetFilterExpression("mapq >= 20 && tlen >= 300");
-    const auto aln = *(std::begin(bam_extractor));
-    CHECK(aln.StartPos0() == 789838);
-    CHECK(aln.MateStartPos0() == 41877838);
+    auto const aln = *(std::begin(bam_extractor));
+    CHECK(aln.StartPos0() == 789'838);
+    CHECK(aln.MateStartPos0() == 41'877'838);
     CHECK(aln.InsertSize() == 7318);
     CHECK(aln.ChromIndex() == 0);
     CHECK(aln.MateChromIndex() == 9);
@@ -164,7 +167,7 @@ TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Al
     CHECK(aln.BuildQualities() == expected_qual);
     CHECK(aln.CigarString() == "62S33M5D39M17S");
     std::for_each(expected_tags.cbegin(), expected_tags.cend(),
-                  [&aln](const auto& tag_name) { CHECK(aln.HasTag(tag_name)); });
+                  [&aln](auto const& tag_name) { CHECK(aln.HasTag(tag_name)); });
 
     CHECK(aln.GetTag<i64>("AS").ok());
     CHECK(aln.GetTag<i64>("AS").value() == 31);

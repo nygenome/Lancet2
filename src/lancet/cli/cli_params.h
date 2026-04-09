@@ -1,13 +1,13 @@
 #ifndef SRC_LANCET_CLI_CLI_PARAMS_H_
 #define SRC_LANCET_CLI_CLI_PARAMS_H_
 
-#include <filesystem>
-#include <string>
-#include <vector>
-
 #include "lancet/base/types.h"
 #include "lancet/core/variant_builder.h"
 #include "lancet/core/window_builder.h"
+
+#include <filesystem>
+#include <string>
+#include <vector>
 
 namespace lancet::cli {
 

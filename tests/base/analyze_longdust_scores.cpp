@@ -19,16 +19,20 @@
 // ============================================================================
 
 #include <algorithm>
-#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include <cmath>
+
 extern "C" {
 #include "zlib.h"
 }
+
+#include "lancet/base/timer.h"
+#include "lancet/base/types.h"
 
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
@@ -37,9 +41,6 @@ extern "C" {
 #include "absl/strings/strip.h"
 #include "absl/time/time.h"
 #include "spdlog/fmt/bundled/format.h"
-
-#include "lancet/base/timer.h"
-#include "lancet/base/types.h"
 
 namespace {
 
@@ -74,27 +75,31 @@ struct ScoreAccumulator {
   [[nodiscard]] auto Count() const -> usize { return scores.size(); }
 
   [[nodiscard]] auto Median() -> double {
-    if (scores.empty()) return 0.0;
-    const auto mid = scores.size() / 2;
+    if (scores.empty())
+      return 0.0;
+    auto const mid = scores.size() / 2;
     std::nth_element(scores.begin(), scores.begin() + static_cast<i64>(mid), scores.end());
     return scores[mid];
   }
 
   [[nodiscard]] auto Mean() const -> double {
-    if (scores.empty()) return 0.0;
+    if (scores.empty())
+      return 0.0;
     double sum = 0;
-    for (const auto val : scores) sum += val;
+    for (auto const val : scores)
+      sum += val;
     return sum / static_cast<double>(scores.size());
   }
 
   [[nodiscard]] auto Max() -> double {
-    if (scores.empty()) return 0.0;
+    if (scores.empty())
+      return 0.0;
     return *std::max_element(scores.begin(), scores.end());
   }
 
   [[nodiscard]] auto CountAbove(double threshold) const -> usize {
-    return static_cast<usize>(
-        std::count_if(scores.begin(), scores.end(), [threshold](double s) { return s > threshold; }));
+    return static_cast<usize>(std::count_if(scores.begin(), scores.end(),
+                                            [threshold](double s) { return s > threshold; }));
   }
 };
 
@@ -121,21 +126,20 @@ struct Accumulators {
 
 // ── Report Writers ──────────────────────────────────────────────────────────
 
-auto FormatScaleHeader(const std::vector<i64>& scales) -> std::string {
+auto FormatScaleHeader(std::vector<i64> const& scales) -> std::string {
   std::string hdr;
-  for (const auto scale : scales) {
+  for (auto const scale : scales) {
     hdr += fmt::format("{:>9}", fmt::format("{}bp", scale * 2));
   }
   return hdr;
 }
 
-void WriteCategoryAnalysis(const std::filesystem::path& path,
+void WriteCategoryAnalysis(std::filesystem::path const& path,
                            absl::btree_map<std::string, GroupScores>& category_data,
                            absl::flat_hash_map<i64, ScoreAccumulator>& global_data,
-                           const std::vector<i64>& scales,
-                           usize total_rows) {
+                           std::vector<i64> const& scales, usize total_rows) {
   std::ofstream out(path);
-  const auto scale_hdr = FormatScaleHeader(scales);
+  auto const scale_hdr = FormatScaleHeader(scales);
 
   out << fmt::format("Longdust Score Analysis by Category ({} total rows)\n", total_rows);
   out << std::string(120, '=') << "\n\n";
@@ -145,9 +149,9 @@ void WriteCategoryAnalysis(const std::filesystem::path& path,
   out << std::string(120, '-') << "\n";
 
   for (auto& [category, group] : category_data) {
-    const auto n = group.by_scale.empty() ? 0UL : group.by_scale.begin()->second.Count();
+    auto const n = group.by_scale.empty() ? 0UL : group.by_scale.begin()->second.Count();
     out << fmt::format("{:<40}{:>12}  ", category, n);
-    for (const auto scale : scales) {
+    for (auto const scale : scales) {
       out << fmt::format("{:>9.4f}", group.by_scale[scale].Median());
     }
     out << "\n";
@@ -156,26 +160,27 @@ void WriteCategoryAnalysis(const std::filesystem::path& path,
   // Global distribution
   out << "\n\nScore Distribution by Scale (across all regions)\n";
   out << std::string(120, '=') << "\n";
-  for (const auto scale : scales) {
+  for (auto const scale : scales) {
     auto& acc = global_data[scale];
-    const auto n = acc.Count();
-    if (n == 0) continue;
-    const auto nonzero = acc.CountAbove(0.0);
-    const auto gt01 = acc.CountAbove(0.1);
-    const auto gt06 = acc.CountAbove(0.6);
-    const auto gt10 = acc.CountAbove(1.0);
-    const auto pct_nz = n > 0 ? 100.0 * static_cast<double>(nonzero) / static_cast<double>(n) : 0.0;
+    auto const n = acc.Count();
+    if (n == 0)
+      continue;
+    auto const nonzero = acc.CountAbove(0.0);
+    auto const gt01 = acc.CountAbove(0.1);
+    auto const gt06 = acc.CountAbove(0.6);
+    auto const gt10 = acc.CountAbove(1.0);
+    auto const pct_nz = n > 0 ? 100.0 * static_cast<double>(nonzero) / static_cast<double>(n) : 0.0;
     out << fmt::format("  {:>5}bp: n={:>12}  mean={:>7.4f}  median={:>7.4f}  max={:>7.4f}"
                        "  nonzero={:>12} ({:>3.0f}%)  >0.1={:>10}  >0.6={:>10}  >1.0={:>10}\n",
-                       scale * 2, n, acc.Mean(), acc.Median(), acc.Max(),
-                       nonzero, pct_nz, gt01, gt06, gt10);
+                       scale * 2, n, acc.Mean(), acc.Median(), acc.Max(), nonzero, pct_nz, gt01,
+                       gt06, gt10);
   }
 
   fmt::print(stderr, "Wrote: {}\n", path.string());
 }
 
 void WriteSubcategoryAnalysis(
-    const std::filesystem::path& path,
+    std::filesystem::path const& path,
     absl::btree_map<std::string, absl::btree_map<std::string, GroupScores>>& subcat_data,
     usize total_rows) {
   // Collect all scales from the data
@@ -191,7 +196,7 @@ void WriteSubcategoryAnalysis(
   std::ranges::sort(scales);
 
   std::ofstream out(path);
-  const auto scale_hdr = FormatScaleHeader(scales);
+  auto const scale_hdr = FormatScaleHeader(scales);
 
   out << fmt::format("Longdust Score Analysis by Subcategory ({} total rows)\n", total_rows);
   out << std::string(140, '=') << "\n\n";
@@ -202,7 +207,7 @@ void WriteSubcategoryAnalysis(
     out << "  " << std::string(136, '-') << "\n";
 
     // Sort by median at largest scale (descending)
-    const auto largest_scale = scales.back();
+    auto const largest_scale = scales.back();
     std::vector<std::pair<double, std::string>> sorted;
     for (auto& [subcat, group] : subcategories) {
       sorted.emplace_back(-group.by_scale[largest_scale].Median(), subcat);
@@ -211,11 +216,11 @@ void WriteSubcategoryAnalysis(
 
     for (auto& [_, subcat] : sorted) {
       auto& group = subcategories[subcat];
-      const auto n = group.by_scale.empty() ? 0UL : group.by_scale.begin()->second.Count();
-      const auto display = subcat.substr(0, 55);
+      auto const n = group.by_scale.empty() ? 0UL : group.by_scale.begin()->second.Count();
+      auto const display = subcat.substr(0, 55);
 
       out << fmt::format("  {:<55}{:>10}  ", display, n);
-      for (const auto scale : scales) {
+      for (auto const scale : scales) {
         out << fmt::format("{:>9.4f}", group.by_scale[scale].Median());
       }
       out << "\n";
@@ -231,16 +236,15 @@ void WriteSubcategoryAnalysis(
 
 auto main(int argc, char** argv) -> int {
   if (argc < 3) {
-    fmt::print(stderr,
-               "Usage: AnalyzeLongdustScores <scored.bed.gz> <output_dir>\n\n"
-               "Reads a scored BED from ScoreRegionLongdust and generates:\n"
-               "  <output_dir>/longdust_analysis_by_category.txt\n"
-               "  <output_dir>/longdust_analysis_by_subcategory.txt\n");
+    fmt::print(stderr, "Usage: AnalyzeLongdustScores <scored.bed.gz> <output_dir>\n\n"
+                       "Reads a scored BED from ScoreRegionLongdust and generates:\n"
+                       "  <output_dir>/longdust_analysis_by_category.txt\n"
+                       "  <output_dir>/longdust_analysis_by_subcategory.txt\n");
     return 1;
   }
 
-  const std::filesystem::path input_path = argv[1];
-  const std::filesystem::path output_dir = argv[2];
+  std::filesystem::path const input_path = argv[1];
+  std::filesystem::path const output_dir = argv[2];
   std::filesystem::create_directories(output_dir);
 
   fmt::print(stderr,
@@ -257,7 +261,7 @@ auto main(int argc, char** argv) -> int {
 
   // ── Step 2: Stream and accumulate ───────────────────────────────────────
   Timer timer;
-  char buf[65536];
+  char buf[65'536];
   Accumulators acc;
   acc.Reserve();
 
@@ -265,15 +269,17 @@ auto main(int argc, char** argv) -> int {
   while (gzgets(gz, buf, sizeof(buf)) != nullptr) {
     std::string line(buf);
     absl::StripTrailingAsciiWhitespace(&line);
-    if (line.empty() || line[0] == '#' || line.starts_with("chrom")) continue;
+    if (line.empty() || line[0] == '#' || line.starts_with("chrom"))
+      continue;
 
-    const std::vector<std::string_view> fields = absl::StrSplit(line, '\t');
-    if (fields.size() < MIN_COLUMNS) continue;
+    std::vector<std::string_view> const fields = absl::StrSplit(line, '\t');
+    if (fields.size() < MIN_COLUMNS)
+      continue;
 
-    const auto source = std::string(fields[COL_SOURCE]);
-    const auto name = std::string(fields[COL_NAME]);
-    const auto scale = std::stol(std::string(fields[COL_SCALE]));
-    const auto score = std::stod(std::string(fields[COL_SCORE]));
+    auto const source = std::string(fields[COL_SOURCE]);
+    auto const name = std::string(fields[COL_NAME]);
+    auto const scale = std::stol(std::string(fields[COL_SCALE]));
+    auto const score = std::stod(std::string(fields[COL_SCORE]));
 
     acc.category[source].by_scale[scale].Add(score);
     acc.subcategory[source][name].by_scale[scale].Add(score);
@@ -281,35 +287,35 @@ auto main(int argc, char** argv) -> int {
     acc.rows++;
 
     if (acc.rows % 10'000'000 == 0) {
-      const auto elapsed = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
+      auto const elapsed = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
       fmt::print(stderr, "  {}M rows processed | {}\n", acc.rows / 1'000'000, elapsed);
     }
   }
   gzclose(gz);
 
-  const auto stream_elapsed = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
+  auto const stream_elapsed = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
   fmt::print(stderr, "Streamed {} rows ({})\n\n", acc.rows, stream_elapsed);
 
   // ── Step 3: Determine scales and convert to btree_map for sorted output ─
   std::vector<i64> scales;
-  for (const auto& [scale, _] : acc.global) {
+  for (auto const& [scale, _] : acc.global) {
     scales.push_back(scale);
   }
   std::ranges::sort(scales);
 
-  absl::btree_map<std::string, GroupScores> sorted_categories(
-      acc.category.begin(), acc.category.end());
+  absl::btree_map<std::string, GroupScores> sorted_categories(acc.category.begin(),
+                                                              acc.category.end());
 
   absl::btree_map<std::string, absl::btree_map<std::string, GroupScores>> sorted_subcategories;
   for (auto& [cat, subcats] : acc.subcategory) {
-    sorted_subcategories[cat] = absl::btree_map<std::string, GroupScores>(
-        subcats.begin(), subcats.end());
+    sorted_subcategories[cat] =
+        absl::btree_map<std::string, GroupScores>(subcats.begin(), subcats.end());
   }
 
   // ── Step 4: Write analysis reports ──────────────────────────────────────
   fmt::print(stderr, "Writing analysis reports...\n");
-  WriteCategoryAnalysis(output_dir / "longdust_analysis_by_category.txt",
-                        sorted_categories, acc.global, scales, acc.rows);
+  WriteCategoryAnalysis(output_dir / "longdust_analysis_by_category.txt", sorted_categories,
+                        acc.global, scales, acc.rows);
 
   WriteSubcategoryAnalysis(output_dir / "longdust_analysis_by_subcategory.txt",
                            sorted_subcategories, acc.rows);

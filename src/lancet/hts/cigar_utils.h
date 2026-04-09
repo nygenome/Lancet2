@@ -1,11 +1,12 @@
 #ifndef SRC_LANCET_HTS_CIGAR_UTILS_H_
 #define SRC_LANCET_HTS_CIGAR_UTILS_H_
 
-#include <vector>
-
-#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/hts/cigar_unit.h"
+
+#include "absl/types/span.h"
+
+#include <vector>
 
 namespace lancet::hts {
 
@@ -28,25 +29,28 @@ namespace lancet::hts {
 //   N  — reference skip, advance reference only, excluded from NM
 //   H,P — no advancement, excluded from NM
 // ============================================================================
-[[nodiscard]] inline auto ComputeEditDistance(const std::vector<CigarUnit>& cigar,
-                                              absl::Span<const u8> encoded_query,
-                                              absl::Span<const u8> encoded_target) -> u32 {
-  u32 nm = 0;
+// NOLINTNEXTLINE(readability-function-size)  // TODO(lancet): refactor to reduce function size
+[[nodiscard]] inline auto ComputeEditDistance(std::vector<CigarUnit> const& cigar,
+                                              absl::Span<u8 const> encoded_query,
+                                              absl::Span<u8 const> encoded_target) -> u32 {
+  u32 edist = 0;
   usize qpos = 0;
   usize tpos = 0;
 
-  for (const auto& unit : cigar) {
-    const auto op = unit.Operation();
-    const u32 len = unit.Length();
+  for (auto const& unit : cigar) {
+    auto const cigar_op = unit.Operation();
+    u32 const len = unit.Length();
 
-    switch (op) {
+    switch (cigar_op) {
       case CigarOp::ALIGNMENT_MATCH:
         // M op: must compare sequences base-by-base for mismatches.
         // Encoded bases are numeric (0-4), so comparison is case-insensitive.
         for (u32 i = 0; i < len; ++i, ++qpos, ++tpos) {
-          if (qpos < encoded_query.size() && tpos < encoded_target.size()
-              && encoded_query[qpos] != encoded_target[tpos]) {
-            ++nm;
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+          if (qpos < encoded_query.size() &&
+              tpos < encoded_target.size() &&
+              encoded_query[qpos] != encoded_target[tpos]) {
+            ++edist;
           }
         }
         break;
@@ -57,16 +61,16 @@ namespace lancet::hts {
         break;
       case CigarOp::SEQUENCE_MISMATCH:
         // X op: all mismatches
-        nm += len;
+        edist += len;
         qpos += len;
         tpos += len;
         break;
       case CigarOp::INSERTION:
-        nm += len;
+        edist += len;
         qpos += len;
         break;
       case CigarOp::DELETION:
-        nm += len;
+        edist += len;
         tpos += len;
         break;
       case CigarOp::SOFT_CLIP:
@@ -80,7 +84,7 @@ namespace lancet::hts {
     }
   }
 
-  return nm;
+  return edist;
 }
 
 // ============================================================================
@@ -91,22 +95,23 @@ namespace lancet::hts {
 // If ref_pos falls in a deletion (no query base), returns the query position
 // at the start of that deletion.
 // ============================================================================
-[[nodiscard]] inline auto CigarRefPosToQueryPos(const std::vector<CigarUnit>& cigar,
-                                                 const usize ref_pos) -> usize {
+[[nodiscard]] inline auto CigarRefPosToQueryPos(std::vector<CigarUnit> const& cigar,
+                                                usize const ref_pos) -> usize {
   usize qpos = 0;
   usize tpos = 0;
 
-  for (const auto& unit : cigar) {
-    const auto op = unit.Operation();
-    const u32 len = unit.Length();
+  for (auto const& unit : cigar) {
+    auto const cigar_op = unit.Operation();
+    u32 const len = unit.Length();
 
-    switch (op) {
+    switch (cigar_op) {
       case CigarOp::ALIGNMENT_MATCH:
       case CigarOp::SEQUENCE_MATCH:
       case CigarOp::SEQUENCE_MISMATCH:
         for (u32 i = 0; i < len; ++i, ++qpos, ++tpos) {
           // NOLINTNEXTLINE(readability-braces-around-statements)
-          if (tpos == ref_pos) return qpos;
+          if (tpos == ref_pos)
+            return qpos;
         }
         break;
       case CigarOp::INSERTION:
@@ -116,7 +121,8 @@ namespace lancet::hts {
       case CigarOp::REFERENCE_SKIP:
         for (u32 i = 0; i < len; ++i, ++tpos) {
           // NOLINTNEXTLINE(readability-braces-around-statements)
-          if (tpos == ref_pos) return qpos;
+          if (tpos == ref_pos)
+            return qpos;
         }
         break;
       case CigarOp::SOFT_CLIP:

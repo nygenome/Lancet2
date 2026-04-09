@@ -1,19 +1,22 @@
 #ifndef SRC_LANCET_BASE_LONGDUST_SCORER_H_
 #define SRC_LANCET_BASE_LONGDUST_SCORER_H_
 
+#include "lancet/base/rev_comp.h"
+#include "lancet/base/types.h"
+
+#include "absl/strings/str_cat.h"
+#include "spdlog/fmt/bundled/core.h"
+
 #include <algorithm>
 #include <array>
-#include <cmath>
-#include <cstdint>
 #include <numbers>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
-#include "lancet/base/rev_comp.h"
-#include "lancet/base/types.h"
-#include "spdlog/fmt/bundled/core.h"
+#include <cmath>
+#include <cstdint>
 
 namespace lancet::base {
 
@@ -336,7 +339,7 @@ static constexpr int LONGDUST_HAPLOTYPE_K = 7;
 inline auto FormatComplexityScore(f64 val) -> std::string {
   auto txt = fmt::format("{:.3f}", val);
   if (txt.find('.') != std::string::npos) {
-    const auto last_nonzero = txt.find_last_not_of('0');
+    auto const last_nonzero = txt.find_last_not_of('0');
     txt.erase(last_nonzero + 1);
     if (txt.back() == '.') {
       txt.pop_back();
@@ -347,11 +350,13 @@ inline auto FormatComplexityScore(f64 val) -> std::string {
 
 /// Format a span of scores as a comma-separated VCF INFO value.
 template <typename Container>
-inline auto FormatComplexityScores(const Container& scores) -> std::string {
+inline auto FormatComplexityScores(Container const& scores) -> std::string {
   std::string result;
   bool first = true;
-  for (const auto& score : scores) {
-    if (!first) absl::StrAppend(&result, ",");
+  for (auto const& score : scores) {
+    if (!first) {
+      absl::StrAppend(&result, ",");
+    }
     absl::StrAppend(&result, FormatComplexityScore(static_cast<f64>(score)));
     first = false;
   }
@@ -371,18 +376,25 @@ inline auto FormatComplexityScores(const Container& scores) -> std::string {
 // This is packed into a k-mer integer by shifting and OR-ing:
 //   Example (k=3): sequence ACG → 00·01·10 = binary 000110 = decimal 6
 // ============================================================================
-inline constexpr auto MakeDnaEncodeTable() -> std::array<u8, 256> {
+constexpr auto MakeDnaEncodeTable() -> std::array<u8, 256> {
   std::array<u8, 256> tbl{};
-  for (auto& v : tbl) v = 4;
-  tbl['A'] = 0;  tbl['a'] = 0;
-  tbl['C'] = 1;  tbl['c'] = 1;
-  tbl['G'] = 2;  tbl['g'] = 2;
-  tbl['T'] = 3;  tbl['t'] = 3;
+  for (auto& val : tbl) {
+    val = 4;
+  }
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+  tbl['A'] = 0;
+  tbl['a'] = 0;
+  tbl['C'] = 1;
+  tbl['c'] = 1;
+  tbl['G'] = 2;
+  tbl['g'] = 2;
+  tbl['T'] = 3;
+  tbl['t'] = 3;
+  // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   return tbl;
 }
 
-inline constexpr std::array<u8, 256> kDnaEncodeTable = MakeDnaEncodeTable();
-
+inline constexpr std::array<u8, 256> DNA_ENCODE_TABLE = MakeDnaEncodeTable();
 
 class LongdustQScorer {
  public:
@@ -394,7 +406,9 @@ class LongdustQScorer {
   ///                uniform (no correction). For non-human genomes, set to
   ///                the organism's genome-wide GC (e.g., 0.20 for P. falciparum).
   explicit LongdustQScorer(int k = 7, int max_len = 1024, f64 gc_frac = 0.41)
-      : mK(k), mMask((1U << (2 * k)) - 1), mNumKmers(1U << (2 * k)),
+      : mK(k),
+        mMask((1U << (2 * k)) - 1),
+        mNumKmers(1U << (2 * k)),
         mGc(std::clamp(gc_frac, 0.0, 1.0)) {
     PrecomputeF(max_len);
   }
@@ -416,8 +430,8 @@ class LongdustQScorer {
   //   Score = max(q_fwd, q_rev)
   // ============================================================================
   [[nodiscard]] auto Score(std::string_view seq) const -> f64 {
-    const f64 fwd_score = ScoreOneStrand(seq);
-    const f64 rev_score = ScoreOneStrand(RevComp(seq));
+    f64 const fwd_score = ScoreOneStrand(seq);
+    f64 const rev_score = ScoreOneStrand(RevComp(seq));
     return std::max(fwd_score, rev_score);
   }
 
@@ -463,8 +477,10 @@ class LongdustQScorer {
   // Complexity: O(|seq|) time, O(4^k) space (32KB for k=7, fits L1 cache).
   // ============================================================================
   [[nodiscard]] auto ScoreOneStrand(std::string_view seq) const -> f64 {
-    const auto n_positions = static_cast<i64>(seq.size()) - mK + 1;
-    if (n_positions <= 0) return 0.0;
+    auto const n_positions = static_cast<i64>(seq.size()) - mK + 1;
+    if (n_positions <= 0) {
+      return 0.0;
+    }
 
     // Step 1: Count k-mers in a flat array indexed by the 2k-bit k-mer code
     thread_local std::vector<u16> counts;
@@ -474,11 +490,13 @@ class LongdustQScorer {
     int run = 0;
     usize valid_kmers = 0;
 
-    for (const char ch : seq) {
-      const auto base = kDnaEncodeTable[static_cast<u8>(ch)];
+    for (char const chr : seq) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+      auto const base = DNA_ENCODE_TABLE[static_cast<u8>(chr)];
       if (base < 4) {
         kmer = ((kmer << 2) | base) & mMask;
         if (++run >= mK) {
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           counts[kmer]++;
           valid_kmers++;
         }
@@ -487,31 +505,36 @@ class LongdustQScorer {
       }
     }
 
-    if (valid_kmers == 0) return 0.0;
+    if (valid_kmers == 0) {
+      return 0.0;
+    }
 
     // Step 2: Σ_t log(c_x(t)!) — only counts ≥ 2 contribute (log(0!)=log(1!)=0)
     f64 sum_log_factorial = 0.0;
     for (u32 idx = 0; idx < mNumKmers; ++idx) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       if (counts[idx] >= 2) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
         sum_log_factorial += std::lgamma(static_cast<f64>(counts[idx] + 1));
       }
     }
 
     // Step 3: Q(x) = Σ log(c!) − f(ℓ)
-    const auto ell = static_cast<int>(valid_kmers);
-    const f64 f_val = (ell < static_cast<int>(mF.size())) ? mF[ell] : ComputeF(ell);
-    const f64 q_score = sum_log_factorial - f_val;
+    auto const ell = static_cast<int>(valid_kmers);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    f64 const f_val = (std::cmp_less(ell, mF.size())) ? mF[ell] : ComputeF(ell);
+    f64 const q_score = sum_log_factorial - f_val;
 
     // Step 4: normalize, clamp at 0
     return std::max(0.0, q_score / static_cast<f64>(valid_kmers));
   }
 
  private:
-  int mK;              // k-mer size (e.g., 7 → 7-mers)
-  u32 mMask;           // bitmask to extract a k-mer from the rolling integer: (1 << 2k) - 1
-  u32 mNumKmers;       // total possible k-mers: 4^k (e.g., 16,384 for k=7)
-  f64 mGc;             // global background GC fraction for bias correction
-  std::vector<f64> mF; // precomputed f(ℓ) table: mF[ℓ] = expected Σ log(c!) under null model
+  int mK;               // k-mer size (e.g., 7 → 7-mers)
+  u32 mMask;            // bitmask to extract a k-mer from the rolling integer: (1 << 2k) - 1
+  u32 mNumKmers;        // total possible k-mers: 4^k (e.g., 16,384 for k=7)
+  f64 mGc;              // global background GC fraction for bias correction
+  std::vector<f64> mF;  // precomputed f(ℓ) table: mF[ℓ] = expected Σ log(c!) under null model
 
   // ============================================================================
   // ComputeFSingle: expected log-factorial per k-mer under Poisson(λ)
@@ -537,32 +560,39 @@ class LongdustQScorer {
   //   λ = 10.0:  f_single ≈ 14.0  (significant expected concentration)
   // ============================================================================
   [[nodiscard]] static auto ComputeFSingle(f64 lambda) -> f64 {
-    if (lambda < 1e-10) return 0.0;
+    if (lambda < 1e-10) {
+      return 0.0;
+    }
 
     if (lambda >= 30.0) {
       // Stirling's approximation
-      const f64 inv_lambda = 1.0 / lambda;
-      const f64 x = 0.5 * std::log(2.0 * std::numbers::pi * std::numbers::e * lambda) -
-                    inv_lambda / 12.0 * (1.0 + 0.5 * inv_lambda + 19.0 / 30.0 * inv_lambda * inv_lambda);
-      return x + lambda * (std::log(lambda) - 1.0);
+      f64 const inv_lambda = 1.0 / lambda;
+      f64 const stirling_val =
+          (0.5 * std::log(2.0 * std::numbers::pi * std::numbers::e * lambda)) -
+          (inv_lambda /
+           12.0 *
+           (1.0 + (0.5 * inv_lambda) + (19.0 / 30.0 * inv_lambda * inv_lambda)));
+      return stirling_val + (lambda * (std::log(lambda) - 1.0));
     }
 
     // Exact series: iterate the Poisson-weighted sum
-    //   sn accumulates log(n!) = log(2) + log(3) + ... + log(n)
-    //   y  tracks λ^n / n! (unnormalized Poisson PMF)
-    //   x  = Σ y × sn
+    //   sum_n accumulates log(n!) = log(2) + log(3) + ... + log(n)
+    //   scaled  tracks λ^n / n! (unnormalized Poisson PMF)
+    //   accum  = Σ scaled × sum_n
     //   Convergence: stop when new term < 1e-9 × running total
-    f64 x = 0.0;
-    f64 sn = 0.0;
-    f64 y = lambda;
-    for (int n = 2; n <= 10000; ++n) {
-      sn += std::log(static_cast<f64>(n)); // sn = log(n!)
-      y *= lambda / n; // y = λ^n / n!
-      const f64 z = y * sn;
-      if (z < x * 1e-9) break; // convergence check when contribution is negligible
-      x += z;
+    f64 accum = 0.0;
+    f64 sum_n = 0.0;
+    f64 scaled = lambda;
+    for (int n = 2; n <= 10'000; ++n) {
+      sum_n += std::log(static_cast<f64>(n));  // sum_n = log(n!)
+      scaled *= lambda / n;                    // scaled = λ^n / n!
+      f64 const zscore = scaled * sum_n;
+      if (zscore < accum * 1e-9) {
+        break;  // convergence check when contribution is negligible
+      }
+      accum += zscore;
     }
-    return x * std::exp(-lambda);
+    return accum * std::exp(-lambda);
   }
 
   // ============================================================================
@@ -592,32 +622,32 @@ class LongdustQScorer {
   [[nodiscard]] auto ComputeF(int ell) const -> f64 {
     // Fast path: if perfectly uniform (g ≈ 0.5), use the original 1-bin formula
     if (std::abs(mGc - 0.5) < 1e-6) {
-      const f64 lambda = static_cast<f64>(ell) / mNumKmers;
+      f64 const lambda = static_cast<f64>(ell) / mNumKmers;
       return static_cast<f64>(mNumKmers) * ComputeFSingle(lambda);
     }
 
     // GC-bias corrected: group k-mers by GC content
-    const f64 safe_gc = std::clamp(mGc, 1e-6, 1.0 - 1e-6);
-    const f64 p_gc = safe_gc / 2.0;         // probability of G or C
-    const f64 p_at = (1.0 - safe_gc) / 2.0; // probability of A or T
-    const f64 two_pow_k = static_cast<f64>(1ULL << mK);
+    f64 const safe_gc = std::clamp(mGc, 1e-6, 1.0 - 1e-6);
+    f64 const p_gc = safe_gc / 2.0;          // probability of G or C
+    f64 const p_at = (1.0 - safe_gc) / 2.0;  // probability of A or T
+    f64 const two_pow_k = static_cast<f64>(1ULL << mK);
     f64 total_f = 0.0;
 
-    for (int c = 0; c <= mK; ++c) {
-      // Binomial coefficient: C(k, c)
+    for (int gc_count = 0; gc_count <= mK; ++gc_count) {
+      // Binomial coefficient: C(k, gc_count)
       f64 comb = 1.0;
-      for (int j = 1; j <= c; ++j) {
+      for (int j = 1; j <= gc_count; ++j) {
         comb *= static_cast<f64>(mK - j + 1) / static_cast<f64>(j);
       }
 
-      // Number of distinct k-mers with exactly c G/C bases: C(k,c) · 2^k
-      const f64 num_kmers = comb * two_pow_k;
+      // Number of distinct k-mers with exactly gc_count G/C bases: C(k,gc_count) · 2^k
+      f64 const num_kmers = comb * two_pow_k;
 
       // Probability of one specific k-mer from this composition group
-      const f64 prob_kmer = std::pow(p_gc, c) * std::pow(p_at, mK - c);
+      f64 const prob_kmer = std::pow(p_gc, gc_count) * std::pow(p_at, mK - gc_count);
 
       // Expected count (λ) for this k-mer
-      const f64 lambda = static_cast<f64>(ell) * prob_kmer;
+      f64 const lambda = static_cast<f64>(ell) * prob_kmer;
 
       total_f += num_kmers * ComputeFSingle(lambda);
     }
@@ -628,6 +658,7 @@ class LongdustQScorer {
   void PrecomputeF(int max_len) {
     mF.resize(max_len + 1, 0.0);
     for (int ell = 1; ell <= max_len; ++ell) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       mF[ell] = ComputeF(ell);
     }
   }

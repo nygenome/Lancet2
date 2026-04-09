@@ -8,12 +8,19 @@ extern "C" {
 
 namespace lancet::hts {
 
-auto Iterator::operator==(const Iterator& rhs) const -> bool { return mParsedAln == rhs.mParsedAln; }
+auto Iterator::operator==(Iterator const& rhs) const -> bool {
+  return mParsedAln == rhs.mParsedAln;
+}
 
-auto Iterator::operator!=(const Iterator& rhs) const -> bool { return !(rhs == *this); }
+auto Iterator::operator!=(Iterator const& rhs) const -> bool {
+  return !(rhs == *this);
+}
 
 auto Iterator::operator++() -> Iterator& {
-  if (mRawFilePtr != nullptr && mRawHdrPtr != nullptr && mRawItrPtr != nullptr && mRawAlnPtr != nullptr) {
+  if (mRawFilePtr != nullptr &&
+      mRawHdrPtr != nullptr &&
+      mRawItrPtr != nullptr &&
+      mRawAlnPtr != nullptr) {
     FetchNextAlignment();
   }
 
@@ -28,7 +35,7 @@ auto Iterator::operator++(int) -> Iterator {
 
 // NOLINTNEXTLINE(misc-no-recursion)
 void Iterator::FetchNextAlignment() {
-  const auto next_result = sam_itr_next(mRawFilePtr, mRawItrPtr, mRawAlnPtr);
+  auto const next_result = sam_itr_next(mRawFilePtr, mRawItrPtr, mRawAlnPtr);
   if (next_result < -1) {
     throw std::runtime_error("Could not fetch next alignment from BAM/CRAM iterator");
   }
@@ -53,11 +60,13 @@ void Iterator::FetchNextAlignment() {
 }
 
 auto Iterator::PassesFilter() const -> bool {
-  if (mRawFiltrPtr == nullptr) return true;  // NOLINT(readability-braces-around-statements)
+  if (mRawFiltrPtr == nullptr) {
+    return true;  // NOLINT(readability-braces-around-statements)
+  }
 
   // Filter expression present, so we need to apply filters to check
   // if the read passes filters before populating Alignment
-  const auto check_result = sam_passes_filter(mRawHdrPtr, mRawAlnPtr, mRawFiltrPtr);
+  auto const check_result = sam_passes_filter(mRawHdrPtr, mRawAlnPtr, mRawFiltrPtr);
   if (check_result < 0) {
     // Error checking if alignment passed filters
     throw std::runtime_error("Could not apply filter expression to alignment");

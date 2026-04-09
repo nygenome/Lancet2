@@ -1,22 +1,23 @@
 #include "lancet/hts/extractor.h"
 
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/reference.h"
+
+#include "catch_amalgamated.hpp"
+#include "lancet_test_config.h"
+
 #include <filesystem>
 #include <iterator>
 #include <stdexcept>
 
-#include "catch_amalgamated.hpp"
-#include "lancet/hts/alignment.h"
-#include "lancet/hts/reference.h"
-#include "lancet_test_config.h"
-
 using namespace lancet::hts;
 
 TEST_CASE("Extractor::Extractor()", "[lancet][hts][Extractor]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
-  const auto normal_cram_path = MakePath(FULL_DATA_DIR, NORMAL_CRAM_NAME);
-  const auto normal_bam_path = MakePath(FULL_DATA_DIR, NORMAL_BAM_NAME);
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  auto const normal_cram_path = MakePath(FULL_DATA_DIR, NORMAL_CRAM_NAME);
+  auto const normal_bam_path = MakePath(FULL_DATA_DIR, NORMAL_BAM_NAME);
 
   REQUIRE(std::filesystem::exists(tumor_cram_path));
   REQUIRE(std::filesystem::exists(tumor_bam_path));
@@ -30,24 +31,24 @@ TEST_CASE("Extractor::Extractor()", "[lancet][hts][Extractor]") {
 }
 
 TEST_CASE("Extractor::SampleName()", "[lancet][hts][Extractor]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
 
-  const Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
-  const Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::CORE_QNAME);
+  Extractor const cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
+  Extractor const bam_extractor(tumor_bam_path, ref, Alignment::Fields::CORE_QNAME);
 
   CHECK(cram_extractor.SampleName() == bam_extractor.SampleName());
   CHECK(cram_extractor.SampleName() == "SRR7890893");
 }
 
 TEST_CASE("Extractor::ChromName(i32)", "[lancet][hts][Extractor]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
 
-  const Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
-  const Extractor bam_extractor(tumor_bam_path, ref, Alignment::Fields::CORE_QNAME);
+  Extractor const cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
+  Extractor const bam_extractor(tumor_bam_path, ref, Alignment::Fields::CORE_QNAME);
 
   CHECK(cram_extractor.ChromName(10) == "chr11");
   CHECK(cram_extractor.ChromName(2841) == "HLA-A*01:01:01:01");
@@ -55,12 +56,14 @@ TEST_CASE("Extractor::ChromName(i32)", "[lancet][hts][Extractor]") {
   CHECK(bam_extractor.ChromName(2841) == "HLA-A*01:01:01:01");
 }
 
-TEST_CASE("Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region>)", "[lancet][hts][Extractor]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+TEST_CASE("Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region>)",
+          "[lancet][hts][Extractor]") {
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
 
-  const auto regions = {ref.MakeRegion("chr4:100000000-100000000"), ref.MakeRegion("chr4:100000-100000")};
+  auto const regions = {ref.MakeRegion("chr4:100000000-100000000"),
+                        ref.MakeRegion("chr4:100000-100000")};
 
   SECTION("Can extract cram alignments from chr4:100000000-100000000, chr4:100000-100000") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CORE_QNAME);
@@ -76,11 +79,12 @@ TEST_CASE("Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region
 }
 
 TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][Extractor]") {
-  const Reference ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  const auto tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
-  const auto tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
+  Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
+  auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);
+  auto const tumor_bam_path = MakePath(FULL_DATA_DIR, TUMOR_BAM_NAME);
 
-  const auto regions = {ref.MakeRegion("chr4:100000000-100000000"), ref.MakeRegion("chr4:100000-100000")};
+  auto const regions = {ref.MakeRegion("chr4:100000000-100000000"),
+                        ref.MakeRegion("chr4:100000-100000")};
 
   SECTION("Can extract cram alignments from chr4:100000000-100000000, chr4:100000-100000") {
     Extractor cram_extractor(tumor_cram_path, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
@@ -101,7 +105,8 @@ TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][E
     cram_extractor.SetRegionBatchToExtract(regions);
     cram_extractor.SetFilterExpression("invalid");
     // NOLINTNEXTLINE(bugprone-unused-return-value)
-    CHECK_THROWS_AS(std::distance(cram_extractor.begin(), cram_extractor.end()), std::runtime_error);
+    CHECK_THROWS_AS(std::distance(cram_extractor.begin(), cram_extractor.end()),
+                    std::runtime_error);
   }
 
   SECTION("Throws when invalid filter expression is provided to bam") {

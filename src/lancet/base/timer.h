@@ -1,10 +1,10 @@
 #ifndef SRC_LANCET_BASE_TIMER_H_
 #define SRC_LANCET_BASE_TIMER_H_
 
-#include <string>
-
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+
+#include <string>
 
 class Timer {
  public:

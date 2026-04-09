@@ -43,8 +43,8 @@ extern "C" {
 #endif
 
 // --- From longdust (linked into TestLancet2 via FetchContent) ---
-#include "longdust.h"  // ld_opt_t, ld_data_t, ld_intv_t, public API
 #include "kdq.h"       // kdq_t — longdust's internal deque macro
+#include "longdust.h"  // ld_opt_t, ld_data_t, ld_intv_t, public API
 
 #include <math.h>
 #include <stdlib.h>
@@ -76,23 +76,23 @@ extern "C" {
 KDQ_INIT(uint32_t)
 
 typedef struct {
-    int32_t pos;          // position in the scanned sequence
-    double max;           // max Q/ℓ at this position
+  int32_t pos;  // position in the scanned sequence
+  double max;   // max Q/ℓ at this position
 } ld_test_forpos_t;
 
 struct ld_test_data_s {
-    void *km;             // kalloc memory pool
-    const ld_opt_t *opt;  // pointer to scoring options
-    double *f;            // f[ℓ] = expected Σ log(c!) for ℓ k-mers (Poisson null)
-    double *c;            // c[i] = log(i), precomputed for i=0..max_count
-    kdq_t(uint32_t) *q;   // deque used by backward/forward sweep
-    uint16_t *ht;         // flat k-mer count array, size 4^k
-    int32_t max_test;     // max count to trigger testing
-    int32_t n_for_pos;    // number of forward pass entries
-    ld_test_forpos_t *for_pos;  // forward pass position/score array
-    int64_t n_intv;       // number of intervals found
-    int64_t m_intv;       // allocated capacity for intervals
-    ld_intv_t *intv;      // output array of low-complexity intervals
+  void* km;                   // kalloc memory pool
+  ld_opt_t const* opt;        // pointer to scoring options
+  double* f;                  // f[ℓ] = expected Σ log(c!) for ℓ k-mers (Poisson null)
+  double* c;                  // c[i] = log(i), precomputed for i=0..max_count
+  kdq_t(uint32_t) * q;        // deque used by backward/forward sweep
+  uint16_t* ht;               // flat k-mer count array, size 4^k
+  int32_t max_test;           // max count to trigger testing
+  int32_t n_for_pos;          // number of forward pass entries
+  ld_test_forpos_t* for_pos;  // forward pass position/score array
+  int64_t n_intv;             // number of intervals found
+  int64_t m_intv;             // allocated capacity for intervals
+  ld_intv_t* intv;            // output array of low-complexity intervals
 };
 
 // ============================================================================
@@ -109,23 +109,19 @@ struct ld_test_data_s {
 // characters, which reset the k-mer sliding window.
 // ============================================================================
 static unsigned char ld_test_nt4_table[256] = {
-    0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x00..0x0F
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x10..0x1F
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x20..0x2F (space, punctuation)
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x30..0x3F (digits)
-    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x40..0x4F (@,A,B,C,...,O) — A=0,C=1,G=2
-    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x50..0x5F (P,...,T,...,_)   — T=3
-    4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x60..0x6F (`,a,b,c,...,o) — a=0,c=1,g=2
-    4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x70..0x7F (p,...,t,...,DEL) — t=3
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  // 0x80..0xFF: all invalid
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-    4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
-};
+    0, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x00..0x0F
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x10..0x1F
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x20..0x2F (space, punctuation)
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x30..0x3F (digits)
+    4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x40..0x4F (@,A,B,C,...,O) — A=0,C=1,G=2
+    4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x50..0x5F (P,...,T,...,_)   — T=3
+    4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x60..0x6F (`,a,b,c,...,o) — a=0,c=1,g=2
+    4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x70..0x7F (p,...,t,...,DEL) — t=3
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,  // 0x80..0xFF: all invalid
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 
 // ============================================================================
 // Complement function — reimplements longdust.c:116-125 (seq_comp_tab)
@@ -133,14 +129,27 @@ static unsigned char ld_test_nt4_table[256] = {
 // Returns the Watson-Crick complement of a DNA base, preserving case.
 // Non-DNA characters (including N) return 'N'.
 // ============================================================================
-static inline char ld_test_complement(char c) {
-    switch (c) {
-        case 'A': return 'T'; case 'a': return 't';
-        case 'T': return 'A'; case 't': return 'a';
-        case 'C': return 'G'; case 'c': return 'g';
-        case 'G': return 'C'; case 'g': return 'c';
-        default: return 'N';
-    }
+inline static char ld_test_complement(char c) {
+  switch (c) {
+    case 'A':
+      return 'T';
+    case 'a':
+      return 't';
+    case 'T':
+      return 'A';
+    case 't':
+      return 'a';
+    case 'C':
+      return 'G';
+    case 'c':
+      return 'g';
+    case 'G':
+      return 'C';
+    case 'g':
+      return 'c';
+    default:
+      return 'N';
+  }
 }
 
 // ============================================================================
@@ -168,68 +177,71 @@ static inline char ld_test_complement(char c) {
 //   f_val   – f(ℓ) from longdust's precomputed table
 //   q       – raw score Q(x) = sum_log_fact - f_val
 // ============================================================================
-static inline double ld_test_q_one_strand(const ld_data_t *ld, const char *seq, int seq_len) {
-    // Cast opaque ld_data_t to our replicated struct to access f[] table
-    const struct ld_test_data_s *d = (const struct ld_test_data_s *)ld;
+inline static double ld_test_q_one_strand(ld_data_t const* ld, char const* seq, int seq_len) {
+  // Cast opaque ld_data_t to our replicated struct to access f[] table
+  const struct ld_test_data_s* d = (const struct ld_test_data_s*)ld;
 
-    // Read k-mer parameters from longdust's options
-    const int k = d->opt->kmer;                    // k-mer size (typically 7)
-    const uint32_t mask = (1U << (2 * k)) - 1;     // bitmask for 2k-bit k-mer
-    const uint32_t n_kmer = 1U << (2 * k);         // number of possible k-mers (4^k)
+  // Read k-mer parameters from longdust's options
+  int const k = d->opt->kmer;                 // k-mer size (typically 7)
+  uint32_t const mask = (1U << (2 * k)) - 1;  // bitmask for 2k-bit k-mer
+  uint32_t const n_kmer = 1U << (2 * k);      // number of possible k-mers (4^k)
 
-    // Allocate k-mer count array (zeroed), same as longdust's ht[] array
-    uint16_t *ht = (uint16_t *)calloc(n_kmer, sizeof(uint16_t));
+  // Allocate k-mer count array (zeroed), same as longdust's ht[] array
+  uint16_t* ht = (uint16_t*)calloc(n_kmer, sizeof(uint16_t));
 
-    uint32_t x = 0;   // current k-mer as a 2k-bit integer
-    int l = 0;         // run length of consecutive valid bases
-    int valid = 0;     // total number of valid k-mers extracted (= ℓ)
+  uint32_t x = 0;  // current k-mer as a 2k-bit integer
+  int l = 0;       // run length of consecutive valid bases
+  int valid = 0;   // total number of valid k-mers extracted (= ℓ)
 
-    // ── Step 1: Slide through sequence and count k-mers ──────────────────
-    // This matches longdust.c:215-228 (the forward scan in ld_dust1)
-    for (int i = 0; i < seq_len; i++) {
-        int b = ld_test_nt4_table[(unsigned char)seq[i]];  // encode base
-        if (b < 4) {
-            // Valid base: shift into k-mer integer and mask to k positions
-            x = (x << 2 | b) & mask;
-            // Once we've seen k consecutive valid bases, we have a full k-mer
-            if (++l >= k) {
-                ht[x]++;     // increment count for this k-mer
-                valid++;     // increment total valid k-mer count
-            }
-        } else {
-            l = 0;  // N or invalid base: reset run, next k-mer needs k new bases
-        }
+  // ── Step 1: Slide through sequence and count k-mers ──────────────────
+  // This matches longdust.c:215-228 (the forward scan in ld_dust1)
+  for (int i = 0; i < seq_len; i++) {
+    int b = ld_test_nt4_table[(unsigned char)seq[i]];  // encode base
+    if (b < 4) {
+      // Valid base: shift into k-mer integer and mask to k positions
+      x = (x << 2 | b) & mask;
+      // Once we've seen k consecutive valid bases, we have a full k-mer
+      if (++l >= k) {
+        ht[x]++;  // increment count for this k-mer
+        valid++;  // increment total valid k-mer count
+      }
+    } else {
+      l = 0;  // N or invalid base: reset run, next k-mer needs k new bases
     }
+  }
 
-    // No valid k-mers → score is 0 (sequence too short or all N's)
-    if (valid == 0) { free(ht); return 0.0; }
-
-    // ── Step 2: Compute Σ_t log(c_x(t)!) ────────────────────────────────
-    // Longdust accumulates this incrementally as: s += ld->c[++ht[x>>1]]
-    // where c[i] = log(i). That's equivalent to summing log(2)+log(3)+...+log(c)
-    // = log(c!) for each k-mer with count c ≥ 2.
-    //
-    // We do the same thing in batch: for each k-mer, if count ≥ 2,
-    // add log(2) + log(3) + ... + log(count) = log(count!).
-    double sum_log_fact = 0.0;
-    for (uint32_t t = 0; t < n_kmer; t++) {
-        if (ht[t] >= 2) {
-            for (int j = 2; j <= ht[t]; j++) {
-                sum_log_fact += log((double)j);   // Σ log(j) = log(count!)
-            }
-        }
-    }
-
-    // ── Step 3: Subtract f(ℓ) and normalize ──────────────────────────────
-    // f(ℓ) is the expected value of Σ log(c!) under the random (Poisson) model.
-    // Longdust precomputes f[] for ℓ = 0..ws+1 in ld_data_init().
-    // The raw score is: Q = sum_log_fact - f(ℓ)
-    // The per-k-mer score is: q = max(0, Q / ℓ)
-    double f_val = (valid <= d->opt->ws + 1) ? d->f[valid] : 0.0;
-    double q = sum_log_fact - f_val;
-
+  // No valid k-mers → score is 0 (sequence too short or all N's)
+  if (valid == 0) {
     free(ht);
-    return (valid > 0 && q > 0.0) ? q / valid : 0.0;
+    return 0.0;
+  }
+
+  // ── Step 2: Compute Σ_t log(c_x(t)!) ────────────────────────────────
+  // Longdust accumulates this incrementally as: s += ld->c[++ht[x>>1]]
+  // where c[i] = log(i). That's equivalent to summing log(2)+log(3)+...+log(c)
+  // = log(c!) for each k-mer with count c ≥ 2.
+  //
+  // We do the same thing in batch: for each k-mer, if count ≥ 2,
+  // add log(2) + log(3) + ... + log(count) = log(count!).
+  double sum_log_fact = 0.0;
+  for (uint32_t t = 0; t < n_kmer; t++) {
+    if (ht[t] >= 2) {
+      for (int j = 2; j <= ht[t]; j++) {
+        sum_log_fact += log((double)j);  // Σ log(j) = log(count!)
+      }
+    }
+  }
+
+  // ── Step 3: Subtract f(ℓ) and normalize ──────────────────────────────
+  // f(ℓ) is the expected value of Σ log(c!) under the random (Poisson) model.
+  // Longdust precomputes f[] for ℓ = 0..ws+1 in ld_data_init().
+  // The raw score is: Q = sum_log_fact - f(ℓ)
+  // The per-k-mer score is: q = max(0, Q / ℓ)
+  double f_val = (valid <= d->opt->ws + 1) ? d->f[valid] : 0.0;
+  double q = sum_log_fact - f_val;
+
+  free(ht);
+  return (valid > 0 && q > 0.0) ? q / valid : 0.0;
 }
 
 // ============================================================================
@@ -240,24 +252,24 @@ static inline double ld_test_q_one_strand(const ld_data_t *ld, const char *seq, 
 // complement and runs ld_dust1 again, merging the resulting intervals.
 // We just compute the raw score on each strand and take the maximum.
 // ============================================================================
-static inline double ld_test_q_both_strands(const ld_data_t *ld, const char *seq, int seq_len) {
-    // Score the forward strand
-    double score_fwd = ld_test_q_one_strand(ld, seq, seq_len);
+inline static double ld_test_q_both_strands(ld_data_t const* ld, char const* seq, int seq_len) {
+  // Score the forward strand
+  double score_fwd = ld_test_q_one_strand(ld, seq, seq_len);
 
-    // Build reverse complement — matches longdust.c:374-376
-    // longdust reverses the sequence and complements each base
-    char *rev = (char *)malloc(seq_len + 1);
-    for (int i = 0; i < seq_len; i++) {
-        rev[seq_len - 1 - i] = ld_test_complement(seq[i]);
-    }
-    rev[seq_len] = '\0';
+  // Build reverse complement — matches longdust.c:374-376
+  // longdust reverses the sequence and complements each base
+  char* rev = (char*)malloc(seq_len + 1);
+  for (int i = 0; i < seq_len; i++) {
+    rev[seq_len - 1 - i] = ld_test_complement(seq[i]);
+  }
+  rev[seq_len] = '\0';
 
-    // Score the reverse complement strand
-    double score_rev = ld_test_q_one_strand(ld, rev, seq_len);
-    free(rev);
+  // Score the reverse complement strand
+  double score_rev = ld_test_q_one_strand(ld, rev, seq_len);
+  free(rev);
 
-    // Return the higher of the two scores (matching ld_dust2 behavior)
-    return score_fwd > score_rev ? score_fwd : score_rev;
+  // Return the higher of the two scores (matching ld_dust2 behavior)
+  return score_fwd > score_rev ? score_fwd : score_rev;
 }
 
 #ifdef __cplusplus

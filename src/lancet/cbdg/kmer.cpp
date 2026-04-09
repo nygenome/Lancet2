@@ -1,29 +1,36 @@
 #include "lancet/cbdg/kmer.h"
 
-#include <string>
-#include <utility>
-
-#include "absl/strings/string_view.h"
 #include "lancet/base/hash.h"
 #include "lancet/base/rev_comp.h"
 #include "lancet/base/types.h"
 
+#include <string>
+#include <string_view>
+#include <utility>
+
 namespace {
 
 // Get overlapping prefix and suffix portions of adjacent kmers
-inline auto OvlPrefix(std::string_view data, const usize kval) { return data.substr(0, kval - 1); }
-inline auto OvlSuffix(std::string_view data, const usize kval) { return data.substr(data.size() - kval + 1, kval - 1); }
+inline auto OvlPrefix(std::string_view data, usize const kval) {
+  return data.substr(0, kval - 1);
+}
+inline auto OvlSuffix(std::string_view data, usize const kval) {
+  return data.substr(data.size() - kval + 1, kval - 1);
+}
 
 // Get non-overlapping prefix and suffix portions of adjacent kmers
-inline auto NonOvlPrefix(std::string_view data, const usize kval) { return data.substr(0, data.size() - kval + 1); }
-inline auto NonOvlSuffix(std::string_view data, const usize kval) {
+inline auto NonOvlPrefix(std::string_view data, usize const kval) {
+  return data.substr(0, data.size() - kval + 1);
+}
+inline auto NonOvlSuffix(std::string_view data, usize const kval) {
   return data.substr(kval - 1, data.size() - kval + 1);
 }
 
 /// Logic to merge sequence and quality data from k2 into k1. See comments below for details
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void MergeCords(std::string& k1_dflt, std::string_view k2_dflt, const lancet::cbdg::EdgeKind ekind, const usize currk) {
+void MergeCords(std::string& k1_dflt, std::string_view k2_dflt, lancet::cbdg::EdgeKind const ekind,
+                usize const currk) {
   k1_dflt.reserve(k1_dflt.length() + k2_dflt.length() - currk);
   using lancet::cbdg::EdgeKind;
   switch (ekind) {
@@ -106,7 +113,7 @@ Kmer::Kmer(std::string_view seq) {
   }
 }
 
-void Kmer::Merge(const Kmer& other, const EdgeKind conn_kind, usize currk) {
+void Kmer::Merge(Kmer const& other, EdgeKind const conn_kind, usize currk) {
   if (IsEmpty()) {
     mDfltSign = other.mDfltSign;
     mIdentifier = other.mIdentifier;
@@ -117,11 +124,11 @@ void Kmer::Merge(const Kmer& other, const EdgeKind conn_kind, usize currk) {
   MergeCords(mDfltSeq, other.mDfltSeq, conn_kind, currk);
 }
 
-auto Kmer::SignFor(const Ordering order) const noexcept -> Sign {
+auto Kmer::SignFor(Ordering const order) const noexcept -> Sign {
   return order == Ordering::DEFAULT ? mDfltSign : RevSign(mDfltSign);
 }
 
-auto Kmer::SequenceFor(const Ordering order) const -> std::string {
+auto Kmer::SequenceFor(Ordering const order) const -> std::string {
   return order == Ordering::DEFAULT ? mDfltSeq : RevComp(mDfltSeq);
 }
 

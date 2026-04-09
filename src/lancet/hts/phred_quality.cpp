@@ -1,9 +1,10 @@
 #include "lancet/hts/phred_quality.h"
 
-#include <array>
-#include <cmath>
-
 #include "lancet/base/types.h"
+
+#include <array>
+
+#include <cmath>
 
 namespace lancet::hts {
 
@@ -90,13 +91,18 @@ static constexpr auto LUT_PHRED_TO_ERROR_PROB = std::array<f64, MAX_PHRED_SCORE 
 // clang-format on
 
 auto PhredToErrorProb(u32 phred_score) -> f64 {
-  const auto idx = phred_score > MAX_PHRED_SCORE ? MAX_PHRED_SCORE : static_cast<usize>(phred_score);
+  auto const idx =
+      phred_score > MAX_PHRED_SCORE ? MAX_PHRED_SCORE : static_cast<usize>(phred_score);
   return LUT_PHRED_TO_ERROR_PROB.at(idx);
 }
 
 auto ErrorProbToPhred(f64 prob) -> f64 {
-  if (prob == 1.0) return 0;                // NOLINT(readability-braces-around-statements)
-  if (prob == 0.0) return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
+  if (prob == 1.0) {
+    return 0;  // NOLINT(readability-braces-around-statements)
+  }
+  if (prob == 0.0) {
+    return MAX_PHRED_SCORE;  // NOLINT(readability-braces-around-statements)
+  }
   static constexpr f64 PHRED_MULTIPLIER = -10.0;
   return PHRED_MULTIPLIER * std::log10(prob);
 }

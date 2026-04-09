@@ -1,58 +1,63 @@
 #include "lancet/caller/variant_support.h"
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <numeric>
-#include <vector>
-
 #include "lancet/base/mann_whitney.h"
 #include "lancet/base/types.h"
-
 #include "lancet/hts/phred_quality.h"
 
+#include <absl/types/span.h>
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <numeric>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <cmath>
+
 namespace lancet::caller {
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
 // ============================================================================
 // AddEvidence
 // ============================================================================
-void VariantSupport::AddEvidence(const ReadEvidence& evidence) {
-  EnsureAlleleSlot(evidence.allele);
-  auto& data = mAlleleData[evidence.allele];
+void VariantSupport::AddEvidence(ReadEvidence const& evidence) {
+  EnsureAlleleSlot(evidence.mAllele);
+  auto& data = mAlleleData[evidence.mAllele];
 
   // Deduplicate by read name hash: only first-seen strand counts.
-  const auto [iter, inserted] = data.name_hashes.try_emplace(evidence.rname_hash, evidence.strand);
+  auto const [iter, inserted] = data.mNameHashes.try_emplace(evidence.mRnameHash, evidence.mStrand);
   if (!inserted) {
     return;
   }
 
   // Each read contributes exactly one representative base quality value.
   // For indels, this is already collapsed to min(PBQ) across the variant region
-  // by the genotyper (see ReadAlleleAssignment::base_qual_at_var comment).
-  if (evidence.strand == Strand::FWD) {
-    data.fwd_base_quals.push_back(evidence.base_qual);
+  // by the genotyper (see ReadAlleleAssignment::mBaseQualAtVar comment).
+  if (evidence.mStrand == Strand::FWD) {
+    data.mFwdBaseQuals.push_back(evidence.mBaseQual);
   } else {
-    data.rev_base_quals.push_back(evidence.base_qual);
+    data.mRevBaseQuals.push_back(evidence.mBaseQual);
   }
 
-  data.map_quals.push_back(evidence.map_qual);
-  data.aln_scores.push_back(evidence.aln_score);
+  data.mMapQuals.push_back(evidence.mMapQual);
+  data.mAlnScores.push_back(evidence.mAlnScore);
 
   // Track soft-clip status from original alignment (for SCA FORMAT tag)
-  if (evidence.is_soft_clipped) {
-    ++data.soft_clip_count;
+  if (evidence.mIsSoftClipped) {
+    ++data.mSoftClipCount;
   }
 
   // Track insert sizes from properly-paired reads (for FLD FORMAT tag)
-  if (evidence.is_proper_pair && evidence.insert_size != 0) {
-    data.proper_pair_isizes.push_back(std::abs(static_cast<f64>(evidence.insert_size)));
+  if (evidence.mIsProperPair && evidence.mInsertSize != 0) {
+    data.mProperPairIsizes.push_back(std::abs(static_cast<f64>(evidence.mInsertSize)));
   }
 
   // Track folded read position (for RPCD FORMAT tag)
-  data.folded_read_positions.push_back(evidence.folded_read_pos);
+  data.mFoldedReadPositions.push_back(evidence.mFoldedReadPos);
 
   // Track edit distance to REF haplotype (for ASMD FORMAT tag)
-  data.ref_nm_values.push_back(static_cast<f64>(evidence.ref_nm));
+  data.mRefNmValues.push_back(static_cast<f64>(evidence.mRefNm));
 }
 
 // ============================================================================
@@ -67,63 +72,69 @@ void VariantSupport::AddEvidence(const ReadEvidence& evidence) {
 //
 // Deduplicates by read name hash (same read can't count twice).
 // ============================================================================
-void VariantSupport::MergeAlleleFrom(const VariantSupport& src, const AlleleIndex src_allele,
-                                     const AlleleIndex dst_allele) {
-  if (src_allele >= src.mAlleleData.size()) return;
+void VariantSupport::MergeAlleleFrom(VariantSupport const& src, AlleleIndex const src_allele,
+                                     AlleleIndex const dst_allele) {
+  if (src_allele >= src.mAlleleData.size()) {
+    return;
+  }
   EnsureAlleleSlot(dst_allele);
 
-  const auto& src_data = src.mAlleleData[src_allele];
+  auto const& src_data = src.mAlleleData[src_allele];
   auto& dst_data = mAlleleData[dst_allele];
 
-  for (const auto& [rname_hash, strand] : src_data.name_hashes) {
-    const auto [iter, inserted] = dst_data.name_hashes.try_emplace(rname_hash, strand);
-    if (!inserted) continue;  // already seen this read in dst
+  for (auto const& [rname_hash, strand] : src_data.mNameHashes) {
+    auto const [iter, inserted] = dst_data.mNameHashes.try_emplace(rname_hash, strand);
+    if (!inserted) {
+      continue;  // already seen this read in dst
+    }
   }
 
-  // Append PBQ, RMQ, and alignment scores (reads already deduped above by name_hashes,
+  // Append PBQ, RMQ, and alignment scores (reads already deduped above by mNameHashes,
   // but the qual vectors are append-only during AddEvidence, so we append here too).
-  dst_data.fwd_base_quals.insert(dst_data.fwd_base_quals.end(),
-                                 src_data.fwd_base_quals.begin(), src_data.fwd_base_quals.end());
-  dst_data.rev_base_quals.insert(dst_data.rev_base_quals.end(),
-                                 src_data.rev_base_quals.begin(), src_data.rev_base_quals.end());
-  dst_data.map_quals.insert(dst_data.map_quals.end(),
-                            src_data.map_quals.begin(), src_data.map_quals.end());
-  dst_data.aln_scores.insert(dst_data.aln_scores.end(),
-                             src_data.aln_scores.begin(), src_data.aln_scores.end());
-  dst_data.soft_clip_count += src_data.soft_clip_count;
-  dst_data.proper_pair_isizes.insert(dst_data.proper_pair_isizes.end(),
-                                     src_data.proper_pair_isizes.begin(), src_data.proper_pair_isizes.end());
-  dst_data.folded_read_positions.insert(dst_data.folded_read_positions.end(),
-                                        src_data.folded_read_positions.begin(), src_data.folded_read_positions.end());
-  dst_data.ref_nm_values.insert(dst_data.ref_nm_values.end(),
-                                src_data.ref_nm_values.begin(), src_data.ref_nm_values.end());
+  dst_data.mFwdBaseQuals.insert(dst_data.mFwdBaseQuals.end(), src_data.mFwdBaseQuals.begin(),
+                                src_data.mFwdBaseQuals.end());
+  dst_data.mRevBaseQuals.insert(dst_data.mRevBaseQuals.end(), src_data.mRevBaseQuals.begin(),
+                                src_data.mRevBaseQuals.end());
+  dst_data.mMapQuals.insert(dst_data.mMapQuals.end(), src_data.mMapQuals.begin(),
+                            src_data.mMapQuals.end());
+  dst_data.mAlnScores.insert(dst_data.mAlnScores.end(), src_data.mAlnScores.begin(),
+                             src_data.mAlnScores.end());
+  dst_data.mSoftClipCount += src_data.mSoftClipCount;
+  dst_data.mProperPairIsizes.insert(dst_data.mProperPairIsizes.end(),
+                                    src_data.mProperPairIsizes.begin(),
+                                    src_data.mProperPairIsizes.end());
+  dst_data.mFoldedReadPositions.insert(dst_data.mFoldedReadPositions.end(),
+                                       src_data.mFoldedReadPositions.begin(),
+                                       src_data.mFoldedReadPositions.end());
+  dst_data.mRefNmValues.insert(dst_data.mRefNmValues.end(), src_data.mRefNmValues.begin(),
+                               src_data.mRefNmValues.end());
 }
 
 // ============================================================================
 // Per-Allele Accessors
 // ============================================================================
-auto VariantSupport::FwdCount(const AlleleIndex idx) const -> usize {
+auto VariantSupport::FwdCount(AlleleIndex const idx) const -> usize {
   if (idx >= mAlleleData.size()) {
     return 0;
   }
-  return mAlleleData[idx].fwd_base_quals.size();
+  return mAlleleData[idx].mFwdBaseQuals.size();
 }
 
-auto VariantSupport::RevCount(const AlleleIndex idx) const -> usize {
+auto VariantSupport::RevCount(AlleleIndex const idx) const -> usize {
   if (idx >= mAlleleData.size()) {
     return 0;
   }
-  return mAlleleData[idx].rev_base_quals.size();
+  return mAlleleData[idx].mRevBaseQuals.size();
 }
 
-auto VariantSupport::TotalAlleleCov(const AlleleIndex idx) const -> usize {
+auto VariantSupport::TotalAlleleCov(AlleleIndex const idx) const -> usize {
   return FwdCount(idx) + RevCount(idx);
 }
 
 auto VariantSupport::TotalSampleCov() const noexcept -> usize {
   usize total = 0;
-  for (usize i = 0; i < mAlleleData.size(); ++i) {
-    total += mAlleleData[i].fwd_base_quals.size() + mAlleleData[i].rev_base_quals.size();
+  for (auto const& i : mAlleleData) {
+    total += i.mFwdBaseQuals.size() + i.mRevBaseQuals.size();
   }
   return total;
 }
@@ -158,17 +169,17 @@ auto VariantSupport::TotalAltCov() const -> usize {
 // Returns the raw uncapped value. The caller (BuildFormatFields) divides
 // by allele_depth to produce NPBQ (per-read quality) for VCF output.
 // ============================================================================
-auto VariantSupport::RawPosteriorBaseQual(const AlleleIndex idx) const -> f64 {
+auto VariantSupport::RawPosteriorBaseQual(AlleleIndex const idx) const -> f64 {
   if (idx >= mAlleleData.size()) {
     return 0.0;
   }
 
-  const auto& data = mAlleleData[idx];
+  auto const& data = mAlleleData[idx];
   // Per-read representative base quality at the variant position, split by
   // strand. For indels, this is the MINIMUM PBQ across the variant region
   // (one entry per read, NOT per base position).
-  const auto& fwd_bq = data.fwd_base_quals;
-  const auto& rev_bq = data.rev_base_quals;
+  auto const& fwd_bq = data.mFwdBaseQuals;
+  auto const& rev_bq = data.mRevBaseQuals;
 
   if (fwd_bq.empty() && rev_bq.empty()) {
     return 0.0;
@@ -177,9 +188,9 @@ auto VariantSupport::RawPosteriorBaseQual(const AlleleIndex idx) const -> f64 {
   f64 log_err = 0.0;  // Σ log10(ε_i)
   f64 log_ok = 0.0;   // Σ log10(1 - ε_i)
 
-  const auto accumulate_bq = [&log_err, &log_ok](const std::vector<u8>& quals) {
-    for (const auto qual : quals) {
-      const f64 eps = hts::PhredToErrorProb(qual);
+  auto const accumulate_bq = [&log_err, &log_ok](std::vector<u8> const& quals) -> void {
+    for (auto const qual : quals) {
+      f64 const eps = hts::PhredToErrorProb(qual);
       log_err += std::log10(std::max(eps, 1e-300));
       log_ok += std::log10(std::max(1.0 - eps, 1e-300));
     }
@@ -189,10 +200,11 @@ auto VariantSupport::RawPosteriorBaseQual(const AlleleIndex idx) const -> f64 {
   accumulate_bq(rev_bq);
 
   // log-sum-exp: log10(10^a + 10^b) = max(a,b) + log10(1 + 10^(min-max))
-  const f64 max_log = std::max(log_err, log_ok);
-  const f64 log_sum = max_log + std::log10(1.0 + std::pow(10.0, std::min(log_err, log_ok) - max_log));
-  const f64 log_posterior_err = log_err - log_sum;
-  const f64 posterior_bq = -10.0 * log_posterior_err;
+  f64 const max_log = std::max(log_err, log_ok);
+  f64 const log_sum =
+      max_log + std::log10(1.0 + std::pow(10.0, std::min(log_err, log_ok) - max_log));
+  f64 const log_posterior_err = log_err - log_sum;
+  f64 const posterior_bq = -10.0 * log_posterior_err;
 
   return posterior_bq;
 }
@@ -205,15 +217,16 @@ auto VariantSupport::RawPosteriorBaseQual(const AlleleIndex idx) const -> f64 {
 //
 //   RMQ = sqrt( Σ(mapq_i²) / N )
 // ============================================================================
-auto VariantSupport::RmsMappingQual(const AlleleIndex idx) const -> f64 {
-  if (idx >= mAlleleData.size() || mAlleleData[idx].map_quals.empty()) {
+auto VariantSupport::RmsMappingQual(AlleleIndex const idx) const -> f64 {
+  if (idx >= mAlleleData.size() || mAlleleData[idx].mMapQuals.empty()) {
     return 0.0;
   }
 
-  const auto& mqs = mAlleleData[idx].map_quals;
-  const f64 sum_sq = std::accumulate(mqs.cbegin(), mqs.cend(), 0.0, [](const f64 acc, const u8 mq) {
-    return acc + static_cast<f64>(mq) * static_cast<f64>(mq);
-  });
+  auto const& mqs = mAlleleData[idx].mMapQuals;
+  f64 const sum_sq =
+      std::accumulate(mqs.cbegin(), mqs.cend(), 0.0, [](f64 const acc, u8 const mapq) -> f64 {
+        return acc + (static_cast<f64>(mapq) * static_cast<f64>(mapq));
+      });
 
   return std::sqrt(sum_sq / static_cast<f64>(mqs.size()));
 }
@@ -241,36 +254,36 @@ auto VariantSupport::RmsMappingQual(const AlleleIndex idx) const -> f64 {
 // ============================================================================
 auto VariantSupport::StrandBiasLogOR() const -> f64 {
   // REF strand counts
-  const auto ref_fwd = static_cast<int>(FwdCount(REF_ALLELE_IDX));
-  const auto ref_rev = static_cast<int>(RevCount(REF_ALLELE_IDX));
+  auto const ref_fwd = static_cast<int>(FwdCount(REF_ALLELE_IDX));
+  auto const ref_rev = static_cast<int>(RevCount(REF_ALLELE_IDX));
 
   // ALT strand counts (summed across all non-REF alleles)
   int alt_fwd = 0;
   int alt_rev = 0;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    alt_fwd += static_cast<int>(mAlleleData[i].fwd_base_quals.size());
-    alt_rev += static_cast<int>(mAlleleData[i].rev_base_quals.size());
+    alt_fwd += static_cast<int>(mAlleleData[i].mFwdBaseQuals.size());
+    alt_rev += static_cast<int>(mAlleleData[i].mRevBaseQuals.size());
   }
 
   // Haldane correction: +1 to all cells handles zero-count edge cases
   // without sentinels. When all counts are zero, returns 0.0 (no bias).
-  const auto rf1 = static_cast<f64>(ref_fwd + 1);
-  const auto rr1 = static_cast<f64>(ref_rev + 1);
-  const auto af1 = static_cast<f64>(alt_fwd + 1);
-  const auto ar1 = static_cast<f64>(alt_rev + 1);
+  auto const rf1 = static_cast<f64>(ref_fwd + 1);
+  auto const rr1 = static_cast<f64>(ref_rev + 1);
+  auto const af1 = static_cast<f64>(alt_fwd + 1);
+  auto const ar1 = static_cast<f64>(alt_rev + 1);
   return std::log((rf1 * ar1) / (rr1 * af1));
 }
 
 // ============================================================================
 // MeanAlnScore
 // ============================================================================
-auto VariantSupport::MeanAlnScore(const AlleleIndex idx) const -> f64 {
-  if (idx >= mAlleleData.size() || mAlleleData[idx].aln_scores.empty()) {
+auto VariantSupport::MeanAlnScore(AlleleIndex const idx) const -> f64 {
+  if (idx >= mAlleleData.size() || mAlleleData[idx].mAlnScores.empty()) {
     return 0.0;
   }
 
-  const auto& scores = mAlleleData[idx].aln_scores;
-  const f64 sum = std::accumulate(scores.cbegin(), scores.cend(), 0.0);
+  auto const& scores = mAlleleData[idx].mAlnScores;
+  f64 const sum = std::accumulate(scores.cbegin(), scores.cend(), 0.0);
   return sum / static_cast<f64>(scores.size());
 }
 
@@ -290,16 +303,17 @@ auto VariantSupport::SoftClipAsymmetry() const -> f64 {
   usize alt_sc = 0;
   usize alt_total = 0;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    alt_sc += mAlleleData[i].soft_clip_count;
+    alt_sc += mAlleleData[i].mSoftClipCount;
     alt_total += TotalAlleleCov(static_cast<AlleleIndex>(i));
   }
 
   // REF soft-clip fraction
-  const auto ref_sc = (REF_ALLELE_IDX < mAlleleData.size()) ? mAlleleData[REF_ALLELE_IDX].soft_clip_count : usize{0};
-  const auto ref_total = TotalAlleleCov(REF_ALLELE_IDX);
+  auto const ref_sc =
+      (REF_ALLELE_IDX < mAlleleData.size()) ? mAlleleData[REF_ALLELE_IDX].mSoftClipCount : usize{0};
+  auto const ref_total = TotalAlleleCov(REF_ALLELE_IDX);
 
-  const f64 alt_frac = alt_total > 0 ? static_cast<f64>(alt_sc) / static_cast<f64>(alt_total) : 0.0;
-  const f64 ref_frac = ref_total > 0 ? static_cast<f64>(ref_sc) / static_cast<f64>(ref_total) : 0.0;
+  f64 const alt_frac = alt_total > 0 ? static_cast<f64>(alt_sc) / static_cast<f64>(alt_total) : 0.0;
+  f64 const ref_frac = ref_total > 0 ? static_cast<f64>(ref_sc) / static_cast<f64>(ref_total) : 0.0;
   return alt_frac - ref_frac;
 }
 
@@ -320,7 +334,7 @@ auto VariantSupport::FragLengthDelta() const -> f64 {
   f64 alt_isize_sum = 0.0;
   usize alt_pairs = 0;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    for (const auto isize : mAlleleData[i].proper_pair_isizes) {
+    for (auto const isize : mAlleleData[i].mProperPairIsizes) {
       alt_isize_sum += isize;
       ++alt_pairs;
     }
@@ -330,14 +344,14 @@ auto VariantSupport::FragLengthDelta() const -> f64 {
   f64 ref_isize_sum = 0.0;
   usize ref_pairs = 0;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
-    for (const auto isize : mAlleleData[REF_ALLELE_IDX].proper_pair_isizes) {
+    for (auto const isize : mAlleleData[REF_ALLELE_IDX].mProperPairIsizes) {
       ref_isize_sum += isize;
       ++ref_pairs;
     }
   }
 
-  const f64 alt_mean = alt_pairs > 0 ? alt_isize_sum / static_cast<f64>(alt_pairs) : 0.0;
-  const f64 ref_mean = ref_pairs > 0 ? ref_isize_sum / static_cast<f64>(ref_pairs) : 0.0;
+  f64 const alt_mean = alt_pairs > 0 ? alt_isize_sum / static_cast<f64>(alt_pairs) : 0.0;
+  f64 const ref_mean = ref_pairs > 0 ? ref_isize_sum / static_cast<f64>(ref_pairs) : 0.0;
   return std::abs(alt_mean - ref_mean);
 }
 
@@ -357,15 +371,15 @@ auto VariantSupport::FragLengthDelta() const -> f64 {
 // ============================================================================
 auto VariantSupport::MappingQualCohenD() const -> f64 {
   // Collect REF mapping qualities
-  absl::Span<const u8> ref_mqs;
+  absl::Span<u8 const> ref_mqs;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
-    ref_mqs = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].map_quals);
+    ref_mqs = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].mMapQuals);
   }
 
   // Pool all ALT mapping qualities into a single group
   std::vector<u8> alt_mqs;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    const auto& mqs = mAlleleData[i].map_quals;
+    auto const& mqs = mAlleleData[i].mMapQuals;
     alt_mqs.insert(alt_mqs.end(), mqs.begin(), mqs.end());
   }
 
@@ -386,14 +400,14 @@ auto VariantSupport::MappingQualCohenD() const -> f64 {
 // Returns 0.0 if either group is empty or all positions are identical.
 // ============================================================================
 auto VariantSupport::ReadPosCohenD() const -> f64 {
-  absl::Span<const f64> ref_positions;
+  absl::Span<f64 const> ref_positions;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
-    ref_positions = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].folded_read_positions);
+    ref_positions = absl::MakeConstSpan(mAlleleData[REF_ALLELE_IDX].mFoldedReadPositions);
   }
 
   std::vector<f64> alt_positions;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    const auto& pos = mAlleleData[i].folded_read_positions;
+    auto const& pos = mAlleleData[i].mFoldedReadPositions;
     alt_positions.insert(alt_positions.end(), pos.begin(), pos.end());
   }
 
@@ -414,21 +428,22 @@ auto VariantSupport::BaseQualCohenD() const -> f64 {
   // Collect REF base qualities (fwd + rev concatenated)
   std::vector<u8> ref_bqs;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
-    const auto& ref = mAlleleData[REF_ALLELE_IDX];
-    ref_bqs.reserve(ref.fwd_base_quals.size() + ref.rev_base_quals.size());
-    ref_bqs.insert(ref_bqs.end(), ref.fwd_base_quals.begin(), ref.fwd_base_quals.end());
-    ref_bqs.insert(ref_bqs.end(), ref.rev_base_quals.begin(), ref.rev_base_quals.end());
+    auto const& ref = mAlleleData[REF_ALLELE_IDX];
+    ref_bqs.reserve(ref.mFwdBaseQuals.size() + ref.mRevBaseQuals.size());
+    ref_bqs.insert(ref_bqs.end(), ref.mFwdBaseQuals.begin(), ref.mFwdBaseQuals.end());
+    ref_bqs.insert(ref_bqs.end(), ref.mRevBaseQuals.begin(), ref.mRevBaseQuals.end());
   }
 
   // Pool all ALT base qualities
   std::vector<u8> alt_bqs;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    const auto& alt = mAlleleData[i];
-    alt_bqs.insert(alt_bqs.end(), alt.fwd_base_quals.begin(), alt.fwd_base_quals.end());
-    alt_bqs.insert(alt_bqs.end(), alt.rev_base_quals.begin(), alt.rev_base_quals.end());
+    auto const& alt = mAlleleData[i];
+    alt_bqs.insert(alt_bqs.end(), alt.mFwdBaseQuals.begin(), alt.mFwdBaseQuals.end());
+    alt_bqs.insert(alt_bqs.end(), alt.mRevBaseQuals.begin(), alt.mRevBaseQuals.end());
   }
 
-  return base::MannWhitneyEffectSize<u8>(absl::MakeConstSpan(ref_bqs), absl::MakeConstSpan(alt_bqs));
+  return base::MannWhitneyEffectSize<u8>(absl::MakeConstSpan(ref_bqs),
+                                         absl::MakeConstSpan(alt_bqs));
 }
 
 // ============================================================================
@@ -446,9 +461,10 @@ auto VariantSupport::AlleleMismatchDelta() const -> f64 {
   // REF group mean NM
   f64 ref_mean = 0.0;
   if (REF_ALLELE_IDX < mAlleleData.size()) {
-    const auto& ref_nms = mAlleleData[REF_ALLELE_IDX].ref_nm_values;
+    auto const& ref_nms = mAlleleData[REF_ALLELE_IDX].mRefNmValues;
     if (!ref_nms.empty()) {
-      ref_mean = std::accumulate(ref_nms.begin(), ref_nms.end(), 0.0) / static_cast<f64>(ref_nms.size());
+      ref_mean =
+          std::accumulate(ref_nms.begin(), ref_nms.end(), 0.0) / static_cast<f64>(ref_nms.size());
     }
   }
 
@@ -456,14 +472,15 @@ auto VariantSupport::AlleleMismatchDelta() const -> f64 {
   f64 alt_sum = 0.0;
   usize alt_count = 0;
   for (usize i = 1; i < mAlleleData.size(); ++i) {
-    const auto& nms = mAlleleData[i].ref_nm_values;
+    auto const& nms = mAlleleData[i].mRefNmValues;
     alt_sum += std::accumulate(nms.begin(), nms.end(), 0.0);
     alt_count += nms.size();
   }
 
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (alt_count == 0) return 0.0;
-  const auto alt_mean = alt_sum / static_cast<f64>(alt_count);
+  if (alt_count == 0)
+    return 0.0;
+  auto const alt_mean = alt_sum / static_cast<f64>(alt_count);
   return alt_mean - ref_mean;
 }
 
@@ -494,7 +511,7 @@ auto VariantSupport::AlleleMismatchDelta() const -> f64 {
 
 namespace {
 
-/// For a single read supporting `read_allele` with base quality `base_qual`,
+/// For a single read supporting `mAllele` with base quality `mBaseQual`,
 /// compute P(read | true_allele = a) for every allele a in [0, num_alleles).
 ///
 /// Returns a vector of conditional probabilities, one per allele:
@@ -503,13 +520,14 @@ namespace {
 ///
 /// This is precomputed once per read [O(k)], then reused across all
 /// O(k²/2) genotype pairs — avoiding redundant recomputation.
-auto ReadLikelihoodsPerAllele(const int read_allele, const u8 base_qual,
-                              const int num_alleles) -> std::vector<f64> {
-  const f64 error_prob = hts::PhredToErrorProb(base_qual);
-  const f64 match_prob = 1.0 - error_prob;
-  const f64 mismatch_prob = error_prob / std::max(1, num_alleles - 1);
+auto ReadLikelihoodsPerAllele(int const read_allele, u8 const base_qual, int const num_alleles)
+    -> std::vector<f64> {
+  f64 const error_prob = hts::PhredToErrorProb(base_qual);
+  f64 const match_prob = 1.0 - error_prob;
+  f64 const mismatch_prob = error_prob / std::max(1, num_alleles - 1);
 
   std::vector<f64> likelihoods(num_alleles, mismatch_prob);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   likelihoods[read_allele] = match_prob;
   return likelihoods;
 }
@@ -521,17 +539,17 @@ auto ReadLikelihoodsPerAllele(const int read_allele, const u8 base_qual,
 ///   log_GL[gt] += log10(P(read | GT))
 ///
 /// Complexity: O(k²/2) per read, with per-allele likelihoods already computed.
-void AccumulateReadIntoGLs(const std::vector<f64>& read_lks,
-                           const int num_alleles,
+void AccumulateReadIntoGLs(std::vector<f64> const& read_lks, int const num_alleles,
                            std::vector<f64>& gt_log_likelihoods) {
   for (int allele_b = 0; allele_b < num_alleles; ++allele_b) {
     for (int allele_a = 0; allele_a <= allele_b; ++allele_a) {
-      const int gt_idx = allele_b * (allele_b + 1) / 2 + allele_a;
+      int const gt_idx = (allele_b * (allele_b + 1) / 2) + allele_a;
 
       // Diploid mixture: equal probability of inheriting from either chromosome
-      const f64 diploid_prob = 0.5 * read_lks[allele_a] + 0.5 * read_lks[allele_b];
+      f64 const diploid_prob = (0.5 * read_lks[allele_a]) + (0.5 * read_lks[allele_b]);
 
       // Guard against log10(0); floor at 10^-300 ≈ -300 in log space
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       gt_log_likelihoods[gt_idx] += std::log10(std::max(diploid_prob, 1e-300));
     }
   }
@@ -539,14 +557,15 @@ void AccumulateReadIntoGLs(const std::vector<f64>& read_lks,
 
 /// Convert raw log-likelihoods to normalized, capped Phred-scaled PLs.
 /// The best genotype gets PL=0; others are scaled relative to it.
-auto NormalizeLogLikelihoodsToPLs(const std::vector<f64>& gt_log_lks) -> std::vector<int> {
-  static constexpr f64 PL_CAP = static_cast<f64>(std::numeric_limits<int>::max() / 2);
+auto NormalizeLogLikelihoodsToPLs(std::vector<f64> const& gt_log_lks) -> std::vector<int> {
+  static constexpr f64 PL_CAP = static_cast<f64>(std::numeric_limits<int>::max()) / 2.0;
 
-  const f64 best_ll = *std::max_element(gt_log_lks.cbegin(), gt_log_lks.cend());
+  f64 const best_ll = *std::ranges::max_element(gt_log_lks);
 
   std::vector<int> pls(gt_log_lks.size());
   for (usize idx = 0; idx < gt_log_lks.size(); ++idx) {
-    const f64 raw_pl = -10.0 * (gt_log_lks[idx] - best_ll);
+    f64 const raw_pl = -10.0 * (gt_log_lks[idx] - best_ll);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     pls[idx] = static_cast<int>(std::round(std::min(raw_pl, PL_CAP)));
   }
   return pls;
@@ -555,24 +574,26 @@ auto NormalizeLogLikelihoodsToPLs(const std::vector<f64>& gt_log_lks) -> std::ve
 }  // namespace
 
 auto VariantSupport::ComputePLs() const -> std::vector<int> {
-  const auto num_alleles = static_cast<int>(mAlleleData.size());
-  if (num_alleles == 0) return {};
+  auto const num_alleles = static_cast<int>(mAlleleData.size());
+  if (num_alleles == 0) {
+    return {};
+  }
 
-  const auto num_genotypes = num_alleles * (num_alleles + 1) / 2;
+  auto const num_genotypes = num_alleles * (num_alleles + 1) / 2;
   std::vector<f64> gt_log_lks(num_genotypes, 0.0);
 
   // Walk every read once. Fwd and rev strands use identical math —
   // strand information is already captured in the SB (strand bias log odds ratio) field.
   for (int allele_idx = 0; allele_idx < num_alleles; ++allele_idx) {
-    const auto& allele_data = mAlleleData[allele_idx];
+    auto const& allele_data = mAlleleData[allele_idx];
 
-    for (const auto base_qual : allele_data.fwd_base_quals) {
-      const auto read_lks = ReadLikelihoodsPerAllele(allele_idx, base_qual, num_alleles);
+    for (auto const base_qual : allele_data.mFwdBaseQuals) {
+      auto const read_lks = ReadLikelihoodsPerAllele(allele_idx, base_qual, num_alleles);
       AccumulateReadIntoGLs(read_lks, num_alleles, gt_log_lks);
     }
 
-    for (const auto base_qual : allele_data.rev_base_quals) {
-      const auto read_lks = ReadLikelihoodsPerAllele(allele_idx, base_qual, num_alleles);
+    for (auto const base_qual : allele_data.mRevBaseQuals) {
+      auto const read_lks = ReadLikelihoodsPerAllele(allele_idx, base_qual, num_alleles);
       AccumulateReadIntoGLs(read_lks, num_alleles, gt_log_lks);
     }
   }
@@ -589,7 +610,7 @@ auto VariantSupport::ComputePLs() const -> std::vector<int> {
 //
 // See: https://gatk.broadinstitute.org/hc/en-us/articles/360035531692
 // ============================================================================
-auto VariantSupport::ComputeGQ(const std::vector<int>& pls) -> int {
+auto VariantSupport::ComputeGQ(std::vector<int> const& pls) -> int {
   if (pls.size() < 2) {
     return 0;
   }
@@ -597,7 +618,7 @@ auto VariantSupport::ComputeGQ(const std::vector<int>& pls) -> int {
   // Find minimum and second-minimum PL values
   int min1 = std::numeric_limits<int>::max();
   int min2 = std::numeric_limits<int>::max();
-  for (const int val : pls) {
+  for (int const val : pls) {
     if (val < min1) {
       min2 = min1;
       min1 = val;
@@ -614,7 +635,7 @@ auto VariantSupport::ComputeGQ(const std::vector<int>& pls) -> int {
 // ============================================================================
 // EnsureAlleleSlot
 // ============================================================================
-void VariantSupport::EnsureAlleleSlot(const AlleleIndex idx) {
+void VariantSupport::EnsureAlleleSlot(AlleleIndex const idx) {
   if (idx >= mAlleleData.size()) {
     mAlleleData.resize(idx + 1);
   }
@@ -623,25 +644,29 @@ void VariantSupport::EnsureAlleleSlot(const AlleleIndex idx) {
 // ============================================================================
 // SupportArray Accessors
 // ============================================================================
-auto SupportArray::Find(std::string_view sample_name) const -> const VariantSupport* {
-  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
-  return it != mItems.end() ? it->data.get() : nullptr;
+auto SupportArray::Find(std::string_view sample_name) const -> VariantSupport const* {
+  auto const* const iter = std::ranges::find_if(
+      mItems, [&](auto const& item) -> bool { return item.mSampleName == sample_name; });
+  return iter != mItems.end() ? iter->mData.get() : nullptr;
 }
 
 auto SupportArray::FindOrCreate(std::string_view sample_name) -> VariantSupport& {
-  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
-  if (it != mItems.end()) {
-    return *it->data;
+  auto* const iter = std::ranges::find_if(
+      mItems, [&](auto const& item) -> bool { return item.mSampleName == sample_name; });
+  if (iter != mItems.end()) {
+    return *iter->mData;
   }
-  mItems.push_back(NamedSupport{sample_name, std::make_unique<VariantSupport>()});
-  return *mItems.back().data;
+  mItems.push_back(
+      NamedSupport{.mSampleName = sample_name, .mData = std::make_unique<VariantSupport>()});
+  return *mItems.back().mData;
 }
 
 auto SupportArray::Extract(std::string_view sample_name) -> std::unique_ptr<VariantSupport> {
-  const auto it = std::ranges::find_if(mItems, [&](const auto& item) { return item.sample_name == sample_name; });
-  if (it != mItems.end()) {
-    auto extracted_data = std::move(it->data);
-    mItems.erase(it);
+  auto* const iter = std::ranges::find_if(
+      mItems, [&](auto const& item) -> bool { return item.mSampleName == sample_name; });
+  if (iter != mItems.end()) {
+    auto extracted_data = std::move(iter->mData);
+    mItems.erase(iter);
     return extracted_data;
   }
   return nullptr;
@@ -649,4 +674,5 @@ auto SupportArray::Extract(std::string_view sample_name) -> std::unique_ptr<Vari
 
 // SupportArray inline definitions placed in the header for performance.
 
+// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }  // namespace lancet::caller

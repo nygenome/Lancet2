@@ -1,17 +1,19 @@
 #include "lancet/base/longdust_scorer.h"
 
+#include "lancet/base/types.h"
+#include "lancet/hts/reference.h"
+
+#include "catch_amalgamated.hpp"
+#include "lancet_test_config.h"
+
 #include <array>
-#include <cmath>
 #include <fstream>
 #include <random>
 #include <sstream>
 #include <string>
 #include <string_view>
 
-#include "catch_amalgamated.hpp"
-#include "lancet/base/types.h"
-#include "lancet/hts/reference.h"
-#include "lancet_test_config.h"
+#include <cmath>
 
 // longdust.c and kalloc.c are compiled into TestLancet2 via FetchContent.
 // This header provides access to longdust's internal f[] table and Q-score
@@ -58,33 +60,34 @@ struct LdContext {
     data = ld_data_init(nullptr, &opt);
   }
   ~LdContext() { ld_data_destroy(data); }
-  LdContext(const LdContext&) = delete;
-  auto operator=(const LdContext&) -> LdContext& = delete;
+  LdContext(LdContext const&) = delete;
+  auto operator=(LdContext const&) -> LdContext& = delete;
   LdContext(LdContext&&) = delete;
   auto operator=(LdContext&&) -> LdContext& = delete;
 };
 
 /// Row from the calibration TSV (new format with BED coordinates and pre-computed scores).
 struct CalibrationRow {
-  std::string chrom;          // e.g. "chr1"
-  i64 start;                  // 0-based start
-  i64 end;                    // 0-based end (exclusive)
-  std::string source;         // category (e.g. "GIAB/LowComplexity")
-  std::string name;           // subcategory (e.g. "SimpleRepeat_diTR_11to50_slop5")
-  std::string region;         // samtools region (e.g. "chr1:100-200")
+  std::string chrom;   // e.g. "chr1"
+  i64 start;           // 0-based start
+  i64 end;             // 0-based end (exclusive)
+  std::string source;  // category (e.g. "GIAB/LowComplexity")
+  std::string name;    // subcategory (e.g. "SimpleRepeat_diTR_11to50_slop5")
+  std::string region;  // samtools region (e.g. "chr1:100-200")
   int scale = 0;
   int region_length = 0;
-  double expected_score{};    // pre-computed LCR score
+  double expected_score{};  // pre-computed LCR score
 };
 
 /// Parse the calibration TSV into a vector of rows.
-inline auto LoadCalibrationTsv(const std::filesystem::path& path) -> std::vector<CalibrationRow> {
+inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector<CalibrationRow> {
   std::ifstream infile(path);
   std::vector<CalibrationRow> rows;
   std::string line;
   std::getline(infile, line);  // skip header
   while (std::getline(infile, line)) {
-    if (line.empty()) continue;
+    if (line.empty())
+      continue;
     CalibrationRow r;
     std::istringstream iss(line);
     std::string start_s, end_s, scale_s, rlen_s, score_s;
@@ -121,10 +124,10 @@ inline auto LoadCalibrationTsv(const std::filesystem::path& path) -> std::vector
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences",
           "[lancet][base][longdust_scorer][cross_validation]") {
-  const auto ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
+  auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   REQUIRE(std::filesystem::exists(ref_path));
-  const lancet::hts::Reference ref(ref_path);
-  const lancet::base::LongdustQScorer scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  lancet::hts::Reference const ref(ref_path);
+  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
   LdContext ld;
   REQUIRE(ld.data != nullptr);
   constexpr double EPS = 1e-9;
@@ -132,60 +135,67 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
   // Telomere: (TTAGGG)n — highest complexity score
   // Source: chm13v2.0_telomere.bed chr1:0-3000
   SECTION("chr1 p-arm telomere (200bp)") {
-    const auto region = ref.MakeRegion("chr1:1-200");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:1-200");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.6);
   }
 
   // Source: chm13v2.0_telomere.bed chr2:242693800-242696752
   SECTION("chr2 q-arm telomere (200bp)") {
-    const auto region = ref.MakeRegion("chr2:242696553-242696752");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr2:242696553-242696752");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.5);
   }
 
   // HSAT2: ~23bp pericentromeric satellite
   // Source: chm13v2.0_censat_v2.1.bed chr1:126828704-126838321 hsat2_1_1(B)
   SECTION("chr1 HSAT2 pericentromeric (200bp)") {
-    const auto region = ref.MakeRegion("chr1:126828705-126828904");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:126828705-126828904");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.3);
   }
 
   // Alpha satellite HOR: ~171bp centromeric monomer
   // Source: chm13v2.0_censat_v2.1.bed chr1:121619169-121625213 hor_1_1
   SECTION("chr1 alpha-sat HOR (300bp)") {
-    const auto region = ref.MakeRegion("chr1:121619170-121619469");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 300)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:121619170-121619469");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 300)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.0);
   }
 
   // Ajax (AATGG)n pentanucleotide satellite
   // Source: chm13v2.0_new-satellites_2022DEC.bed chr1:153734-153878 ajax
   SECTION("chr1 ajax satellite (144bp)") {
-    const auto region = ref.MakeRegion("chr1:153735-153878");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 144)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:153735-153878");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 144)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.2);
   }
 
   // Non-repetitive unique region (control)
   SECTION("chr1 non-repetitive unique (200bp)") {
-    const auto region = ref.MakeRegion("chr1:10000001-10000200");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:10000001-10000200");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) < 0.3);
   }
 
   // Subtelomeric region with interspersed simple repeats
   SECTION("chr1 subtelomeric (200bp)") {
-    const auto region = ref.MakeRegion("chr1:3001-3200");
-    const auto seq = std::string(region.SeqView());
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const region = ref.MakeRegion("chr1:3001-3200");
+    auto const seq = std::string(region.SeqView());
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
   }
 }
 
@@ -196,15 +206,15 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
 TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
           "[lancet][base][longdust_scorer][cross_validation]") {
   LdContext ld;
-  const auto* d = reinterpret_cast<const ld_test_data_s*>(ld.data);
-  const lancet::base::LongdustQScorer scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  auto const* d = reinterpret_cast<ld_test_data_s const*>(ld.data);
+  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
 
   // For a homopolymer of ℓ+k-1 bases: Q = lgamma(ℓ+1) - f(ℓ)
   // so f(ℓ) = lgamma(ℓ+1) - ScoreOneStrand() * ℓ
   for (int ell : {10, 50, 100, 200, 500, 1000, 2000, 4000}) {
-    const auto seq = std::string(ell + 6, 'A');  // k=7 → ℓ k-mers
-    const double ld_f = d->f[ell];
-    const double our_f = std::lgamma(static_cast<f64>(ell + 1)) - scorer.ScoreOneStrand(seq) * ell;
+    auto const seq = std::string(ell + 6, 'A');  // k=7 → ℓ k-mers
+    double const ld_f = d->f[ell];
+    double const our_f = std::lgamma(static_cast<f64>(ell + 1)) - scorer.ScoreOneStrand(seq) * ell;
     INFO("ℓ=" << ell << " ld_f=" << ld_f << " our_f=" << our_f);
     CHECK(our_f == Catch::Approx(ld_f).epsilon(1e-9));
   }
@@ -217,38 +227,44 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
           "[lancet][base][longdust_scorer][cross_validation]") {
-  const lancet::base::LongdustQScorer scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
   LdContext ld;
   constexpr double EPS = 1e-9;
 
   SECTION("Homopolymer poly-A 50bp") {
-    const auto seq = std::string(50, 'A');
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 50)).epsilon(EPS));
+    auto const seq = std::string(50, 'A');
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 50)).epsilon(EPS));
   }
 
   SECTION("Homopolymer poly-A 100bp") {
-    const auto seq = std::string(100, 'A');
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
+    auto const seq = std::string(100, 'A');
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
   }
 
   SECTION("Dinucleotide (CA)x50") {
-    const auto seq = BuildRepeat("CA", 50);
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
+    auto const seq = BuildRepeat("CA", 50);
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
   }
 
   SECTION("Trinucleotide (CAG)x40") {
-    const auto seq = BuildRepeat("CAG", 40);
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 120)).epsilon(EPS));
+    auto const seq = BuildRepeat("CAG", 40);
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 120)).epsilon(EPS));
   }
 
   SECTION("Random DNA 200bp") {
-    const auto seq = RandomDna(200);
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+    auto const seq = RandomDna(200);
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
   }
 
   SECTION("Random DNA 500bp") {
-    const auto seq = RandomDna(500, 789);
-    CHECK(scorer.Score(seq) == Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 500)).epsilon(EPS));
+    auto const seq = RandomDna(500, 789);
+    CHECK(scorer.Score(seq) ==
+          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 500)).epsilon(EPS));
   }
 }
 
@@ -258,7 +274,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
+  lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score("") == 0.0);
   CHECK(scorer.Score("ATCG") == 0.0);
   CHECK(scorer.Score("ATCGAT") == 0.0);
@@ -266,14 +282,14 @@ TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][l
 }
 
 TEST_CASE("Score: near-zero for random DNA", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
+  lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score(RandomDna(100)) < 0.1);
   CHECK(scorer.Score(RandomDna(200, 123)) < 0.1);
   CHECK(scorer.Score(RandomDna(500, 456)) < 0.1);
 }
 
 TEST_CASE("Score: detects homopolymer runs", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
+  lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score(std::string(10, 'A')) > 0.0);
   CHECK(scorer.Score(std::string(20, 'A')) > 0.6);
   CHECK(scorer.Score(std::string(50, 'A')) > 1.0);
@@ -282,31 +298,31 @@ TEST_CASE("Score: detects homopolymer runs", "[lancet][base][longdust_scorer]") 
 }
 
 TEST_CASE("Score: increases with repeat copy number", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
-  const auto t5 = scorer.Score(BuildRepeat("TTAGGG", 5));
-  const auto t10 = scorer.Score(BuildRepeat("TTAGGG", 10));
-  const auto t20 = scorer.Score(BuildRepeat("TTAGGG", 20));
+  lancet::base::LongdustQScorer const scorer(7);
+  auto const t5 = scorer.Score(BuildRepeat("TTAGGG", 5));
+  auto const t10 = scorer.Score(BuildRepeat("TTAGGG", 10));
+  auto const t20 = scorer.Score(BuildRepeat("TTAGGG", 20));
   CHECK(t5 < t10);
   CHECK(t10 <= t20);
 }
 
 TEST_CASE("Score: uses both strands (max of fwd/rev)", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
-  const auto polyT = std::string(30, 'T');
+  lancet::base::LongdustQScorer const scorer(7);
+  auto const polyT = std::string(30, 'T');
   CHECK(scorer.Score(polyT) > 0.6);
   CHECK(scorer.Score(polyT) >= scorer.ScoreOneStrand(polyT));
 }
 
 TEST_CASE("Score: case-insensitive", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
-  const auto upper = BuildRepeat("TTAGGG", 20);
+  lancet::base::LongdustQScorer const scorer(7);
+  auto const upper = BuildRepeat("TTAGGG", 20);
   std::string lower = upper;
   std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
   CHECK(scorer.Score(upper) == Catch::Approx(scorer.Score(lower)));
 }
 
 TEST_CASE("Score: N bases reduce score", "[lancet][base][longdust_scorer]") {
-  const lancet::base::LongdustQScorer scorer(7);
+  lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score("AAAAAAANAAAAAAA") < scorer.Score(std::string(15, 'A')));
 }
 
@@ -314,7 +330,8 @@ TEST_CASE("Score: N bases reduce score", "[lancet][base][longdust_scorer]") {
 // ║  PART 3: Score Formatting & Constants                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping", "[lancet][base][longdust_scorer]") {
+TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
+          "[lancet][base][longdust_scorer]") {
   using lancet::base::FormatComplexityScore;
   CHECK(FormatComplexityScore(0.0) == "0");
   CHECK(FormatComplexityScore(1.0) == "1");
@@ -328,7 +345,8 @@ TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping", "[lanc
 TEST_CASE("FormatComplexityScores: comma-separated output", "[lancet][base][longdust_scorer]") {
   using lancet::base::FormatComplexityScores;
   CHECK(FormatComplexityScores(std::initializer_list<f64>{0, 0, 0, 0, 0}) == "0,0,0,0,0");
-  CHECK(FormatComplexityScores(std::initializer_list<f64>{1.8, 0.7, 0.3, 0.15, 0.1}) == "1.8,0.7,0.3,0.15,0.1");
+  CHECK(FormatComplexityScores(std::initializer_list<f64>{1.8, 0.7, 0.3, 0.15, 0.1}) ==
+        "1.8,0.7,0.3,0.15,0.1");
 }
 
 TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
@@ -414,22 +432,22 @@ TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
           "[lancet][base][longdust_scorer][calibration]") {
-  const auto ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
+  auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   REQUIRE(std::filesystem::exists(ref_path));
-  const auto tsv_path = MakePath(FULL_DATA_DIR, CALIBRATION_TSV);
+  auto const tsv_path = MakePath(FULL_DATA_DIR, CALIBRATION_TSV);
   REQUIRE(std::filesystem::exists(tsv_path));
 
-  const lancet::hts::Reference ref(ref_path);
-  const lancet::base::LongdustQScorer scorer(7, 10001);
+  lancet::hts::Reference const ref(ref_path);
+  lancet::base::LongdustQScorer const scorer(7, 10'001);
   constexpr double MARGIN = 0.001;
 
-  const auto rows = LoadCalibrationTsv(tsv_path);
+  auto const rows = LoadCalibrationTsv(tsv_path);
   INFO("Loaded " << rows.size() << " calibration rows from " << CALIBRATION_TSV);
   REQUIRE(!rows.empty());
 
-  for (const auto& r : rows) {
+  for (auto const& r : rows) {
     DYNAMIC_SECTION(r.source << " | " << r.name << " @" << r.scale << "bp") {
-      const auto rgn = ref.MakeRegion(r.region.c_str());
+      auto const rgn = ref.MakeRegion(r.region.c_str());
       CHECK(scorer.Score(rgn.SeqView()) == Catch::Approx(r.expected_score).margin(MARGIN));
     }
   }

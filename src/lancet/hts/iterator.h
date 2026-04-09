@@ -16,18 +16,20 @@ namespace lancet::hts {
 
 class Iterator {
  public:
+  // NOLINTBEGIN(readability-identifier-naming)  // std::iterator_traits mandates snake_case
   using iterator_category = std::input_iterator_tag;
-  using value_type = const Alignment;
-  using difference_type = usize;
-  using pointer = const Alignment*;
-  using reference = const Alignment&;
+  using value_type = Alignment const;
+  using difference_type = std::ptrdiff_t;
+  using pointer = Alignment const*;
+  using reference = Alignment const&;
 
   auto operator*() -> reference { return mParsedAln; }
-  auto operator==(const Iterator& rhs) const -> bool;
-  auto operator!=(const Iterator& rhs) const -> bool;
+  auto operator==(Iterator const& rhs) const -> bool;
+  auto operator!=(Iterator const& rhs) const -> bool;
 
   auto operator++() -> Iterator&;
   auto operator++(int) -> Iterator;
+  // NOLINTEND(readability-identifier-naming)
 
  private:
   Alignment mParsedAln;

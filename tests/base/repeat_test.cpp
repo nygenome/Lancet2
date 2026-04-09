@@ -1,12 +1,13 @@
 #include "lancet/base/repeat.h"
 
+#include "lancet/base/types.h"
+
+#include "catch_amalgamated.hpp"
+
 #include <array>
 #include <random>
 #include <string>
 #include <string_view>
-
-#include "catch_amalgamated.hpp"
-#include "lancet/base/types.h"
 
 namespace {
 
@@ -35,8 +36,8 @@ TEST_CASE("Can calculate hamming distance correctly for random strings", "[lance
   static constexpr usize NUM_ITERATIONS = 1000;
 
   for (usize idx = 0; idx <= NUM_ITERATIONS; ++idx) {
-    const auto result = GenerateRandomDnaSequence();
-    const auto other = GenerateRandomDnaSequence();
+    auto const result = GenerateRandomDnaSequence();
+    auto const other = GenerateRandomDnaSequence();
 
     SECTION("Naive method calculates correct distances") {
       REQUIRE(HammingDistNaive(result, result) == 0);
@@ -51,9 +52,9 @@ TEST_CASE("Can calculate hamming distance correctly for random strings", "[lance
 }
 
 TEST_CASE("Can calculate hamming distance correctly for small test", "[lancet][base][repeat]") {
-  const std::string_view test = "aaaa";
-  const std::string_view diff_a = "abaa";
-  const std::string_view diff_b = "aaba";
+  std::string_view const test = "aaaa";
+  std::string_view const diff_a = "abaa";
+  std::string_view const diff_b = "aaba";
 
   SECTION("Naive method calculates correct distances") {
     REQUIRE(HammingDistNaive(test, test) == 0);

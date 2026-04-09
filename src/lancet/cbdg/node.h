@@ -1,17 +1,18 @@
 #ifndef SRC_LANCET_CBDG_NODE_H_
 #define SRC_LANCET_CBDG_NODE_H_
 
+#include "lancet/base/types.h"
+#include "lancet/cbdg/edge.h"
+#include "lancet/cbdg/kmer.h"
+#include "lancet/cbdg/label.h"
+
+#include "absl/container/inlined_vector.h"
+
 #include <algorithm>
 #include <array>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "absl/container/inlined_vector.h"
-#include "lancet/base/types.h"
-#include "lancet/cbdg/edge.h"
-#include "lancet/cbdg/kmer.h"
-#include "lancet/cbdg/label.h"
 
 namespace lancet::cbdg {
 
@@ -25,30 +26,34 @@ class Node {
   Node() = default;
   Node(Kmer&& mer, Label label) : mKmer(std::move(mer)), mLabel(label) {}
 
-  void AddLabel(const Label& label);
-  void IncrementReadSupport(const Label& label);
+  void AddLabel(Label const& label);
+  void IncrementReadSupport(Label const& label);
 
   template <class... Args>
   void EmplaceEdge(Args&&... args) {
-    Edge new_edge(std::forward<Args>(args)...);
+    Edge const new_edge(std::forward<Args>(args)...);
     if (std::ranges::find(mEdges, new_edge) == mEdges.end()) {
-      mEdges.push_back(std::move(new_edge));
+      mEdges.emplace_back(new_edge);
     }
   }
 
-  void EraseEdge(const Edge& edge) {
-    auto it = std::ranges::find(mEdges, edge);
-    if (it != mEdges.end()) mEdges.erase(it);
+  void EraseEdge(Edge const& edge) {
+    auto* iter = std::ranges::find(mEdges, edge);
+    if (iter != mEdges.end()) {
+      mEdges.erase(iter);
+    }
   }
   void EraseAllEdges() { mEdges.clear(); }
 
   [[nodiscard]] auto NumOutEdges() const noexcept -> usize { return mEdges.size(); }
   [[nodiscard]] auto SeqLength() const noexcept -> usize { return mKmer.Length(); }
 
-  void SetComponentId(const usize comp_id) { mCompId = comp_id; }
+  void SetComponentId(usize const comp_id) { mCompId = comp_id; }
   [[nodiscard]] auto GetComponentId() const noexcept -> usize { return mCompId; }
 
-  [[nodiscard]] auto HasTag(const Label::Tag tag) const noexcept -> bool { return mLabel.HasTag(tag); }
+  [[nodiscard]] auto HasTag(Label::Tag const tag) const noexcept -> bool {
+    return mLabel.HasTag(tag);
+  }
 
   [[nodiscard]] auto IsShared() const noexcept -> bool {
     return HasTag(Label::NORMAL) && HasTag(Label::TUMOR) && !HasTag(Label::REFERENCE);
@@ -71,10 +76,14 @@ class Node {
   [[nodiscard]] auto Length() const noexcept -> usize { return mKmer.Length(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mKmer.IsEmpty(); }
 
-  [[nodiscard]] auto SignFor(const Kmer::Ordering ord) const noexcept -> Kmer::Sign { return mKmer.SignFor(ord); }
-  [[nodiscard]] auto SequenceFor(const Kmer::Ordering ord) const -> std::string { return mKmer.SequenceFor(ord); }
+  [[nodiscard]] auto SignFor(Kmer::Ordering const ord) const noexcept -> Kmer::Sign {
+    return mKmer.SignFor(ord);
+  }
+  [[nodiscard]] auto SequenceFor(Kmer::Ordering const ord) const -> std::string {
+    return mKmer.SequenceFor(ord);
+  }
 
-  void Merge(const Node& other, EdgeKind conn_kind, usize currk);
+  void Merge(Node const& other, EdgeKind conn_kind, usize currk);
 
   [[nodiscard]] auto HasSelfLoop() const -> bool;
   [[nodiscard]] auto FindEdgesInDirection(Kmer::Ordering ord) const -> std::vector<Edge>;

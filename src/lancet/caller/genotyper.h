@@ -11,13 +11,14 @@ extern "C" {
 #include "minimap.h"
 }
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/variant_support.h"
+#include "lancet/cbdg/read.h"
 #include "lancet/hts/cigar_unit.h"
 #include "lancet/hts/cigar_utils.h"
-#include "lancet/cbdg/read.h"
+
+#include "absl/container/flat_hash_map.h"
+#include "absl/types/span.h"
 
 namespace lancet::caller {
 
@@ -30,24 +31,24 @@ class RawVariant;
  * There is an intentional paradox in the pipeline's alignment parameters:
  * We use highly FORGIVING parameters to build the Contig-Reference MSA, but
  * highly STRICT parameters when mapping raw reads back to the haplotypes.
- * 
+ *
  * This is because the expected source of sequence divergence fundamentally
  * shifts between Variant Discovery and Genotyping.
  *
  * 1. THE MSA (Contig vs. Reference) -> Modeling BIOLOGY (The Mapmaker)
  *    - Assumption: The contig is high-confidence. Divergence is true mutation.
- *    - Strategy: FORGIVING. We use cheap gap extensions and high mismatch 
- *      tolerance to force the algorithm to stretch across massive biological 
+ *    - Strategy: FORGIVING. We use cheap gap extensions and high mismatch
+ *      tolerance to force the algorithm to stretch across massive biological
  *      indels and dense MNVs without soft-clipping.
  *    - Goal: Discover and catalog the variant by keeping the alignment intact.
  *
  * 2. READ-TO-HAPLOTYPE -> Modeling PHYSICS (The GPS)
- *    - Assumption: Raw reads are noisy, but the biological variants are ALREADY 
- *      baked into the assembled haplotype sequences. 
+ *    - Assumption: Raw reads are noisy, but the biological variants are ALREADY
+ *      baked into the assembled haplotype sequences.
  *    - Divergence: Sequencer error, adapter garbage, or chimeric artifacts.
- *    - Strategy: STRICT. A read should perfectly match its parent haplotype 
- *      with zero biological gaps. We use heavy gap/mismatch penalties to 
- *      punish sequencer noise, force soft-clipping of garbage read-tails, and 
+ *    - Strategy: STRICT. A read should perfectly match its parent haplotype
+ *      with zero biological gaps. We use heavy gap/mismatch penalties to
+ *      punish sequencer noise, force soft-clipping of garbage read-tails, and
  *      prevent "allele bleeding" (noisy reads mapping to the wrong allele).
  *    - Goal: Accurately segregate read support to calculate clean VAFs.
  * ============================================================================
@@ -59,20 +60,21 @@ class RawVariant;
 // NOT the standard 'sr' preset. See the anonymous namespace block in
 //     genotyper.cpp for raw scoring matrix and penalty rationales.
 //
-// Isolation boundary: AssignReadToAlleles() encapsulates the alignment 
+// Isolation boundary: AssignReadToAlleles() encapsulates the alignment
 // engine. Everything downstream (AddToTable, VariantSupport) is decoupled.
 // ============================================================================
 class Genotyper {
  public:
   Genotyper();
 
-  void SetNumSamples(const usize num_samples) { mNumSamples = num_samples; }
+  void SetNumSamples(usize const num_samples) { mNumSamples = num_samples; }
 
-  using Reads = absl::Span<const cbdg::Read>;
-  using Haplotypes = absl::Span<const std::string>;
-  using Result = absl::flat_hash_map<const RawVariant*, SupportArray>;
+  using Reads = absl::Span<cbdg::Read const>;
+  using Haplotypes = absl::Span<std::string const>;
+  using Result = absl::flat_hash_map<RawVariant const*, SupportArray>;
 
-  [[nodiscard]] auto Genotype(Haplotypes hap_seqs, Reads qry_reads, const VariantSet& variant_set) -> Result;
+  [[nodiscard]] auto Genotype(Haplotypes hap_seqs, Reads qry_reads, VariantSet const& variant_set)
+      -> Result;
 
  private:
   // ──────────────────────────────────────────────────────────────────────────
@@ -107,12 +109,12 @@ class Genotyper {
   // Alignment result from mm_map for a single read-to-haplotype alignment
   // ──────────────────────────────────────────────────────────────────────────
   struct Mm2AlnResult {
-    std::vector<hts::CigarUnit> cigar;
-    f64 identity = 0.0;     // gap-compressed identity
-    usize hap_idx = 0;
-    i32 score = 0;          // DP alignment score
-    i32 ref_start = 0;      // 0-based start on haplotype (critical for local score offset)
-    i32 ref_end = 0;        // 0-based end on haplotype
+    std::vector<hts::CigarUnit> mCigar;
+    f64 mIdentity = 0.0;  // gap-compressed identity
+    usize mHapIdx = 0;
+    i32 mScore = 0;     // DP alignment score
+    i32 mRefStart = 0;  // 0-based start on haplotype (critical for local score offset)
+    i32 mRefEnd = 0;    // 0-based end on haplotype
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -130,7 +132,8 @@ class Genotyper {
     // Each read-haplotype pair produces multiple independent signals. The combined
     // score integrates them to assign the read to its best structurally mapped allele:
     //
-    //   combined = (global_score - local_raw_score - sc_penalty) + (local_pbq_score * local_identity)
+    //   combined = (global_score - local_raw_score - sc_penalty) + (local_pbq_score *
+    //   local_identity)
     //
     // Components:
     //
@@ -138,16 +141,16 @@ class Genotyper {
     //                    Captures how well the entire read fits this haplotype natively,
     //                    including flanking contexts.
     //
-    //   local_raw_score: The absolute raw substitution matrix score of the variant 
-    //                    overlap slice. We explicitly SUBTRACT this from global_score 
+    //   local_raw_score: The absolute raw substitution matrix score of the variant
+    //                    overlap slice. We explicitly SUBTRACT this from global_score
     //                    to prevent double-counting the variant when we add the PBQ score!
     //
-    //   sc_penalty:      Explicit penalization of soft-clipped read tails. Prevents 
-    //                    noisy supplementary mappings from artificially inflating 
+    //   sc_penalty:      Explicit penalization of soft-clipped read tails. Prevents
+    //                    noisy supplementary mappings from artificially inflating
     //                    their assignment affinities over cleaner native alignments.
     //
     //   local_pbq_score: PBQ-weighted DP score within the variant region only.
-    //                    Scales substitution scores by Phred confidence natively 
+    //                    Scales substitution scores by Phred confidence natively
     //                    (1 - 10^(-PBQ/10)), analogous to GATK's local PairHMM.
     //
     //   local_identity:  Fraction of exact matches natively inside the variant region.
@@ -156,28 +159,28 @@ class Genotyper {
     //                    mathematically discounted, while one from a clean alignment is trusted.
     //
     //   - Why subtract `local_raw_score`?
-    //     The `global_score` natively includes the raw unrestricted matrix alignment cost 
-    //     spanning the variant sub-region. If we naively appended `local_pbq_score`, we would 
-    //     mathematically double-count the locus mapping two variant weights. Subtracting 
-    //     `local_raw_score` carves an exact algebraic "hole" out of the global alignment 
-    //     path, allowing us to drop the high-fidelity PBQ-weighted score cleanly into 
+    //     The `global_score` natively includes the raw unrestricted matrix alignment cost
+    //     spanning the variant sub-region. If we naively appended `local_pbq_score`, we would
+    //     mathematically double-count the locus mapping two variant weights. Subtracting
+    //     `local_raw_score` carves an exact algebraic "hole" out of the global alignment
+    //     path, allowing us to drop the high-fidelity PBQ-weighted score cleanly into
     //     that specific locus natively.
     //
     //   - Why subtract `sc_penalty`?
-    //     Soft-clipped read tails are unaligned sequence garbage. Minimap2 naturally 
-    //     exempts them from the primary DP score tracing. By explicitly calculating and 
-    //     subtracting a soft-clip penalty, we aggressively crush the combined global 
-    //     scores of chimeric supplementary mappings, structurally preventing partially 
-    //     matching noise reads from maliciously winning allele assignments against clean 
+    //     Soft-clipped read tails are unaligned sequence garbage. Minimap2 naturally
+    //     exempts them from the primary DP score tracing. By explicitly calculating and
+    //     subtracting a soft-clip penalty, we aggressively crush the combined global
+    //     scores of chimeric supplementary mappings, structurally preventing partially
+    //     matching noise reads from maliciously winning allele assignments against clean
     //     end-to-end trace alignments.
     //
     //   - Why (local_pbq_score * local_identity)?
     //     This mathematically penalizes "lucky" alignments in low-complexity boundaries.
-    //     A noisy chimeric read might accumulate a high DP score (magnitude) simply 
-    //     by traversing a chaotic STR locus. By mapping that raw magnitude against 
-    //     the CIGAR exact-match fraction (cleanliness), we enforce a strict confidence 
-    //     gate structurally. Perfect alignments (identity = 1.0) retain full PBQ weight; 
-    //     fragmented, heavily-gapped alignments (e.g. identity < 0.7) are aggressively 
+    //     A noisy chimeric read might accumulate a high DP score (magnitude) simply
+    //     by traversing a chaotic STR locus. By mapping that raw magnitude against
+    //     the CIGAR exact-match fraction (cleanliness), we enforce a strict confidence
+    //     gate structurally. Perfect alignments (identity = 1.0) retain full PBQ weight;
+    //     fragmented, heavily-gapped alignments (e.g. identity < 0.7) are aggressively
     //     discounted, natively sinking repeat region artifacts and structural chimeras.
     //
     // ── Folded read position ──
@@ -226,49 +229,49 @@ class Genotyper {
     // ────────────────────────────────────────────────────────────────────────
     // Extracted Member Variables (Sorted by descending alignment size: 8B -> 4B -> 1B)
     // ────────────────────────────────────────────────────────────────────────
-    f64 local_score = 0.0;      // (8B) PBQ-weighted DP score within variant region
-    f64 local_identity = 0.0;   // (8B) fraction of exact matches in variant region
-    f64 folded_read_pos = 0.0;  // (8B) Used for RPCD FORMAT field
+    f64 mLocalScore = 0.0;     // (8B) PBQ-weighted DP score within variant region
+    f64 mLocalIdentity = 0.0;  // (8B) fraction of exact matches in variant region
+    f64 mFoldedReadPos = 0.0;  // (8B) Used for RPCD FORMAT field
 
-    i32 global_score = 0;       // (4B) mm_map DP score of full read→haplotype alignment
-    u32 ref_nm = 0;             // (4B) Edit distance (NM) of this read against the REF haplotype
-    AlleleIndex allele;         // (4B) Allele enumerator 
+    i32 mGlobalScore = 0;  // (4B) mm_map DP score of full read→haplotype alignment
+    u32 mRefNm = 0;        // (4B) Edit distance (NM) of this read against the REF haplotype
+    AlleleIndex mAllele = REF_ALLELE_IDX;  // (4B) Allele enumerator, defaults to REF
 
-    u8 base_qual_at_var = 0;    // (1B) Representative base quality at this variant for this read
+    u8 mBaseQualAtVar = 0;  // (1B) Representative base quality at this variant for this read
 
     [[nodiscard]] auto CombinedScore() const -> f64 {
-      return static_cast<f64>(global_score) + local_score * local_identity;
+      return static_cast<f64>(mGlobalScore) + (mLocalScore * mLocalIdentity);
     }
   };
 
   void ResetData(Haplotypes hap_seqs);
-  
-  using PerVariantAssignment = absl::flat_hash_map<const RawVariant*, ReadAlleleAssignment>;
-  [[nodiscard]] auto AssignReadToAlleles(const cbdg::Read& qry_read, const VariantSet& variant_set) -> PerVariantAssignment;
 
-  [[nodiscard]] auto AlignToAllHaplotypes(const cbdg::Read& qry_read) -> std::vector<Mm2AlnResult>;
-  
-  [[nodiscard]] static auto EncodeSequence(std::string_view hap_seq) -> std::vector<u8>;
+  using PerVariantAssignment = absl::flat_hash_map<RawVariant const*, ReadAlleleAssignment>;
+  [[nodiscard]] auto AssignReadToAlleles(cbdg::Read const& qry_read, VariantSet const& variant_set)
+      -> PerVariantAssignment;
+
+  [[nodiscard]] auto AlignToAllHaplotypes(cbdg::Read const& qry_read) -> std::vector<Mm2AlnResult>;
+
+  [[nodiscard]] static auto EncodeSequence(std::string_view raw_seq) -> std::vector<u8>;
 
   // ──────────────────────────────────────────────────────────────────────────
   // AssignReadToAlleles Internal Core Helpers
   // ──────────────────────────────────────────────────────────────────────────
-  auto ComputeRefEditDistance(const std::vector<Mm2AlnResult>& alns,
-                              absl::Span<const u8> qry_seq_encoded, 
-                              usize qry_read_length) const -> u32;
+  [[nodiscard]] auto ComputeRefEditDistance(std::vector<Mm2AlnResult> const& alns,
+                                            absl::Span<u8 const> qry_seq_encoded,
+                                            usize qry_read_length) const -> u32;
 
-  auto EvaluateAlignment(const Mm2AlnResult& aln, 
-                         const RawVariant& variant,
-                         absl::Span<const u8> qry_seq_encoded, 
-                         absl::Span<const u8> qry_base_quals, 
-                         usize qry_read_length,
-                         ReadAlleleAssignment& best, 
+  auto EvaluateAlignment(Mm2AlnResult const& aln, RawVariant const& variant,
+                         absl::Span<u8 const> qry_seq_encoded, absl::Span<u8 const> qry_base_quals,
+                         usize qry_read_length, ReadAlleleAssignment& best,
                          f64& best_combined) const -> bool;
 
-  auto ExtractHapBounds(const RawVariant& variant, usize aln_hap_idx,
-                        i32& out_hap_variant_start, i32& out_hap_variant_length, AlleleIndex& out_allele) const -> bool;
+  static auto ExtractHapBounds(RawVariant const& variant, usize aln_hap_idx,
+                               i32& out_hap_variant_start, i32& out_hap_variant_length,
+                               AlleleIndex& out_allele) -> bool;
 
-  static void AddToTable(Result& out_vars_table, const cbdg::Read& qry_read, const PerVariantAssignment& allele_assignments);
+  static void AddToTable(Result& out_vars_table, cbdg::Read const& qry_read,
+                         PerVariantAssignment const& allele_assignments);
 };
 
 }  // namespace lancet::caller

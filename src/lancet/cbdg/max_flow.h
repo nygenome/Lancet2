@@ -1,14 +1,15 @@
 #ifndef SRC_LANCET_CBDG_MAX_FLOW_H_
 #define SRC_LANCET_CBDG_MAX_FLOW_H_
 
-#include <optional>
-#include <vector>
+#include "lancet/base/types.h"
+#include "lancet/cbdg/graph.h"
 
 #include "absl/container/chunked_queue.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
-#include "lancet/base/types.h"
-#include "lancet/cbdg/graph.h"
+
+#include <optional>
+#include <vector>
 
 namespace lancet::cbdg {
 
@@ -61,7 +62,8 @@ namespace lancet::cbdg {
 // ============================================================================
 class MaxFlow {
  public:
-  explicit MaxFlow(const Graph::NodeTable* graph, const NodeIDPair& src_and_snk, usize currk, const TraversalIndex* trav_idx);
+  explicit MaxFlow(Graph::NodeTable const* graph, NodeIDPair const& src_and_snk, usize currk,
+                   TraversalIndex const* trav_idx);
 
   using Result = std::optional<Graph::Path>;
 
@@ -71,8 +73,8 @@ class MaxFlow {
   [[nodiscard]] auto NextPath() -> Result;
 
  private:
-  const Graph::NodeTable* mGraph = nullptr;
-  const TraversalIndex* mIndex = nullptr;
+  Graph::NodeTable const* mGraph = nullptr;
+  TraversalIndex const* mIndex = nullptr;
   usize mCurrentK = 0;
 
   /// Set of edge ordinals already traversed by previous walks.
@@ -81,7 +83,7 @@ class MaxFlow {
   absl::flat_hash_set<u32> mTraversedOrdinals;
 
   using Walk = std::vector<Edge>;
-  using WalkView = absl::Span<const Edge>;
+  using WalkView = absl::Span<Edge const>;
 
   /// Walk tree node for BFS. Stores:
   ///   - mEdgeOrdinal: index into TraversalIndex::mOrigEdges
@@ -96,7 +98,8 @@ class MaxFlow {
   };
 
   /// Reconstruct the full Walk (edge vector) from a tree leaf back to root.
-  [[nodiscard]] auto ReconstructWalk(const std::vector<WalkTreeNode>& arena, u32 leaf_idx) const -> Walk;
+  [[nodiscard]] auto ReconstructWalk(std::vector<WalkTreeNode> const& arena, u32 leaf_idx) const
+      -> Walk;
 
   /// Build haplotype sequence string from a completed walk.
   [[nodiscard]] auto BuildSequence(WalkView walk) const -> Result;

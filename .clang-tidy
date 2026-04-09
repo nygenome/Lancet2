@@ -1,0 +1,284 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tool version: clang-tidy 22.1.3 (LLVM 22.1.3)
+# Language: C++20
+# Philosophy: Maximum coverage with curated exclusions for Lancet2-specific
+#             patterns (C FFI, graph recursion, scientific constants).
+#             Almost all checks promoted to errors for CI gate enforcement.
+#
+# Requires: compile_commands.json (generate via:
+#   cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CXX_STANDARD=20
+# )
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK SELECTION
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Start with all checks disabled (`-*`), then selectively enable categories.
+# Individual noisy/inapplicable checks disabled with `-check-name`.
+#
+# Category overview (see inline rationale below for each exclusion):
+#
+#   bugprone-*            Bug Detection (HIGH VALUE)
+#   cert-*               CERT Secure Coding (MEDIUM VALUE)
+#   clang-analyzer-*     Deep Static Analysis (HIGH VALUE)
+#   cppcoreguidelines-*  C++ Core Guidelines (MEDIUM VALUE)
+#   google-* (selected)  Google Style (3 cherry-picked checks)
+#   hicpp-* (selected)   High Integrity C++ (2 cherry-picked checks)
+#   misc-*               Miscellaneous (MEDIUM VALUE)
+#   modernize-*          Modernize to C++20 (MEDIUM-HIGH VALUE)
+#   performance-*        Performance (HIGH VALUE)
+#   portability-*        Portability (LOW-MEDIUM VALUE)
+#   readability-*        Readability (MEDIUM VALUE)
+#
+# Disabled checks rationale:
+#
+#   -bugprone-easily-swappable-parameters
+#     Flags every pair of adjacent same-type parameters (e.g., usize, usize).
+#     Lancet2 has many such pairs in graph/alignment APIs — hundreds of
+#     non-actionable warnings without wrapping every param in a strong type.
+#
+#   -cert-err58-cpp
+#     Warns about static objects whose constructors may throw before main().
+#     Lancet2 uses static constexpr — compile-time evaluated, never throws.
+#
+#   -cppcoreguidelines-avoid-c-arrays
+#     FFI with htslib/minimap2 requires raw C arrays in extern "C" blocks.
+#
+#   -cppcoreguidelines-avoid-magic-numbers
+#     Alias of readability-magic-numbers — disabled there too.
+#     Scientific/bioinformatics code has many empirical constants.
+#
+#   -cppcoreguidelines-pro-bounds-array-to-pointer-decay
+#   -cppcoreguidelines-pro-bounds-pointer-arithmetic
+#   -cppcoreguidelines-pro-bounds-constant-array-index
+#     FFI interop with htslib/minimap2 requires pointer arithmetic,
+#     raw array indexing, and C-style array-to-pointer decay.
+#
+#   -cppcoreguidelines-pro-type-vararg
+#     C FFI functions (htslib sam.h, minimap.h) use variadic args.
+#
+#   -cppcoreguidelines-owning-memory
+#     Would require gsl::owner<> for every raw pointer. Too invasive
+#     for the current codebase with C FFI ownership patterns.
+#
+#   -misc-no-recursion
+#     Graph algorithms (DFS, BFS, compression) are inherently recursive.
+#
+#   -misc-non-private-member-variables-in-classes
+#     Several DTOs (Params, Result, CliParams) intentionally use public
+#     members for aggregate-like access. Already NOLINT'd.
+#
+#   -modernize-use-std-format
+#     Project uses fmtlib (via spdlog), not std::format.
+#
+#   -modernize-use-std-print
+#     Project uses spdlog, not printf/std::print.
+#
+#   -readability-magic-numbers
+#     Scientific code has many empirical constants (Phred scores, etc.).
+#
+#   -readability-redundant-member-init
+#     Lancet2 convention is explicit member init for clarity per
+#     Memory Alignment Convention (8B→4B→2B→1B ordering).
+#
+#   -modernize-use-trailing-return-type
+#     Clang-tidy --fix rewrites lambda returns to `-> auto`, which GCC
+#     cannot deduce inside std::ranges algorithm constraints.
+#
+#   -modernize-use-ranges
+#     --fix converts std::sort(begin,end) to std::ranges::sort(container),
+#     but types with only operator< (no operator<=>) fail ranges concepts.
+#
+#   -misc-include-cleaner
+#     --fix reorders and adds includes, breaking carefully ordered headers
+#     (extern "C" blocks, transitive dependency chains).
+#
+Checks: >-
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cert-*,
+  -cert-err58-cpp,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-owning-memory,
+  google-build-using-namespace,
+  google-explicit-constructor,
+  google-readability-casting,
+  hicpp-exception-baseclass,
+  hicpp-noexcept-move,
+  misc-*,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  modernize-*,
+  -modernize-use-std-format,
+  -modernize-use-std-print,
+  -modernize-use-trailing-return-type,
+  -modernize-use-ranges,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-redundant-member-init
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WARNINGS AS ERRORS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Promote high-confidence checks to hard errors. These represent bugs,
+# performance regressions, or portability issues that must be fixed before merge.
+WarningsAsErrors: >-
+  bugprone-*,
+  -bugprone-exception-escape,
+  cert-*,
+  performance-*,
+  portability-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-emplace,
+  readability-container-contains,
+  readability-container-size-empty,
+  misc-const-correctness
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HEADER FILTER
+# ═══════════════════════════════════════════════════════════════════════════════
+# Only analyze headers inside src/lancet/. This prevents clang-tidy from
+# reporting warnings in third-party headers (absl, spdlog, htslib, spoa, etc.)
+# that we don't control.
+HeaderFilterRegex: '^.*/src/lancet/.*'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK OPTIONS (tuning per-check behavior)
+# ═══════════════════════════════════════════════════════════════════════════════
+CheckOptions:
+
+  # ── Bug Detection Tuning ────────────────────────────────────────────────
+  # Strict mode for argument comments: require exact parameter name match.
+  bugprone-argument-comment.StrictMode: 'true'
+  # Custom assert macro for side-effect detection.
+  bugprone-assert-side-effect.AssertMacros: 'LANCET_ASSERT'
+
+  # ── Performance Tuning ─────────────────────────────────────────────────
+  # Also flag std::move on trivially copyable types (no-op moves).
+  performance-move-const-arg.CheckTriviallyCopyableMove: 'true'
+  # Don't flag these lightweight view types as "unnecessary value params".
+  performance-unnecessary-value-param.AllowedTypes: 'std::string_view;absl::Span'
+  # Strict mode: also flag `a + b + c` string concatenation chains.
+  performance-inefficient-string-concatenation.StrictMode: 'true'
+
+  # ── Modernize Tuning ───────────────────────────────────────────────────
+  # Only suggest `auto` when the explicit type name is ≥5 characters.
+  # Short types like `int`, `f64`, `u32` stay explicit for clarity.
+  modernize-use-auto.MinTypeNameLength: '5'
+  # Containers to check for push_back → emplace_back conversion.
+  modernize-use-emplace.ContainersWithPushBack: 'std::vector;absl::InlinedVector'
+  # Smart pointer types to check for make_unique/make_shared conversion.
+  modernize-use-emplace.SmartPointers: 'std::unique_ptr;std::shared_ptr'
+
+  # ── Readability: Complexity Thresholds ──────────────────────────────────
+  # Cognitive complexity threshold: functions above this are flagged.
+  # 35 is strict but achievable — encourages decomposition of complex
+  # graph traversal and variant calling functions.
+  readability-function-cognitive-complexity.Threshold: '35'
+  # Maximum statements per function before warning.
+  readability-function-size.StatementThreshold: '150'
+  # Maximum lines per function before warning.
+  readability-function-size.LineThreshold: '200'
+  # Maximum parameters per function before warning.
+  readability-function-size.ParameterThreshold: '6'
+  # Maximum nesting depth per function before warning.
+  # 4 = if > for > if > if — already deeply nested; catches problematic code.
+  readability-function-size.NestingThreshold: '4'
+  # Require braces on ALL single-statement if/for/while (0 = no exceptions).
+  readability-braces-around-statements.ShortStatementLines: '0'
+  # Allow implicit bool conversion for pointers: `if (ptr)` is idiomatic.
+  readability-implicit-bool-conversion.AllowPointerConditions: 'true'
+  # Don't allow implicit int-to-bool: `if (count)` should be `if (count != 0)`.
+  readability-implicit-bool-conversion.AllowIntegerConditions: 'false'
+  # When using `auto` with pointer/reference, add const qualifier.
+  readability-qualified-auto.AddConstToQualified: 'true'
+  # Enforce uppercase literal suffixes: `1.0F` not `1.0f`, `0ULL` not `0ull`.
+  readability-uppercase-literal-suffix.NewSuffixes: 'L;LL;LU;LLU;UL;ULL;F'
+
+  # ── Readability: Naming Convention Enforcement ──────────────────────────
+  # These options enforce Lancet2's existing naming conventions across the
+  # entire codebase. Violations will be flagged for consistent naming.
+  #
+  # Convention summary:
+  #   Classes/Structs:   PascalCase        (VariantCall, AsyncWorker)
+  #   Methods/Functions: PascalCase        (BuildSequence, FindEdges)
+  #   Member Variables:  mPascalCase       (mKmer, mEdges, mCurrK)
+  #   Local Variables:   lower_case        (new_edge, comp_id)
+  #   Parameters:        lower_case        (stop_token, window_length)
+  #   Constants:         UPPER_CASE        (DEFAULT_MIN_KMER_LEN)
+  #   Enum Values:       UPPER_CASE        (PLUS_PLUS, FWD, UNKNOWN)
+  #   Type Aliases:      PascalCase        (NodeID, EdgeList)
+  #   Template Params:   PascalCase        (Args, TagResultValue)
+  #   Namespaces:        lower_case        (lancet, cbdg, hts)
+  #   Macros:            UPPER_CASE        (LANCET_DEVELOP_MODE)
+  readability-identifier-naming.ClassCase: 'CamelCase'
+  readability-identifier-naming.StructCase: 'CamelCase'
+  readability-identifier-naming.EnumCase: 'CamelCase'
+  readability-identifier-naming.EnumConstantCase: 'UPPER_CASE'
+  readability-identifier-naming.TypeAliasCase: 'CamelCase'
+  readability-identifier-naming.TypedefCase: 'CamelCase'
+  readability-identifier-naming.UnionCase: 'CamelCase'
+  readability-identifier-naming.NamespaceCase: 'lower_case'
+  readability-identifier-naming.FunctionCase: 'CamelCase'
+  readability-identifier-naming.MethodCase: 'CamelCase'
+  # All member variables: mPascalCase (prefix 'm').
+  readability-identifier-naming.MemberCase: 'CamelCase'
+  readability-identifier-naming.MemberPrefix: 'm'
+  readability-identifier-naming.PrivateMemberCase: 'CamelCase'
+  readability-identifier-naming.PrivateMemberPrefix: 'm'
+  readability-identifier-naming.ProtectedMemberCase: 'CamelCase'
+  readability-identifier-naming.ProtectedMemberPrefix: 'm'
+  readability-identifier-naming.PublicMemberCase: 'CamelCase'
+  readability-identifier-naming.PublicMemberPrefix: 'm'
+  # Function parameters and local variables: snake_case.
+  readability-identifier-naming.ParameterCase: 'lower_case'
+  readability-identifier-naming.LocalVariableCase: 'lower_case'
+  # Static/constexpr constants: UPPER_CASE.
+  readability-identifier-naming.StaticConstantCase: 'UPPER_CASE'
+  readability-identifier-naming.ConstexprVariableCase: 'UPPER_CASE'
+  readability-identifier-naming.GlobalConstantCase: 'UPPER_CASE'
+  # Template parameters: PascalCase (Args, H, TagResultValue).
+  readability-identifier-naming.TemplateParameterCase: 'CamelCase'
+  readability-identifier-naming.TemplateTemplateParameterCase: 'CamelCase'
+  readability-identifier-naming.TypeTemplateParameterCase: 'CamelCase'
+  readability-identifier-naming.ValueTemplateParameterCase: 'lower_case'
+  # C++20 concepts: PascalCase.
+  readability-identifier-naming.ConceptCase: 'CamelCase'
+  # Preprocessor macros: UPPER_CASE.
+  readability-identifier-naming.MacroDefinitionCase: 'UPPER_CASE'
+  # Suppress false positives for Lancet2 type aliases (i8, u32, f64, usize).
+  readability-identifier-naming.TypeAliasIgnoredRegexp: '^(i|u|f)(8|16|32|64)$|^usize$'
+  # Suppress false positives for include guard macros (SRC_LANCET_*_H_).
+  readability-identifier-naming.MacroDefinitionIgnoredRegexp: '^SRC_LANCET_.*_H_$'
+  # Suppress false positives for STL iterator methods required by range-for.
+  readability-identifier-naming.MethodIgnoredRegexp: '^(c?r?(begin|end))$'
+
+  # ── Const Correctness ──────────────────────────────────────────────────
+  # Analyze values AND references for const-qualification opportunities.
+  # Catches `int x = 42; /* never modified */` → `const int x = 42;`
+  misc-const-correctness.AnalyzeValues: 'true'
+  misc-const-correctness.AnalyzeReferences: 'true'
+  # Don't suggest `int* const p` — overly pedantic for pointer-to-mutable.
+  misc-const-correctness.WarnPointersAsValues: 'false'
+
+  # ── C++ Core Guidelines Tuning ─────────────────────────────────────────
+  # Allow a sole `= default` destructor without triggering full Rule of 5.
+  # A defaulted dtor is trivially safe and doesn't imply manual resource mgmt.
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: 'true'
+  # ENFORCE move ctor/assignment if copy is defined (Rule of 5).
+  # Without move semantics, vector reallocation and container operations
+  # silently fall back to expensive copies — critical for HPC performance.
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: 'false'

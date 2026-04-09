@@ -1,30 +1,37 @@
 #include "lancet/caller/variant_call.h"
 
-#include <algorithm>
-#include <cmath>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
-#include "absl/hash/hash.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/longdust_scorer.h"
 #include "lancet/base/polar_coords.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/raw_variant.h"
 #include "lancet/caller/variant_support.h"
 #include "lancet/cbdg/label.h"
+
+#include "absl/hash/hash.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "spdlog/fmt/bundled/core.h"
+
+#include <absl/strings/str_format.h>
+#include <absl/types/span.h>
+#include <algorithm>
+#include <array>
+#include <iterator>
+#include <spdlog/fmt/bundled/base.h>
+#include <spdlog/fmt/bundled/format.h>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <cmath>
 
 namespace {
 
 // Variant identity is defined by CHROM+POS+REF (locus-level, no ALTs).
 // Uses mChromIndex (integer, always correctly set) instead of mChromName for robustness.
 // See the identity design note on VariantCall::operator< for full rationale.
-[[nodiscard]] inline auto HashRawVariant(const lancet::caller::RawVariant* var) -> u64 {
+[[nodiscard]] inline auto HashRawVariant(lancet::caller::RawVariant const* var) -> u64 {
   return static_cast<u64>(absl::HashOf(var->mChromIndex, var->mGenomeChromPos1, var->mRefAllele));
 }
 
@@ -37,30 +44,31 @@ namespace lancet::caller {
 //
 // Unspools a natively multi-allelic RawVariant exactly into the VCF array mapping!
 // ============================================================================
-VariantCall::VariantCall(const RawVariant* var, const SupportsByVariant& all_supports, Samples samps,
-                         FeatureFlags features, const f64 window_cov)
+VariantCall::VariantCall(RawVariant const* var, SupportsByVariant const& all_supports,
+                         Samples samps, FeatureFlags features, f64 const window_cov)
     : mVariantId(HashRawVariant(var)),
-      mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeChromPos1),
-      mTotalSampleCov(0), mSiteQuality(0), mWindowCov(window_cov),
-      mChromName(var->mChromName), mRefAllele(var->mRefAllele),
-      mFeatureFlags(features) {
-          
-  const auto num_alts = var->mAlts.size();
+      mChromIndex(var->mChromIndex),
+      mStartPos1(var->mGenomeChromPos1),
+
+      mWindowCov(window_cov),
+      mChromName(var->mChromName),
+      mRefAllele(var->mRefAllele),
+      mGraphCx(var->mGraphMetrics),
+      mSeqCx(var->mSeqCx),
+      mFeatureFlags(features),
+      mIsMultiallelic(mAltAlleles.size() > 1) {
+  auto const num_alts = var->mAlts.size();
   mAltAlleles.reserve(num_alts);
   mCategories.reserve(num_alts);
   mVariantLengths.reserve(num_alts);
 
-  std::for_each(var->mAlts.cbegin(), var->mAlts.cend(), [this](const auto& alt) {
+  std::ranges::for_each(var->mAlts, [this](auto const& alt) -> void {
     mAltAlleles.push_back(alt.mSequence);
     mCategories.push_back(alt.mType);
     mVariantLengths.push_back(alt.mLength);
   });
-  
-  mIsMultiallelic = (mAltAlleles.size() > 1);
-  mSeqCx = var->mSeqCx;
-  mGraphCx = var->mGraphMetrics;
 
-  if (const auto var_it = all_supports.find(var); var_it != all_supports.end()) {
+  if (auto const var_it = all_supports.find(var); var_it != all_supports.end()) {
     Finalize(var_it->second, samps, features);
   } else {
     Finalize(SupportArray(), samps, features);
@@ -76,12 +84,17 @@ VariantCall::VariantCall(const RawVariant* var, const SupportsByVariant& all_sup
 //   2. ComputeState       — SHARED/NORMAL/TUMOR classification
 //   3. BuildInfoField     — INFO string assembly
 // ============================================================================
-void VariantCall::Finalize(const SupportArray& evidence, Samples samps, FeatureFlags features) {
-  static const auto is_tumor = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::TUMOR; };
-  static const auto is_normal = [](const auto& s) -> bool { return s.TagKind() == cbdg::Label::NORMAL; };
-  const auto tumor_normal_mode = std::ranges::any_of(samps, is_tumor) && std::ranges::any_of(samps, is_normal);
+void VariantCall::Finalize(SupportArray const& evidence, Samples samps, FeatureFlags features) {
+  static auto const IS_TUMOR = [](auto const& s) -> bool {
+    return s.TagKind() == cbdg::Label::TUMOR;
+  };
+  static auto const IS_NORMAL = [](auto const& s) -> bool {
+    return s.TagKind() == cbdg::Label::NORMAL;
+  };
+  auto const tumor_normal_mode =
+      std::ranges::any_of(samps, IS_TUMOR) && std::ranges::any_of(samps, IS_NORMAL);
 
-  const auto alt_presence = BuildFormatFields(evidence, samps, tumor_normal_mode);
+  auto const alt_presence = BuildFormatFields(evidence, samps, tumor_normal_mode);
   ComputeState(alt_presence, tumor_normal_mode);
   BuildInfoField(tumor_normal_mode, features);
 }
@@ -111,65 +124,72 @@ void VariantCall::Finalize(const SupportArray& evidence, Samples samps, FeatureF
 //   PL   - Number=G: Phred-scaled genotype likelihoods
 //   GQ   - Genotype quality (GATK: second-lowest PL, capped at 99)
 // ============================================================================
-auto VariantCall::BuildFormatFields(const SupportArray& evidence, Samples samps, const bool tumor_normal_mode) -> AltPresence {
-  const auto num_alleles = mAltAlleles.size() + 1;  // +1 for REF
+auto VariantCall::BuildFormatFields(SupportArray const& evidence, Samples samps,
+                                    bool const tumor_normal_mode) -> AltPresence {
+  auto const num_alleles = mAltAlleles.size() + 1;  // +1 for REF
   AltPresence alt_presence;
 
   mFormatFields.reserve(samps.size() + 1);
-  mFormatFields.emplace_back("GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ");
+  mFormatFields.emplace_back(
+      "GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ");
 
-  for (const auto& sinfo : samps) {
-    const auto* support = evidence.Find(sinfo.SampleName());
-    if (support == nullptr) continue;
+  for (auto const& sinfo : samps) {
+    auto const* support = evidence.Find(sinfo.SampleName());
+    if (support == nullptr) {
+      continue;
+    }
 
     mTotalSampleCov += support->TotalSampleCov();
-    
-    const auto pls = support->ComputePLs();
-    const auto gq_value = VariantSupport::ComputeGQ(pls);
-    const auto genotype = BuildGenotype(pls, num_alleles);
-    const auto allele_metrics = BuildPerAlleleMetrics(support, num_alleles);
+
+    auto const pls = support->ComputePLs();
+    auto const gq_value = VariantSupport::ComputeGQ(pls);
+    auto const genotype = BuildGenotype(pls, num_alleles);
+    auto const allele_metrics = BuildPerAlleleMetrics(support, num_alleles);
 
     UpdateSiteQuality(sinfo, support, evidence, samps, tumor_normal_mode, pls);
     TrackAltPresence(support, sinfo, tumor_normal_mode, alt_presence);
 
     // Strand bias log odds ratio (Number=1, per-sample)
-    const auto sb_val = fmt::format("{:.3f}", support->StrandBiasLogOR());
+    auto const sb_val = fmt::format("{:.3f}", support->StrandBiasLogOR());
 
     // Alignment-derived per-sample annotations (coverage-normalized effect sizes)
-    const auto sca_val = fmt::format("{:.4f}", support->SoftClipAsymmetry());
-    const auto fld_val = fmt::format("{:.1f}", support->FragLengthDelta());
-    const auto rpcd_val = fmt::format("{:.4f}", support->ReadPosCohenD());
-    const auto bqcd_val = fmt::format("{:.4f}", support->BaseQualCohenD());
-    const auto mqcd_val = fmt::format("{:.4f}", support->MappingQualCohenD());
-    const auto asmd_val = fmt::format("{:.3f}", support->AlleleMismatchDelta());
-    const auto sdfc_val = fmt::format("{:.2f}", SiteDepthFoldChange());
+    auto const sca_val = fmt::format("{:.4f}", support->SoftClipAsymmetry());
+    auto const fld_val = fmt::format("{:.1f}", support->FragLengthDelta());
+    auto const rpcd_val = fmt::format("{:.4f}", support->ReadPosCohenD());
+    auto const bqcd_val = fmt::format("{:.4f}", support->BaseQualCohenD());
+    auto const mqcd_val = fmt::format("{:.4f}", support->MappingQualCohenD());
+    auto const asmd_val = fmt::format("{:.3f}", support->AlleleMismatchDelta());
+    auto const sdfc_val = fmt::format("{:.2f}", SiteDepthFoldChange());
 
     // Polar coordinate features for ML variant classification
     // PRAD/PANG orthogonalize allele identity from depth (see polar_coords.h)
-    const auto ad_ref = static_cast<f64>(support->TotalRefCov());
-    const auto ad_alt = static_cast<f64>(support->TotalAltCov());
-    const auto prad_val = fmt::format("{:.4f}", base::PolarRadius(ad_ref, ad_alt));
-    const auto pang_val = fmt::format("{:.4f}", base::PolarAngle(ad_alt, ad_ref));
+    auto const ad_ref = static_cast<f64>(support->TotalRefCov());
+    auto const ad_alt = static_cast<f64>(support->TotalAltCov());
+    auto const prad_val = fmt::format("{:.4f}", base::PolarRadius(ad_ref, ad_alt));
+    auto const pang_val = fmt::format("{:.4f}", base::PolarAngle(ad_alt, ad_ref));
 
-    const std::string pl_val = pls.empty() ? "." : absl::StrJoin(pls, ",");
+    std::string const pl_val = pls.empty() ? "." : absl::StrJoin(pls, ",");
 
     mFormatFields.emplace_back(fmt::format(
-        "{GT}:{AD}:{ADF}:{ADR}:{DP}:{RMQ}:{NPBQ}:{SB}:{SCA}:{FLD}:{RPCD}:{BQCD}:{MQCD}:{ASMD}:{SDFC}:{PRAD}:{PANG}:{PL}:{GQ}",
-        fmt::arg("GT", genotype), fmt::arg("AD", allele_metrics.ad), fmt::arg("ADF", allele_metrics.adf), fmt::arg("ADR", allele_metrics.adr),
-        fmt::arg("DP", support->TotalSampleCov()), fmt::arg("RMQ", allele_metrics.rmq), fmt::arg("NPBQ", allele_metrics.npbq),
-        fmt::arg("SB", sb_val), fmt::arg("SCA", sca_val), fmt::arg("FLD", fld_val), fmt::arg("RPCD", rpcd_val),
-        fmt::arg("BQCD", bqcd_val), fmt::arg("MQCD", mqcd_val), fmt::arg("ASMD", asmd_val), fmt::arg("SDFC", sdfc_val),
-        fmt::arg("PRAD", prad_val), fmt::arg("PANG", pang_val), fmt::arg("PL", pl_val), fmt::arg("GQ", gq_value))
-      );
+        "{GT}:{AD}:{ADF}:{ADR}:{DP}:{RMQ}:{NPBQ}:{SB}:{SCA}:{FLD}:{RPCD}:{BQCD}:{MQCD}:{ASMD}:{"
+        "SDFC}:{PRAD}:{PANG}:{PL}:{GQ}",
+        fmt::arg("GT", genotype), fmt::arg("AD", allele_metrics.mAd),
+        fmt::arg("ADF", allele_metrics.mAdf), fmt::arg("ADR", allele_metrics.mAdr),
+        fmt::arg("DP", support->TotalSampleCov()), fmt::arg("RMQ", allele_metrics.mRmq),
+        fmt::arg("NPBQ", allele_metrics.mNpbq), fmt::arg("SB", sb_val), fmt::arg("SCA", sca_val),
+        fmt::arg("FLD", fld_val), fmt::arg("RPCD", rpcd_val), fmt::arg("BQCD", bqcd_val),
+        fmt::arg("MQCD", mqcd_val), fmt::arg("ASMD", asmd_val), fmt::arg("SDFC", sdfc_val),
+        fmt::arg("PRAD", prad_val), fmt::arg("PANG", pang_val), fmt::arg("PL", pl_val),
+        fmt::arg("GQ", gq_value)));
   }
 
   return alt_presence;
 }
 
-auto VariantCall::BuildGenotype(absl::Span<const int> pls, usize num_alleles) const -> std::string {
+auto VariantCall::BuildGenotype(absl::Span<int const> pls, usize num_alleles) -> std::string {
   usize best_gt_idx = 0;
   if (!pls.empty()) {
-    best_gt_idx = static_cast<usize>(std::distance(pls.cbegin(), std::min_element(pls.cbegin(), pls.cend())));
+    best_gt_idx = static_cast<usize>(std::distance(pls.cbegin(), std::ranges::min_element(pls)));
   }
   return GenotypeFromGLIndex(best_gt_idx, num_alleles);
 }
@@ -177,57 +197,62 @@ auto VariantCall::BuildGenotype(absl::Span<const int> pls, usize num_alleles) co
 // ============================================================================
 // GenotypeFromGLIndex: convert a GL index back to a genotype string.
 //
-// VCF 4.3 §1.6.2 defines the GL index for a diploid genotype (i, j) as:
+// VCF 4.3 §1.6.2 defines the GL index for a diploid genotype (i, jdx) as:
 //
-//   GL_index = j * (j + 1) / 2 + i     where i ≤ j
+//   GL_index = jdx * (jdx + 1) / 2 + i     where i ≤ jdx
 //
 // This maps genotypes to a flat array indexed by triangular numbers:
 //
 //   Genotype:  0/0  0/1  1/1  0/2  1/2  2/2  0/3  1/3  2/3  3/3
 //   GL index:   0    1    2    3    4    5    6    7    8    9
-//                    └ j=1 ┘    └── j=2 ──┘    └─── j=3 ───┘
+//                    └ jdx=1 ┘  └─ jdx=2 ─┘    └── jdx=3 ──┘
 //
-// Each "row" j starts at T(j) = j*(j+1)/2 and contains i = 0..j.
+// Each "row" jdx starts at T(jdx) = jdx*(jdx+1)/2 and contains i = 0..jdx.
 //
-// To invert, we find which row j the GL index falls in, then recover i.
+// To invert, we find which row jdx the GL index falls in, then recover i.
 // We use the same integer-only algorithm as htslib's bcf_gt2alleles()
-// (htslib/vcf.h): walk triangular numbers T(1), T(2), ... until T(dk) ≥ igt.
+// (htslib/vcf.h): walk triangular numbers T(1), T(2), ... until T(dkmer) ≥ gl_index.
 //
-//   k  = running triangular number T(dk-1)
-//   dk = next row size (starts at 1, incremented each step)
+//   klen  = running triangular number T(dkmer-1)
+//   dkmer = next row size (starts at 1, incremented each step)
 //
-//   After the loop: dk-1 = j, and i = igt - T(j) = igt - k + j
+//   After the loop: dkmer-1 = jdx, and i = gl_index - T(jdx) = gl_index - klen + jdx
 //
 // Example: gl_index = 4
-//   dk=1, k=0 → k<4, dk=2, k=2 → k<4, dk=3, k=5 → k≥4, stop
-//   j = dk-1 = 2,  i = 4 - 5 + 2 = 1  → "1/2" ✓
+//   dkmer=1, klen=0 → klen<4, dkmer=2, klen=2 → klen<4, dkmer=3, klen=5 → klen≥4, stop
+//   jdx = dkmer-1 = 2,  i = 4 - 5 + 2 = 1  → "1/2" ✓
 // ============================================================================
-auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alleles) -> std::string {
+auto VariantCall::GenotypeFromGLIndex(usize const gl_index, usize const /*num_alleles*/)
+    -> std::string {
   // Integer-only triangular number walk (matches htslib bcf_gt2alleles)
-  usize k = 0;
-  usize dk = 1;
-  while (k < gl_index) {
-    dk++;
-    k += dk;
+  usize klen = 0;
+  usize dkmer = 1;
+  while (klen < gl_index) {
+    dkmer++;
+    klen += dkmer;
   }
-  const auto j = dk - 1;
-  const auto i = gl_index - k + j;
+  auto const jdx = dkmer - 1;
+  auto const i = gl_index - klen + jdx;
 
   // This should never trigger: gl_index comes from std::min_element over the
   // PL vector (size = num_alleles*(num_alleles+1)/2), so the inverted (i,j)
   // will always satisfy i <= j < num_alleles. If it does fire, ComputePLs or
   // its caller has a bug — don't silently return "0/0" and mask it.
-  LANCET_ASSERT(i < num_alleles && j < num_alleles);
-  return fmt::format("{}/{}", i, j);
+  LANCET_ASSERT(i < num_alleles && jdx < num_alleles);
+  return fmt::format("{}/{}", i, jdx);
 }
 
-void VariantCall::UpdateSiteQuality(const core::SampleInfo& sinfo, const VariantSupport* support,
-                                    const SupportArray& evidence, Samples samps,
-                                    bool tumor_normal_mode, absl::Span<const int> pls) {
-  const auto somatic_lor = tumor_normal_mode ? SomaticLogOddsRatio(sinfo, evidence, samps) : 0.0;
-  const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
-  const auto sample_dp = support->TotalSampleCov();
-  const auto per_read_qual = (!pls.empty() && sample_dp > 0) ? std::min(static_cast<f64>(ref_hom_pl) / static_cast<f64>(sample_dp), 10.0) : 0.0;
+void VariantCall::UpdateSiteQuality(core::SampleInfo const& sinfo, VariantSupport const* support,
+                                    SupportArray const& evidence, Samples samps,
+                                    bool tumor_normal_mode, absl::Span<int const> pls) {
+  auto const somatic_lor = tumor_normal_mode ? SomaticLogOddsRatio(sinfo, evidence, samps) : 0.0;
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+  auto const ref_hom_pl = pls.empty() ? 0 : pls[0];
+  auto const sample_dp = support->TotalSampleCov();
+  auto const per_read_qual =
+      (!pls.empty() && sample_dp > 0)
+          ? std::min(static_cast<f64>(ref_hom_pl) / static_cast<f64>(sample_dp), 10.0)
+          : 0.0;
   mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? somatic_lor : per_read_qual);
 }
 
@@ -242,23 +267,26 @@ void VariantCall::UpdateSiteQuality(const core::SampleInfo& sinfo, const Variant
 // A clean somatic produces SOLOR ≈ 5; germline produces SOLOR ≈ 0.
 // Coverage-stable: once normal VAF stabilizes (≥60×), SOLOR varies < 3%.
 // ============================================================================
-auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64 {
+auto VariantCall::SomaticLogOddsRatio(core::SampleInfo const& curr, SupportArray const& supports,
+                                      Samples samps) -> f64 {
   if (curr.TagKind() != cbdg::Label::TUMOR) {
     return 0.0;
   }
 
-  const auto* tmr_evidence = supports.Find(curr.SampleName());
+  auto const* tmr_evidence = supports.Find(curr.SampleName());
   // Haldane correction (+1 to all cells) avoids mathematical undefined zero-division
-  const f64 ta = (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalAltCov()) : 0.0) + 1.0;
-  const f64 tr = (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalRefCov()) : 0.0) + 1.0;
+  f64 const tmr_alt =
+      (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalAltCov()) : 0.0) + 1.0;
+  f64 const tmr_ref =
+      (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalRefCov()) : 0.0) + 1.0;
 
   u32 sum_na = 0;
   u32 sum_nr = 0;
   u32 count_nml = 0;
 
-  for (const auto& sinfo : samps) {
+  for (auto const& sinfo : samps) {
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      if (const auto* evidence = supports.Find(sinfo.SampleName()); evidence != nullptr) {
+      if (auto const* evidence = supports.Find(sinfo.SampleName()); evidence != nullptr) {
         sum_na += evidence->TotalAltCov();
         sum_nr += evidence->TotalRefCov();
         count_nml++;
@@ -266,46 +294,55 @@ auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr, const Suppor
     }
   }
 
-  const f64 mean_na = count_nml > 0 ? static_cast<f64>(sum_na) / count_nml : 0.0;
-  const f64 mean_nr = count_nml > 0 ? static_cast<f64>(sum_nr) / count_nml : 0.0;
+  f64 const mean_na = count_nml > 0 ? static_cast<f64>(sum_na) / count_nml : 0.0;
+  f64 const mean_nr = count_nml > 0 ? static_cast<f64>(sum_nr) / count_nml : 0.0;
 
-  const f64 na = mean_na + 1.0;
-  const f64 nr = mean_nr + 1.0;
+  f64 const nml_alt = mean_na + 1.0;
+  f64 const nml_ref = mean_nr + 1.0;
 
-  return std::log((ta * nr) / (tr * na));
+  return std::log((tmr_alt * nml_ref) / (tmr_ref * nml_alt));
 }
 
-void VariantCall::TrackAltPresence(const VariantSupport* support, const core::SampleInfo& sinfo,
+void VariantCall::TrackAltPresence(VariantSupport const* support, core::SampleInfo const& sinfo,
                                    bool tumor_normal_mode, AltPresence& alt_presence) {
   if (support->TotalAltCov() > 0) {
     mHasAltSupport = true;
     if (tumor_normal_mode) {
-      if (sinfo.TagKind() == cbdg::Label::NORMAL) alt_presence.in_normal = true;
-      if (sinfo.TagKind() == cbdg::Label::TUMOR) alt_presence.in_tumor = true;
+      if (sinfo.TagKind() == cbdg::Label::NORMAL) {
+        alt_presence.mInNormal = true;
+      }
+      if (sinfo.TagKind() == cbdg::Label::TUMOR) {
+        alt_presence.mInTumor = true;
+      }
     }
   }
 }
 
-auto VariantCall::BuildPerAlleleMetrics(const VariantSupport* support, usize num_alleles) const -> PerAlleleMetrics {
+auto VariantCall::BuildPerAlleleMetrics(VariantSupport const* support, usize num_alleles)
+    -> PerAlleleMetrics {
   PerAlleleMetrics metrics;
   for (usize allele = 0; allele < num_alleles; ++allele) {
-    const auto idx = static_cast<AlleleIndex>(allele);
+    auto const idx = static_cast<AlleleIndex>(allele);
     if (allele > 0) {
-      metrics.ad += ","; metrics.adf += ","; metrics.adr += ","; metrics.rmq += ","; metrics.npbq += ",";
+      metrics.mAd += ",";
+      metrics.mAdf += ",";
+      metrics.mAdr += ",";
+      metrics.mRmq += ",";
+      metrics.mNpbq += ",";
     }
-    absl::StrAppend(&metrics.ad, support->TotalAlleleCov(idx));
-    absl::StrAppend(&metrics.adf, support->FwdCount(idx));
-    absl::StrAppend(&metrics.adr, support->RevCount(idx));
+    absl::StrAppend(&metrics.mAd, support->TotalAlleleCov(idx));
+    absl::StrAppend(&metrics.mAdf, support->FwdCount(idx));
+    absl::StrAppend(&metrics.mAdr, support->RevCount(idx));
     // NOTE: absl::StrAppendFormat uses printf-style format specifiers, not fmt-style
-    absl::StrAppendFormat(&metrics.rmq, "%.1f", support->RmsMappingQual(idx));
-    
+    absl::StrAppendFormat(&metrics.mRmq, "%.1f", support->RmsMappingQual(idx));
+
     // NPBQ: raw posterior base quality divided by allele depth
     // Recovers the effective per-read quality (~30 for Q30 reads at any depth)
-    const auto raw_pbq = support->RawPosteriorBaseQual(idx);
-    const auto allele_cov = support->TotalAlleleCov(idx);
-    const auto npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
+    auto const raw_pbq = support->RawPosteriorBaseQual(idx);
+    auto const allele_cov = support->TotalAlleleCov(idx);
+    auto const npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
     // NOTE: absl::StrAppendFormat uses printf-style format specifiers, not fmt-style
-    absl::StrAppendFormat(&metrics.npbq, "%.1f", npbq);
+    absl::StrAppendFormat(&metrics.mNpbq, "%.1f", npbq);
   }
   return metrics;
 }
@@ -316,20 +353,20 @@ auto VariantCall::BuildPerAlleleMetrics(const VariantSupport* support, usize num
 // In tumor-normal mode: SHARED/NORMAL/TUMOR based on ALT presence, NONE if no support.
 // In normal-only mode: always UNKNOWN (not enough info to classify).
 // ============================================================================
-void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_normal_mode) {
-  static constexpr RawVariant::State STATE_MAP[4] = {
-      RawVariant::State::NONE,   // 00: Neither
-      RawVariant::State::NORMAL, // 01: Normal only
-      RawVariant::State::TUMOR,  // 10: Tumor only
-      RawVariant::State::SHARED  // 11: Both
-  };
+void VariantCall::ComputeState(AltPresence const alt_presence, bool const tumor_normal_mode) {
+  static constexpr std::array<RawVariant::State, 4> STATE_MAP = {{
+      RawVariant::State::NONE,    // 00: Neither
+      RawVariant::State::NORMAL,  // 01: Normal only
+      RawVariant::State::TUMOR,   // 10: Tumor only
+      RawVariant::State::SHARED   // 11: Both
+  }};
 
   // We compute a 2-bit mapping index directly from the boolean parameters:
   // Bit 1 (Left bit):  in_tumor
-  // Bit 0 (Right bit): in_normal 
+  // Bit 0 (Right bit): in_normal
   // Evaluates exactly into [0=NONE, 1=NORMAL, 2=TUMOR, 3=SHARED].
-  const usize state_idx = (static_cast<usize>(alt_presence.in_tumor) << 1) | 
-                           static_cast<usize>(alt_presence.in_normal);
+  usize const state_idx =
+      (static_cast<usize>(alt_presence.mInTumor) << 1) | static_cast<usize>(alt_presence.mInNormal);
 
   mState = tumor_normal_mode ? STATE_MAP[state_idx] : RawVariant::State::UNKNOWN;
 }
@@ -347,14 +384,15 @@ void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_
 //
 // Note: SCA, FLD, and MQCD are per-sample FORMAT fields, not site-level INFO.
 // ============================================================================
-void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags features) {
+void VariantCall::BuildInfoField(bool const tumor_normal_mode, FeatureFlags features) {
   using namespace std::string_view_literals;
 
-  static constexpr std::string_view TYPE_MAP[] = {"REF"sv, "SNV"sv, "INS"sv, "DEL"sv, "MNP"sv, "CPX"sv};
+  static constexpr std::array<std::string_view, 6> TYPE_MAP = {
+      {"REF"sv, "SNV"sv, "INS"sv, "DEL"sv, "MNP"sv, "CPX"sv}};
 
   std::vector<std::string_view> vcategories;
   vcategories.reserve(mCategories.size());
-  for (const auto cat : mCategories) {
+  for (auto const cat : mCategories) {
     vcategories.push_back(TYPE_MAP[static_cast<i8>(cat) + 1]);
   }
 
@@ -364,16 +402,24 @@ void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags feat
   if (tumor_normal_mode) {
     // State prefix — tumor-normal mode only
     // SHARED/NORMAL/TUMOR state — only in tumor-normal (somatic) mode
-    static constexpr std::string_view STATE_MAP[] = {"NONE"sv, "SHARED"sv, "NORMAL"sv, "TUMOR"sv, "UNKNOWN"sv};
+    static constexpr std::array<std::string_view, 5> STATE_MAP = {
+        {"NONE"sv, "SHARED"sv, "NORMAL"sv, "TUMOR"sv, "UNKNOWN"sv}};
     absl::StrAppend(&info, STATE_MAP[static_cast<i8>(mState) + 1], ";");
   }
 
-  if (mIsMultiallelic) absl::StrAppend(&info, "MULTIALLELIC;");
-  
-  absl::StrAppend(&info, "TYPE=", absl::StrJoin(vcategories, ","), ";LENGTH=", absl::StrJoin(mVariantLengths, ","));
+  if (mIsMultiallelic) {
+    absl::StrAppend(&info, "MULTIALLELIC;");
+  }
+
+  absl::StrAppend(&info, "TYPE=", absl::StrJoin(vcategories, ","),
+                  ";LENGTH=", absl::StrJoin(mVariantLengths, ","));
   // Optional complexity annotations — each struct owns its own VCF formatting
-  if (features.enable_graph_complexity) absl::StrAppend(&info, ";GRAPH_CX=", mGraphCx.FormatVcfValue());
-  if (features.enable_sequence_complexity) absl::StrAppend(&info, ";SEQ_CX=", mSeqCx.FormatVcfValue());
+  if (features.mEnableGraphComplexity) {
+    absl::StrAppend(&info, ";GRAPH_CX=", mGraphCx.FormatVcfValue());
+  }
+  if (features.mEnableSequenceComplexity) {
+    absl::StrAppend(&info, ";SEQ_CX=", mSeqCx.FormatVcfValue());
+  }
 
   mInfoField = std::move(info);
 }
@@ -382,14 +428,11 @@ void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags feat
 // AsVcfRecord: emit a VCF record with comma-separated ALTs for multi-allelic.
 // ============================================================================
 auto VariantCall::AsVcfRecord() const -> std::string {
-  const auto alt_field = absl::StrJoin(mAltAlleles, ",");
+  auto const alt_field = absl::StrJoin(mAltAlleles, ",");
   return fmt::format("{CHROM}\t{POS}\t.\t{REF}\t{ALT}\t{QUAL:.2f}\t.\t{INFO}\t{FORMAT}",
-                     fmt::arg("CHROM", mChromName),
-                     fmt::arg("POS", mStartPos1),
-                     fmt::arg("REF", mRefAllele),
-                     fmt::arg("ALT", alt_field),
-                     fmt::arg("QUAL", mSiteQuality),
-                     fmt::arg("INFO", mInfoField),
+                     fmt::arg("CHROM", mChromName), fmt::arg("POS", mStartPos1),
+                     fmt::arg("REF", mRefAllele), fmt::arg("ALT", alt_field),
+                     fmt::arg("QUAL", mSiteQuality), fmt::arg("INFO", mInfoField),
                      fmt::arg("FORMAT", absl::StrJoin(mFormatFields, "\t")));
 }
 

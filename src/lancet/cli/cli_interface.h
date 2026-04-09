@@ -1,10 +1,11 @@
 #ifndef SRC_LANCET_CLI_CLI_INTERFACE_H_
 #define SRC_LANCET_CLI_CLI_INTERFACE_H_
 
-#include <memory>
+#include "lancet/cli/cli_params.h"
 
 #include "CLI/CLI.hpp"
-#include "lancet/cli/cli_params.h"
+
+#include <memory>
 
 namespace lancet::cli {
 
@@ -12,7 +13,7 @@ class CliInterface {
  public:
   CliInterface();
 
-  [[nodiscard]] auto RunMain(int argc, const char** argv) -> int;
+  [[nodiscard]] auto RunMain(int argc, char const** argv) -> int;
 
  private:
   CLI::App mCliApp;

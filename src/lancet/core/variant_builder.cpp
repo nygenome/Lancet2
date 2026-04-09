@@ -1,16 +1,5 @@
 #include "lancet/core/variant_builder.h"
 
-#include <algorithm>
-#include <filesystem>
-#include <memory>
-#include <numeric>
-#include <string>
-#include <thread>
-#include <utility>
-#include <vector>
-
-#include "absl/hash/hash.h"
-#include "absl/types/span.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/repeat.h"
 #include "lancet/base/sliding.h"
@@ -18,11 +7,25 @@
 #include "lancet/caller/msa_builder.h"
 #include "lancet/caller/variant_call.h"
 #include "lancet/caller/variant_set.h"
+#include "lancet/caller/variant_support.h"
 #include "lancet/cbdg/read.h"
 #include "lancet/core/sample_info.h"
 #include "lancet/core/window.h"
+
+#include "absl/hash/hash.h"
+#include "absl/types/span.h"
 #include "spdlog/fmt/bundled/core.h"
 #include "spoa/alignment_engine.hpp"
+
+#include <algorithm>
+#include <filesystem>
+#include <memory>
+#include <numeric>
+#include <spdlog/fmt/bundled/format.h>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
 
 namespace lancet::core {
 
@@ -34,11 +37,11 @@ namespace {
  * ============================================================================
  * Values: Match: 0, Mismatch: -6, Gap1: -6,-2, Gap2: -26,-1
  *
- * **SIMD Overflow Note**: All classical parameters (typically +2/-4) have 
- * been mathematically shifted downwards by 2. Setting the Match ceiling rigidly 
- * to 0 is mandatory because SPOA employs 8-bit AVX2 SIMD vector lanes. A 1000bp 
- * window accumulating +2 match scores would reach 2000, severely overflowing the 
- * signed 8-bit integers (max 127). By anchoring the Match score to 0, all runtime 
+ * **SIMD Overflow Note**: All classical parameters (typically +2/-4) have
+ * been mathematically shifted downwards by 2. Setting the Match ceiling rigidly
+ * to 0 is mandatory because SPOA employs 8-bit AVX2 SIMD vector lanes. A 1000bp
+ * window accumulating +2 match scores would reach 2000, severely overflowing the
+ * signed 8-bit integers (max 127). By anchoring the Match score to 0, all runtime
  * scores accumulate negatively, organically staying within the unrolled boundaries.
  *
  * Unlike minimap2's `asm5` preset (which aggressively splits contigs at major
@@ -61,7 +64,7 @@ namespace {
  *
  * 2. Mismatch Tolerance (Multi-Nucleotide Variants / MNVs):
  *    asm5 uses a +1 match / -19 mismatch, which shatters alignments at dense
- *    mutation clusters. We use 0 / -6. The geometrical difference (6) keeps 
+ *    mutation clusters. We use 0 / -6. The geometrical difference (6) keeps
  *    the MSA robustly intact while globally forcing alignments through complex variants.
  *
  * 3. Micro-Indel Sensitivity (Convex Model 1: -6, -2):
@@ -92,23 +95,26 @@ constexpr u32 PREALLOC_WINDOW_LENGTH_MULTIPLIER = 3;
 
 }  // namespace
 
-VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params, const u32 window_length)
-    : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)),
-      mSpoaState{
-          .mEngine = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE,
-                                                   MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE),
-          .mGraph = spoa::Graph()
-      },
+VariantBuilder::VariantBuilder(std::shared_ptr<Params const> params, u32 const window_length)
+    : mDebruijnGraph(params->mGraphParams),
+      mReadCollector(params->mRdCollParams),
+      mParamsPtr(std::move(params)),
+      mSpoaState{.mEngine = spoa::AlignmentEngine::Create(
+                     spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE, MSA_OPEN1_SCORE,
+                     MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE),
+                 .mGraph = spoa::Graph()},
       mAnnotator(mParamsPtr->mGcFraction) {
-  mSpoaState.mEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
+  mSpoaState.mEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER,
+                               DNA_ALPHABET_SIZE);
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
 }
 
-auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) -> WindowResults {
-  const auto region = window->AsRegionPtr();
-  const auto reg_str = region->ToSamtoolsRegion();
-  static thread_local const auto tid = absl::Hash<std::thread::id>()(std::this_thread::get_id());
-  LOG_DEBUG("Processing window {} in thread {:#x}", reg_str, tid)
+auto VariantBuilder::ProcessWindow(std::shared_ptr<Window const> const& window) -> WindowResults {
+  auto const region = window->AsRegionPtr();
+  auto const reg_str = region->ToSamtoolsRegion();
+  static thread_local auto const THREAD_ID =
+      absl::Hash<std::thread::id>()(std::this_thread::get_id());
+  LOG_DEBUG("Processing window {} in thread {:#x}", reg_str, THREAD_ID)
 
   if (static_cast<usize>(std::ranges::count(window->SeqView(), 'N')) == window->Length()) {
     LOG_DEBUG("Skipping window {} since it has only N bases in reference", reg_str)
@@ -117,12 +123,13 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   if (HasExactRepeat(SlidingView(window->SeqView(), mParamsPtr->mGraphParams.mMaxKmerLen))) {
-    LOG_DEBUG("Skipping window {} since reference has repeat {}-mers", reg_str, mParamsPtr->mGraphParams.mMaxKmerLen)
+    LOG_DEBUG("Skipping window {} since reference has repeat {}-mers", reg_str,
+              mParamsPtr->mGraphParams.mMaxKmerLen)
     mCurrentCode = StatusCode::SKIPPED_REF_REPEAT_SEEN;
     return {};
   }
 
-  const auto &rc_params = mParamsPtr->mRdCollParams;
+  auto const& rc_params = mParamsPtr->mRdCollParams;
   if (!mParamsPtr->mSkipActiveRegion && !ReadCollector::IsActiveRegion(rc_params, *region)) {
     LOG_DEBUG("Skipping window {} since it has no evidence of mutation in any sample", reg_str)
     mCurrentCode = StatusCode::SKIPPED_INACTIVE_REGION;
@@ -130,49 +137,59 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   }
 
   LOG_DEBUG("Collecting all available sample reads for window {}", reg_str)
-  const auto rc_result = mReadCollector.CollectRegionResult(*region);
-  const absl::Span<const cbdg::Read> reads = absl::MakeConstSpan(rc_result.mSampleReads);
-  const absl::Span<const SampleInfo> samples = absl::MakeConstSpan(rc_result.mSampleList);
+  auto const rc_result = mReadCollector.CollectRegionResult(*region);
+  absl::Span<cbdg::Read const> const reads = absl::MakeConstSpan(rc_result.mSampleReads);
+  absl::Span<SampleInfo const> const samples = absl::MakeConstSpan(rc_result.mSampleList);
 
-  const auto total_cov = SampleInfo::CombinedSampledCov(samples, window->Length());
+  auto const total_cov = SampleInfo::CombinedSampledCov(samples, window->Length());
   if (total_cov < static_cast<f64>(mParamsPtr->mGraphParams.mMinAnchorCov)) {
-    LOG_DEBUG("Skipping window {} since it has only {:.2f}x total sample coverage", reg_str, total_cov)
+    LOG_DEBUG("Skipping window {} since it has only {:.2f}x total sample coverage", reg_str,
+              total_cov)
     mCurrentCode = StatusCode::SKIPPED_INACTIVE_REGION;
     return {};
   }
 
-  LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str, reads.size(), total_cov)
-  // First haplotype from each component will always be the reference haplotype sequence for the graph
-  const auto dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads);
-  const auto &component_haplotypes = dbg_rslt.mGraphHaplotypes;
+  LOG_DEBUG("Building graph for {} with {} sample reads and {:.2f}x total coverage", reg_str,
+            reads.size(), total_cov)
+  // First haplotype from each component will always be the reference haplotype sequence for the
+  // graph
+  auto const dbg_rslt = mDebruijnGraph.BuildComponentHaplotypes(window->AsRegionPtr(), reads);
+  auto const& component_haplotypes = dbg_rslt.mGraphHaplotypes;
 
-  static const auto summer = [](const u64 sum, const auto &comp_haps) -> u64 { return sum + comp_haps.size() - 1; };
-  const auto num_asm_haps = std::accumulate(component_haplotypes.cbegin(), component_haplotypes.cend(), 0, summer);
+  static auto const SUMMER = [](u64 const sum, auto const& comp_haps) -> u64 {
+    return sum + comp_haps.size() - 1;
+  };
+  auto const num_asm_haps =
+      std::accumulate(component_haplotypes.cbegin(), component_haplotypes.cend(), 0, SUMMER);
   if (num_asm_haps == 0) {
-    LOG_DEBUG("Could not assemble any haplotypes for window {} with k={}", reg_str, mDebruijnGraph.CurrentK())
+    LOG_DEBUG("Could not assemble any haplotypes for window {} with k={}", reg_str,
+              mDebruijnGraph.CurrentK())
     mCurrentCode = StatusCode::SKIPPED_NOASM_HAPLOTYPE;
     return {};
   }
 
   WindowResults variants;
   for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
-    const auto nhaps = component_haplotypes[idx].size();
-    const auto anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
-    const std::vector<cbdg::Graph::Path> &comp_paths = component_haplotypes[idx];
-    
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    auto const nhaps = component_haplotypes[idx].size();
+    auto const anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
+    std::vector<cbdg::Graph::Path> const& comp_paths = component_haplotypes[idx];
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
     std::vector<std::string> comp_haps;
     comp_haps.reserve(comp_paths.size());
-    for (const auto& path : comp_paths) {
-      comp_haps.emplace_back(std::string(path.Sequence()));
+    for (auto const& path : comp_paths) {
+      comp_haps.emplace_back(path.Sequence());
     }
-    
-    LOG_DEBUG("Building MSA for graph component {} from window {} with {} haplotypes", idx, reg_str, nhaps)
 
-    const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
+    LOG_DEBUG("Building MSA for graph component {} from window {} with {} haplotypes", idx, reg_str,
+              nhaps)
+
+    absl::Span<std::string const> const ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
     mSpoaState.UpdateSpoaState(ref_and_alt_haps);
     // only serialize if we have a path to serialize to
     mSpoaState.SerializeGraph(MakeGfaPath(*window, idx));
-    
+
     caller::VariantSet vset;
     vset.ExtractVariantsFromGraph(mSpoaState.mGraph, *window, anchor_start);
 
@@ -181,63 +198,75 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
       mAnnotator.AnnotateSequenceComplexity(vset, absl::MakeConstSpan(comp_haps));
     }
     if (mParamsPtr->mEnableGraphComplexity && idx < dbg_rslt.mComponentMetrics.size()) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       VariantAnnotator::AnnotateGraphComplexity(vset, dbg_rslt.mComponentMetrics[idx]);
     }
 
     if (vset.IsEmpty()) {
-      LOG_DEBUG("No variants found in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
+      LOG_DEBUG("No variants found in graph component {} for window {} with {} haplotypes", idx,
+                reg_str, nhaps)
       continue;
     }
 
-    LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
+    LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx,
+              reg_str, nhaps)
     auto genotyped = mGenotyper.Genotype(ref_and_alt_haps, reads, vset);
-    
+
     // Drop variants where the graph assembled a haplotype but no reads actually support it.
-    static const auto HasAltSupport = [](const caller::SupportArray& evidence) {
-      return std::ranges::any_of(evidence, [](const auto& item) { return item.data && item.data->TotalAltCov() > 0; });
+    static auto const HAS_ALT_SUPPORT = [](caller::SupportArray const& evidence) -> bool {
+      return std::ranges::any_of(evidence, [](auto const& item) -> bool {
+        return item.mData && item.mData->TotalAltCov() > 0;
+      });
     };
 
-    std::ranges::for_each(vset, [&](const auto& var) {
+    std::ranges::for_each(vset, [&](auto const& var) -> void {
       caller::VariantCall::SupportsByVariant var_supports;
-      if (auto it = genotyped.find(&var); it != genotyped.end() && HasAltSupport(it->second)) {
-        var_supports.emplace(&var, std::move(it->second));
+      if (auto iter = genotyped.find(&var);
+          iter != genotyped.end() && HAS_ALT_SUPPORT(iter->second)) {
+        var_supports.emplace(&var, std::move(iter->second));
       }
 
-      if (var_supports.empty()) return;
+      if (var_supports.empty()) {
+        return;
+      }
 
-      const caller::VariantCall::FeatureFlags feat_flags{
-          .enable_graph_complexity = mParamsPtr->mEnableGraphComplexity,
-          .enable_sequence_complexity = mParamsPtr->mEnableSequenceComplexity,
+      caller::VariantCall::FeatureFlags const feat_flags{
+          .mEnableGraphComplexity = mParamsPtr->mEnableGraphComplexity,
+          .mEnableSequenceComplexity = mParamsPtr->mEnableSequenceComplexity,
       };
-      
-      variants.emplace_back(std::make_unique<caller::VariantCall>(
-          &var, std::move(var_supports), samples, feat_flags, total_cov));
+
+      variants.emplace_back(std::make_unique<caller::VariantCall>(&var, std::move(var_supports),
+                                                                  samples, feat_flags, total_cov));
     });
   }
 
   if (variants.empty()) {
-    LOG_DEBUG("No variants found for window {} from {} assembled graph paths", reg_str, num_asm_haps)
+    LOG_DEBUG("No variants found for window {} from {} assembled graph paths", reg_str,
+              num_asm_haps)
     mCurrentCode = StatusCode::MISSING_NO_MSA_VARIANTS;
     return {};
   }
 
   mCurrentCode = StatusCode::FOUND_GENOTYPED_VARIANT;
-  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", variants.size(), reg_str)
+  LOG_DEBUG("Genotyped {} variant(s) for window {} by re-aligning sample reads", variants.size(),
+            reg_str)
   return variants;
 }
 
-
-auto VariantBuilder::MakeGfaPath(const Window &win, const usize comp_id) const -> std::filesystem::path {
+auto VariantBuilder::MakeGfaPath(Window const& win, usize const comp_id) const
+    -> std::filesystem::path {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mParamsPtr->mOutGraphsDir.empty()) return {};
+  if (mParamsPtr->mOutGraphsDir.empty())
+    return {};
 
-  const auto fname = fmt::format("msa__{}_{}_{}__c{}.gfa", win.ChromName(), win.StartPos1(), win.EndPos1(), comp_id);
+  auto const fname = fmt::format("msa__{}_{}_{}__c{}.gfa", win.ChromName(), win.StartPos1(),
+                                 win.EndPos1(), comp_id);
   auto out_path = mParamsPtr->mOutGraphsDir / "poa_graph" / fname;
   std::filesystem::create_directories(mParamsPtr->mOutGraphsDir / "poa_graph");
   return out_path;
 }
 
-auto ToString(const VariantBuilder::StatusCode status_code) -> std::string {
+auto ToString(VariantBuilder::StatusCode const status_code) -> std::string {
   using enum VariantBuilder::StatusCode;
 
   switch (status_code) {

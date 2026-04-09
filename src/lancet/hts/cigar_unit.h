@@ -53,8 +53,9 @@ enum class CigarOp : char {
 
 class CigarUnit {
  public:
-  CigarUnit(u32 sam_cigop)
-      : mCigOp(static_cast<CigarOp>(bam_cigar_opchr(sam_cigop))), mLength(bam_cigar_oplen(sam_cigop)) {}
+  explicit CigarUnit(u32 sam_cigop)
+      : mCigOp(static_cast<CigarOp>(bam_cigar_opchr(sam_cigop))),
+        mLength(bam_cigar_oplen(sam_cigop)) {}
 
   CigarUnit() = delete;
 

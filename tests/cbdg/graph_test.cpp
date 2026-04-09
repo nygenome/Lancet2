@@ -1,15 +1,16 @@
 #include "lancet/cbdg/graph.h"
 
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "catch_amalgamated.hpp"
 #include "lancet/base/types.h"
 #include "lancet/cbdg/edge.h"
 #include "lancet/cbdg/kmer.h"
 #include "lancet/cbdg/node.h"
 #include "lancet/cbdg/traversal_index.h"
+
+#include "catch_amalgamated.hpp"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 using namespace lancet::cbdg;
 
@@ -21,9 +22,9 @@ struct TestGraph {
   Graph::NodeTable mNodes;
   std::vector<NodeID> mNodeIds;
 
-  auto AddNode(std::string_view seq, Label label = Label::REFERENCE) -> NodeID {
+  auto AddNode(std::string_view seq, Label label = Label(Label::REFERENCE)) -> NodeID {
     auto mer = Kmer(seq);
-    const auto nid = mer.Identifier();
+    auto const nid = mer.Identifier();
     mNodes.try_emplace(nid, std::make_unique<Node>(std::move(mer), label));
     mNodeIds.push_back(nid);
     return nid;
@@ -32,9 +33,9 @@ struct TestGraph {
   void AddEdge(NodeID src, NodeID dst) {
     auto& src_node = mNodes.at(src);
     auto& dst_node = mNodes.at(dst);
-    const auto src_sign = src_node->SignFor(Kmer::Ordering::DEFAULT);
-    const auto dst_sign = dst_node->SignFor(Kmer::Ordering::DEFAULT);
-    const auto kind = MakeFwdEdgeKind({src_sign, dst_sign});
+    auto const src_sign = src_node->SignFor(Kmer::Ordering::DEFAULT);
+    auto const dst_sign = dst_node->SignFor(Kmer::Ordering::DEFAULT);
+    auto const kind = MakeFwdEdgeKind({src_sign, dst_sign});
     src_node->EmplaceEdge(NodeIDPair{src, dst}, kind);
     dst_node->EmplaceEdge(NodeIDPair{dst, src}, RevEdgeKind(kind));
   }
@@ -65,7 +66,7 @@ TEST_CASE("TraversalIndex state index helpers", "[lancet][cbdg][TraversalIndex]"
   SECTION("NodeIdxOf and SignOf are inverse of MakeState") {
     for (u32 ni = 0; ni < 10; ni++) {
       for (auto sign : {Kmer::Sign::PLUS, Kmer::Sign::MINUS}) {
-        const auto state = TraversalIndex::MakeState(ni, sign);
+        auto const state = TraversalIndex::MakeState(ni, sign);
         CHECK(TraversalIndex::NodeIdxOf(state) == ni);
         CHECK(TraversalIndex::SignOf(state) == sign);
       }
@@ -87,9 +88,9 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   // density = 2/3 ≈ 0.67, max_degree = 1, branch_points = 0
 
   TestGraph tg;
-  const auto a = tg.AddNode("ACGTACGTACG");  // 11-mers
-  const auto b = tg.AddNode("CGTACGTACGA");
-  const auto c = tg.AddNode("GTACGTACGAC");
+  auto const a = tg.AddNode("ACGTACGTACG");  // 11-mers
+  auto const b = tg.AddNode("CGTACGTACGA");
+  auto const c = tg.AddNode("GTACGTACGAC");
   tg.AddEdge(a, b);
   tg.AddEdge(b, c);
   tg.SetAllComponentId(1);
@@ -104,22 +105,26 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   usize max_dir = 0;
   usize branches = 0;
 
-  for (const auto& [nid, node_ptr] : tg.mNodes) {
-    if (node_ptr->GetComponentId() != 1) continue;
+  for (auto const& [nid, node_ptr] : tg.mNodes) {
+    if (node_ptr->GetComponentId() != 1)
+      continue;
     num_nodes++;
-    const auto dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
+    auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
     usize oppo_edges = 0;
-    for (const Edge& edge : *node_ptr) {
-      if (edge.SrcSign() == dflt_sign) dflt_edges++;
-      else oppo_edges++;
+    for (Edge const& edge : *node_ptr) {
+      if (edge.SrcSign() == dflt_sign)
+        dflt_edges++;
+      else
+        oppo_edges++;
     }
     num_edges_raw += dflt_edges + oppo_edges;
-    const auto md = std::max(dflt_edges, oppo_edges);
+    auto const md = std::max(dflt_edges, oppo_edges);
     max_dir = std::max(max_dir, md);
-    if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
+    if (dflt_edges >= 2 || oppo_edges >= 2)
+      branches++;
   }
-  const usize num_edges = num_edges_raw / 2;
+  usize const num_edges = num_edges_raw / 2;
 
   CHECK(num_nodes == 3);
   CHECK(num_edges == 2);
@@ -127,7 +132,7 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   CHECK(branches == 0);
 
   // Cyclomatic complexity: M = E - V + 1 = 2 - 3 + 1 = 0
-  const usize cyclomatic = (num_edges >= num_nodes) ? (num_edges - num_nodes + 1) : 0;
+  usize const cyclomatic = (num_edges >= num_nodes) ? (num_edges - num_nodes + 1) : 0;
   CHECK(cyclomatic == 0);
 }
 
@@ -142,10 +147,10 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
   // max_degree = 2 (A has 2 outgoing), branch_points = 1 (A)
 
   TestGraph tg;
-  const auto a = tg.AddNode("ACGTACGTACG");
-  const auto b = tg.AddNode("CGTACGTACGA");
-  const auto c = tg.AddNode("GTACGTACGAC");
-  const auto d = tg.AddNode("TACGTACGACG");
+  auto const a = tg.AddNode("ACGTACGTACG");
+  auto const b = tg.AddNode("CGTACGTACGA");
+  auto const c = tg.AddNode("GTACGTACGAC");
+  auto const d = tg.AddNode("TACGTACGACG");
   tg.AddEdge(a, b);
   tg.AddEdge(a, c);
   tg.AddEdge(b, d);
@@ -157,29 +162,33 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
   usize max_dir = 0;
   usize branches = 0;
 
-  for (const auto& [nid, node_ptr] : tg.mNodes) {
-    if (node_ptr->GetComponentId() != 1) continue;
+  for (auto const& [nid, node_ptr] : tg.mNodes) {
+    if (node_ptr->GetComponentId() != 1)
+      continue;
     num_nodes++;
-    const auto dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
+    auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
     usize oppo_edges = 0;
-    for (const Edge& edge : *node_ptr) {
-      if (edge.SrcSign() == dflt_sign) dflt_edges++;
-      else oppo_edges++;
+    for (Edge const& edge : *node_ptr) {
+      if (edge.SrcSign() == dflt_sign)
+        dflt_edges++;
+      else
+        oppo_edges++;
     }
     num_edges_raw += dflt_edges + oppo_edges;
-    const auto md = std::max(dflt_edges, oppo_edges);
+    auto const md = std::max(dflt_edges, oppo_edges);
     max_dir = std::max(max_dir, md);
-    if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
+    if (dflt_edges >= 2 || oppo_edges >= 2)
+      branches++;
   }
-  const usize num_edges = num_edges_raw / 2;
+  usize const num_edges = num_edges_raw / 2;
 
   CHECK(num_nodes == 4);
   CHECK(num_edges == 4);
   CHECK(max_dir == 2);
   CHECK(branches >= 1);
 
-  const usize cyclomatic = (num_edges >= num_nodes) ? (num_edges - num_nodes + 1) : 0;
+  usize const cyclomatic = (num_edges >= num_nodes) ? (num_edges - num_nodes + 1) : 0;
   CHECK(cyclomatic == 1);
 }
 

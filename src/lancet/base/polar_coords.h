@@ -95,10 +95,11 @@
 //
 // ============================================================================
 
-#include <cmath>
+#include "lancet/base/types.h"
+
 #include <numbers>
 
-#include "lancet/base/types.h"
+#include <cmath>
 
 namespace lancet::base {
 
@@ -121,8 +122,8 @@ namespace lancet::base {
 /// unnecessary overflow/underflow checks (read counts are bounded).
 ///
 /// Returns 0.0 when both inputs are zero (no reads at this locus).
-[[nodiscard]] inline auto PolarRadius(const f64 ref_depth, const f64 alt_depth) -> f64 {
-  return std::log10(1.0 + std::sqrt(ref_depth * ref_depth + alt_depth * alt_depth));
+[[nodiscard]] inline auto PolarRadius(f64 const ref_depth, f64 const alt_depth) -> f64 {
+  return std::log10(1.0 + std::sqrt((ref_depth * ref_depth) + (alt_depth * alt_depth)));
 }
 
 /// Polar Angle: Fast branchless atan2 approximation, in radians.
@@ -151,7 +152,7 @@ namespace lancet::base {
 /// identical angles at any depth from 1× to 2000×.
 ///
 /// Output range for non-negative inputs: [0, π/2] radians.
-[[nodiscard]] inline auto PolarAngle(const f64 alt_depth, const f64 ref_depth) -> f64 {
+[[nodiscard]] inline auto PolarAngle(f64 const alt_depth, f64 const ref_depth) -> f64 {
   // ── Minimax polynomial coefficients ──────────────────────────────────────
   //
   // The core idea: instead of evaluating atan2(y, x) directly (which requires
@@ -193,25 +194,25 @@ namespace lancet::base {
   static constexpr f64 QUARTER_PI = std::numbers::pi_v<f64> / 4.0;
   static constexpr f64 EPSILON = 1e-10;  // prevent division by zero when both inputs are zero
 
-  const f64 abs_y = std::abs(alt_depth) + EPSILON;
-  const f64 abs_x = std::abs(ref_depth);
+  f64 const abs_y = std::abs(alt_depth) + EPSILON;
+  f64 const abs_x = std::abs(ref_depth);
 
   // Octant folding: maps the full atan2 domain to a ratio in [-1, 1].
   // When x ≥ 0: numer = x - |y|, so r ∈ [-1, 0] for |y| > x (octant 2)
   //              and r ∈ [0, 1] for |y| ≤ x (octant 1).
   // The copysign handles the x < 0 case symmetrically.
-  const f64 numer = ref_depth - std::copysign(abs_y, ref_depth);
-  const f64 denom = abs_y + abs_x;
-  const f64 ratio = numer / denom;
+  f64 const numer = ref_depth - std::copysign(abs_y, ref_depth);
+  f64 const denom = abs_y + abs_x;
+  f64 const ratio = numer / denom;
 
   // Base angle: selects the octant center.
   //   x ≥ 0: base = π/2 - π/4 = π/4 (octant 1 center)
   //   x < 0: base = π/2 + π/4 = 3π/4 (octant 4 center)
-  const f64 base = HALF_PI - std::copysign(QUARTER_PI, ref_depth);
+  f64 const base = HALF_PI - std::copysign(QUARTER_PI, ref_depth);
 
   // Evaluate the Remez minimax polynomial: atan(r) ≈ (A·r² + B)·r
   // The result is added to the base angle to recover the full atan2 value.
-  const f64 angle = base + (COEFF_A * ratio * ratio + COEFF_B) * ratio;
+  f64 const angle = base + (((COEFF_A * ratio * ratio) + COEFF_B) * ratio);
 
   // Sign correction for negative y (ALT depth is always >= 0 in practice,
   // but included for mathematical completeness)

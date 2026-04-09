@@ -1,16 +1,18 @@
 #ifndef SRC_LANCET_CALLER_RAW_VARIANT_H_
 #define SRC_LANCET_CALLER_RAW_VARIANT_H_
 
-#include <cstdint>
+#include "lancet/base/sequence_complexity.h"
+#include "lancet/base/types.h"
+#include "lancet/cbdg/graph_complexity.h"
+
+#include "absl/container/flat_hash_map.h"
+#include "absl/strings/str_cat.h"
+
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/strings/str_cat.h"
-#include "lancet/base/sequence_complexity.h"
-#include "lancet/base/types.h"
-#include "lancet/cbdg/graph_complexity.h"
+#include <cstdint>
 
 namespace lancet::caller {
 
@@ -24,8 +26,8 @@ class RawVariant {
   // ===========================================================================
   // STRICT SEQUENCE CORE CLASSIFICATION
   // ---------------------------------------------------------------------------
-  // Extracts the mathematically pure Mutation Core by squeezing matching 
-  // 5' prefixes and 3' suffixes. Decouples Variant classification entirely 
+  // Extracts the mathematically pure Mutation Core by squeezing matching
+  // 5' prefixes and 3' suffixes. Decouples Variant classification entirely
   // from arbitrary padding requirements and bounds logic heuristically.
   // ===========================================================================
   [[nodiscard]] static auto ClassifyVariant(std::string_view ref, std::string_view alt) -> Type;
@@ -34,66 +36,68 @@ class RawVariant {
   // DATA STRUCTURE CHOICE: `AltAllele` SUB-PAYLOAD
   // ---------------------------------------------------------------------------
   // Biologically, a single genomic locus can mutate into numerous varying alternative
-  // forms across differing haplotypes or heterogeneous tumor populations (e.g., A -> C  
-  // in haplotype 1, but A -> T in haplotype 2). 
-  // 
-  // By creating an `AltAllele` sub-struct, we tightly pack every distinct mutated 
-  // alternative directly adjacent to each other internally within a parent variant block. 
-  // This maps 1:1 with the VCF spec behavior (where the ALT column holds "C,T"). It 
-  // prevents multiple artificially broken-apart biallelic records from misaligning or 
+  // forms across differing haplotypes or heterogeneous tumor populations (e.g., A -> C
+  // in haplotype 1, but A -> T in haplotype 2).
+  //
+  // By creating an `AltAllele` sub-struct, we tightly pack every distinct mutated
+  // alternative directly adjacent to each other internally within a parent variant block.
+  // This maps 1:1 with the VCF spec behavior (where the ALT column holds "C,T"). It
+  // prevents multiple artificially broken-apart biallelic records from misaligning or
   // receiving conflicting right-trim parsimony lengths later in the pipeline.
   // ===========================================================================
   struct AltAllele {
     std::string mSequence;
-    
-    // 3. MULTI-ALLELIC LOCAL MATRIX MAP (ALTs): 
-    // A single multi-allelic locus inherently possesses different string offsets 
-    // depending unilaterally on which specific structural path (Haplotype ID) a read traversed 
-    // to reach it. A 100bp insertion earlier in Haplotype 3 shifts this ALTs local index 
+
+    // 3. MULTI-ALLELIC LOCAL MATRIX MAP (ALTs):
+    // A single multi-allelic locus inherently possesses different string offsets
+    // depending unilaterally on which specific structural path (Haplotype ID) a read traversed
+    // to reach it. A 100bp insertion earlier in Haplotype 3 shifts this ALTs local index
     // mathematically by +100 relative to Haplotype 1!
     // -> Maps natively: Haplotype ID -> variant's exact Local Matrix Start on THAT string.
-    absl::flat_hash_map<usize, usize> mLocalHapStart0Idxs; // Moved up to satisfy 8B -> 4B -> 2B -> 1B constraints
-    
+    absl::flat_hash_map<usize, usize>
+        mLocalHapStart0Idxs;  // Moved up to satisfy 8B -> 4B -> 2B -> 1B constraints
+
     i64 mLength = -1;
     Type mType = Type::REF;
 
     // DATA STRUCTURE CHOICE: `absl::flat_hash_map`
-    // We map a supporting physical haplotype ID -> to its 0-indexed start position within 
-    // the variant. Abseil's FlatHashMap utilizes Google's 'SwissTable' SIMD-accelerated 
-    // implementation. It stores keys/values contiguously in memory (Open Addressing), which 
-    // drastically outperforms std::map (O(logN) pointer chasing) and std::unordered_map 
+    // We map a supporting physical haplotype ID -> to its 0-indexed start position within
+    // the variant. Abseil's FlatHashMap utilizes Google's 'SwissTable' SIMD-accelerated
+    // implementation. It stores keys/values contiguously in memory (Open Addressing), which
+    // drastically outperforms std::map (O(logN) pointer chasing) and std::unordered_map
     // (cache-thrashing chunked linked lists). Max throughput here is essential.
 
-    friend auto operator==(const AltAllele& lhs, const AltAllele& rhs) -> bool {
+    friend auto operator==(AltAllele const& lhs, AltAllele const& rhs) -> bool {
       return lhs.mSequence == rhs.mSequence && lhs.mLength == rhs.mLength && lhs.mType == rhs.mType;
     }
 
-    friend auto operator<(const AltAllele& lhs, const AltAllele& rhs) -> bool {
-      // Lexicographical sorting on `mSequence` establishes a strict deterministic 
-      // weak ordering. This guarantees deterministic binary behaviors when the parent 
+    friend auto operator<(AltAllele const& lhs, AltAllele const& rhs) -> bool {
+      // Lexicographical sorting on `mSequence` establishes a strict deterministic
+      // weak ordering. This guarantees deterministic binary behaviors when the parent
       // array of multiple ALTs is subsequently sorted in standard sets.
-      return lhs.mSequence < rhs.mSequence; 
+      return lhs.mSequence < rhs.mSequence;
     }
 
     template <typename HashState>
-    friend auto AbslHashValue(HashState hash_state, const AltAllele& alt) -> HashState {
+    friend auto AbslHashValue(HashState hash_state, AltAllele const& alt) -> HashState {
       // Leverage Abseil's strong native hashing composition frameworks
-      return HashState::combine(std::move(hash_state), alt.mSequence, alt.mLength, static_cast<i8>(alt.mType));
+      return HashState::combine(std::move(hash_state), alt.mSequence, alt.mLength,
+                                static_cast<i8>(alt.mType));
     }
   };
 
   // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
   usize mChromIndex = SIZE_MAX;
-  
+
   // 1. GLOBAL GENOMIC COORDINATE: Strictly tracks where the variant structurally lands
   // on the actual reference genome. Only strictly used for VCF sorting and emitting.
   usize mGenomeChromPos1 = SIZE_MAX;
-  
-  // 2. LOCAL MATRIX COORDINATE (REF): The exact 0-indexed position within the 
+
+  // 2. LOCAL MATRIX COORDINATE (REF): The exact 0-indexed position within the
   // specific Reference string array spanning this exact Micro-Assembly window.
   // Necessary to exactly bind structural CIGAR strings backwards.
   usize mLocalRefStart0Idx = SIZE_MAX;
-  
+
   std::string mChromName;
   // Contains the universal left-aligned bounding sequence encompassing ALL ALTs
   std::string mRefAllele;
@@ -116,16 +120,17 @@ class RawVariant {
   // Color-based metrics (UnsharedColorRatio, ColorDiscordantBranches) are not
   // topological and are captured by other biologically relevant annotations.
   struct GraphMetrics {
-    f64 graph_entanglement_index = 0.0;  ///< GEI: log₁₀(1 + CC×BP×CovCV / UnitigRatio)
-    f64 tip_to_path_cov_ratio = 0.0;    ///< assembly tearing: tip cov / unitig cov (ratio, self-normalizing)
-    usize max_single_dir_degree = 0;    ///< hub k-mer detection: max outgoing edges (topology, invariant)
+    f64 mGraphEntanglementIndex = 0.0;  ///< GEI: log₁₀(1 + CC×BP×CovCV / UnitigRatio)
+    f64 mTipToPathCovRatio =
+        0.0;  ///< assembly tearing: tip cov / unitig cov (ratio, self-normalizing)
+    usize mMaxSingleDirDegree =
+        0;  ///< hub k-mer detection: max outgoing edges (topology, invariant)
 
     /// Format as 3 comma-separated values for VCF GRAPH_CX INFO tag.
     [[nodiscard]] auto FormatVcfValue() const -> std::string {
-      return absl::StrCat(
-          base::FormatComplexityScore(graph_entanglement_index), ",",
-          base::FormatComplexityScore(tip_to_path_cov_ratio), ",",
-          max_single_dir_degree);
+      return absl::StrCat(base::FormatComplexityScore(mGraphEntanglementIndex), ",",
+                          base::FormatComplexityScore(mTipToPathCovRatio), ",",
+                          mMaxSingleDirDegree);
     }
   };
 
@@ -144,39 +149,51 @@ class RawVariant {
   // NOLINTEND(misc-non-private-member-variables-in-classes)
 
   template <typename HashState>
-  friend auto AbslHashValue(HashState hash_state, const RawVariant& var) -> HashState {
-    return HashState::combine(std::move(hash_state), var.mChromIndex, var.mGenomeChromPos1, 
+  friend auto AbslHashValue(HashState hash_state, RawVariant const& var) -> HashState {
+    return HashState::combine(std::move(hash_state), var.mChromIndex, var.mGenomeChromPos1,
                               var.mChromName, var.mRefAllele, var.mAlts);
   }
 
-  friend auto operator==(const RawVariant& lhs, const RawVariant& rhs) -> bool {
+  friend auto operator==(RawVariant const& lhs, RawVariant const& rhs) -> bool {
     // Array equality operator `==` handles validating entire Multiallelic arrays instantly natively
-    return lhs.mChromIndex == rhs.mChromIndex && lhs.mGenomeChromPos1 == rhs.mGenomeChromPos1 &&
-           lhs.mChromName == rhs.mChromName && lhs.mRefAllele == rhs.mRefAllele && lhs.mAlts == rhs.mAlts;
+    return lhs.mChromIndex == rhs.mChromIndex &&
+           lhs.mGenomeChromPos1 == rhs.mGenomeChromPos1 &&
+           lhs.mChromName == rhs.mChromName &&
+           lhs.mRefAllele == rhs.mRefAllele &&
+           lhs.mAlts == rhs.mAlts;
   }
 
-  friend auto operator<(const RawVariant& lhs, const RawVariant& rhs) -> bool {
+  friend auto operator<(RawVariant const& lhs, RawVariant const& rhs) -> bool {
     // NOLINTBEGIN(readability-braces-around-statements)
-    if (lhs.mChromIndex != rhs.mChromIndex) return lhs.mChromIndex < rhs.mChromIndex;
-    if (lhs.mGenomeChromPos1 != rhs.mGenomeChromPos1) return lhs.mGenomeChromPos1 < rhs.mGenomeChromPos1;
-    if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
+    if (lhs.mChromIndex != rhs.mChromIndex)
+      return lhs.mChromIndex < rhs.mChromIndex;
+    if (lhs.mGenomeChromPos1 != rhs.mGenomeChromPos1)
+      return lhs.mGenomeChromPos1 < rhs.mGenomeChromPos1;
+    if (lhs.mRefAllele != rhs.mRefAllele)
+      return lhs.mRefAllele < rhs.mRefAllele;
     // Lexical vector comparison behaves safely
-    return lhs.mAlts < rhs.mAlts; 
+    return lhs.mAlts < rhs.mAlts;
     // NOLINTEND(readability-braces-around-statements)
   }
 
-  friend auto operator!=(const RawVariant& lhs, const RawVariant& rhs) -> bool { return !(rhs == lhs); }
-  friend auto operator>(const RawVariant& lhs, const RawVariant& rhs) -> bool { return rhs < lhs; }
-  friend auto operator<=(const RawVariant& lhs, const RawVariant& rhs) -> bool { return !(rhs < lhs); }
-  friend auto operator>=(const RawVariant& lhs, const RawVariant& rhs) -> bool { return !(lhs < rhs); }
+  friend auto operator!=(RawVariant const& lhs, RawVariant const& rhs) -> bool {
+    return !(rhs == lhs);
+  }
+  friend auto operator>(RawVariant const& lhs, RawVariant const& rhs) -> bool { return rhs < lhs; }
+  friend auto operator<=(RawVariant const& lhs, RawVariant const& rhs) -> bool {
+    return !(rhs < lhs);
+  }
+  friend auto operator>=(RawVariant const& lhs, RawVariant const& rhs) -> bool {
+    return !(lhs < rhs);
+  }
 };
 
 // =========================================================================================
 // STRICT SEQUENCE CORE CLASSIFICATION ENGINE
 // =========================================================================================
 // WHY DO WE SQUEEZE THE STRINGS AGAIN IF THE `VariantExtractor` FSM ALREADY APPLIES PARSIMONY?
-// 
-// While `VariantBubble::NormalizeVcfParsimony` performs a simultaneous VT-style right-trim 
+//
+// While `VariantBubble::NormalizeVcfParsimony` performs a simultaneous VT-style right-trim
 // and left-alignment, it mathematically MUST execute identically universally across ALL alleles
 // in a single Multi-Allelic Bubble block. Therefore, the global trimmer is inherently restricted
 // by the structural topological bounds of the WIDEST allele in the cluster.
@@ -187,21 +204,21 @@ class RawVariant {
 //    [ALT1]    :  A T
 //    [ALT2]    :  A G G C
 //
-// Let's trace Global VCF Parsimony on ALT1 vs REF: 
-// It WANTS to right-trim `G` and `C` to isolate the `GC` deletion completely (ATGC -> AT). 
-// However, `ALT2` completely blocks the `C` and `G` from being universally erased, because 
+// Let's trace Global VCF Parsimony on ALT1 vs REF:
+// It WANTS to right-trim `G` and `C` to isolate the `GC` deletion completely (ATGC -> AT).
+// However, `ALT2` completely blocks the `C` and `G` from being universally erased, because
 // `ALT2` actively utilizes them for its own structural integrity.
-// 
-// Thus, VCF Parsimony halts prematurely for ALT1! 
+//
+// Thus, VCF Parsimony halts prematurely for ALT1!
 // When ALT1 evaluates its payload conventionally: `REF="ATGC"`, `ALT="AT"`.
-// If we naively utilized length logic (`diff = -2` and `length > 1`), we would classify this 
+// If we naively utilized length logic (`diff = -2` and `length > 1`), we would classify this
 // erroneously as a `CPX` (Complex) mutation because the length boundary is artificially inflated!
 //
 // -> THE SEQUENCE CORE SOLUTION:
-// By aggressively symmetrically squeezing matching 5' prefixes and 3' suffixes exclusively 
-// between the 1-on-1 pairs immediately prior to classification, we computationally decouple 
+// By aggressively symmetrically squeezing matching 5' prefixes and 3' suffixes exclusively
+// between the 1-on-1 pairs immediately prior to classification, we computationally decouple
 // the biological Core from the VCF-Padding constraints.
-// 
+//
 //    [REF]     :  A T (G C)  ---> "GC"
 //    [ALT1]    :  A T        ---> ""     ===> Result: Pure `DEL`!
 //
@@ -210,26 +227,40 @@ class RawVariant {
 // =========================================================================================
 inline auto RawVariant::ClassifyVariant(std::string_view ref, std::string_view alt) -> Type {
   usize start_match = 0;
-  while (start_match < ref.length() && start_match < alt.length() && ref[start_match] == alt[start_match]) {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+  while (start_match < ref.length() &&
+         start_match < alt.length() &&
+         ref[start_match] == alt[start_match]) {
     start_match++;
   }
 
-  if (start_match == ref.length() && start_match == alt.length()) return Type::REF;
+  if (start_match == ref.length() && start_match == alt.length()) {
+    return Type::REF;
+  }
 
-  usize end_match = 0; // Ensures bounding pointers do not violently overlap or double-count characters
-  while (end_match < (ref.length() - start_match) && end_match < (alt.length() - start_match) &&
+  usize end_match =
+      0;  // Ensures bounding pointers do not violently overlap or double-count characters
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+  while (end_match < (ref.length() - start_match) &&
+         end_match < (alt.length() - start_match) &&
          ref[ref.length() - 1 - end_match] == alt[alt.length() - 1 - end_match]) {
     end_match++;
   }
 
-  const auto ref_core_len = ref.length() - start_match - end_match;
-  const auto alt_core_len = alt.length() - start_match - end_match;
+  auto const ref_core_len = ref.length() - start_match - end_match;
+  auto const alt_core_len = alt.length() - start_match - end_match;
 
-  if (ref_core_len == 0 && alt_core_len > 0) return Type::INS;
-  if (ref_core_len > 0 && alt_core_len == 0) return Type::DEL;
+  if (ref_core_len == 0 && alt_core_len > 0) {
+    return Type::INS;
+  }
+  if (ref_core_len > 0 && alt_core_len == 0) {
+    return Type::DEL;
+  }
   if (ref_core_len > 0 && alt_core_len > 0) {
-    if (ref_core_len == alt_core_len) return (ref_core_len == 1) ? Type::SNV : Type::MNP;
-    return Type::CPX; // Mixed/Complex concurrent insertion and deletion architectures
+    if (ref_core_len == alt_core_len) {
+      return (ref_core_len == 1) ? Type::SNV : Type::MNP;
+    }
+    return Type::CPX;  // Mixed/Complex concurrent insertion and deletion architectures
   }
   return Type::REF;
 }

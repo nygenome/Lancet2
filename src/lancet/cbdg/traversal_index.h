@@ -1,13 +1,13 @@
 #ifndef SRC_LANCET_CBDG_TRAVERSAL_INDEX_H_
 #define SRC_LANCET_CBDG_TRAVERSAL_INDEX_H_
 
-#include <limits>
-#include <vector>
-
 #include "lancet/base/types.h"
 #include "lancet/cbdg/edge.h"
 #include "lancet/cbdg/kmer.h"
 #include "lancet/cbdg/node.h"
+
+#include <limits>
+#include <vector>
 
 namespace lancet::cbdg {
 
@@ -97,12 +97,12 @@ class TraversalIndex {
   std::vector<Edge> mOrigEdges;  ///< Indexed by edge ordinal. Used to reconstruct walks.
 
   // --- Node mapping for sequence reconstruction ---
-  std::vector<const Node*> mNodes;  ///< Indexed by node_flat_idx (size = V)
+  std::vector<Node const*> mNodes;  ///< Indexed by node_flat_idx (size = V)
   std::vector<NodeID> mNodeIds;     ///< Indexed by node_flat_idx (size = V)
 
   // --- Source and sink identifiers ---
-  u32 mSrcState = 0;     ///< State index of source node in its default sign
-  u32 mSnkNodeIdx = 0;   ///< Flat node index of sink (reachable via either sign)
+  u32 mSrcState = 0;    ///< State index of source node in its default sign
+  u32 mSnkNodeIdx = 0;  ///< Flat node index of sink (reachable via either sign)
 
   /// Sentinel value for "no parent" in walk tree nodes.
   static constexpr u32 NO_PARENT = std::numeric_limits<u32>::max();
@@ -113,21 +113,21 @@ class TraversalIndex {
   [[nodiscard]] auto NumEdgeOrdinals() const -> u32 { return static_cast<u32>(mOrigEdges.size()); }
 
   /// Check if a state index corresponds to the sink node (either + or - sign).
-  [[nodiscard]] auto IsSinkState(const u32 state_idx) const -> bool {
+  [[nodiscard]] auto IsSinkState(u32 const state_idx) const -> bool {
     return NodeIdxOf(state_idx) == mSnkNodeIdx;
   }
 
   // --- Static state index helpers ---
 
-  [[nodiscard]] static constexpr auto MakeState(const u32 node_idx, const Kmer::Sign sign) -> u32 {
-    return node_idx * 2 + (sign == Kmer::Sign::PLUS ? 0 : 1);
+  [[nodiscard]] static constexpr auto MakeState(u32 const node_idx, Kmer::Sign const sign) -> u32 {
+    return (node_idx * 2) + (sign == Kmer::Sign::PLUS ? 0 : 1);
   }
 
-  [[nodiscard]] static constexpr auto NodeIdxOf(const u32 state_idx) -> u32 {
+  [[nodiscard]] static constexpr auto NodeIdxOf(u32 const state_idx) -> u32 {
     return state_idx / 2;
   }
 
-  [[nodiscard]] static constexpr auto SignOf(const u32 state_idx) -> Kmer::Sign {
+  [[nodiscard]] static constexpr auto SignOf(u32 const state_idx) -> Kmer::Sign {
     return (state_idx % 2 == 0) ? Kmer::Sign::PLUS : Kmer::Sign::MINUS;
   }
 };

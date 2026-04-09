@@ -10,13 +10,14 @@ extern "C" {
 #include "htslib/sam.h"
 }
 
+#include "lancet/base/types.h"
+#include "lancet/hts/cigar_unit.h"
+#include "lancet/hts/reference.h"
+
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
-#include "lancet/base/types.h"
-#include "lancet/hts/cigar_unit.h"
-#include "lancet/hts/reference.h"
 #include "spdlog/fmt/bundled/core.h"
 
 namespace lancet::hts {
@@ -39,7 +40,8 @@ namespace lancet::hts {
 class Alignment {
  public:
   enum class Fields : u16 {
-    CORE_QNAME = SAM_QNAME | SAM_FLAG | SAM_RNAME | SAM_POS | SAM_MAPQ | SAM_RNEXT | SAM_PNEXT | SAM_TLEN,
+    CORE_QNAME =
+        SAM_QNAME | SAM_FLAG | SAM_RNAME | SAM_POS | SAM_MAPQ | SAM_RNEXT | SAM_PNEXT | SAM_TLEN,
     SEQ_QUAL = CORE_QNAME | SAM_SEQ | SAM_QUAL,
     CIGAR_SEQ_QUAL = SEQ_QUAL | SAM_CIGAR,
     AUX_RGAUX = CIGAR_SEQ_QUAL | SAM_AUX | SAM_RGAUX,
@@ -49,7 +51,7 @@ class Alignment {
 
   class BitwiseFlag {
    public:
-    BitwiseFlag(u16 flags) : mFlag(flags) {}
+    explicit BitwiseFlag(u16 flags) : mFlag(flags) {}
     BitwiseFlag() = default;
 
     [[nodiscard]] auto GetStrand() const noexcept -> Strand;
@@ -74,10 +76,10 @@ class Alignment {
     [[nodiscard]] auto HasFlagsSet(u16 check_flags) const noexcept -> bool;
     [[nodiscard]] auto HasFlagsUnset(u16 check_flags) const noexcept -> bool;
 
-    [[nodiscard]] operator u16() const noexcept { return mFlag; }
+    [[nodiscard]] explicit operator u16() const noexcept { return mFlag; }
 
-    auto operator==(const BitwiseFlag& rhs) const -> bool { return mFlag == rhs.mFlag; }
-    auto operator!=(const BitwiseFlag& rhs) const -> bool { return !(rhs == *this); }
+    auto operator==(BitwiseFlag const& rhs) const -> bool { return mFlag == rhs.mFlag; }
+    auto operator!=(BitwiseFlag const& rhs) const -> bool { return !(rhs == *this); }
 
    private:
     u16 mFlag = 0;
@@ -91,7 +93,7 @@ class Alignment {
   [[nodiscard]] auto InsertSize() const noexcept -> i64 { return mInsertSize; }
   [[nodiscard]] auto ChromIndex() const noexcept -> i32 { return mChromIdx; }
   [[nodiscard]] auto MateChromIndex() const noexcept -> i32 { return mMateChromIdx; }
-  [[nodiscard]] auto Flag() const noexcept -> BitwiseFlag { return mSamFlag; }
+  [[nodiscard]] auto Flag() const noexcept -> BitwiseFlag { return BitwiseFlag(mSamFlag); }
   [[nodiscard]] auto FlagRaw() const noexcept -> u16 { return mSamFlag; }
   [[nodiscard]] auto MapQual() const noexcept -> u8 { return mMapQual; }
 
@@ -131,9 +133,9 @@ class Alignment {
   };
 
   [[nodiscard]] auto MateLocation() const noexcept -> MateInfo;
-  [[nodiscard]] auto MateOverlapsRegion(const Reference::Region& region) const noexcept -> bool;
+  [[nodiscard]] auto MateOverlapsRegion(Reference::Region const& region) const noexcept -> bool;
 
-  [[nodiscard]] auto OverlapsRegion(const Reference::Region& region) const noexcept -> bool;
+  [[nodiscard]] auto OverlapsRegion(Reference::Region const& region) const noexcept -> bool;
 
   [[nodiscard]] auto IsEmpty() const noexcept -> bool;
 
@@ -151,21 +153,22 @@ class Alignment {
   ///   - std::string_view for string tags (Z/H) -- valid only while iterator is at current position
   template <typename TagResultValue>
   [[nodiscard]] auto GetTag(std::string_view tag_name) const -> absl::StatusOr<TagResultValue> {
-    const auto* raw_aux = FindRawTag(tag_name);
+    auto const* raw_aux = FindRawTag(tag_name);
     if (raw_aux == nullptr) {
-      const auto msg = fmt::format("Tag {} is not present in the alignment record", tag_name);
+      auto const msg = fmt::format("Tag {} is not present in the alignment record", tag_name);
       return absl::Status(absl::StatusCode::kNotFound, msg);
     }
     return ExtractTagValue<TagResultValue>(raw_aux, tag_name);
   }
 
   [[nodiscard]] auto GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* read_positions,
-                                  std::vector<u32>* genome_positions, bool use_padded = false) const -> bool;
+                                  std::vector<u32>* genome_positions, bool use_padded = false) const
+      -> bool;
 
-  [[nodiscard]] auto ToString(const Reference& ref) const -> std::string;
+  [[nodiscard]] auto ToString(Reference const& ref) const -> std::string;
 
-  auto operator==(const Alignment& rhs) const -> bool;
-  auto operator!=(const Alignment& rhs) const -> bool;
+  auto operator==(Alignment const& rhs) const -> bool;
+  auto operator!=(Alignment const& rhs) const -> bool;
 
  private:
   // Cached scalar fields from bam1_t::core (always populated, cheap to copy)
@@ -191,11 +194,11 @@ class Alignment {
   void PopulateFromRaw(bam1_t* aln);
 
   /// Direct bam_aux_get lookup. Returns nullptr if tag is not present.
-  [[nodiscard]] auto FindRawTag(std::string_view tag_name) const noexcept -> const u8*;
+  [[nodiscard]] auto FindRawTag(std::string_view tag_name) const noexcept -> u8 const*;
 
   /// Type-dispatch helper for extracting a typed value from a raw aux pointer.
   template <typename TagResultValue>
-  [[nodiscard]] static auto ExtractTagValue(const u8* raw_aux, std::string_view tag_name)
+  [[nodiscard]] static auto ExtractTagValue(u8 const* raw_aux, std::string_view tag_name)
       -> absl::StatusOr<TagResultValue>;
 };
 

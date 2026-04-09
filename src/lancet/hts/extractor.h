@@ -12,12 +12,13 @@ extern "C" {
 #include "htslib/sam.h"
 }
 
-#include "absl/container/flat_hash_set.h"
-#include "absl/types/span.h"
 #include "lancet/base/types.h"
 #include "lancet/hts/alignment.h"
 #include "lancet/hts/iterator.h"
 #include "lancet/hts/reference.h"
+
+#include "absl/container/flat_hash_set.h"
+#include "absl/types/span.h"
 
 namespace lancet::hts {
 
@@ -52,18 +53,19 @@ struct HtsFilterDeleter {
 class Extractor {
  public:
   static constexpr auto DEFAULT_FIELDS = Alignment::Fields::AUX_RGAUX;
-  Extractor(std::filesystem::path aln_file, const Reference& ref, Alignment::Fields fields = DEFAULT_FIELDS,
-            absl::Span<const std::string> tags = {}, bool skip_ref_contig_check = false);
+  Extractor(std::filesystem::path aln_file, Reference const& ref,
+            Alignment::Fields fields = DEFAULT_FIELDS, absl::Span<std::string const> tags = {},
+            bool skip_ref_contig_check = false);
 
   Extractor() = delete;
 
   // http://www.htslib.org/doc/samtools.html#FILTER_EXPRESSIONS
-  void SetFilterExpression(const std::string& expr);
+  void SetFilterExpression(std::string const& expr);
 
-  void SetRegionToExtract(const std::string& region_spec);
-  void SetRegionToExtract(const Reference::Region& region);
+  void SetRegionToExtract(std::string const& region_spec);
+  void SetRegionToExtract(Reference::Region const& region);
   void SetRegionBatchToExtract(absl::Span<std::string> region_specs);
-  void SetRegionBatchToExtract(absl::Span<const Reference::Region> regions);
+  void SetRegionBatchToExtract(absl::Span<Reference::Region const> regions);
 
   void SetNumThreads(int nthreads);
 
@@ -71,7 +73,9 @@ class Extractor {
   [[nodiscard]] auto end() -> Iterator;
 
   [[nodiscard]] auto ChromName(i32 chrom_index) const -> std::string;
-  [[nodiscard]] auto SampleName() const -> std::string { return ParseSampleName(mHdrPtr.get(), mBamCramPath.string()); }
+  [[nodiscard]] auto SampleName() const -> std::string {
+    return ParseSampleName(mHdrPtr.get(), mBamCramPath.string());
+  }
 
  private:
   using HtsFile = std::unique_ptr<htsFile, detail::HtsFileDeleter>;
@@ -93,21 +97,22 @@ class Extractor {
 
   void SetCramRequiredFields(Alignment::Fields fields);
 
-  [[nodiscard]] static auto InitHtsFile(const char* file_path) -> HtsFile;
+  [[nodiscard]] static auto InitHtsFile(char const* file_path) -> HtsFile;
   [[nodiscard]] static auto InitSamHdr(htsFile* raw_fp, std::string_view aln_path) -> SamHdr;
-  [[nodiscard]] static auto InitHtsIdx(htsFile* raw_fp, const std::string& aln_path) -> HtsIdx;
+  [[nodiscard]] static auto InitHtsIdx(htsFile* raw_fp, std::string const& aln_path) -> HtsIdx;
   [[nodiscard]] static auto InitHtsItr(hts_idx_t* raw_idx, std::string_view aln_path) -> HtsItr;
   [[nodiscard]] static auto InitSamAln(std::string_view aln_path) -> SamAln;
 
-  [[nodiscard]] static auto ParseSampleName(sam_hdr_t* header_line, std::string_view aln_path) -> std::string;
+  [[nodiscard]] static auto ParseSampleName(sam_hdr_t* raw_hdr, std::string_view aln_path)
+      -> std::string;
 
   // Ensure file is a BAM or CRAM and has a valid EOF block
   static void EnsureValidBamOrCram(htsFile* raw_fp, std::string_view aln_path);
 
   // Check if all contigs present in reference FASTA match the BAM/CRAM mDfltSeq headers
-  static void HeaderContigsCheck(sam_hdr_t* raw_hdr, const Reference& ref);
+  static void HeaderContigsCheck(sam_hdr_t* raw_hdr, Reference const& ref);
 
-  static void SetDefaultHtsOpts(htsFile* raw_fp, const Reference& ref, std::string_view aln_path);
+  static void SetDefaultHtsOpts(htsFile* raw_fp, Reference const& ref, std::string_view aln_path);
 };
 
 }  // namespace lancet::hts

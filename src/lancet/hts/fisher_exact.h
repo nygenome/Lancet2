@@ -1,9 +1,9 @@
 #ifndef SRC_LANCET_HTS_FISHER_EXACT_H_
 #define SRC_LANCET_HTS_FISHER_EXACT_H_
 
-#include <array>
-
 #include "lancet/base/types.h"
+
+#include <array>
 
 namespace lancet::hts {
 
@@ -43,19 +43,20 @@ class FisherExact {
   ///     e.g., we believe the variant is more likely to occur in the cases than controls.
   ///
   /// *  `mDiffProb` (or `two.sided`): The probability of obtaining a result as extreme as, or more
-  ///     extreme than, the observed data in either direction, regardless of the direction of the true odds ratio.
-  ///     This tests the null hypothesis that the odds ratio is 1.
-  ///     This is useful when we don't have a specific directional hypothesis and just want to know
-  ///     if there is a difference in the occurrence of the variant between the cases and controls.
+  ///     extreme than, the observed data in either direction, regardless of the direction of the
+  ///     true odds ratio. This tests the null hypothesis that the odds ratio is 1. This is useful
+  ///     when we don't have a specific directional hypothesis and just want to know if there is a
+  ///     difference in the occurrence of the variant between the cases and controls.
   ///
   /// *  `mDataProb`: The probability of the observed data given the null hypothesis.
   ///     This is not typically used to calculate a p-value, but could give you an idea of
   ///     how likely your observed data is assuming the null hypothesis is true.
   ///
-  ///  When calculating phred-scaled values (log-scaled base 10), we generally use the two-tailed p-value
-  ///  to convert to the phred scale because it gives us an overall measure of statistical significance
-  ///  without assuming a particular direction of the effect. However, if we have a specific hypothesis
-  ///  about the direction of the effect, we could use the left or right p-values as appropriate.
+  ///  When calculating phred-scaled values (log-scaled base 10), we generally use the two-tailed
+  ///  p-value to convert to the phred scale because it gives us an overall measure of statistical
+  ///  significance without assuming a particular direction of the effect. However, if we have a
+  ///  specific hypothesis about the direction of the effect, we could use the left or right
+  ///  p-values as appropriate.
   struct Result {
     f64 mLessProb = 0.0;
     f64 mMoreProb = 0.0;
@@ -65,7 +66,7 @@ class FisherExact {
 
   using Row = std::array<int, 2>;
   using ContingencyTable = std::array<Row, 2>;
-  [[nodiscard]] static auto Test(const ContingencyTable& table) -> Result;
+  [[nodiscard]] static auto Test(ContingencyTable const& table) -> Result;
 };
 
 }  // namespace lancet::hts

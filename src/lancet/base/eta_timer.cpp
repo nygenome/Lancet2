@@ -1,13 +1,14 @@
 #include "lancet/base/eta_timer.h"
 
-#include <cmath>
+#include "lancet/base/types.h"
 
 #include "absl/time/time.h"
-#include "lancet/base/types.h"
+
+#include <cmath>
 
 namespace lancet::base {
 
-EtaTimer::EtaTimer(const usize num_iterations) : mNumTotal(num_iterations) {}
+EtaTimer::EtaTimer(usize const num_iterations) : mNumTotal(num_iterations) {}
 
 void EtaTimer::Increment() {
   mNumDone++;
@@ -16,7 +17,7 @@ void EtaTimer::Increment() {
 }
 
 auto EtaTimer::EstimatedEta() const -> absl::Duration {
-  const auto estimated_ns_remaining = static_cast<f64>(mNumTotal - mNumDone) * mRunStats.Mean();
+  auto const estimated_ns_remaining = static_cast<f64>(mNumTotal - mNumDone) * mRunStats.Mean();
   return absl::Nanoseconds(estimated_ns_remaining);
 }
 

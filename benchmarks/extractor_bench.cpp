@@ -1,10 +1,12 @@
-#include <vector>
+#include "lancet/hts/extractor.h"
+
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/reference.h"
 
 #include "benchmark/benchmark.h"
-#include "lancet/hts/alignment.h"
-#include "lancet/hts/extractor.h"
-#include "lancet/hts/reference.h"
 #include "lancet_benchmark_config.h"
+
+#include <vector>
 
 namespace {
 
@@ -12,7 +14,7 @@ void ExtractorCramCoreQname(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
+    Reference const ref(Hg38Reference);
     Extractor extractor(TumorCram, ref, Alignment::Fields::CORE_QNAME);
     extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
@@ -24,7 +26,7 @@ void ExtractorCramCigarSeqQual(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
+    Reference const ref(Hg38Reference);
     Extractor extractor(TumorCram, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
@@ -35,8 +37,9 @@ void ExtractorCramAuxRgaux(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
-    Extractor extractor(TumorCram, ref, Alignment::Fields::AUX_RGAUX, {"RG", "MC", "NM", "SA", "XS", "MD", "AS"});
+    Reference const ref(Hg38Reference);
+    Extractor extractor(TumorCram, ref, Alignment::Fields::AUX_RGAUX,
+                        {"RG", "MC", "NM", "SA", "XS", "MD", "AS"});
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);
   }
@@ -46,7 +49,7 @@ void ExtractorBamCoreQname(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
+    Reference const ref(Hg38Reference);
     Extractor extractor(TumorBam, ref, Alignment::Fields::CORE_QNAME);
     extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
@@ -59,7 +62,7 @@ void ExtractorBamCigarSeqQual(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
+    Reference const ref(Hg38Reference);
     Extractor extractor(TumorBam, ref, Alignment::Fields::CIGAR_SEQ_QUAL);
     extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
@@ -71,8 +74,9 @@ void ExtractorBamAuxRgaux(benchmark::State& state) {
   using namespace lancet::hts;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
-    const Reference ref(Hg38Reference);
-    Extractor extractor(TumorBam, ref, Alignment::Fields::AUX_RGAUX, {"RG", "MC", "NM", "SA", "XS", "MD", "AS"});
+    Reference const ref(Hg38Reference);
+    Extractor extractor(TumorBam, ref, Alignment::Fields::AUX_RGAUX,
+                        {"RG", "MC", "NM", "SA", "XS", "MD", "AS"});
     extractor.SetNumThreads(state.threads());
     std::vector<Alignment> results(extractor.begin(), extractor.end());
     benchmark::DoNotOptimize(results);

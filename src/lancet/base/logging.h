@@ -1,10 +1,8 @@
 #ifndef SRC_LANCET_BASE_LOGGING_H_
 #define SRC_LANCET_BASE_LOGGING_H_
 
-#include <type_traits>
-#include <utility>
-
 #include "lancet/base/types.h"
+
 #include "spdlog/async.h"
 #include "spdlog/async_logger.h"
 #include "spdlog/common.h"
@@ -13,25 +11,33 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
+#include <type_traits>
+#include <utility>
+
 namespace lancet {
 
 static constexpr auto LOGGER_NAME = "LANCET_LOG";
 
-template <typename Logger = spdlog::async_logger, typename Sink = spdlog::sinks::stderr_color_sink_mt, class... Args>
+template <typename Logger = spdlog::async_logger,
+          typename Sink = spdlog::sinks::stderr_color_sink_mt, class... Args>
 void RegisterLancetLogger(Args&&... args) {
-  static_assert(std::is_base_of_v<spdlog::logger, Logger>, "Logger must have base of spdlog::logger");
-  static_assert(std::is_base_of_v<spdlog::sinks::sink, Sink>, "Sink must implement spdlog::sinks::sink interface");
+  static_assert(std::is_base_of_v<spdlog::logger, Logger>,
+                "Logger must have base of spdlog::logger");
+  static_assert(std::is_base_of_v<spdlog::sinks::sink, Sink>,
+                "Sink must implement spdlog::sinks::sink interface");
 
   // Already registered logger previously, so we can return early
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (spdlog::default_logger_raw()->name() == LOGGER_NAME) return;
+  if (spdlog::default_logger_raw()->name() == LOGGER_NAME)
+    return;
 
   auto sink = std::make_shared<Sink>(std::forward<Args>(args)...);
   if constexpr (std::is_same_v<spdlog::async_logger, Logger>) {
-    constexpr usize qsize = 32768;
-    spdlog::init_thread_pool(qsize, 1);
-    constexpr auto policy = spdlog::async_overflow_policy::block;
-    spdlog::set_default_logger(std::make_shared<Logger>(LOGGER_NAME, std::move(sink), spdlog::thread_pool(), policy));
+    constexpr usize QUEUE_SIZE = 32'768;
+    spdlog::init_thread_pool(QUEUE_SIZE, 1);
+    constexpr auto OVERFLOW_POLICY = spdlog::async_overflow_policy::block;
+    spdlog::set_default_logger(std::make_shared<Logger>(LOGGER_NAME, std::move(sink),
+                                                        spdlog::thread_pool(), OVERFLOW_POLICY));
   } else {
     spdlog::set_default_logger(std::make_shared<Logger>(LOGGER_NAME, std::move(sink)));
   }

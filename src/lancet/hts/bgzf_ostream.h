@@ -23,21 +23,23 @@ class BgzfStreambuf : public std::streambuf {
   // NOLINTEND(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
 
   BgzfStreambuf() = default;
-  BgzfStreambuf(const BgzfStreambuf& other) = default;
+  BgzfStreambuf(BgzfStreambuf const& other) = default;
   BgzfStreambuf(BgzfStreambuf&& other) = default;
-  auto operator=(const BgzfStreambuf& other) -> BgzfStreambuf& = default;
+  auto operator=(BgzfStreambuf const& other) -> BgzfStreambuf& = default;
   auto operator=(BgzfStreambuf&& other) -> BgzfStreambuf& = default;
 
   ~BgzfStreambuf() override { Close(); }
 
-  auto Open(const std::filesystem::path& path, const char* mode) -> bool;
+  auto Open(std::filesystem::path const& path, char const* mode) -> bool;
   void Close();
 
+  // NOLINTBEGIN(misc-override-with-different-visibility)
   auto uflow() -> int override;
   auto underflow() -> int override;
   auto overflow(int dat = EOF) -> int override;  // NOLINT
-  auto xsputn(const char* data, std::streamsize len) -> std::streamsize override;
+  auto xsputn(char const* data, std::streamsize len) -> std::streamsize override;
   auto sync() -> int override;
+  // NOLINTEND(misc-override-with-different-visibility)
 
  private:
   static constexpr int SENTINEL_BUFFER_POSITION = -999;
@@ -49,18 +51,21 @@ class BgzfStreambuf : public std::streambuf {
 
 enum class BgzfFormat : u8 { UNSPECIFIED, GFF, BED, VCF };
 
+// NOLINTNEXTLINE(fuchsia-multiple-inheritance)
 class BgzfOstream : public std::ostream {
  public:
   BgzfOstream() : std::ostream(nullptr) {}
   ~BgzfOstream() override { Close(); }
 
-  BgzfOstream(const BgzfOstream&) = delete;
+  BgzfOstream(BgzfOstream const&) = delete;
   BgzfOstream(BgzfOstream&&) = delete;
-  auto operator=(const BgzfOstream&) -> BgzfOstream& = delete;
+  auto operator=(BgzfOstream const&) -> BgzfOstream& = delete;
   auto operator=(BgzfOstream&&) -> BgzfOstream& = delete;
 
-  auto Open(const std::filesystem::path& path, BgzfFormat ofmt) -> bool;
-  auto Open(const std::filesystem::path& path) -> bool { return Open(path, BgzfFormat::UNSPECIFIED); }
+  auto Open(std::filesystem::path const& path, BgzfFormat ofmt) -> bool;
+  auto Open(std::filesystem::path const& path) -> bool {
+    return Open(path, BgzfFormat::UNSPECIFIED);
+  }
   void Close();
 
  private:

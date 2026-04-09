@@ -1,11 +1,6 @@
 #ifndef SRC_LANCET_CORE_VARIANT_BUILDER_H_
 #define SRC_LANCET_CORE_VARIANT_BUILDER_H_
 
-#include <filesystem>
-#include <memory>
-#include <string>
-#include <vector>
-
 #include "lancet/base/types.h"
 #include "lancet/caller/genotyper.h"
 #include "lancet/caller/msa_builder.h"
@@ -15,6 +10,11 @@
 #include "lancet/core/read_collector.h"
 #include "lancet/core/variant_annotator.h"
 #include "lancet/core/window.h"
+
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace lancet::core {
 
@@ -40,7 +40,7 @@ class VariantBuilder {
     ReadCollector::Params mRdCollParams;
   };
 
-  VariantBuilder(std::shared_ptr<const Params> params, u32 window_length);
+  VariantBuilder(std::shared_ptr<Params const> params, u32 window_length);
 
   enum class StatusCode : u8 {
     UNKNOWN = 0,
@@ -56,13 +56,13 @@ class VariantBuilder {
   [[nodiscard]] auto CurrentStatus() const noexcept -> StatusCode { return mCurrentCode; }
 
   using WindowResults = std::vector<std::unique_ptr<caller::VariantCall>>;
-  [[nodiscard]] auto ProcessWindow(const std::shared_ptr<const Window>& window) -> WindowResults;
+  [[nodiscard]] auto ProcessWindow(std::shared_ptr<Window const> const& window) -> WindowResults;
 
  private:
   cbdg::Graph mDebruijnGraph;
   ReadCollector mReadCollector;
   caller::Genotyper mGenotyper;
-  std::shared_ptr<const Params> mParamsPtr;
+  std::shared_ptr<Params const> mParamsPtr;
   caller::MsaBuilder mSpoaState;
 
   /// Variant annotator — produces ML-ready complexity features per variant.
@@ -70,7 +70,7 @@ class VariantBuilder {
 
   StatusCode mCurrentCode = StatusCode::UNKNOWN;
 
-  [[nodiscard]] auto MakeGfaPath(const Window& win, usize comp_id) const -> std::filesystem::path;
+  [[nodiscard]] auto MakeGfaPath(Window const& win, usize comp_id) const -> std::filesystem::path;
 };
 
 [[nodiscard]] auto ToString(VariantBuilder::StatusCode status_code) -> std::string;

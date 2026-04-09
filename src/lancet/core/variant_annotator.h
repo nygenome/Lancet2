@@ -1,13 +1,14 @@
 #ifndef SRC_LANCET_CORE_VARIANT_ANNOTATOR_H_
 #define SRC_LANCET_CORE_VARIANT_ANNOTATOR_H_
 
-#include <string>
-
-#include "absl/types/span.h"
 #include "lancet/base/sequence_complexity.h"
 #include "lancet/base/types.h"
 #include "lancet/caller/variant_set.h"
 #include "lancet/cbdg/graph_complexity.h"
+
+#include "absl/types/span.h"
+
+#include <string>
 
 namespace lancet::core {
 
@@ -29,15 +30,15 @@ class VariantAnnotator {
   /// Annotate all variants in `vset` with 11-feature sequence complexity.
   /// Scores each variant against REF and ALT haplotypes, merging across
   /// multiple ALT haplotypes via element-wise max (pessimistic worst-case).
-  void AnnotateSequenceComplexity(const caller::VariantSet& vset,
-                                  absl::Span<const std::string> haplotypes) const;
+  void AnnotateSequenceComplexity(caller::VariantSet const& vset,
+                                  absl::Span<std::string const> haplotypes) const;
 
   /// Annotate all variants in `vset` with graph complexity metrics.
   /// All variants from the same component share the same graph complexity
   /// (graph complexity is a property of the assembly component, not
   /// individual variants).
-  static void AnnotateGraphComplexity(const caller::VariantSet& vset,
-                                      const cbdg::GraphComplexity& component_cx);
+  static void AnnotateGraphComplexity(caller::VariantSet const& vset,
+                                      cbdg::GraphComplexity const& component_cx);
 
  private:
   /// Sequence complexity scorer — produces 11-feature SequenceComplexity per variant.

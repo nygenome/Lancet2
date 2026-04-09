@@ -1,15 +1,16 @@
 #ifndef SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 #define SRC_LANCET_CALLER_VARIANT_SUPPORT_H_
 
+#include "lancet/base/types.h"
+
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/inlined_vector.h"
+
 #include <algorithm>
 #include <array>
 #include <memory>
 #include <string_view>
 #include <vector>
-
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/inlined_vector.h"
-#include "lancet/base/types.h"
 
 namespace lancet::caller {
 
@@ -59,20 +60,20 @@ class VariantSupport {
   VariantSupport() = default;
 
   struct ReadEvidence {
-    i64 insert_size;        // template length from original alignment
-    f64 aln_score;          // normalized alignment score to the assigned haplotype
-    f64 folded_read_pos;    // 0.0=read edge, 0.5=read center (for RPCD)
-    u32 rname_hash;         // hash of read name (for dedup)
-    u32 ref_nm;             // edit distance to REF haplotype (for ASMD)
-    AlleleIndex allele;     // which allele this read supports
-    Strand strand;          // forward or reverse strand
-    u8 base_qual;           // representative PBQ (min across variant region for indels)
-    u8 map_qual;            // original mapping quality of the read
-    bool is_soft_clipped;   // soft-clip bases >= 6% of read length in original alignment
-    bool is_proper_pair;    // properly paired in original alignment
+    i64 mInsertSize;      // template length from original alignment
+    f64 mAlnScore;        // normalized alignment score to the assigned haplotype
+    f64 mFoldedReadPos;   // 0.0=read edge, 0.5=read center (for RPCD)
+    u32 mRnameHash;       // hash of read name (for dedup)
+    u32 mRefNm;           // edit distance to REF haplotype (for ASMD)
+    AlleleIndex mAllele;  // which allele this read supports
+    Strand mStrand;       // forward or reverse strand
+    u8 mBaseQual;         // representative PBQ (min across variant region for indels)
+    u8 mMapQual;          // original mapping quality of the read
+    bool mIsSoftClipped;  // soft-clip bases >= 6% of read length in original alignment
+    bool mIsProperPair;   // properly paired in original alignment
   };
 
-  void AddEvidence(const ReadEvidence& evidence);
+  void AddEvidence(ReadEvidence const& evidence);
 
   // ── Per-Allele Accessors ──
   [[nodiscard]] auto FwdCount(AlleleIndex idx) const -> usize;
@@ -208,46 +209,45 @@ class VariantSupport {
   // Above this threshold, GQ is effectively stable. Below 20×, GQ may vary
   // but remains bounded in [0, 99].
   // See: https://gatk.broadinstitute.org/hc/en-us/articles/360035531692
-  [[nodiscard]] static auto ComputeGQ(const std::vector<int>& pls) -> int;
+  [[nodiscard]] static auto ComputeGQ(std::vector<int> const& pls) -> int;
 
   // Copy allele data from `src` allele `src_allele` into `dst_allele` slot
   // in this object. Used for multi-allelic merging: each bi-allelic variant
   // has alleles {0=REF, 1=ALT}. When merging N variants at a locus, we remap
   // variant[i]'s ALT(1) → merged allele (i+1).
-  void MergeAlleleFrom(const VariantSupport& src, AlleleIndex src_allele, AlleleIndex dst_allele);
-
+  void MergeAlleleFrom(VariantSupport const& src, AlleleIndex src_allele, AlleleIndex dst_allele);
 
  private:
   struct PerAlleleData {
     // Deduplicate reads: a read can support an allele only once per strand.
     // Key = read name hash, value = strand seen.
-    absl::flat_hash_map<u32, Strand> name_hashes;
+    absl::flat_hash_map<u32, Strand> mNameHashes;
 
     // Per-read representative base quality at the variant position, split by
     // strand. For indels, this is the MINIMUM PBQ across the variant region
-    // (one entry per read, NOT per base position — see AddEvidence comment).
-    std::vector<u8> fwd_base_quals;
-    std::vector<u8> rev_base_quals;
+    // (one entry per read, NOT per base position -- see AddEvidence comment).
+    std::vector<u8> mFwdBaseQuals;
+    std::vector<u8> mRevBaseQuals;
 
     // Per-read mapping quality (for RMS RMQ computation).
-    std::vector<u8> map_quals;
+    std::vector<u8> mMapQuals;
 
     // Per-read normalized alignment score (for filtering / annotation).
-    std::vector<f64> aln_scores;
+    std::vector<f64> mAlnScores;
 
     // Count of soft-clipped reads supporting this allele (for SCA FORMAT tag).
-    usize soft_clip_count = 0;
+    usize mSoftClipCount = 0;
 
     // Insert sizes from properly-paired reads (for FLD FORMAT tag).
     // Only non-zero insert sizes from proper pairs are tracked.
-    std::vector<f64> proper_pair_isizes;
+    std::vector<f64> mProperPairIsizes;
 
-    // Folded read positions: min(p, 1−p) for RPCD effect size test.
-    std::vector<f64> folded_read_positions;
+    // Folded read positions: min(p, 1-p) for RPCD effect size test.
+    std::vector<f64> mFoldedReadPositions;
 
     // Edit distances (NM) against REF haplotype for ASMD delta.
     // Stored as f64 for mean computation.
-    std::vector<f64> ref_nm_values;
+    std::vector<f64> mRefNmValues;
   };
 
   // Dense vector indexed by AlleleIndex: mAlleleData[0]=REF, [1]=ALT1, ...
@@ -260,19 +260,19 @@ class VariantSupport {
 class SupportArray {
  public:
   struct NamedSupport {
-    std::string_view sample_name;
-    std::unique_ptr<VariantSupport> data;
+    std::string_view mSampleName;
+    std::unique_ptr<VariantSupport> mData;
   };
 
-  [[nodiscard]] auto Find(std::string_view sample_name) const -> const VariantSupport*;
+  [[nodiscard]] auto Find(std::string_view sample_name) const -> VariantSupport const*;
   [[nodiscard]] auto FindOrCreate(std::string_view sample_name) -> VariantSupport&;
   [[nodiscard]] auto Extract(std::string_view sample_name) -> std::unique_ptr<VariantSupport>;
   void Insert(std::string_view sample_name, std::unique_ptr<VariantSupport> data) {
     mItems.emplace_back(sample_name, std::move(data));
   }
 
-  auto begin() const { return mItems.begin(); }
-  auto end() const { return mItems.end(); }
+  [[nodiscard]] auto begin() const { return mItems.begin(); }
+  [[nodiscard]] auto end() const { return mItems.end(); }
 
  private:
   absl::InlinedVector<NamedSupport, 8> mItems;

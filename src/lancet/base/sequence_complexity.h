@@ -1,14 +1,16 @@
 #ifndef SRC_LANCET_BASE_SEQUENCE_COMPLEXITY_H_
 #define SRC_LANCET_BASE_SEQUENCE_COMPLEXITY_H_
 
-#include <cmath>
+#include "lancet/base/longdust_scorer.h"
+#include "lancet/base/types.h"
+
+#include "absl/strings/str_cat.h"
+
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
-#include "lancet/base/longdust_scorer.h"
-#include "lancet/base/types.h"
+#include <cmath>
 
 namespace lancet::base {
 
@@ -18,18 +20,20 @@ namespace lancet::base {
 
 /// Result of detecting a single tandem repeat within a sequence window.
 struct TandemRepeatResult {
-  i32 period = 0;           ///< motif length (1=homopolymer, 2=dinucleotide, ...)
-  f32 copies = 0.0f;        ///< fractional copy count (span / period)
-  i32 start_pos = 0;        ///< 0-based start within scored window
-  i32 span_length = 0;      ///< total bp covered by the repeat
-  i32 total_errors = 0;     ///< edit distance sum (approximate only, 0 for exact)
-  bool is_exact = false;    ///< true if found by exact matching
+  i32 mPeriod = 0;        ///< motif length (1=homopolymer, 2=dinucleotide, ...)
+  f32 mCopies = 0.0F;     ///< fractional copy count (span / period)
+  i32 mStartPos = 0;      ///< 0-based start within scored window
+  i32 mSpanLength = 0;    ///< total bp covered by the repeat
+  i32 mTotalErrors = 0;   ///< edit distance sum (approximate only, 0 for exact)
+  bool mIsExact = false;  ///< true if found by exact matching
 
   /// Fraction of span that is error-free.
   /// 1.0 for exact repeats. For approximate: 1.0 - total_errors / span_length.
   [[nodiscard]] auto Purity() const -> f32 {
-    if (span_length <= 0) return 0.0f;
-    return 1.0f - static_cast<f32>(total_errors) / static_cast<f32>(span_length);
+    if (mSpanLength <= 0) {
+      return 0.0F;
+    }
+    return 1.0F - (static_cast<f32>(mTotalErrors) / static_cast<f32>(mSpanLength));
   }
 };
 
@@ -37,10 +41,10 @@ struct TandemRepeatResult {
 /// Used internally by SequenceComplexityScorer during motif detection.
 /// Only the fields consumed by the SequenceComplexity distiller are retained.
 struct VariantTRFeatures {
-  i32 dist_to_nearest_tr = -1;  ///< bp distance to nearest TR (-1 = no TR found)
-  i32 nearest_tr_period = 0;    ///< period of nearest TR
-  f32 nearest_tr_purity = 0.0f; ///< purity of nearest TR
-  i32 is_stutter_indel = 0;     ///< 1 if INDEL length ≤ period and adjacent to TR
+  i32 mDistToNearestTr = -1;    ///< bp distance to nearest TR (-1 = no TR found)
+  i32 mNearestTrPeriod = 0;     ///< period of nearest TR
+  f32 mNearestTrPurity = 0.0F;  ///< purity of nearest TR
+  i32 mIsStutterIndel = 0;      ///< 1 if INDEL length ≤ period and adjacent to TR
 };
 
 // ============================================================================
@@ -109,17 +113,17 @@ class SequenceComplexity {
 
   /// Element-wise max across two SequenceComplexity objects.
   /// Used for multi-haplotype and multi-allelic merging.
-  void MergeMax(const SequenceComplexity& other);
+  void MergeMax(SequenceComplexity const& other);
 
  private:
   // Memory alignment: 8B → 4B → 4B (descending alignment convention)
   f64 mContextFlankLQ = 0.0;      ///< log1p-squashed REF ±50bp LQ (k=4)
   f64 mContextHaplotypeLQ = 0.0;  ///< log1p-squashed REF full-haplotype LQ (k=7)
   f64 mDeltaFlankLQ = 0.0;        ///< log-space ALT−REF delta at ±50bp
-  f32 mContextEntropy = 0.0f;     ///< Shannon entropy in REF ±20bp
-  f32 mDeltaEntropy = 0.0f;       ///< ALT−REF entropy delta at ±10bp
-  f32 mTrAffinity = 0.0f;         ///< sentinel-safe [0,1]
-  f32 mTrPurity = 0.0f;           ///< sentinel-safe [0,1]
+  f32 mContextEntropy = 0.0F;     ///< Shannon entropy in REF ±20bp
+  f32 mDeltaEntropy = 0.0F;       ///< ALT−REF entropy delta at ±10bp
+  f32 mTrAffinity = 0.0F;         ///< sentinel-safe [0,1]
+  f32 mTrPurity = 0.0F;           ///< sentinel-safe [0,1]
   i32 mContextHRun = 0;           ///< max homopolymer run in REF ±20bp
   i32 mDeltaHRun = 0;             ///< ALT−REF HRun delta at ±5bp
   i32 mTrPeriod = 0;              ///< sentinel-safe (0 = no TR)
@@ -175,9 +179,8 @@ class SequenceComplexityScorer {
   /// @param alt_haplotype  Full assembled ALT haplotype sequence
   /// @param alt_pos        0-based variant start position in ALT haplotype
   /// @param alt_len        Max of REF/ALT allele lengths
-  [[nodiscard]] auto Score(
-      std::string_view ref_haplotype, usize ref_pos, usize ref_len,
-      std::string_view alt_haplotype, usize alt_pos, usize alt_len) const
+  [[nodiscard]] auto Score(std::string_view ref_haplotype, usize ref_pos, usize ref_len,
+                           std::string_view alt_haplotype, usize alt_pos, usize alt_len) const
       -> SequenceComplexity;
 
   // ── Component methods (public for unit testing) ───────────────────────
@@ -196,58 +199,54 @@ class SequenceComplexityScorer {
   /// Find exact tandem repeats by checking if any motif of period 1..max_period
   /// repeats ≥ min_copies times starting at each position.
   /// Filters primitive motifs (e.g., ATAT collapsed to AT).
-  [[nodiscard]] static auto FindExactRepeats(std::string_view seq,
-                                             i32 max_period = 6,
-                                             f32 min_copies = 2.5f)
+  [[nodiscard]] static auto FindExactRepeats(std::string_view seq, i32 max_period = 6,
+                                             f32 min_copies = 2.5F)
       -> std::vector<TandemRepeatResult>;
 
   /// Find approximate tandem repeats using edit-distance matching.
   /// Each repeat unit may have up to max_edits_per_unit errors.
   /// Only reports results with purity ≥ 0.75.
-  [[nodiscard]] static auto FindApproxRepeats(std::string_view seq,
-                                              i32 max_period = 6,
-                                              f32 min_copies = 3.0f,
-                                              i32 max_edits_per_unit = 1)
+  [[nodiscard]] static auto FindApproxRepeats(std::string_view seq, i32 max_period = 6,
+                                              f32 min_copies = 3.0F, i32 max_edits_per_unit = 1)
       -> std::vector<TandemRepeatResult>;
 
   // ── Feature flattening ────────────────────────────────────────────────
 
   /// Flatten a list of TR hits into VariantTRFeatures relative to a variant
   /// at (variant_pos, variant_length) within a window of total size window_size.
-  [[nodiscard]] static auto FlattenTRFeatures(
-      const std::vector<TandemRepeatResult>& results,
-      i32 variant_pos, i32 variant_length, i32 window_size) -> VariantTRFeatures;
+  [[nodiscard]] static auto FlattenTRFeatures(std::vector<TandemRepeatResult> const& results,
+                                              i32 variant_pos, i32 variant_length, i32 window_size)
+      -> VariantTRFeatures;
 
  private:
   // Owned LongdustQ scorers — constructed once, used across all windows.
-  LongdustQScorer mFlankScorer;         ///< k=4 for ±50bp flanks
-  LongdustQScorer mHaplotypeScorer;     ///< k=7 for full haplotype
+  LongdustQScorer mFlankScorer;      ///< k=4 for ±50bp flanks
+  LongdustQScorer mHaplotypeScorer;  ///< k=7 for full haplotype
 
   // LongdustQ k-mer sizes
   static constexpr int FLANK_K = 4;
   static constexpr int HAPLOTYPE_K = 7;
 
   // ── Flank sizes organized by feature group ────────────────────────────
-  static constexpr i64 CONTEXT_FLANK = 20;       ///< HRun + Entropy context
+  static constexpr i64 CONTEXT_FLANK = 20;        ///< HRun + Entropy context
   static constexpr i64 DELTA_HRUN_FLANK = 5;      ///< HRun delta
   static constexpr i64 DELTA_ENTROPY_FLANK = 10;  ///< Entropy delta
   static constexpr i64 LQ_FLANK = 50;             ///< LongdustQ (context + delta)
-  static constexpr i64 TR_MOTIF_FLANK = 50;        ///< TR motif detection
+  static constexpr i64 TR_MOTIF_FLANK = 50;       ///< TR motif detection
 
   // ── Private scoring helpers (one per feature group) ───────────────────
 
   /// Populate context features from REF haplotype.
-  void ScoreContext(SequenceComplexity& cx,
-                    std::string_view ref_hap, usize ref_pos, usize ref_len) const;
+  void ScoreContext(SequenceComplexity& cplx, std::string_view ref_hap, usize ref_pos,
+                    usize ref_len) const;
 
   /// Populate delta features from ALT−REF differences.
-  void ScoreDeltas(SequenceComplexity& cx,
-                   std::string_view ref_hap, usize ref_pos, usize ref_len,
+  void ScoreDeltas(SequenceComplexity& cplx, std::string_view ref_hap, usize ref_pos, usize ref_len,
                    std::string_view alt_hap, usize alt_pos, usize alt_len) const;
 
   /// Populate TR motif features from ALT haplotype.
-  void ScoreTrMotif(SequenceComplexity& cx,
-                    std::string_view alt_hap, usize alt_pos, usize alt_len) const;
+  static void ScoreTrMotif(SequenceComplexity& cplx, std::string_view alt_hap, usize alt_pos,
+                           usize alt_len);
 
   // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -255,16 +254,13 @@ class SequenceComplexityScorer {
   [[nodiscard]] static auto IsPrimitiveMotif(std::string_view motif) -> bool;
 
   /// Extract a clamped flanking substring from haplotype around var_pos.
-  [[nodiscard]] static auto ExtractFlank(std::string_view haplotype, usize var_pos,
-                                         usize var_len, i64 flank_size) -> std::string_view;
+  [[nodiscard]] static auto ExtractFlank(std::string_view haplotype, usize var_pos, usize var_len,
+                                         i64 flank_size) -> std::string_view;
 
   /// Run motif detection (both exact + approx) on a flanking window and
   /// take element-wise max into existing VariantTRFeatures.
-  static void AccumulateTRFeatures(VariantTRFeatures& features,
-                                   std::string_view window,
-                                   i32 var_pos_in_window,
-                                   i32 var_length,
-                                   i32 window_size);
+  static void AccumulateTRFeatures(VariantTRFeatures& features, std::string_view window,
+                                   i32 var_pos_in_window, i32 var_length, i32 window_size);
 };
 
 }  // namespace lancet::base

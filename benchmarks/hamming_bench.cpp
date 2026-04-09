@@ -1,12 +1,13 @@
+#include "lancet/base/repeat.h"
+#include "lancet/base/types.h"
+
+#include "benchmark/benchmark.h"
+
 #include <array>
 #include <random>
 #include <string>
 
-#include "benchmark/benchmark.h"
-#include "lancet/base/repeat.h"
-#include "lancet/base/types.h"
-
-[[nodiscard]] inline auto GenerateRandomDnaSequence(const usize seq_len) -> std::string {
+[[nodiscard]] inline auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
   static constexpr std::array<char, 4> BASES = {'A', 'C', 'G', 'T'};
 
   std::random_device device;
@@ -25,8 +26,8 @@
 namespace {
 
 void BenchHammingNaive(benchmark::State& state) {
-  const std::string first = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
-  const std::string second = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
+  std::string const first = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
+  std::string const second = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
 
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
@@ -36,8 +37,8 @@ void BenchHammingNaive(benchmark::State& state) {
 }
 
 void BenchHamming64(benchmark::State& state) {
-  const std::string first = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
-  const std::string second = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
+  std::string const first = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
+  std::string const second = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));
 
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {

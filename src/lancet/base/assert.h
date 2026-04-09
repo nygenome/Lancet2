@@ -2,17 +2,19 @@
 #define SRC_LANCET_BASE_ASSERT_H_
 
 #ifdef LANCET_DEVELOP_MODE
+#include "spdlog/fmt/bundled/core.h"
+
 #include <source_location>
 #include <stdexcept>
-
-#include "spdlog/fmt/bundled/core.h"
 #endif
 
 #ifdef LANCET_DEVELOP_MODE
-inline void ThrowIfAssertFail(bool condition, const std::source_location location = std::source_location::current()) {
+inline void ThrowIfAssertFail(
+    bool condition, std::source_location const location = std::source_location::current()) {
   if (!condition) {
-    throw std::runtime_error(fmt::format("assertion failed: {}:{}:{} - `{}`", location.file_name(), location.line(),
-                                         location.column(), location.function_name()));
+    throw std::runtime_error(fmt::format("assertion failed: {}:{}:{} - `{}`", location.file_name(),
+                                         location.line(), location.column(),
+                                         location.function_name()));
   }
 }
 

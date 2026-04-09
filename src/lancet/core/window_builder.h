@@ -1,15 +1,16 @@
 #ifndef SRC_LANCET_CORE_WINDOW_BUILDER_H_
 #define SRC_LANCET_CORE_WINDOW_BUILDER_H_
 
+#include "lancet/base/types.h"
+#include "lancet/core/window.h"
+#include "lancet/hts/reference.h"
+
+#include "absl/types/span.h"
+
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "absl/types/span.h"
-#include "lancet/base/types.h"
-#include "lancet/core/window.h"
-#include "lancet/hts/reference.h"
 
 namespace lancet::core {
 
@@ -28,7 +29,7 @@ class WindowBuilder {
   /// Batch size for pipelined window generation. Used by both WindowBuilder
   /// and PipelineRunner to control memory footprint during WGS runs.
   /// Small enough to avoid OOM, large enough to keep worker threads saturated.
-  static constexpr usize BATCH_SIZE = 65536;
+  static constexpr usize BATCH_SIZE = 65'536;
 
   struct Params {
     u32 mWindowLength = DEFAULT_WINDOW_LENGTH;
@@ -37,17 +38,17 @@ class WindowBuilder {
   };
 
   WindowBuilder() = delete;
-  explicit WindowBuilder(const std::filesystem::path& ref_path, const Params& params);
+  explicit WindowBuilder(std::filesystem::path const& ref_path, Params const& params);
 
   void AddAllReferenceRegions();
-  void AddRegion(const std::string& region_spec);
-  void AddBatchRegions(absl::Span<const std::string> region_specs);
-  void AddBatchRegions(const std::filesystem::path& bed_file);
+  void AddRegion(std::string const& region_spec);
+  void AddBatchRegions(absl::Span<std::string const> region_specs);
+  void AddBatchRegions(std::filesystem::path const& bed_file);
 
   [[nodiscard]] auto Size() const noexcept -> usize { return mInputRegions.size(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mInputRegions.empty(); }
 
-  [[nodiscard]] static auto StepSize(const Params& params) -> i64;
+  [[nodiscard]] static auto StepSize(Params const& params) -> i64;
 
   /// Returns the mathematically computed total number of windows that will be generated
   /// from the current input regions, without performing any allocations.
@@ -61,7 +62,8 @@ class WindowBuilder {
   /// multiple invocations. They should all be initialized to 0 on the first call.
   /// Returns an empty vector when all windows have been emitted across all regions.
   /// Input regions must be sorted (via SortInputRegions) before the first call.
-  [[nodiscard]] auto BuildWindowsBatch(usize& region_idx, i64& window_start, usize& global_idx) const -> std::vector<WindowPtr>;
+  [[nodiscard]] auto BuildWindowsBatch(usize& region_idx, i64& window_start,
+                                       usize& global_idx) const -> std::vector<WindowPtr>;
 
   /// Sorts input regions by chromosome index and start position. Must be called before
   /// using BuildWindowsBatch() to ensure sequential emission order.

@@ -2,11 +2,12 @@
 
 #include <algorithm>
 #include <chrono>  // NOLINT(misc-include-cleaner)
-#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <spdlog/fmt/bundled/base.h>
+#include <spdlog/fmt/bundled/format.h>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -14,13 +15,32 @@
 #include <utility>
 #include <vector>
 
+#include <cstdlib>
+
 #ifdef LANCET_PROFILE_MODE
 #include "gperftools/profiler.h"
 #endif
 
 extern "C" {
-  #include "htslib/hfile.h"
-  }
+#include "htslib/hfile.h"
+}
+
+#include "lancet/base/eta_timer.h"
+#include "lancet/base/logging.h"
+#include "lancet/base/timer.h"
+#include "lancet/base/types.h"
+#include "lancet/base/version.h"
+#include "lancet/cli/cli_params.h"
+#include "lancet/core/async_worker.h"
+#include "lancet/core/read_collector.h"
+#include "lancet/core/variant_builder.h"
+#include "lancet/core/variant_store.h"
+#include "lancet/core/window.h"
+#include "lancet/core/window_builder.h"
+#include "lancet/hts/alignment.h"
+#include "lancet/hts/bgzf_ostream.h"
+#include "lancet/hts/extractor.h"
+#include "lancet/hts/reference.h"
 
 #include "absl/container/btree_map.h"
 #include "absl/container/fixed_array.h"
@@ -32,22 +52,6 @@ extern "C" {
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "concurrentqueue.h"
-#include "lancet/base/logging.h"
-#include "lancet/base/timer.h"
-#include "lancet/base/types.h"
-#include "lancet/base/version.h"
-#include "lancet/cli/cli_params.h"
-#include "lancet/base/eta_timer.h"
-#include "lancet/core/async_worker.h"
-#include "lancet/core/read_collector.h"
-#include "lancet/core/variant_builder.h"
-#include "lancet/core/variant_store.h"
-#include "lancet/core/window.h"
-#include "lancet/core/window_builder.h"
-#include "lancet/hts/alignment.h"
-#include "lancet/hts/bgzf_ostream.h"
-#include "lancet/hts/extractor.h"
-#include "lancet/hts/reference.h"
 #include "spdlog/fmt/bundled/core.h"
 
 using lancet::base::EtaTimer;
@@ -68,15 +72,17 @@ namespace {
                      {FOUND_GENOTYPED_VARIANT, 0}};
 }
 
-void LogWindowStats(const WindowStats &stats) {
-  using CodeCounts = std::pair<const VariantBuilder::StatusCode, u64>;
-  static const auto summer = [](const u64 sum, const CodeCounts &item) -> u64 { return sum + item.second; };
-  const auto nwindows = std::accumulate(stats.cbegin(), stats.cend(), 0, summer);
+void LogWindowStats(WindowStats const& stats) {
+  using CodeCounts = std::pair<VariantBuilder::StatusCode const, u64>;
+  static auto const SUMMER = [](u64 const sum, CodeCounts const& item) -> u64 {
+    return sum + item.second;
+  };
+  auto const nwindows = std::accumulate(stats.cbegin(), stats.cend(), 0, SUMMER);
 
-  std::ranges::for_each(stats, [&nwindows](const CodeCounts &item) {
-    const auto [status_code, count] = item;
-    const auto pct_count = (100.0 * static_cast<f64>(count)) / static_cast<f64>(nwindows);
-    const auto status_str = lancet::core::ToString(status_code);
+  std::ranges::for_each(stats, [&nwindows](CodeCounts const& item) -> void {
+    auto const [status_code, count] = item;
+    auto const pct_count = (100.0 * static_cast<f64>(count)) / static_cast<f64>(nwindows);
+    auto const status_str = lancet::core::ToString(status_code);
     LOG_INFO("{} | {:>8.4f}% of total windows | {} windows", status_str, pct_count, count)
   });
 }
@@ -84,16 +90,19 @@ void LogWindowStats(const WindowStats &stats) {
 }  // namespace
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
-void PipelineWorker(std::stop_token stop_token, const moodycamel::ProducerToken *in_token,
-                    AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
-                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params, u32 window_length) {
+// NOLINTNEXTLINE(readability-function-size)  // TODO(lancet): refactor to reduce function size
+static void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken const* in_token,
+                           AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
+                           AsyncWorker::VariantStorePtr vstore,
+                           AsyncWorker::BuilderParamsPtr params, u32 window_length) {
   // NOLINTEND(bugprone-easily-swappable-parameters,performance-unnecessary-value-param)
 #ifdef LANCET_PROFILE_MODE
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
+  if (ProfilingIsEnabledForAllThreads() != 0)
+    ProfilerRegisterThread();
 #endif
-  auto worker = std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue), std::move(vstore),
-                                              std::move(params), window_length);
+  auto worker = std::make_unique<AsyncWorker>(std::move(in_queue), std::move(out_queue),
+                                              std::move(vstore), std::move(params), window_length);
   worker->Process(std::move(stop_token), *in_token);
 }
 
@@ -103,8 +112,8 @@ PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(s
 #ifdef LANCET_PROFILE_MODE
   setenv("CPUPROFILE_PER_THREAD_TIMERS", "1", 1);
   setenv("CPUPROFILE_FREQUENCY", "10000", 1);
-  const auto timestamp = absl::FormatTime("%Y%m%d%ET%H%M%S", absl::Now(), absl::LocalTimeZone());
-  const auto fname = fmt::format("Lancet.cpu_profile.{}.bin", timestamp);
+  auto const timestamp = absl::FormatTime("%Y%m%d%ET%H%M%S", absl::Now(), absl::LocalTimeZone());
+  auto const fname = fmt::format("Lancet.cpu_profile.{}.bin", timestamp);
   ProfilerStart(fname.c_str());
 #endif
 }
@@ -113,13 +122,15 @@ PipelineRunner::PipelineRunner(std::shared_ptr<CliParams> params) : mParamsPtr(s
 // InitWindowBuilder: setup and sort regions for batch emission
 // ---------------------------------------------------------------------------
 
-auto PipelineRunner::InitWindowBuilder(const CliParams &params) -> core::WindowBuilder {
-  core::WindowBuilder window_builder(params.mVariantBuilder.mRdCollParams.mRefPath, params.mWindowBuilder);
+auto PipelineRunner::InitWindowBuilder(CliParams const& params) -> core::WindowBuilder {
+  core::WindowBuilder window_builder(params.mVariantBuilder.mRdCollParams.mRefPath,
+                                     params.mWindowBuilder);
   window_builder.AddBatchRegions(absl::MakeConstSpan(params.mInRegions));
   window_builder.AddBatchRegions(params.mBedFile);
 
   if (window_builder.IsEmpty()) {
-    LOG_WARN("No input regions provided to build windows. Using contigs in reference as input regions")
+    LOG_WARN(
+        "No input regions provided to build windows. Using contigs in reference as input regions")
     window_builder.AddAllReferenceRegions();
   }
 
@@ -132,26 +143,32 @@ auto PipelineRunner::InitWindowBuilder(const CliParams &params) -> core::WindowB
 // Run: primary pipeline execution with dynamic batch-fed window queue
 // ---------------------------------------------------------------------------
 
+// NOLINTNEXTLINE(readability-function-size)  // TODO(lancet): refactor to reduce function size
 void PipelineRunner::Run() {
   Timer timer;
-  static thread_local const auto tid = std::this_thread::get_id();
-  LOG_INFO("Using main thread {:#x} to synchronize variant calling pipeline", absl::Hash<std::thread::id>()(tid))
+  static thread_local auto const THREAD_ID = std::this_thread::get_id();
+  LOG_INFO("Using main thread {:#x} to synchronize variant calling pipeline",
+           absl::Hash<std::thread::id>()(THREAD_ID))
 
   ValidateAndPopulateParams();
   if (!mParamsPtr->mVariantBuilder.mOutGraphsDir.empty()) {
-    mParamsPtr->mVariantBuilder.mGraphParams.mOutGraphsDir = mParamsPtr->mVariantBuilder.mOutGraphsDir;
+    mParamsPtr->mVariantBuilder.mGraphParams.mOutGraphsDir =
+        mParamsPtr->mVariantBuilder.mOutGraphsDir;
     std::filesystem::remove_all(mParamsPtr->mVariantBuilder.mOutGraphsDir);
     std::filesystem::create_directories(mParamsPtr->mVariantBuilder.mOutGraphsDir);
   }
 
   // Helper lambda to identify remote web/cloud buckets natively.
-  // We explicitly bypass std::filesystem::absolute() for these paths, 
+  // We explicitly bypass std::filesystem::absolute() for these paths,
   // since local systems interpret anything without a leading `/` as a relative local directory.
-  const auto is_cloud_uri = [](const std::filesystem::path& p) {
-    const auto s = p.string();
-    return absl::StartsWith(s, "gs://") || absl::StartsWith(s, "s3://") || 
-           absl::StartsWith(s, "http://") || absl::StartsWith(s, "https://") ||
-           absl::StartsWith(s, "ftp://") || absl::StartsWith(s, "ftps://");
+  auto const is_cloud_uri = [](std::filesystem::path const& fpath) -> bool {
+    auto const uri_str = fpath.string();
+    return absl::StartsWith(uri_str, "gs://") ||
+           absl::StartsWith(uri_str, "s3://") ||
+           absl::StartsWith(uri_str, "http://") ||
+           absl::StartsWith(uri_str, "https://") ||
+           absl::StartsWith(uri_str, "ftp://") ||
+           absl::StartsWith(uri_str, "ftps://");
   };
 
   if (!is_cloud_uri(mParamsPtr->mOutVcfGz)) {
@@ -162,17 +179,18 @@ void PipelineRunner::Run() {
   }
 
   // AWS and GCP inherently employ 5MB+ Multipart Chunk caching over libcurl natively.
-  // Because small VCF headers won't surpass this local threshold, libcurl deliberately 
-  // defers all HTTP network handshakes securely until BgzfOstream::Close() finishes 
+  // Because small VCF headers won't surpass this local threshold, libcurl deliberately
+  // defers all HTTP network handshakes securely until BgzfOstream::Close() finishes
   // the very last component flush of the 40-hour pipeline execution logic.
-  // To avoid failing entirely silently after 40 hours due to missing access tokens, 
-  // we deliberately force an immediate zero-byte HTTP PUT directly using standard hopen("w"). 
-  // This explicitly bypasses the Multipart chunk cache algorithms and violently validates 
+  // To avoid failing entirely silently after 40 hours due to missing access tokens,
+  // we deliberately force an immediate zero-byte HTTP PUT directly using standard hopen("w").
+  // This explicitly bypasses the Multipart chunk cache algorithms and violently validates
   // cloud authentication upfront instantly against the API.
   if (is_cloud_uri(mParamsPtr->mOutVcfGz)) {
-    auto* fp = hopen(mParamsPtr->mOutVcfGz.c_str(), "w");
-    if (fp == nullptr || hclose(fp) < 0) {
-      LOG_CRITICAL("Cloud authentication failed! Cannot write to remote bucket: {}", mParamsPtr->mOutVcfGz.string())
+    auto* fptr = hopen(mParamsPtr->mOutVcfGz.c_str(), "w");
+    if (fptr == nullptr || hclose(fptr) < 0) {
+      LOG_CRITICAL("Cloud authentication failed! Cannot write to remote bucket: {}",
+                   mParamsPtr->mOutVcfGz.string())
       std::exit(EXIT_FAILURE);
     }
   }
@@ -188,8 +206,9 @@ void PipelineRunner::Run() {
 
   // Initialize the window builder with sorted regions
   auto window_builder = InitWindowBuilder(*mParamsPtr);
-  const auto num_total_windows = window_builder.ExpectedTargetWindows();
-  LOG_INFO("Processing {} window(s) with {} VariantBuilder thread(s)", num_total_windows, mParamsPtr->mNumWorkerThreads)
+  auto const num_total_windows = window_builder.ExpectedTargetWindows();
+  LOG_INFO("Processing {} window(s) with {} VariantBuilder thread(s)", num_total_windows,
+           mParamsPtr->mNumWorkerThreads)
 
   // Use the BATCH_SIZE from WindowBuilder for queue feeding granularity
   static constexpr auto BATCH_SIZE = core::WindowBuilder::BATCH_SIZE;
@@ -197,7 +216,7 @@ void PipelineRunner::Run() {
   // When total windows fit within a multiple of BATCH_SIZE, just generate all windows
   // upfront to avoid the overhead of batched emission for smaller runs.
   static constexpr usize BATCH_THRESHOLD = 2 * BATCH_SIZE;
-  const bool use_batching = num_total_windows > BATCH_THRESHOLD;
+  bool const use_batching = num_total_windows > BATCH_THRESHOLD;
 
   // Track all emitted windows for variant flushing (indexed by genome index)
   std::vector<core::WindowPtr> windows;
@@ -206,9 +225,9 @@ void PipelineRunner::Run() {
   absl::FixedArray<bool> done_windows(num_total_windows);
   done_windows.fill(false);
 
-  const auto send_qptr = std::make_shared<AsyncWorker::InputQueue>(num_total_windows);
-  const auto recv_qptr = std::make_shared<AsyncWorker::OutputQueue>(num_total_windows);
-  const moodycamel::ProducerToken producer_token(*send_qptr);
+  auto const send_qptr = std::make_shared<AsyncWorker::InputQueue>(num_total_windows);
+  auto const recv_qptr = std::make_shared<AsyncWorker::OutputQueue>(num_total_windows);
+  moodycamel::ProducerToken const producer_token(*send_qptr);
 
   usize region_idx = 0;
   i64 window_start = -1;
@@ -217,7 +236,8 @@ void PipelineRunner::Run() {
   // Generates the next batch of windows from the builder, enqueues them for
   // workers, and appends them to the tracking vector. Callers are responsible
   // for checking whether more windows are needed before invoking.
-  const auto feed_next_batch = [&window_builder, &region_idx, &window_start, &global_idx, &send_qptr, &producer_token, &windows]() {
+  auto const feed_next_batch = [&window_builder, &region_idx, &window_start, &global_idx,
+                                &send_qptr, &producer_token, &windows]() -> void {
     auto next_batch = window_builder.BuildWindowsBatch(region_idx, window_start, global_idx);
     if (!next_batch.empty()) {
       send_qptr->enqueue_bulk(producer_token, next_batch.begin(), next_batch.size());
@@ -238,14 +258,16 @@ void PipelineRunner::Run() {
   // Launch worker threads
   std::vector<std::jthread> worker_threads;
   worker_threads.reserve(mParamsPtr->mNumWorkerThreads);
-  const auto varstore = std::make_shared<core::VariantStore>();
-  const auto vb_params = std::make_shared<const core::VariantBuilder::Params>(mParamsPtr->mVariantBuilder);
-  const auto window_length = mParamsPtr->mWindowBuilder.mWindowLength;
+  auto const varstore = std::make_shared<core::VariantStore>();
+  auto const vb_params =
+      std::make_shared<core::VariantBuilder::Params const>(mParamsPtr->mVariantBuilder);
+  auto const window_length = mParamsPtr->mWindowBuilder.mWindowLength;
   for (usize idx = 0; idx < mParamsPtr->mNumWorkerThreads; ++idx) {
-    worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore, vb_params, window_length);
+    worker_threads.emplace_back(PipelineWorker, &producer_token, send_qptr, recv_qptr, varstore,
+                                vb_params, window_length);
   }
 
-  const auto percent_done = [&num_total_windows](const usize ndone) -> f64 {
+  auto const percent_done = [&num_total_windows](usize const ndone) -> f64 {
     return 100.0 * (static_cast<f64>(ndone) / static_cast<f64>(num_total_windows));
   };
 
@@ -256,16 +278,16 @@ void PipelineRunner::Run() {
   moodycamel::ConsumerToken result_consumer_token(*recv_qptr);
 
   auto stats = InitWindowStats();
-  constexpr usize nbuffer_windows = 100;
+  constexpr usize NUM_BUFFER_WINDOWS = 100;
   EtaTimer eta_timer(num_total_windows);
 
   // ---------------------------------------------------------------------------
   // Main pipeline loop: process results and dynamically feed new window batches
   // ---------------------------------------------------------------------------
   // NOTE: The feed_next_batch check operates unconditionally at the top of the loop.
-  // This guarantees that worker queues are consistently supplied regardless of 
+  // This guarantees that worker queues are consistently supplied regardless of
   // whether the subsequent queue read succeeds or times out.
-  // 
+  //
   // wait_dequeue_timed serves as a blocking futex call preventing hardware thread-spin.
   // If the timeout triggers without a payload, we seamlessly `continue` the loop,
   // structurally allowing the top-level feed evaluation to re-poll state.
@@ -276,43 +298,53 @@ void PipelineRunner::Run() {
     }
 
     // NOTE: Sleep is natively handled by the wait_dequeue_timed futex block.
-    if (!recv_qptr->wait_dequeue_timed(result_consumer_token, async_worker_result, QUEUE_TIMEOUT)) continue;
+    if (!recv_qptr->wait_dequeue_timed(result_consumer_token, async_worker_result, QUEUE_TIMEOUT)) {
+      continue;
+    }
 
     num_completed++;
     stats.at(async_worker_result.mStatus) += 1;
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     done_windows[async_worker_result.mGenomeIdx] = true;
-    const core::WindowPtr &curr_win = windows[async_worker_result.mGenomeIdx];
-    const auto win_name = curr_win->ToSamtoolsRegion();
-    const auto win_status = core::ToString(async_worker_result.mStatus);
+    core::WindowPtr const& curr_win = windows[async_worker_result.mGenomeIdx];
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    auto const win_name = curr_win->ToSamtoolsRegion();
+    auto const win_status = core::ToString(async_worker_result.mStatus);
 
     eta_timer.Increment();
-    const auto elapsed_rt = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
-    const auto rem_rt = absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
-    const auto win_rt = absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
+    auto const elapsed_rt = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Seconds(1)));
+    auto const rem_rt =
+        absl::FormatDuration(absl::Trunc(eta_timer.EstimatedEta(), absl::Seconds(1)));
+    auto const win_rt =
+        absl::FormatDuration(absl::Trunc(async_worker_result.mRuntime, absl::Microseconds(100)));
 
     LOG_INFO("Progress: {:>8.4f}% | Elapsed: {} | ETA: {} @ {:.2f}/s | {} done with {} in {}",
-             percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name, win_status, win_rt)
+             percent_done(num_completed), elapsed_rt, rem_rt, eta_timer.RatePerSecond(), win_name,
+             win_status, win_rt)
 
     // -------------------------------------------------------------------------
     // VCF Output Synchronization & Bulk Flushing
     // -------------------------------------------------------------------------
     // Worker threads finish windows out-of-order. We use `done_windows` to track
-    // all completions, and `last_contiguous_done` traces the furthest unbroken 
+    // all completions, and `last_contiguous_done` traces the furthest unbroken
     // chain of sequentially finished windows starting from the beginning.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     while (last_contiguous_done < num_total_windows && done_windows[last_contiguous_done]) {
       last_contiguous_done++;
     }
 
-    // Rather than writing to disk immediately, we lag behind by `nbuffer_windows`.
-    // This safety gap allows active upstream threads to resolve large structural 
+    // Rather than writing to disk immediately, we lag behind by `NUM_BUFFER_WINDOWS`.
+    // This safety gap allows active upstream threads to resolve large structural
     // variants that might overlap across sequential window boundaries.
     usize target_flush_idx = 0;
-    if (last_contiguous_done > nbuffer_windows) target_flush_idx = last_contiguous_done - nbuffer_windows;
-      
-    // varstore->FlushVariantsBeforeWindow takes a target window and dumps ALL 
+    if (last_contiguous_done > NUM_BUFFER_WINDOWS) {
+      target_flush_idx = last_contiguous_done - NUM_BUFFER_WINDOWS;
+    }
+
+    // varstore->FlushVariantsBeforeWindow takes a target window and dumps ALL
     // buffered variants chronologically up to that genomic threshold in one shot.
-    // 
-    // Example Scenario (If nbuffer_windows = 2):
+    //
+    // Example Scenario (If NUM_BUFFER_WINDOWS = 2):
     //  - `last_contiguous_done` evaluates to 3.
     //  - Thread A finishes window #5 (done_windows[5] = true, chain unbroken, cursor stays 3).
     //  - Thread B finishes window #4 (done_windows[4] = true, chain completes!).
@@ -323,6 +355,7 @@ void PipelineRunner::Run() {
     //    the store and safely dumping all variants prior to window #3 to disk.
     if (idx_to_flush < target_flush_idx) {
       idx_to_flush = target_flush_idx;
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       varstore->FlushVariantsBeforeWindow(*windows[idx_to_flush], output_vcf);
     }
   }
@@ -339,8 +372,10 @@ void PipelineRunner::Run() {
   output_vcf.Close();
 
   LogWindowStats(stats);
-  const auto total_runtime = absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(1)));
-  LOG_INFO("Successfully completed processing {} windows | Runtime={}", num_total_windows, total_runtime)
+  auto const total_runtime =
+      absl::FormatDuration(absl::Trunc(timer.Runtime(), absl::Milliseconds(1)));
+  LOG_INFO("Successfully completed processing {} windows | Runtime={}", num_total_windows,
+           total_runtime)
   std::exit(EXIT_SUCCESS);
 }
 
@@ -348,10 +383,10 @@ void PipelineRunner::Run() {
 // BuildVcfHeader
 // ---------------------------------------------------------------------------
 
-auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
+auto PipelineRunner::BuildVcfHeader(CliParams const& params) -> std::string {
   using namespace std::string_view_literals;
   // clang-format off
-  static constexpr auto fstr_hdr = R"raw(##fileformat=VCFv4.3
+  static constexpr auto FORMAT_STR_HEADER = R"raw(##fileformat=VCFv4.3
 ##fileDate={RUN_TIMESTAMP}
 ##source=Lancet_{FULL_VERSION_TAG}
 ##commandLine="{FULL_COMMAND_USED}"
@@ -381,33 +416,39 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
   // clang-format on
 
   std::string contig_hdr_lines;
-  static constexpr usize CONTIGS_BUFFER_SIZE = 524288;
+  static constexpr usize CONTIGS_BUFFER_SIZE = 524'288;
   contig_hdr_lines.reserve(CONTIGS_BUFFER_SIZE);
-  const hts::Reference ref(params.mVariantBuilder.mRdCollParams.mRefPath);
-  for (const auto &chrom : ref.ListChroms()) {
-    absl::StrAppend(&contig_hdr_lines, fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
+  hts::Reference const ref(params.mVariantBuilder.mRdCollParams.mRefPath);
+  for (auto const& chrom : ref.ListChroms()) {
+    absl::StrAppend(&contig_hdr_lines,
+                    fmt::format("##contig=<ID={},length={}>\n", chrom.Name(), chrom.Length()));
   }
 
   // SHARED/NORMAL/TUMOR INFO headers — only when tumor inputs exist (somatic mode)
   std::string conditional_info_lines;
-  const bool has_tumor = !params.mVariantBuilder.mRdCollParams.mTumorPaths.empty();
+  bool const has_tumor = !params.mVariantBuilder.mRdCollParams.mTumorPaths.empty();
   if (has_tumor) {
     absl::StrAppend(&conditional_info_lines,
-        "##INFO=<ID=SHARED,Number=0,Type=Flag,Description=\"Variant ALT seen in both tumor & normal sample(s)\">\n"
-        "##INFO=<ID=NORMAL,Number=0,Type=Flag,Description=\"Variant ALT seen only in normal samples(s)\">\n"
-        "##INFO=<ID=TUMOR,Number=0,Type=Flag,Description=\"Variant ALT seen only in tumor sample(s)\">\n");
+                    "##INFO=<ID=SHARED,Number=0,Type=Flag,Description=\"Variant ALT seen in both "
+                    "tumor & normal sample(s)\">\n"
+                    "##INFO=<ID=NORMAL,Number=0,Type=Flag,Description=\"Variant ALT seen only in "
+                    "normal samples(s)\">\n"
+                    "##INFO=<ID=TUMOR,Number=0,Type=Flag,Description=\"Variant ALT seen only in "
+                    "tumor sample(s)\">\n");
   }
 
   // Complexity feature INFO headers — only when requested via CLI flags
   std::string annotation_info_lines;
-  const auto& vb_cfg = params.mVariantBuilder;
+  auto const& vb_cfg = params.mVariantBuilder;
   if (vb_cfg.mEnableGraphComplexity) {
-    absl::StrAppend(&annotation_info_lines,
+    absl::StrAppend(
+        &annotation_info_lines,
         "##INFO=<ID=GRAPH_CX,Number=3,Type=String,Description=\"Graph complexity metrics: "
         "GEI,TipToPathCovRatio,MaxSingleDirDegree\">\n");
   }
   if (vb_cfg.mEnableSequenceComplexity) {
-    absl::StrAppend(&annotation_info_lines,
+    absl::StrAppend(
+        &annotation_info_lines,
         "##INFO=<ID=SEQ_CX,Number=11,Type=String,Description=\"Sequence complexity features: "
         "ContextHRun,ContextEntropy,ContextFlankLQ,ContextHaplotypeLQ,DeltaHRun,DeltaEntropy,"
         "DeltaFlankLQ,TrAffinity,TrPurity,TrPeriod,IsStutterIndel\">\n");
@@ -415,16 +456,21 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 
   auto full_hdr = fmt::format(
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-      fstr_hdr, fmt::arg("RUN_TIMESTAMP", absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone())),
-      fmt::arg("FULL_VERSION_TAG", LancetFullVersion()), fmt::arg("FULL_COMMAND_USED", params.mFullCmdLine),
+      FORMAT_STR_HEADER,
+      fmt::arg("RUN_TIMESTAMP",
+               absl::FormatTime(absl::RFC3339_sec, absl::Now(), absl::LocalTimeZone())),
+      fmt::arg("FULL_VERSION_TAG", LancetFullVersion()),
+      fmt::arg("FULL_COMMAND_USED", params.mFullCmdLine),
       fmt::arg("REFERENCE_PATH", params.mVariantBuilder.mRdCollParams.mRefPath.string()),
       fmt::arg("CONTIG_HDR_LINES", contig_hdr_lines),
       fmt::arg("CONDITIONAL_INFO_LINES", conditional_info_lines),
       fmt::arg("ANNOTATION_INFO_LINES", annotation_info_lines));
 
-  const auto rc_sample_list = core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
-  absl::StrAppend(&full_hdr, fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
-                                         absl::StrJoin(rc_sample_list, "\t")));
+  auto const rc_sample_list =
+      core::ReadCollector::BuildSampleNameList(params.mVariantBuilder.mRdCollParams);
+  absl::StrAppend(&full_hdr,
+                  fmt::format("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
+                              absl::StrJoin(rc_sample_list, "\t")));
 
   return full_hdr;
 }
@@ -435,20 +481,24 @@ auto PipelineRunner::BuildVcfHeader(const CliParams &params) -> std::string {
 
 void PipelineRunner::ValidateAndPopulateParams() {
   // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (mParamsPtr->mVariantBuilder.mSkipActiveRegion) return;
+  if (mParamsPtr->mVariantBuilder.mSkipActiveRegion)
+    return;
 
   using lancet::hts::Alignment;
   static constexpr usize NUM_READS_TO_PEEK = 1000;
-  static const std::vector<std::string> tags{"MD"};
-  const lancet::hts::Reference ref(mParamsPtr->mVariantBuilder.mRdCollParams.mRefPath);
+  static std::vector<std::string> const TAGS{"MD"};
 
-  const auto is_md_missing = [&ref](const std::filesystem::path &aln_path) -> bool {
+  lancet::hts::Reference const ref(mParamsPtr->mVariantBuilder.mRdCollParams.mRefPath);
+
+  auto const is_md_missing = [&ref](std::filesystem::path const& aln_path) -> bool {
     usize peeked_read_count = 0;
-    lancet::hts::Extractor extractor(aln_path, ref, Alignment::Fields::AUX_RGAUX, tags, true);
-    for (const auto &aln : extractor) {
+    lancet::hts::Extractor extractor(aln_path, ref, Alignment::Fields::AUX_RGAUX, TAGS, true);
+    for (auto const& aln : extractor) {
       // NOLINTBEGIN(readability-braces-around-statements)
-      if (peeked_read_count > NUM_READS_TO_PEEK) break;
-      if (aln.HasTag("MD")) return false;
+      if (peeked_read_count > NUM_READS_TO_PEEK)
+        break;
+      if (aln.HasTag("MD"))
+        return false;
       // NOLINTEND(readability-braces-around-statements)
       peeked_read_count++;
     }

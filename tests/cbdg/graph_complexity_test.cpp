@@ -1,15 +1,17 @@
 #include "lancet/cbdg/graph_complexity.h"
 
-#include <cmath>
-#include <vector>
-
-#include "absl/types/span.h"
-#include "catch_amalgamated.hpp"
 #include "lancet/base/types.h"
 #include "lancet/caller/raw_variant.h"
 
+#include "absl/types/span.h"
+#include "catch_amalgamated.hpp"
+
+#include <vector>
+
+#include <cmath>
+
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  GraphComplexity::IsComplex Thresholds                                  ║
+// ║  GraphComplexity::IsComplex Thresholds                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 // NOTE: We cannot directly construct GraphComplexity with specific field values
@@ -19,7 +21,7 @@
 TEST_CASE("GraphComplexity::IsComplex default is not complex", "[lancet][cbdg][graph_complexity]") {
   using lancet::cbdg::GraphComplexity;
 
-  const GraphComplexity cx;
+  GraphComplexity const cx;
   CHECK_FALSE(cx.IsComplex());
   CHECK(cx.CyclomaticComplexity() == 0);
   CHECK(cx.NumBranchPoints() == 0);
@@ -33,27 +35,28 @@ TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][g
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  GraphComplexity::GraphEntanglementIndex (GEI)                          ║
+// ║  GraphComplexity::GraphEntanglementIndex (GEI)                           ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("GEI: default-constructed → GEI = 0", "[lancet][cbdg][graph_complexity][gei]") {
   using lancet::cbdg::GraphComplexity;
 
-  const GraphComplexity cx;
+  GraphComplexity const cx;
   CHECK(cx.GraphEntanglementIndex() == Catch::Approx(0.0).margin(1e-10));
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  GraphMetrics::FormatVcfValue                                           ║
+// ║  GraphMetrics::FormatVcfValue                                            ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("GraphMetrics::FormatVcfValue: 3 comma-separated values", "[lancet][cbdg][graph_complexity][format]") {
+TEST_CASE("GraphMetrics::FormatVcfValue: 3 comma-separated values",
+          "[lancet][cbdg][graph_complexity][format]") {
   lancet::caller::RawVariant::GraphMetrics gm;
-  gm.graph_entanglement_index = 2.345;
-  gm.tip_to_path_cov_ratio = 0.15;
-  gm.max_single_dir_degree = 4;
+  gm.mGraphEntanglementIndex = 2.345;
+  gm.mTipToPathCovRatio = 0.15;
+  gm.mMaxSingleDirDegree = 4;
 
-  const auto vcf = gm.FormatVcfValue();
+  auto const vcf = gm.FormatVcfValue();
   // 3 values → 2 commas
   CHECK(std::count(vcf.begin(), vcf.end(), ',') == 2);
   // Ends with ",4" (the MaxSingleDirDegree)

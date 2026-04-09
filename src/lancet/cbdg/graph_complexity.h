@@ -1,9 +1,9 @@
 #ifndef SRC_LANCET_CBDG_GRAPH_COMPLEXITY_H_
 #define SRC_LANCET_CBDG_GRAPH_COMPLEXITY_H_
 
-#include <cmath>
-
 #include "lancet/base/types.h"
+
+#include <cmath>
 
 namespace lancet::cbdg {
 
@@ -65,7 +65,9 @@ class Graph;  // forward declaration — avoids circular dependency with graph.h
 class GraphComplexity {
  public:
   // ── Accessors ─────────────────────────────────────────────────────────
-  [[nodiscard]] auto CyclomaticComplexity() const noexcept -> usize { return mCyclomaticComplexity; }
+  [[nodiscard]] auto CyclomaticComplexity() const noexcept -> usize {
+    return mCyclomaticComplexity;
+  }
   [[nodiscard]] auto NumBranchPoints() const noexcept -> usize { return mNumBranchPoints; }
   [[nodiscard]] auto UnitigRatio() const noexcept -> f64 { return mUnitigRatio; }
   [[nodiscard]] auto CoverageCv() const noexcept -> f64 { return mCoverageCv; }
@@ -110,7 +112,8 @@ class GraphComplexity {
   /// When true, the caller should retry with a larger k-mer size to collapse
   /// branches and reduce cyclomatic complexity.
   [[nodiscard]] constexpr auto IsComplex() const -> bool {
-    return mCyclomaticComplexity >= MAX_CYCLOMATIC_COMPLEXITY && mNumBranchPoints >= MAX_BRANCH_POINTS;
+    return mCyclomaticComplexity >= MAX_CYCLOMATIC_COMPLEXITY &&
+           mNumBranchPoints >= MAX_BRANCH_POINTS;
   }
 
   // ── Graph Entanglement Index (GEI) ──────────────────────────────────────
@@ -146,9 +149,9 @@ class GraphComplexity {
   //
   [[nodiscard]] auto GraphEntanglementIndex() const -> f64 {
     static constexpr f64 EPSILON = 1e-6;
-    const auto cc = static_cast<f64>(mCyclomaticComplexity);
-    const auto bp = static_cast<f64>(mNumBranchPoints);
-    const f64 raw_chaos = (cc * bp * mCoverageCv) / (mUnitigRatio + EPSILON);
+    auto const ccomp = static_cast<f64>(mCyclomaticComplexity);
+    auto const bpairs = static_cast<f64>(mNumBranchPoints);
+    f64 const raw_chaos = (ccomp * bpairs * mCoverageCv) / (mUnitigRatio + EPSILON);
     return std::log10(1.0 + raw_chaos);
   }
 
@@ -162,13 +165,14 @@ class GraphComplexity {
 
   // ComputeGraphComplexity is a friend to populate private fields during
   // O(V+E) graph traversal. All other code uses the public accessors.
-  friend auto ComputeGraphComplexity(const Graph& graph, usize component_id) -> GraphComplexity;
+  friend auto ComputeGraphComplexity(Graph const& graph, usize component_id) -> GraphComplexity;
 };
 
 /// Compute GraphComplexity metrics for a single component.
 /// Iterates the Graph's node table filtered by component_id.
 /// All metrics are O(V+E) to compute.
-[[nodiscard]] auto ComputeGraphComplexity(const Graph& graph, usize component_id) -> GraphComplexity;
+[[nodiscard]] auto ComputeGraphComplexity(Graph const& graph, usize component_id)
+    -> GraphComplexity;
 
 }  // namespace lancet::cbdg
 

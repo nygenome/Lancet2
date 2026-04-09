@@ -1,18 +1,19 @@
 #include "lancet/cli/cli_interface.h"
 
-#include <unistd.h>
-
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <limits>
-#include <memory>
-#include <string>
-#include <thread>
-
 #include "CLI/CLI.hpp"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+
+#include <iostream>
+#include <limits>
+#include <memory>
+#include <spdlog/fmt/bundled/format.h>
+#include <stdio.h>
+#include <string>
+#include <thread>
+#include <unistd.h>
+
+#include <cstdlib>
 
 extern "C" {
 #include "htslib/hfile.h"
@@ -25,39 +26,49 @@ extern "C" {
 #include "lancet/cli/cli_params.h"
 #include "lancet/cli/pipeline_runner.h"
 #include "lancet/core/window_builder.h"
+
 #include "spdlog/common.h"
 #include "spdlog/fmt/bundled/core.h"
 #include "spdlog/fmt/bundled/ostream.h"
 
 namespace {
 
-inline auto MakeCmdLine(const int argc, const char** argv) -> std::string {
+inline auto MakeCmdLine(int const argc, char const** argv) -> std::string {
   std::string result;
-  static constexpr usize LINUX_MAX_CMDLINE_LENGTH = 2097152;
+  static constexpr usize LINUX_MAX_CMDLINE_LENGTH = 2'097'152;
   result.reserve(LINUX_MAX_CMDLINE_LENGTH);
   absl::StrAppend(&result, argv[0]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (auto idx = 1; idx < argc; ++idx) {
-    absl::StrAppend(&result, " ", argv[idx]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    absl::StrAppend(&result, " ",
+                    argv[idx]);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   }
   result.shrink_to_fit();
   return result;
 }
 
 class CliExistingUriOrFile : public CLI::Validator {
-public:
+ public:
   CliExistingUriOrFile() {
     name_ = "EXISTING_URI_OR_FILE";
-    func_ = [](const std::string &str) -> std::string {
+    func_ = [](std::string const& str) -> std::string {
       // By natively injecting HTSlib remote read pings here, we decouple the strict
       // local filepath assertions baked inherently into CLI::ExistingFile checking logic.
-      // This allows Lancet2 pipeline execution to gracefully accept and validate 
+      // This allows Lancet2 pipeline execution to gracefully accept and validate
       // network streams (S3/GCS paths) uniformly alongside traditional local system binaries.
-      if (absl::StartsWith(str, "gs://") || absl::StartsWith(str, "s3://") || 
-          absl::StartsWith(str, "http://") || absl::StartsWith(str, "https://") ||
-          absl::StartsWith(str, "ftp://") || absl::StartsWith(str, "ftps://")) {
-        hFILE* fp = hopen(str.c_str(), "r");
-        if (fp == nullptr) return fmt::format("Could not open existing cloud/web resource: {}", str);
-        if (hclose(fp) < 0) return fmt::format("Failed to properly close existing cloud/web resource connection: {}", str);
+      if (absl::StartsWith(str, "gs://") ||
+          absl::StartsWith(str, "s3://") ||
+          absl::StartsWith(str, "http://") ||
+          absl::StartsWith(str, "https://") ||
+          absl::StartsWith(str, "ftp://") ||
+          absl::StartsWith(str, "ftps://")) {
+        hFILE* fptr = hopen(str.c_str(), "r");
+        if (fptr == nullptr) {
+          return fmt::format("Could not open existing cloud/web resource: {}", str);
+        }
+        if (hclose(fptr) < 0) {
+          return fmt::format("Failed to properly close existing cloud/web resource connection: {}",
+                             str);
+        }
         return "";
       }
       return CLI::ExistingFile(str);
@@ -66,15 +77,19 @@ public:
 };
 
 class CliNonexistentUriOrPath : public CLI::Validator {
-public:
+ public:
   CliNonexistentUriOrPath() {
     name_ = "NONEXISTENT_URI_OR_PATH";
-    func_ = [](const std::string &str) -> std::string {
-      // Skips native CLI11 filesystem bounds checking specifically for cloud output schemas 
-      // ensuring that Lancet2 doesn't immediately abort if `--out-vcfgz` points completely off-disk. 
-      if (absl::StartsWith(str, "gs://") || absl::StartsWith(str, "s3://") || 
-          absl::StartsWith(str, "http://") || absl::StartsWith(str, "https://") ||
-          absl::StartsWith(str, "ftp://") || absl::StartsWith(str, "ftps://")) {
+    func_ = [](std::string const& str) -> std::string {
+      // Skips native CLI11 filesystem bounds checking specifically for cloud output schemas
+      // ensuring that Lancet2 doesn't immediately abort if `--out-vcfgz` points completely
+      // off-disk.
+      if (absl::StartsWith(str, "gs://") ||
+          absl::StartsWith(str, "s3://") ||
+          absl::StartsWith(str, "http://") ||
+          absl::StartsWith(str, "https://") ||
+          absl::StartsWith(str, "ftp://") ||
+          absl::StartsWith(str, "ftps://")) {
         return "";
       }
       return CLI::NonexistentPath(str);
@@ -105,20 +120,22 @@ static constexpr auto APP_NAME_FMT_STR = "Lancet, {}\nMicrosssembly based somati
 namespace lancet::cli {
 
 CliInterface::CliInterface()
-    : mCliApp(fmt::format(APP_NAME_FMT_STR, LancetFullVersion())), mParamsPtr(std::make_shared<CliParams>()) {
+    : mCliApp(fmt::format(APP_NAME_FMT_STR, LancetFullVersion())),
+      mParamsPtr(std::make_shared<CliParams>()) {
   mCliApp.require_subcommand(1);
   PipelineSubcmd(&mCliApp, mParamsPtr);
 
-  static const auto version_printer = [](const usize count) -> void {
+  static auto const VERSION_PRINTER = [](usize const count) -> void {
     if (count > 0) {
       fmt::print(std::cout, "Lancet {}\n", LancetFullVersion());
       std::exit(EXIT_SUCCESS);
     }
   };
 
-  static const auto help_printer = [this](const usize count) -> void {
+  static auto const HELP_PRINTER = [this](usize const count) -> void {
     if (count > 0) {
-      fmt::print(std::cerr, "{}", this->mCliApp.help(this->mCliApp.get_name(), CLI::AppFormatMode::Normal));
+      fmt::print(std::cerr, "{}",
+                 this->mCliApp.help(this->mCliApp.get_name(), CLI::AppFormatMode::Normal));
       std::exit(EXIT_SUCCESS);
     }
   };
@@ -127,15 +144,17 @@ CliInterface::CliInterface()
   mCliApp.failure_message(CLI::FailureMessage::help);
   static constexpr usize DEFAULT_TERMINAL_FORMATTER_WIDTH = 100;
   mCliApp.get_formatter()->column_width(DEFAULT_TERMINAL_FORMATTER_WIDTH);
-  mCliApp.add_flag_function("-v,--version", version_printer, "Print Lancet version information")->group("Flags");
-  mCliApp.add_flag_function("-h,--help", help_printer, "Print this help message and exit")->group("Flags");
+  mCliApp.add_flag_function("-v,--version", VERSION_PRINTER, "Print Lancet version information")
+      ->group("Flags");
+  mCliApp.add_flag_function("-h,--help", HELP_PRINTER, "Print this help message and exit")
+      ->group("Flags");
 }
 
-auto CliInterface::RunMain(const int argc, const char** argv) -> int {
+auto CliInterface::RunMain(int const argc, char const** argv) -> int {
   try {
     mParamsPtr->mFullCmdLine = MakeCmdLine(argc, argv);
     mCliApp.parse(argc, argv);
-  } catch (const CLI::ParseError& err) {
+  } catch (CLI::ParseError const& err) {
     return mCliApp.exit(err);
   }
 
@@ -153,13 +172,17 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
 
   static constexpr f64 MIN_TUMOR_VS_NORMAL_VAF_ODDS = 0.0;
   static constexpr f64 MAX_TUMOR_VS_NORMAL_VAF_ODDS = 255.0;
-  static const int MAX_NUM_THREADS = static_cast<int>(std::thread::hardware_concurrency());
+  static int const MAX_NUM_THREADS = static_cast<int>(std::thread::hardware_concurrency());
 
   // Datasets
-  subcmd->add_option("-n,--normal", rc_prms.mNormalPaths, "Path to one (or) more normal BAM/CRAM file(s)")
+  subcmd
+      ->add_option("-n,--normal", rc_prms.mNormalPaths,
+                   "Path to one (or) more normal BAM/CRAM file(s)")
       ->required(true)
       ->group("Datasets");
-  subcmd->add_option("-t,--tumor", rc_prms.mTumorPaths, "Path to one (or) more tumor BAM/CRAM file(s)")
+  subcmd
+      ->add_option("-t,--tumor", rc_prms.mTumorPaths,
+                   "Path to one (or) more tumor BAM/CRAM file(s)")
       ->required(false)
       ->group("Datasets");
 
@@ -174,76 +197,109 @@ void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& par
       ->check(CliExistingUriOrFile{} | CliNonexistentUriOrPath{});
 
   // Regions
-  subcmd->add_option("-R,--region", params->mInRegions, "One (or) more regions (1-based both inclusive)")
+  subcmd
+      ->add_option("-R,--region", params->mInRegions,
+                   "One (or) more regions (1-based both inclusive)")
       ->group("Regions")
       ->type_name("REF:[:START[-END]]");
   subcmd->add_option("-b,--bed-file", params->mBedFile, "Path to BED file with regions to process")
       ->group("Regions")
       ->check(CliExistingUriOrFile{});
-  subcmd->add_option("-P,--padding", wb_prms.mRegionPadding, "Padding for both sides of all input regions")
+  subcmd
+      ->add_option("-P,--padding", wb_prms.mRegionPadding,
+                   "Padding for both sides of all input regions")
       ->group("Regions")
-      ->check(CLI::Range(u32(0), core::WindowBuilder::MAX_ALLOWED_REGION_PAD));
-  subcmd->add_option("-p,--pct-overlap", wb_prms.mPercentOverlap, "Percent overlap between consecutive windows")
+      ->check(CLI::Range(static_cast<u32>(0), core::WindowBuilder::MAX_ALLOWED_REGION_PAD));
+  subcmd
+      ->add_option("-p,--pct-overlap", wb_prms.mPercentOverlap,
+                   "Percent overlap between consecutive windows")
       ->group("Regions")
-      ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_PCT_OVERLAP, core::WindowBuilder::MAX_ALLOWED_PCT_OVERLAP));
-  subcmd->add_option("-w,--window-size", params->mWindowBuilder.mWindowLength, "Window size for variant calling tasks")
+      ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_PCT_OVERLAP,
+                         core::WindowBuilder::MAX_ALLOWED_PCT_OVERLAP));
+  subcmd
+      ->add_option("-w,--window-size", params->mWindowBuilder.mWindowLength,
+                   "Window size for variant calling tasks")
       ->group("Regions")
-      ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_WINDOW_LEN, core::WindowBuilder::MAX_ALLOWED_WINDOW_LEN));
+      ->check(CLI::Range(core::WindowBuilder::MIN_ALLOWED_WINDOW_LEN,
+                         core::WindowBuilder::MAX_ALLOWED_WINDOW_LEN));
 
   // Parameters
-  subcmd->add_option("-T,--num-threads", params->mNumWorkerThreads, "Number of additional async worker threads")
+  subcmd
+      ->add_option("-T,--num-threads", params->mNumWorkerThreads,
+                   "Number of additional async worker threads")
       ->group("Parameters")
       ->check(CLI::Range(0, MAX_NUM_THREADS));
-  subcmd->add_option("-k,--min-kmer", vb_prms.mGraphParams.mMinKmerLen, "Min. kmer length to try for graph nodes")
+  subcmd
+      ->add_option("-k,--min-kmer", vb_prms.mGraphParams.mMinKmerLen,
+                   "Min. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN, cbdg::Graph::MAX_ALLOWED_KMER_LEN - 2));
-  subcmd->add_option("-K,--max-kmer", vb_prms.mGraphParams.mMaxKmerLen, "Max. kmer length to try for graph nodes")
+  subcmd
+      ->add_option("-K,--max-kmer", vb_prms.mGraphParams.mMaxKmerLen,
+                   "Max. kmer length to try for graph nodes")
       ->group("Parameters")
       ->check(CLI::Range(cbdg::Graph::DEFAULT_MIN_KMER_LEN + 2, cbdg::Graph::MAX_ALLOWED_KMER_LEN));
-  subcmd->add_option("-s,--kmer-step", vb_prms.mGraphParams.mKmerStepLen, "Kmer step length to try for graph nodes")
+  subcmd
+      ->add_option("-s,--kmer-step", vb_prms.mGraphParams.mKmerStepLen,
+                   "Kmer step length to try for graph nodes")
       ->group("Parameters")
       // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
       ->check(CLI::IsMember({2, 4, 6, 8, 10}));
-  subcmd->add_option("--min-anchor-cov", grph_prms.mMinAnchorCov, "Min. coverage for anchor nodes (source/sink)")
+  subcmd
+      ->add_option("--min-anchor-cov", grph_prms.mMinAnchorCov,
+                   "Min. coverage for anchor nodes (source/sink)")
       ->group("Parameters")
-      ->check(CLI::Range(u32(1), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--min-node-cov", grph_prms.mMinNodeCov, "Min. coverage for nodes kept in the graph")
+      ->check(CLI::Range(static_cast<u32>(1), std::numeric_limits<u32>::max()));
+  subcmd
+      ->add_option("--min-node-cov", grph_prms.mMinNodeCov,
+                   "Min. coverage for nodes kept in the graph")
       ->group("Parameters")
-      ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
-  subcmd->add_option("--max-sample-cov", rc_prms.mMaxSampleCov, "Max. per sample coverage before downsampling")
+      ->check(CLI::Range(static_cast<u32>(0), std::numeric_limits<u32>::max()));
+  subcmd
+      ->add_option("--max-sample-cov", rc_prms.mMaxSampleCov,
+                   "Max. per sample coverage before downsampling")
       ->group("Parameters")
-      ->check(CLI::Range(u32(0), std::numeric_limits<u32>::max()));
+      ->check(CLI::Range(static_cast<u32>(0), std::numeric_limits<u32>::max()));
 
   // Feature flags
-  subcmd->add_flag("--verbose", params->mEnableVerboseLogging, "Turn on verbose logging")->group("Flags");
-  subcmd->add_flag("--extract-pairs", rc_prms.mExtractPairs, "Extract all useful read pairs")->group("Flags");
-  subcmd->add_flag("--no-active-region", vb_prms.mSkipActiveRegion, "Force assemble all windows")->group("Flags");
-  subcmd->add_flag("--no-contig-check", rc_prms.mNoCtgCheck, "Skip contig check with reference")->group("Flags");
+  subcmd->add_flag("--verbose", params->mEnableVerboseLogging, "Turn on verbose logging")
+      ->group("Flags");
+  subcmd->add_flag("--extract-pairs", rc_prms.mExtractPairs, "Extract all useful read pairs")
+      ->group("Flags");
+  subcmd->add_flag("--no-active-region", vb_prms.mSkipActiveRegion, "Force assemble all windows")
+      ->group("Flags");
+  subcmd->add_flag("--no-contig-check", rc_prms.mNoCtgCheck, "Skip contig check with reference")
+      ->group("Flags");
 
   // Optional
-  subcmd->add_option("--graphs-dir", vb_prms.mOutGraphsDir, "Output directory to write per window graphs")
+  subcmd
+      ->add_option("--graphs-dir", vb_prms.mOutGraphsDir,
+                   "Output directory to write per window graphs")
       ->check(CLI::NonexistentPath | CLI::ExistingDirectory)
       ->group("Optional");
-  subcmd->add_flag("--enable-graph-complexity-features",
-                   vb_prms.mEnableGraphComplexity,
-                   "Emit GRAPH_CX INFO tag with per-variant graph complexity metrics")
+  subcmd
+      ->add_flag("--enable-graph-complexity-features", vb_prms.mEnableGraphComplexity,
+                 "Emit GRAPH_CX INFO tag with per-variant graph complexity metrics")
       ->group("Optional");
-  subcmd->add_flag("--enable-sequence-complexity-features",
-                   vb_prms.mEnableSequenceComplexity,
-                   "Emit ULTRA/MICRO/MACRO_*_CX INFO tags with multi-scale "
-                   "sequence complexity metrics (HRun, entropy, TR motifs, LongdustQ)")
+  subcmd
+      ->add_flag("--enable-sequence-complexity-features", vb_prms.mEnableSequenceComplexity,
+                 "Emit ULTRA/MICRO/MACRO_*_CX INFO tags with multi-scale "
+                 "sequence complexity metrics (HRun, entropy, TR motifs, LongdustQ)")
       ->group("Optional");
-  subcmd->add_option("--genome-gc-bias", vb_prms.mGcFraction,
-                     "Global genome GC fraction for LongdustQ score correction. "
-                     "Default: 0.41 (human genome-wide average). "
-                     "Set to 0.5 to disable GC correction (uniform model).")
+  subcmd
+      ->add_option("--genome-gc-bias", vb_prms.mGcFraction,
+                   "Global genome GC fraction for LongdustQ score correction. "
+                   "Default: 0.41 (human genome-wide average). "
+                   "Set to 0.5 to disable GC correction (uniform model).")
       ->group("Optional")
       ->check(CLI::Range(0.0, 1.0));
 
-  subcmd->callback([params]() {
+  subcmd->callback([params]() -> void {
     // NOLINTBEGIN(readability-braces-around-statements)
-    if (static_cast<bool>(isatty(fileno(stderr)))) fmt::print(std::cerr, FIGLET_LANCET_LOGO);
-    if (params->mEnableVerboseLogging) SetLancetLoggerLevel(spdlog::level::trace);
+    if (static_cast<bool>(isatty(fileno(stderr))))
+      fmt::print(std::cerr, FIGLET_LANCET_LOGO);
+    if (params->mEnableVerboseLogging)
+      SetLancetLoggerLevel(spdlog::level::trace);
     // NOLINTEND(readability-braces-around-statements)
 
     LOG_INFO("Starting Lancet {}", LancetFullVersion())
