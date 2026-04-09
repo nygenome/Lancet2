@@ -2,11 +2,11 @@
 
 #include <algorithm>
 #include <optional>
-#include <utility>
+#include <string>
 
-#include "absl/container/chunked_queue.h"
-#include "absl/strings/str_cat.h"
+#include "absl/container/inlined_vector.h"
 #include "lancet/base/assert.h"
+#include "lancet/cbdg/traversal_index.h"
 
 namespace lancet::cbdg {
 
@@ -50,6 +50,7 @@ auto MaxFlow::ReconstructWalk(const std::vector<WalkTreeNode> &arena, const u32 
 auto MaxFlow::BuildSequence(const WalkView walk) const -> Result {
   LANCET_ASSERT(!walk.empty())
 
+  Graph::Path path;
   usize total_seq_len = 0;
   std::vector<std::string> uniq_seqs;
   uniq_seqs.reserve(walk.size() + 1);
@@ -65,6 +66,7 @@ auto MaxFlow::BuildSequence(const WalkView walk) const -> Result {
       LANCET_ASSERT(src_itr->second != nullptr)
       uniq_seqs.emplace_back(src_itr->second->SequenceFor(ordering));
       total_seq_len += uniq_seqs.back().length();
+      path.AddNodeCoverage(src_itr->second->TotalReadSupport());
     }
 
     const auto dst_itr = mGraph->find(conn.DstId());
@@ -76,19 +78,21 @@ auto MaxFlow::BuildSequence(const WalkView walk) const -> Result {
     const auto uniq_seq_len = dst_seq.size() - mCurrentK + 1;
     uniq_seqs.emplace_back(dst_seq.substr(mCurrentK - 1, uniq_seq_len));
     total_seq_len += uniq_seqs.back().length();
+    path.AddNodeCoverage(dst_itr->second->TotalReadSupport());
   }
 
   // NOLINTNEXTLINE(readability-braces-around-statements)
   if (uniq_seqs.empty()) return std::nullopt;
 
-  std::string merged_seq;
-  merged_seq.reserve(total_seq_len);
+  path.ReserveSequence(total_seq_len);
   for (const auto &item : uniq_seqs) {
-    absl::StrAppend(&merged_seq, item);
+    path.AppendSequence(item);
   }
 
-  LANCET_ASSERT(merged_seq.length() == total_seq_len)
-  return merged_seq;
+  LANCET_ASSERT(path.Sequence().length() == total_seq_len)
+
+  path.Finalize();
+  return path;
 }
 
 // ============================================================================
@@ -114,19 +118,19 @@ auto MaxFlow::BuildSequence(const WalkView walk) const -> Result {
 //
 //   SCORE PROPAGATION IN THE WALK TREE
 //   ┌──────────────────────────────────────────────────────┐
-//   │ Source outgoing edges: e₀ (new, score=1), e₁ (old)  │
+//   │ Source outgoing edges: e₀ (new, score=1), e₁ (old)   │
 //   │                                                      │
 //   │ Arena[0]: e₀, score=1, parent=NO_PARENT              │
 //   │ Arena[1]: e₁, score=0, parent=NO_PARENT              │
 //   │                                                      │
 //   │ Expand Arena[0] → child e₂ (old):                    │
-//   │ Arena[2]: e₂, score=1, parent=0   (inherits 1+0)    │
+//   │ Arena[2]: e₂, score=1, parent=0   (inherits 1+0)     │
 //   │                                                      │
 //   │ Expand Arena[1] → child e₃ (new):                    │
-//   │ Arena[3]: e₃, score=1, parent=1   (inherits 0+1)    │
+//   │ Arena[3]: e₃, score=1, parent=1   (inherits 0+1)     │
 //   │                                                      │
-//   │ If Arena[2] reaches sink: score=1 > 0 → ACCEPT      │
-//   │ Walk = reconstruct(Arena,2) → [e₀, e₂]              │
+//   │ If Arena[2] reaches sink: score=1 > 0 → ACCEPT       │
+//   │ Walk = reconstruct(Arena,2) → [e₀, e₂]               │
 //   │ Mark e₀ as traversed.                                │
 //   └──────────────────────────────────────────────────────┘
 //
@@ -146,30 +150,10 @@ auto MaxFlow::NextPath() -> Result {
   absl::chunked_queue<u32, 256, 1024> frontier;
 
   // Seed: outgoing edges from source state.
-  // Enqueue untraversed edges first for BFS priority.
-  const auto &src_range = mIndex->mAdjRanges[mIndex->mSrcState];
-
-  // Pass 1: untraversed edges from source (high priority)
-  for (u32 i = 0; i < src_range.mCount; i++) {
-    const auto &out = mIndex->mAdjList[src_range.mStart + i];
-    if (mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
-    const auto ai = static_cast<u32>(arena.size());
-    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, TraversalIndex::NO_PARENT, 1);
-    frontier.push_back(ai);
-  }
-
-  // Pass 2: already-traversed edges from source (low priority)
-  for (u32 i = 0; i < src_range.mCount; i++) {
-    const auto &out = mIndex->mAdjList[src_range.mStart + i];
-    if (!mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
-    const auto ai = static_cast<u32>(arena.size());
-    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, TraversalIndex::NO_PARENT, 0);
-    frontier.push_back(ai);
-  }
+  EnqueueOutgoingEdges(mIndex->mSrcState, TraversalIndex::NO_PARENT, 0, arena, frontier);
 
   u32 nvisits = 0;
   std::optional<u32> best_leaf;
-  u32 best_score = 0;
 
   while (!frontier.empty()) {
     nvisits++;
@@ -181,40 +165,17 @@ auto MaxFlow::NextPath() -> Result {
 
     // --- Sink reached: check if this walk has any new edges ---
     if (mIndex->IsSinkState(node.mDstState)) {
-      if (node.mScore > 0 && node.mScore > best_score) {
-        best_leaf = ai;
-        best_score = node.mScore;
-        // Accept first walk with score > 0 (BFS guarantees shortest)
-        break;
-      }
-      // Score == 0: only traversed edges → skip this walk
-      continue;
+      if (node.mScore == 0) continue; // Only traversed edges → skip this walk
+
+      // Accept first walk with score > 0. Because BFS explores by path length, 
+      // and we natively rank branches descending by Read Support coverage locally, 
+      // this guarantees discovering the most biologically prevalent topology first!
+      best_leaf = ai;
+      break;
     }
 
     // --- Expand: outgoing edges from this state ---
-    // Enqueue untraversed edges first (two-pass) to match the original code's
-    // priority logic without per-node sorting or allocation overhead.
-    // No per-walk cycle detection: the 1M visit cap (DEFAULT_GRAPH_TRAVERSAL_LIMIT)
-    // bounds exploration, and BFS FIFO order naturally prefers shorter paths.
-    const auto &range = mIndex->mAdjRanges[node.mDstState];
-
-    // Pass 1: untraversed edges (high priority — extend walk score)
-    for (u32 i = 0; i < range.mCount; i++) {
-      const auto &out = mIndex->mAdjList[range.mStart + i];
-      if (mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
-      const auto child_ai = static_cast<u32>(arena.size());
-      arena.emplace_back(out.mEdgeOrdinal, out.mDstState, ai, node.mScore + 1);
-      frontier.push_back(child_ai);
-    }
-
-    // Pass 2: already-traversed edges (low priority — no score increase)
-    for (u32 i = 0; i < range.mCount; i++) {
-      const auto &out = mIndex->mAdjList[range.mStart + i];
-      if (!mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
-      const auto child_ai = static_cast<u32>(arena.size());
-      arena.emplace_back(out.mEdgeOrdinal, out.mDstState, ai, node.mScore);
-      frontier.push_back(child_ai);
-    }
+    EnqueueOutgoingEdges(node.mDstState, ai, node.mScore, arena, frontier);
   }
 
   // No walk with any new edge found → enumeration complete
@@ -231,6 +192,63 @@ auto MaxFlow::NextPath() -> Result {
   }
 
   return BuildSequence(path);
+}
+
+// ============================================================================
+//  EnqueueOutgoingEdges — Sort and Push Topologically Dominant Branches
+// ============================================================================
+//
+// Extracts all outgoing edges for a given traversal state, sorts them descending
+// by their destination node's read-support coverage, and enqueues them into the 
+// BFS frontier in a two-pass priority scheme.
+//
+// PRIORITY:
+// 1. Untraversed edges: Increases the walk score, maximizing newly discovered loops.
+// 2. Traversed edges: Does not increase score, serves only to connect novel segments.
+//
+// SORTING HEURISTIC:
+// By resolving ties through coverage strength, the BFS naturally explores the most 
+// biologically dominant allele pathways first. This prevents rare artifacts from 
+// generating structurally impossible chimeras in the final MSA geometry.
+//
+void MaxFlow::EnqueueOutgoingEdges(const u32 state_idx, const u32 parent_ai, const u32 parent_score,
+                                   std::vector<WalkTreeNode>& arena,
+                                   absl::chunked_queue<u32, 256, 1024>& frontier) const {
+  const auto &range = mIndex->mAdjRanges[state_idx];
+  if (range.mCount == 0) return;
+
+  // Materialize edges into stack array to sort them by destination read support
+  absl::InlinedVector<TraversalIndex::OutEdge, 8> out_edges;
+  out_edges.reserve(range.mCount);
+  for (u32 i = 0; i < range.mCount; i++) {
+    out_edges.push_back(mIndex->mAdjList[range.mStart + i]);
+  }
+
+  // Sort edges descending by the destination node's TotalReadSupport to organically traverse high-confidence paths first
+  std::ranges::sort(out_edges, [this](const TraversalIndex::OutEdge& lhs, const TraversalIndex::OutEdge& rhs) {
+    const auto lhs_cov = this->mIndex->mNodes[TraversalIndex::NodeIdxOf(lhs.mDstState)]->TotalReadSupport();
+    const auto rhs_cov = this->mIndex->mNodes[TraversalIndex::NodeIdxOf(rhs.mDstState)]->TotalReadSupport();
+    return lhs_cov > rhs_cov;
+  });
+
+  // Pass 1: untraversed edges (high priority — extend walk score)
+  for (const auto &out : out_edges) {
+    if (mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+    
+    // For source edges, parent_score is technically 0, but since this edge is untraversed, score is 1.
+    const auto child_ai = static_cast<u32>(arena.size());
+    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, parent_ai, parent_score + 1);
+    frontier.push_back(child_ai);
+  }
+
+  // Pass 2: already-traversed edges (low priority — no score increase)
+  for (const auto &out : out_edges) {
+    if (!mTraversedOrdinals.contains(out.mEdgeOrdinal)) continue;
+    
+    const auto child_ai = static_cast<u32>(arena.size());
+    arena.emplace_back(out.mEdgeOrdinal, out.mDstState, parent_ai, parent_score);
+    frontier.push_back(child_ai);
+  }
 }
 
 }  // namespace lancet::cbdg

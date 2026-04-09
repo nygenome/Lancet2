@@ -15,20 +15,17 @@ namespace lancet::caller {
 
 class MsaBuilder {
  public:
+  std::unique_ptr<spoa::AlignmentEngine> mEngine;
+  spoa::Graph mGraph;
+
   using FsPath = std::filesystem::path;
-  using RefAndAltHaplotypes = absl::Span<const std::string>;
 
-  explicit MsaBuilder(RefAndAltHaplotypes sequences, spoa::AlignmentEngine& engine, const FsPath& out_gfa_path = FsPath());
-
-  [[nodiscard]] auto MultipleSequenceAlignment() const -> std::vector<std::string_view>;
-  [[nodiscard]] auto FetchHaplotypeSeqView(const usize idx) const -> std::string_view { return mHaplotypeSeqs.at(idx); }
+  void UpdateSpoaState(absl::Span<const std::string> sequences);
+  void SerializeGraph(const FsPath& out_gfa_path);
 
  private:
-  RefAndAltHaplotypes mHaplotypeSeqs;
-  std::vector<std::string> mResultMsa;
-
   static void WriteFasta(const FsPath& out_path, absl::Span<const std::string> msa_alns);
-  static void WriteGfa(const FsPath& out_path, const spoa::Graph& graph);
+  void WriteGfa(const FsPath& out_path) const;
 };
 
 }  // namespace lancet::caller

@@ -40,24 +40,26 @@ void VariantAnnotator::AnnotateSequenceComplexity(
   static constexpr usize REF_HAP_IDX = 0;
 
   for (const auto& var : vset) {
-    const auto ref_pos_it = var.mHapStart0Idxs.find(REF_HAP_IDX);
-    if (ref_pos_it == var.mHapStart0Idxs.end() || REF_HAP_IDX >= haplotypes.size()) continue;
+    const auto ref_pos = var.mLocalRefStart0Idx;
+    if (ref_pos == std::numeric_limits<usize>::max() || REF_HAP_IDX >= haplotypes.size()) continue;
 
     const auto& ref_hap = haplotypes[REF_HAP_IDX];
-    const auto ref_pos = ref_pos_it->second;
     const auto ref_len = var.mRefAllele.size();
-    const auto alt_len = std::max(ref_len, var.mAltAllele.size());
 
     bool scored_any_alt = false;
 
-    // Score each haplotype carrying the ALT, merge max
-    for (const auto& [hap_idx, hap_pos] : var.mHapStart0Idxs) {
-      if (hap_idx >= haplotypes.size() || hap_idx == REF_HAP_IDX) continue;
+    // Score each haplotype backing every distinct ALT, dynamically merging the worst-case complexity
+    for (const auto& alt : var.mAlts) {
+      const auto alt_len = std::max(ref_len, alt.mSequence.size());
 
-      auto cx = mSeqCxScorer.Score(ref_hap, ref_pos, ref_len,
-                                    haplotypes[hap_idx], hap_pos, alt_len);
-      var.mSeqCx.MergeMax(cx);
-      scored_any_alt = true;
+      for (const auto& [hap_idx, hap_pos] : alt.mLocalHapStart0Idxs) {
+        if (hap_idx >= haplotypes.size() || hap_idx == REF_HAP_IDX) continue;
+
+        auto cx = mSeqCxScorer.Score(ref_hap, ref_pos, ref_len,
+                                      haplotypes[hap_idx], hap_pos, alt_len);
+        var.mSeqCx.MergeMax(cx);
+        scored_any_alt = true;
+      }
     }
 
     // If no ALT haplotypes found, score REF vs REF to populate context features

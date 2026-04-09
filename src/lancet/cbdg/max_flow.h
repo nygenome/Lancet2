@@ -2,9 +2,9 @@
 #define SRC_LANCET_CBDG_MAX_FLOW_H_
 
 #include <optional>
-#include <string>
 #include <vector>
 
+#include "absl/container/chunked_queue.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "lancet/base/types.h"
@@ -32,12 +32,12 @@ namespace lancet::cbdg {
 //   SEQUENTIAL WALK ENUMERATION
 //   ┌──────────────────────────────────────────────────────┐
 //   │ Call 1: BFS finds walk with highest # of new edges   │
-//   │         Return Src→A→M→Sink  (3 new edges)          │
-//   │         Mark {Src→A, A→M, M→Sink} as traversed      │
+//   │         Return Src→A→M→Sink  (3 new edges)           │
+//   │         Mark {Src→A, A→M, M→Sink} as traversed       │
 //   │                                                      │
 //   │ Call 2: BFS explores all walks. Walks reusing only   │
 //   │         traversed edges get score=0 and are skipped. │
-//   │         Return Src→B→M→Sink  (1 new edge: Src→B)    │
+//   │         Return Src→B→M→Sink  (1 new edge: Src→B)     │
 //   │         Mark {Src→B} as traversed                    │
 //   │                                                      │
 //   │ Call 3: No walk has any new edge → return nullopt    │
@@ -63,7 +63,7 @@ class MaxFlow {
  public:
   explicit MaxFlow(const Graph::NodeTable* graph, const NodeIDPair& src_and_snk, usize currk, const TraversalIndex* trav_idx);
 
-  using Result = std::optional<std::string>;
+  using Result = std::optional<Graph::Path>;
 
   /// Find the next walk from source to sink that contains at least one
   /// edge not yet traversed by any previous walk. Returns nullopt when
@@ -100,6 +100,10 @@ class MaxFlow {
 
   /// Build haplotype sequence string from a completed walk.
   [[nodiscard]] auto BuildSequence(WalkView walk) const -> Result;
+
+  void EnqueueOutgoingEdges(u32 state_idx, u32 parent_ai, u32 parent_score,
+                            std::vector<WalkTreeNode>& arena,
+                            absl::chunked_queue<u32, 256, 1024>& frontier) const;
 };
 
 }  // namespace lancet::cbdg

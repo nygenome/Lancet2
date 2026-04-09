@@ -1,8 +1,6 @@
 #ifndef SRC_LANCET_CALLER_VARIANT_CALL_H_
 #define SRC_LANCET_CALLER_VARIANT_CALL_H_
 
-#include <array>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,11 +20,11 @@ using VariantID = u64;
 // VariantCall: a finalized VCF record, potentially multi-allelic.
 //
 // Multi-allelic support:
-//   The constructor accepts a group of RawVariants at the same locus
-//   (same chrom, position, ref allele) and merges their per-sample evidence
-//   into a unified multi-allelic representation:
+//   The constructor natively ingests a single fully multiallelic RawVariant
+//   directly emitted from the Genotyper module. It unpacks the pre-mapped
+//   SupportArray layout directly into a unified multidimensional VCF trace:
 //
-//     Input:  {chr1:100 A→T, chr1:100 A→G}  (two RawVariants, same locus)
+//     Input:  {chr1:100 A→T, A→G}  (One Natively Multiallelic RawVariant)
 //     Output: VCF record: chr1 100 . A T,G ... (comma-separated ALTs)
 //
 // FORMAT fields (per-sample):
@@ -62,10 +60,9 @@ class VariantCall {
     bool enable_sequence_complexity = false;
   };
 
-  // Unified multi-variant constructor (groups variants occurring at exact same locus)
-  using VariantGroup = absl::Span<const RawVariant* const>;
+  // Native multi-allelic constructor
   using SupportsByVariant = absl::flat_hash_map<const RawVariant*, SupportArray>;
-  VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps, FeatureFlags features, f64 window_cov);
+  VariantCall(const RawVariant* var, const SupportsByVariant& all_supports, Samples samps, FeatureFlags features, f64 window_cov);
 
   [[nodiscard]] auto ChromIndex() const -> usize { return mChromIndex; }
   [[nodiscard]] auto ChromName() const -> std::string_view { return mChromName; }
@@ -73,10 +70,11 @@ class VariantCall {
   [[nodiscard]] auto RefAllele() const -> std::string_view { return mRefAllele; }
   [[nodiscard]] auto AltAlleles() const -> absl::Span<const std::string> { return mAltAlleles; }
   [[nodiscard]] auto NumAltAlleles() const -> usize { return mAltAlleles.size(); }
-  [[nodiscard]] auto Length() const -> i64 { return mVariantLength; }
+  [[nodiscard]] auto VariantLengths() const -> absl::Span<const i64> { return mVariantLengths; }
   [[nodiscard]] auto Quality() const -> f64 { return mSiteQuality; }
   [[nodiscard]] auto State() const -> RawVariant::State { return mState; }
-  [[nodiscard]] auto Category() const -> RawVariant::Type { return mCategory; }
+  [[nodiscard]] auto Categories() const -> absl::Span<const RawVariant::Type> { return mCategories; }
+  [[nodiscard]] auto IsMultiallelic() const -> bool { return mIsMultiallelic; }
 
   [[nodiscard]] auto NumSamples() const -> usize { return mFormatFields.empty() ? 0 : mFormatFields.size() - 1; }
   [[nodiscard]] auto Identifier() const -> VariantID { return mVariantId; }
@@ -96,47 +94,46 @@ class VariantCall {
     if (lhs.mChromIndex != rhs.mChromIndex) return lhs.mChromIndex < rhs.mChromIndex;
     if (lhs.mStartPos1 != rhs.mStartPos1) return lhs.mStartPos1 < rhs.mStartPos1;
     if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
-    return lhs.mVariantId < rhs.mVariantId;
+    return lhs.mTotalSampleCov > rhs.mTotalSampleCov;
     // NOLINTEND(readability-braces-around-statements)
   }
 
  private:
+  // ── 8B Alignment ────────────────────────────────────────────────────────
   u64 mVariantId;
   usize mChromIndex;
   usize mStartPos1;
   usize mTotalSampleCov;
+  f64 mSiteQuality;
+  f64 mWindowCov;
+
   std::string mChromName;
   std::string mRefAllele;
-  std::vector<std::string> mAltAlleles;  // Multi-allelic: [ALT1, ALT2, ...]
-
-  i64 mVariantLength;
-  f64 mSiteQuality;
-  RawVariant::State mState = RawVariant::State::NONE;
-  RawVariant::Type mCategory = RawVariant::Type::REF;
-  bool mHasAltSupport = false;  ///< true if any sample has ALT coverage
-
   std::string mInfoField;
-
-  // ── Graph complexity metrics (from RawVariant, transcribed) ────────────
-  RawVariant::GraphMetrics mGraphMetrics;
+  
+  std::vector<i64> mVariantLengths;
+  std::vector<std::string> mAltAlleles;
+  std::vector<RawVariant::Type> mCategories;
+  std::vector<std::string> mFormatFields;
 
   // ── Sequence complexity (11 ML-ready features, from RawVariant) ─────────
+  // ── Graph complexity metrics (from RawVariant, transcribed) ────────────
   base::SequenceComplexity mSeqCx;
+  RawVariant::GraphMetrics mGraphCx;
 
-  // ── Feature gate flags (from constructor, preserved for BuildInfoField) ─
+  // ── 4B/2B Alignment ─────────────────────────────────────────────────────
+  RawVariant::State mState = RawVariant::State::NONE;
+
+  // ── 1B Alignment ────────────────────────────────────────────────────────
   FeatureFlags mFeatureFlags;
-
-  /// Window-level BAM coverage used as the SDFC denominator.
-  /// Set during construction from ProcessWindow context.
-  f64 mWindowCov = 0.0;
+  bool mIsMultiallelic = false;
+  bool mHasAltSupport = false;
 
   /// Site Depth Fold Change: DP / window mean coverage.
   /// Spikes indicate collapsed paralogous mappings; dips indicate mapping holes.
   [[nodiscard]] auto SiteDepthFoldChange() const -> f64 {
     return mWindowCov > 0.0 ? static_cast<f64>(mTotalSampleCov) / mWindowCov : 1.0;
   }
-
-  std::vector<std::string> mFormatFields;
 
   // ── Evidence collection (shared by both constructors) ──────────────────
 
@@ -145,14 +142,37 @@ class VariantCall {
 
   // ── Modular field builders ─────────────────────────────────────────────
 
-  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ).
-  /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
   struct AltPresence {
     bool in_normal = false;
     bool in_tumor = false;
   };
+  
+  struct PerAlleleMetrics {
+    std::string ad;
+    std::string adf;
+    std::string adr;
+    std::string rmq;
+    std::string npbq;
+  };
 
+  /// Build per-sample FORMAT strings (GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ).
+  /// Also computes site quality and total coverage. Returns {alt_in_normal, alt_in_tumor}.
   auto BuildFormatFields(const SupportArray& evidence, Samples samps, bool tumor_normal_mode) -> AltPresence;
+
+  [[nodiscard]] auto BuildGenotype(absl::Span<const int> pls, usize num_alleles) const -> std::string;
+  
+  /// Convert a GL index back to genotype string (e.g., GL=4 with k=3 → "1/2")
+  [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
+
+  void UpdateSiteQuality(const core::SampleInfo& sinfo, const VariantSupport* support, const SupportArray& evidence, Samples samps, bool tumor_normal_mode, absl::Span<const int> pls);
+  
+  /// Somatic log odds ratio: tumor ALT enrichment vs normal.
+  [[nodiscard]] static auto SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64;
+
+  void TrackAltPresence(const VariantSupport* support, const core::SampleInfo& sinfo, bool tumor_normal_mode, AltPresence& alt_presence);
+  
+  /// Generate the Number=R scalar metrics natively iterating across each variant allele index.
+  [[nodiscard]] auto BuildPerAlleleMetrics(const VariantSupport* support, usize num_alleles) const -> PerAlleleMetrics;
 
   /// Compute SHARED/NORMAL/TUMOR/UNKNOWN state from ALT presence flags.
   /// In non-tumor-normal mode (i.e. normal-only), state is always UNKNOWN.
@@ -160,14 +180,6 @@ class VariantCall {
 
   /// Assemble the INFO field string (TYPE, LENGTH, optional state prefix, optional complexity annotations).
   void BuildInfoField(bool tumor_normal_mode, FeatureFlags features);
-
-  // ── Static helpers ─────────────────────────────────────────────────────
-
-  /// Convert a GL index back to genotype string (e.g., GL=4 with k=3 → "1/2")
-  [[nodiscard]] static auto GenotypeFromGLIndex(usize gl_index, usize num_alleles) -> std::string;
-
-  /// Somatic log odds ratio: tumor ALT enrichment vs normal.
-  [[nodiscard]] static auto SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64;
 };
 
 }  // namespace lancet::caller

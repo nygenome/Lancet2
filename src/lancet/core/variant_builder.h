@@ -8,13 +8,13 @@
 
 #include "lancet/base/types.h"
 #include "lancet/caller/genotyper.h"
+#include "lancet/caller/msa_builder.h"
 #include "lancet/caller/variant_call.h"
 #include "lancet/caller/variant_set.h"
 #include "lancet/cbdg/graph.h"
 #include "lancet/core/read_collector.h"
 #include "lancet/core/variant_annotator.h"
 #include "lancet/core/window.h"
-#include "spoa/alignment_engine.hpp"
 
 namespace lancet::core {
 
@@ -63,7 +63,7 @@ class VariantBuilder {
   ReadCollector mReadCollector;
   caller::Genotyper mGenotyper;
   std::shared_ptr<const Params> mParamsPtr;
-  std::unique_ptr<spoa::AlignmentEngine> mAlnEngine;
+  caller::MsaBuilder mSpoaState;
 
   /// Variant annotator — produces ML-ready complexity features per variant.
   VariantAnnotator mAnnotator;

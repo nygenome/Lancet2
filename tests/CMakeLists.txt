@@ -18,7 +18,7 @@ endif ()
 add_executable(TestLancet2
 		base/repeat_test.cpp base/longdust_scorer_test.cpp base/sequence_complexity_test.cpp
 		hts/cigar_utils_test.cpp hts/reference_test.cpp hts/extractor_test.cpp hts/alignment_test.cpp
-		cbdg/kmer_test.cpp cbdg/graph_test.cpp cbdg/graph_complexity_test.cpp
+		cbdg/kmer_test.cpp cbdg/graph_test.cpp cbdg/graph_complexity_test.cpp caller/variant_set_test.cpp
 		${longdust_SOURCE_DIR}/longdust.c ${longdust_SOURCE_DIR}/kalloc.c)
 target_include_directories(TestLancet2 PRIVATE
 		"${CMAKE_BINARY_DIR}/generated" "${CMAKE_SOURCE_DIR}"

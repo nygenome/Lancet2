@@ -59,7 +59,9 @@ void VariantStore::FlushVariantsBeforeWindow(const Window &win, std::ostream &ou
     }
 
     using caller::RawVariant::Type::REF;
-    static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
+    static const auto has_no_support = [](const Value &item) { 
+      return !item->HasAltSupport() || std::ranges::all_of(item->Categories(), [](auto c) { return c == REF; }); 
+    };
 
     for (const auto& key : keys_to_extract) {
       auto handle = bucket.data.extract(key);
@@ -86,7 +88,9 @@ void VariantStore::FlushAllVariantsInStore(std::ostream &out) {
     const absl::MutexLock lock(bucket.mutex);
     
     using caller::RawVariant::Type::REF;
-    static const auto has_no_support = [](const Value &item) { return item->Category() == REF || !item->HasAltSupport(); };
+    static const auto has_no_support = [](const Value &item) { 
+      return !item->HasAltSupport() || std::ranges::all_of(item->Categories(), [](auto c) { return c == REF; }); 
+    };
 
     for (auto& item : bucket.data) {
       // NOLINTNEXTLINE(readability-braces-around-statements)

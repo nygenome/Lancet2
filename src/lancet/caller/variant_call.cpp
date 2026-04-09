@@ -2,17 +2,15 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/hash/hash.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "lancet/base/assert.h"
-#include "lancet/base/compute_stats.h"
-#include "lancet/base/hash.h"
 #include "lancet/base/longdust_scorer.h"
 #include "lancet/base/polar_coords.h"
 #include "lancet/base/types.h"
@@ -24,18 +22,11 @@
 namespace {
 
 [[nodiscard]] inline auto HashRawVariant(const lancet::caller::RawVariant* var) -> u64 {
-  return HashStr64(fmt::format("{},{},{},{},{},{}", var->mChromName, var->mGenomeStart1, var->mRefAllele,
-                               var->mAltAllele, var->mAlleleLength, static_cast<i8>(var->mType)));
-}
-
-[[nodiscard]] inline auto HashVariantGroup(absl::Span<const lancet::caller::RawVariant* const> vars) -> u64 {
-  std::string combined;
-  combined.reserve(vars.size() * 80);
-  for (const auto* var : vars) {
-    absl::StrAppend(&combined, var->mChromName, ",", var->mGenomeStart1, ",", var->mRefAllele, ",",
-                     var->mAltAllele, ",", var->mAlleleLength, ",", static_cast<i8>(var->mType), ",");
-  }
-  return HashStr64(combined);
+  std::size_t h = absl::HashOf(var->mChromName, var->mGenomeChromPos1, var->mRefAllele);
+  std::for_each(var->mAlts.cbegin(), var->mAlts.cend(), [&h](const auto& alt) {
+    h = absl::HashOf(h, alt.mSequence, alt.mLength, alt.mType);
+  });
+  return static_cast<u64>(h);
 }
 
 }  // namespace
@@ -45,64 +36,36 @@ namespace lancet::caller {
 // ============================================================================
 // Multi-allelic constructor
 //
-// Takes a group of RawVariants at the same locus and merges their per-sample
-// evidence. Each RawVariant's AlleleIndex mapping (from genotyper) is used
-// to build a unified multi-allelic VariantSupport per sample.
+// Unspools a natively multi-allelic RawVariant exactly into the VCF array mapping!
 // ============================================================================
-VariantCall::VariantCall(VariantGroup variants, SupportsByVariant&& all_supports, Samples samps,
+VariantCall::VariantCall(const RawVariant* var, const SupportsByVariant& all_supports, Samples samps,
                          FeatureFlags features, const f64 window_cov)
-    : mVariantId(HashVariantGroup(variants)),
-      mChromIndex(variants[0]->mChromIndex), mStartPos1(variants[0]->mGenomeStart1),
-      mTotalSampleCov(0), mChromName(variants[0]->mChromName), mRefAllele(variants[0]->mRefAllele),
-      mVariantLength(variants[0]->mAlleleLength), mSiteQuality(0), mCategory(variants[0]->mType),
-      mFeatureFlags(features), mWindowCov(window_cov) {
-  // Collect ALT alleles and merge complexity scores (element-wise max across the group)
-  for (const auto* var : variants) {
-    mAltAlleles.push_back(var->mAltAllele);
+    : mVariantId(HashRawVariant(var)),
+      mChromIndex(var->mChromIndex), mStartPos1(var->mGenomeChromPos1),
+      mTotalSampleCov(0), mSiteQuality(0), mWindowCov(window_cov),
+      mChromName(var->mChromName), mRefAllele(var->mRefAllele),
+      mFeatureFlags(features) {
+          
+  const auto num_alts = var->mAlts.size();
+  mAltAlleles.reserve(num_alts);
+  mCategories.reserve(num_alts);
+  mVariantLengths.reserve(num_alts);
 
-    // Graph metrics: take from first variant (all share same window-level metrics)
-    if (var == variants[0]) {
-      mGraphMetrics = var->mGraphMetrics;
-    }
+  std::for_each(var->mAlts.cbegin(), var->mAlts.cend(), [this](const auto& alt) {
+    mAltAlleles.push_back(alt.mSequence);
+    mCategories.push_back(alt.mType);
+    mVariantLengths.push_back(alt.mLength);
+  });
+  
+  mIsMultiallelic = (mAltAlleles.size() > 1);
+  mSeqCx = var->mSeqCx;
+  mGraphCx = var->mGraphMetrics;
 
-    // Sequence complexity: element-wise max across all variants at this locus
-    mSeqCx.MergeMax(var->mSeqCx);
+  if (const auto var_it = all_supports.find(var); var_it != all_supports.end()) {
+    Finalize(var_it->second, samps, features);
+  } else {
+    Finalize(SupportArray(), samps, features);
   }
-
-  // Merge per-variant bi-allelic evidence into a single multi-allelic VariantSupport.
-  //
-  // Each variant independently has alleles {0=REF, 1=ALT}. When merging N
-  // variants at a locus, we remap each one's ALT to its position in the
-  // multi-allelic allele list:
-  //
-  //   variants[0] ALT(1) → merged allele 1
-  //   variants[1] ALT(1) → merged allele 2
-  //   variants[2] ALT(1) → merged allele 3 ...
-  //
-  // REF reads are shared — we merge REF(0) from all variants into merged allele 0
-  // (deduplication by read name hash prevents double-counting).
-  SupportArray per_sample_evidence;
-
-  for (const auto& sinfo : samps) {
-    auto merged = std::make_unique<VariantSupport>();
-
-    for (usize var_idx = 0; var_idx < variants.size(); ++var_idx) {
-      auto var_it = all_supports.find(variants[var_idx]);
-      if (var_it == all_supports.end()) continue;
-
-      const auto* src = var_it->second.Find(sinfo.SampleName());
-      if (src == nullptr) continue;
-
-      // Merge REF reads (allele 0 → 0) from all variants, dedup handles overlaps
-      merged->MergeAlleleFrom(*src, REF_ALLELE_IDX, REF_ALLELE_IDX);
-      // Remap this variant's ALT (allele 1) → its multi-allelic position (var_idx + 1)
-      merged->MergeAlleleFrom(*src, AlleleIndex{1}, static_cast<AlleleIndex>(var_idx + 1));
-    }
-
-    per_sample_evidence.Insert(sinfo.SampleName(), std::move(merged));
-  }
-
-  Finalize(per_sample_evidence, samps, features);
 }
 
 // ============================================================================
@@ -160,63 +123,15 @@ auto VariantCall::BuildFormatFields(const SupportArray& evidence, Samples samps,
     const auto* support = evidence.Find(sinfo.SampleName());
     if (support == nullptr) continue;
 
+    mTotalSampleCov += support->TotalSampleCov();
+    
     const auto pls = support->ComputePLs();
     const auto gq_value = VariantSupport::ComputeGQ(pls);
+    const auto genotype = BuildGenotype(pls, num_alleles);
+    const auto allele_metrics = BuildPerAlleleMetrics(support, num_alleles);
 
-    // Best genotype = minimum PL index
-    usize best_gt_idx = 0;
-    if (!pls.empty()) {
-      best_gt_idx = static_cast<usize>(
-          std::distance(pls.cbegin(), std::min_element(pls.cbegin(), pls.cend())));
-    }
-    const auto genotype = GenotypeFromGLIndex(best_gt_idx, num_alleles);
-
-    // Site quality: somatic log odds ratio in tumor-normal mode,
-    // per-read evidence strength (PL[0]/DP, capped at 10) in normal-only mode.
-    const auto somatic_lor = SomaticLogOddsRatio(sinfo, evidence, samps);
-    const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
-    const auto sample_dp = support->TotalSampleCov();
-    // Per-read evidence against hom-REF: PL[0]/DP, capped at 10.0.
-    // Coverage-invariant: clean het returns ~3.0 at any depth.
-    // Take max across multiple normals (conservative: strongest evidence wins).
-    const auto per_read_qual = (!pls.empty() && sample_dp > 0)
-        ? std::min(static_cast<f64>(ref_hom_pl) / static_cast<f64>(sample_dp), 10.0)
-        : 0.0;
-    mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? somatic_lor : per_read_qual);
-    mTotalSampleCov += support->TotalSampleCov();
-
-    // Track ALT support globally (for HasAltSupport()) and per-label (for state)
-    if (support->TotalAltCov() > 0) {
-      mHasAltSupport = true;
-      if (tumor_normal_mode) {
-        // NOLINTBEGIN(readability-braces-around-statements)
-        if (sinfo.TagKind() == cbdg::Label::NORMAL) alt_presence.in_normal = true;
-        if (sinfo.TagKind() == cbdg::Label::TUMOR) alt_presence.in_tumor = true;
-        // NOLINTEND(readability-braces-around-statements)
-      }
-    }
-
-    // Per-allele metric strings (Number=R fields)
-    std::vector<std::string> ad_vals, adf_vals, adr_vals, rmq_vals, npbq_vals;
-    ad_vals.reserve(num_alleles);
-    adf_vals.reserve(num_alleles);
-    adr_vals.reserve(num_alleles);
-    rmq_vals.reserve(num_alleles);
-    npbq_vals.reserve(num_alleles);
-
-    for (usize allele = 0; allele < num_alleles; ++allele) {
-      const auto idx = static_cast<AlleleIndex>(allele);
-      ad_vals.push_back(std::to_string(support->TotalAlleleCov(idx)));
-      adf_vals.push_back(std::to_string(support->FwdCount(idx)));
-      adr_vals.push_back(std::to_string(support->RevCount(idx)));
-      rmq_vals.push_back(fmt::format("{:.1f}", support->RmsMappingQual(idx)));
-      // NPBQ: raw posterior base quality divided by allele depth
-      // Recovers the effective per-read quality (~30 for Q30 reads at any depth)
-      const auto raw_pbq = support->RawPosteriorBaseQual(idx);
-      const auto allele_cov = support->TotalAlleleCov(idx);
-      const auto npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
-      npbq_vals.push_back(fmt::format("{:.1f}", npbq));
-    }
+    UpdateSiteQuality(sinfo, support, evidence, samps, tumor_normal_mode, pls);
+    TrackAltPresence(support, sinfo, tumor_normal_mode, alt_presence);
 
     // Strand bias log odds ratio (Number=1, per-sample)
     const auto sb_val = fmt::format("{:.3f}", support->StrandBiasLogOR());
@@ -237,125 +152,27 @@ auto VariantCall::BuildFormatFields(const SupportArray& evidence, Samples samps,
     const auto prad_val = fmt::format("{:.4f}", base::PolarRadius(ad_ref, ad_alt));
     const auto pang_val = fmt::format("{:.4f}", base::PolarAngle(ad_alt, ad_ref));
 
-    // PL string (Number=G field)
-    std::vector<std::string> pl_strs;
-    pl_strs.reserve(pls.size());
-    for (const auto pl_val : pls) {
-      pl_strs.push_back(std::to_string(pl_val));
-    }
+    const std::string pl_val = pls.empty() ? "." : absl::StrJoin(pls, ",");
 
     mFormatFields.emplace_back(fmt::format(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        genotype,
-        absl::StrJoin(ad_vals, ","),
-        absl::StrJoin(adf_vals, ","),
-        absl::StrJoin(adr_vals, ","),
-        support->TotalSampleCov(),
-        absl::StrJoin(rmq_vals, ","),
-        absl::StrJoin(npbq_vals, ","),
-        sb_val,
-        sca_val,
-        fld_val,
-        rpcd_val,
-        bqcd_val,
-        mqcd_val,
-        asmd_val,
-        sdfc_val,
-        prad_val,
-        pang_val,
-        pls.empty() ? "." : absl::StrJoin(pl_strs, ","),
-        gq_value));
+        "{GT}:{AD}:{ADF}:{ADR}:{DP}:{RMQ}:{NPBQ}:{SB}:{SCA}:{FLD}:{RPCD}:{BQCD}:{MQCD}:{ASMD}:{SDFC}:{PRAD}:{PANG}:{PL}:{GQ}",
+        fmt::arg("GT", genotype), fmt::arg("AD", allele_metrics.ad), fmt::arg("ADF", allele_metrics.adf), fmt::arg("ADR", allele_metrics.adr),
+        fmt::arg("DP", support->TotalSampleCov()), fmt::arg("RMQ", allele_metrics.rmq), fmt::arg("NPBQ", allele_metrics.npbq),
+        fmt::arg("SB", sb_val), fmt::arg("SCA", sca_val), fmt::arg("FLD", fld_val), fmt::arg("RPCD", rpcd_val),
+        fmt::arg("BQCD", bqcd_val), fmt::arg("MQCD", mqcd_val), fmt::arg("ASMD", asmd_val), fmt::arg("SDFC", sdfc_val),
+        fmt::arg("PRAD", prad_val), fmt::arg("PANG", pang_val), fmt::arg("PL", pl_val), fmt::arg("GQ", gq_value))
+      );
   }
 
   return alt_presence;
 }
 
-// ============================================================================
-// ComputeState: classify variant as SHARED, NORMAL, TUMOR, UNKNOWN, or NONE.
-//
-// In tumor-normal mode: SHARED/NORMAL/TUMOR based on ALT presence, NONE if no support.
-// In normal-only mode: always UNKNOWN (not enough info to classify).
-// ============================================================================
-void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_normal_mode) {
-  if (!tumor_normal_mode) {
-    mState = RawVariant::State::UNKNOWN;
-    return;
+auto VariantCall::BuildGenotype(absl::Span<const int> pls, usize num_alleles) const -> std::string {
+  usize best_gt_idx = 0;
+  if (!pls.empty()) {
+    best_gt_idx = static_cast<usize>(std::distance(pls.cbegin(), std::min_element(pls.cbegin(), pls.cend())));
   }
-
-  // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
-  mState = alt_presence.in_normal && alt_presence.in_tumor ? RawVariant::State::SHARED
-           : alt_presence.in_normal                        ? RawVariant::State::NORMAL
-           : alt_presence.in_tumor                         ? RawVariant::State::TUMOR
-                                                            : RawVariant::State::NONE;
-  // NOLINTEND(readability-avoid-nested-conditional-operator)
-}
-
-// ============================================================================
-// BuildInfoField: assemble the VCF INFO string.
-//
-// Structure:  [STATE;]TYPE=<type>;LENGTH=<len>[;GRAPH_CX=...][;SEQ_CX=...]
-//
-//   STATE     — SHARED/NORMAL/TUMOR (tumor-normal mode only; omitted otherwise)
-//   TYPE      — SNV, INS, DEL, MNP (always present)
-//   LENGTH    — variant length in bp (always present)
-//   GRAPH_CX  — optional graph complexity (GEI, TipToPathCovRatio, MaxDegree)
-//   SEQ_CX    — optional sequence complexity (11 ML-ready features)
-//
-// Note: SCA, FLD, and MQCD are per-sample FORMAT fields, not site-level INFO.
-// ============================================================================
-void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags features) {
-  using namespace std::string_view_literals;
-
-  // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
-  const auto vcategory = mCategory == RawVariant::Type::SNV   ? "SNV"sv
-                         : mCategory == RawVariant::Type::INS ? "INS"sv
-                         : mCategory == RawVariant::Type::DEL ? "DEL"sv
-                         : mCategory == RawVariant::Type::MNP ? "MNP"sv
-                                                              : "REF"sv;
-  // NOLINTEND(readability-avoid-nested-conditional-operator)
-
-  std::string info;
-  info.reserve(1024);
-
-  // State prefix — tumor-normal mode only
-  if (tumor_normal_mode) {
-    // SHARED/NORMAL/TUMOR state — only in tumor-normal (somatic) mode
-    // NOLINTBEGIN(readability-avoid-nested-conditional-operator)
-    const auto vstate = mState == RawVariant::State::SHARED ? "SHARED"sv
-                        : mState == RawVariant::State::NORMAL ? "NORMAL"sv
-                        : mState == RawVariant::State::TUMOR  ? "TUMOR"sv
-                                                              : "NONE"sv;
-    // NOLINTEND(readability-avoid-nested-conditional-operator)
-    absl::StrAppend(&info, vstate, ";");
-  }
-
-  absl::StrAppend(&info, "TYPE=", vcategory, ";LENGTH=", mVariantLength);
-
-  // Optional complexity annotations — each struct owns its own VCF formatting
-  if (features.enable_graph_complexity) {
-    absl::StrAppend(&info, ";GRAPH_CX=", mGraphMetrics.FormatVcfValue());
-  }
-
-  if (features.enable_sequence_complexity) {
-    absl::StrAppend(&info, ";SEQ_CX=", mSeqCx.FormatVcfValue());
-  }
-
-  mInfoField = std::move(info);
-}
-
-// ============================================================================
-// AsVcfRecord: emit a VCF record with comma-separated ALTs for multi-allelic.
-// ============================================================================
-auto VariantCall::AsVcfRecord() const -> std::string {
-  const auto alt_field = absl::StrJoin(mAltAlleles, ",");
-  return fmt::format("{CHROM}\t{POS}\t.\t{REF}\t{ALT}\t{QUAL:.2f}\t.\t{INFO}\t{FORMAT}",
-                     fmt::arg("CHROM", mChromName),
-                     fmt::arg("POS", mStartPos1),
-                     fmt::arg("REF", mRefAllele),
-                     fmt::arg("ALT", alt_field),
-                     fmt::arg("QUAL", mSiteQuality),
-                     fmt::arg("INFO", mInfoField),
-                     fmt::arg("FORMAT", absl::StrJoin(mFormatFields, "\t")));
+  return GenotypeFromGLIndex(best_gt_idx, num_alleles);
 }
 
 // ============================================================================
@@ -405,6 +222,14 @@ auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alle
   return fmt::format("{}/{}", i, j);
 }
 
+void VariantCall::UpdateSiteQuality(const core::SampleInfo& sinfo, const VariantSupport* support, const SupportArray& evidence, Samples samps, bool tumor_normal_mode, absl::Span<const int> pls) {
+  const auto somatic_lor = tumor_normal_mode ? SomaticLogOddsRatio(sinfo, evidence, samps) : 0.0;
+  const auto ref_hom_pl = pls.empty() ? 0 : pls[0];
+  const auto sample_dp = support->TotalSampleCov();
+  const auto per_read_qual = (!pls.empty() && sample_dp > 0) ? std::min(static_cast<f64>(ref_hom_pl) / static_cast<f64>(sample_dp), 10.0) : 0.0;
+  mSiteQuality = std::max(mSiteQuality, tumor_normal_mode ? somatic_lor : per_read_qual);
+}
+
 // ============================================================================
 // SomaticLogOddsRatio: somatic variant evidence as a coverage-invariant
 // log odds ratio. Compares ALT/REF allele counts between the current tumor
@@ -417,40 +242,151 @@ auto VariantCall::GenotypeFromGLIndex(const usize gl_index, const usize num_alle
 // Coverage-stable: once normal VAF stabilizes (≥60×), SOLOR varies < 3%.
 // ============================================================================
 auto VariantCall::SomaticLogOddsRatio(const core::SampleInfo& curr, const SupportArray& supports, Samples samps) -> f64 {
-  // NOLINTNEXTLINE(readability-braces-around-statements)
-  if (curr.TagKind() != cbdg::Label::TUMOR) return 0;
+  if (curr.TagKind() != cbdg::Label::TUMOR) {
+    return 0.0;
+  }
 
-  u32 current_tmr_alt = 0;
-  u32 current_tmr_ref = 0;
-  OnlineStats nml_alts;
-  OnlineStats nml_refs;
+  const auto* tmr_evidence = supports.Find(curr.SampleName());
+  // Haldane correction (+1 to all cells) avoids mathematical undefined zero-division
+  const f64 ta = (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalAltCov()) : 0.0) + 1.0;
+  const f64 tr = (tmr_evidence != nullptr ? static_cast<f64>(tmr_evidence->TotalRefCov()) : 0.0) + 1.0;
+
+  u32 sum_na = 0;
+  u32 sum_nr = 0;
+  u32 count_nml = 0;
 
   for (const auto& sinfo : samps) {
-    if (sinfo.SampleName() == curr.SampleName()) {
-      const auto* evidence = supports.Find(sinfo.SampleName());
-      if (evidence != nullptr) {
-        current_tmr_alt = evidence->TotalAltCov();
-        current_tmr_ref = evidence->TotalRefCov();
-      }
-      continue;
-    }
-
     if (sinfo.TagKind() == cbdg::Label::NORMAL) {
-      const auto* evidence = supports.Find(sinfo.SampleName());
-      if (evidence != nullptr) {
-        nml_alts.Add(evidence->TotalAltCov());
-        nml_refs.Add(evidence->TotalRefCov());
+      if (const auto* evidence = supports.Find(sinfo.SampleName()); evidence != nullptr) {
+        sum_na += evidence->TotalAltCov();
+        sum_nr += evidence->TotalRefCov();
+        count_nml++;
       }
     }
   }
 
-  // Haldane correction (+1 to all cells)
-  const auto ta = static_cast<f64>(current_tmr_alt) + 1.0;
-  const auto tr = static_cast<f64>(current_tmr_ref) + 1.0;
-  const auto na = std::round(nml_alts.Mean()) + 1.0;
-  const auto nr = std::round(nml_refs.Mean()) + 1.0;
+  const f64 mean_na = count_nml > 0 ? static_cast<f64>(sum_na) / count_nml : 0.0;
+  const f64 mean_nr = count_nml > 0 ? static_cast<f64>(sum_nr) / count_nml : 0.0;
+
+  const f64 na = mean_na + 1.0;
+  const f64 nr = mean_nr + 1.0;
 
   return std::log((ta * nr) / (tr * na));
+}
+
+void VariantCall::TrackAltPresence(const VariantSupport* support, const core::SampleInfo& sinfo, bool tumor_normal_mode, AltPresence& alt_presence) {
+  if (support->TotalAltCov() > 0) {
+    mHasAltSupport = true;
+    if (tumor_normal_mode) {
+      if (sinfo.TagKind() == cbdg::Label::NORMAL) alt_presence.in_normal = true;
+      if (sinfo.TagKind() == cbdg::Label::TUMOR) alt_presence.in_tumor = true;
+    }
+  }
+}
+
+auto VariantCall::BuildPerAlleleMetrics(const VariantSupport* support, usize num_alleles) const -> PerAlleleMetrics {
+  PerAlleleMetrics metrics;
+  for (usize allele = 0; allele < num_alleles; ++allele) {
+    const auto idx = static_cast<AlleleIndex>(allele);
+    if (allele > 0) {
+      metrics.ad += ","; metrics.adf += ","; metrics.adr += ","; metrics.rmq += ","; metrics.npbq += ",";
+    }
+    absl::StrAppend(&metrics.ad, support->TotalAlleleCov(idx));
+    absl::StrAppend(&metrics.adf, support->FwdCount(idx));
+    absl::StrAppend(&metrics.adr, support->RevCount(idx));
+    absl::StrAppendFormat(&metrics.rmq, "{:.1f}", support->RmsMappingQual(idx));
+    
+    // NPBQ: raw posterior base quality divided by allele depth
+    // Recovers the effective per-read quality (~30 for Q30 reads at any depth)
+    const auto raw_pbq = support->RawPosteriorBaseQual(idx);
+    const auto allele_cov = support->TotalAlleleCov(idx);
+    const auto npbq = allele_cov > 0 ? raw_pbq / static_cast<f64>(allele_cov) : 0.0;
+    absl::StrAppendFormat(&metrics.npbq, "{:.1f}", npbq);
+  }
+  return metrics;
+}
+
+// ============================================================================
+// ComputeState: classify variant as SHARED, NORMAL, TUMOR, UNKNOWN, or NONE.
+//
+// In tumor-normal mode: SHARED/NORMAL/TUMOR based on ALT presence, NONE if no support.
+// In normal-only mode: always UNKNOWN (not enough info to classify).
+// ============================================================================
+void VariantCall::ComputeState(const AltPresence alt_presence, const bool tumor_normal_mode) {
+  static constexpr RawVariant::State STATE_MAP[4] = {
+      RawVariant::State::NONE,   // 00: Neither
+      RawVariant::State::NORMAL, // 01: Normal only
+      RawVariant::State::TUMOR,  // 10: Tumor only
+      RawVariant::State::SHARED  // 11: Both
+  };
+
+  // We compute a 2-bit mapping index directly from the boolean parameters:
+  // Bit 1 (Left bit):  in_tumor
+  // Bit 0 (Right bit): in_normal 
+  // Evaluates exactly into [0=NONE, 1=NORMAL, 2=TUMOR, 3=SHARED].
+  const usize state_idx = (static_cast<usize>(alt_presence.in_tumor) << 1) | 
+                           static_cast<usize>(alt_presence.in_normal);
+
+  mState = tumor_normal_mode ? STATE_MAP[state_idx] : RawVariant::State::UNKNOWN;
+}
+
+// ============================================================================
+// BuildInfoField: assemble the VCF INFO string.
+//
+// Structure:  [STATE;]TYPE=<type>;LENGTH=<len>[;GRAPH_CX=...][;SEQ_CX=...]
+//
+//   STATE     — SHARED/NORMAL/TUMOR (tumor-normal mode only; omitted otherwise)
+//   TYPE      — SNV, INS, DEL, MNP (always present)
+//   LENGTH    — variant length in bp (always present)
+//   GRAPH_CX  — optional graph complexity (GEI, TipToPathCovRatio, MaxDegree)
+//   SEQ_CX    — optional sequence complexity (11 ML-ready features)
+//
+// Note: SCA, FLD, and MQCD are per-sample FORMAT fields, not site-level INFO.
+// ============================================================================
+void VariantCall::BuildInfoField(const bool tumor_normal_mode, FeatureFlags features) {
+  using namespace std::string_view_literals;
+
+  static constexpr std::string_view TYPE_MAP[] = {"REF"sv, "SNV"sv, "INS"sv, "DEL"sv, "MNP"sv, "CPX"sv};
+
+  std::vector<std::string_view> vcategories;
+  vcategories.reserve(mCategories.size());
+  for (const auto cat : mCategories) {
+    vcategories.push_back(TYPE_MAP[static_cast<i8>(cat) + 1]);
+  }
+
+  std::string info;
+  info.reserve(1024);
+
+  if (tumor_normal_mode) {
+    // State prefix — tumor-normal mode only
+    // SHARED/NORMAL/TUMOR state — only in tumor-normal (somatic) mode
+    static constexpr std::string_view STATE_MAP[] = {"NONE"sv, "SHARED"sv, "NORMAL"sv, "TUMOR"sv, "UNKNOWN"sv};
+    absl::StrAppend(&info, STATE_MAP[static_cast<i8>(mState) + 1], ";");
+  }
+
+  if (mIsMultiallelic) absl::StrAppend(&info, "MULTIALLELIC;");
+  
+  absl::StrAppend(&info, "TYPE=", absl::StrJoin(vcategories, ","), ";LENGTH=", absl::StrJoin(mVariantLengths, ","));
+  // Optional complexity annotations — each struct owns its own VCF formatting
+  if (features.enable_graph_complexity) absl::StrAppend(&info, ";GRAPH_CX=", mGraphCx.FormatVcfValue());
+  if (features.enable_sequence_complexity) absl::StrAppend(&info, ";SEQ_CX=", mSeqCx.FormatVcfValue());
+
+  mInfoField = std::move(info);
+}
+
+// ============================================================================
+// AsVcfRecord: emit a VCF record with comma-separated ALTs for multi-allelic.
+// ============================================================================
+auto VariantCall::AsVcfRecord() const -> std::string {
+  const auto alt_field = absl::StrJoin(mAltAlleles, ",");
+  return fmt::format("{CHROM}\t{POS}\t.\t{REF}\t{ALT}\t{QUAL:.2f}\t.\t{INFO}\t{FORMAT}",
+                     fmt::arg("CHROM", mChromName),
+                     fmt::arg("POS", mStartPos1),
+                     fmt::arg("REF", mRefAllele),
+                     fmt::arg("ALT", alt_field),
+                     fmt::arg("QUAL", mSiteQuality),
+                     fmt::arg("INFO", mInfoField),
+                     fmt::arg("FORMAT", absl::StrJoin(mFormatFields, "\t")));
 }
 
 }  // namespace lancet::caller

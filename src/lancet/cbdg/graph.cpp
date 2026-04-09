@@ -18,6 +18,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "lancet/base/assert.h"
+#include "lancet/base/compute_stats.h"
 #include "lancet/base/logging.h"
 #include "lancet/base/repeat.h"
 #include "lancet/base/sliding.h"
@@ -33,35 +34,70 @@
 
 namespace lancet::cbdg {
 
+void Graph::Path::AppendSequence(std::string_view seq) {
+  absl::StrAppend(&mSequence, seq);
+}
+
+void Graph::Path::AddNodeCoverage(u32 cov) {
+  mNodeCoverages.push_back(cov);
+}
+
+void Graph::Path::Finalize() {
+  if (mNodeCoverages.empty()) return;
+
+  OnlineStats stats;
+  for (const auto cov : mNodeCoverages) {
+    stats.Add(cov);
+  }
+
+  mMeanCov = stats.Mean();
+  mStdDevCov = stats.StdDev();
+  mTotalCov = mMeanCov * static_cast<f64>(stats.Count());
+  if (mMeanCov > 0.0) {
+    mCvCov = mStdDevCov / mMeanCov;
+  }
+
+  mMedianCov = static_cast<f64>(Median(absl::MakeConstSpan(mNodeCoverages)));
+
+  // Quartile CV = (Q3 - Q1) / (Q3 + Q1)
+  if (mNodeCoverages.size() >= 4) {
+    std::ranges::sort(mNodeCoverages);
+    const auto q1 = static_cast<f64>(mNodeCoverages[mNodeCoverages.size() / 4]);
+    const auto q3 = static_cast<f64>(mNodeCoverages[(mNodeCoverages.size() * 3) / 4]);
+    if (q3 + q1 > 0.0) {
+      mQCvCov = (q3 - q1) / (q3 + q1);
+    }
+  }
+}
 /// Pipeline architecture for haplotype assembly from a colored de Bruijn graph:
 ///
 ///  ┌─────────────┐
-///  │ Outer loop:  │  Iterate k from min_k to max_k in steps of mKmerStepLen.
-///  │ k-value scan │  If haplotypes are found at any k, stop.
-///  │              │  If a cycle is detected or graph is too complex, abandon
-///  │              │  this k and continue to next (via should_retry_kmer flag).
+///  │ Outer loop: │  Iterate k from min_k to max_k in steps of mKmerStepLen.
+///  │ k-value scan│  If haplotypes are found at any k, stop.
+///  │             │  If a cycle is detected or graph is too complex, abandon
+///  │             │  this k and continue to next (via should_retry_kmer flag).
 ///  └──────┬──────┘
 ///         │
 ///         ▼
 ///  ┌─────────────┐
-///  │  BuildGraph  │  Build the bidirected de Bruijn graph from reads + reference.
-///  │  + prune     │  Remove low-coverage nodes, mark connected components.
+///  │  BuildGraph │  Build the bidirected de Bruijn graph from reads + reference.
+///  │  + prune    │  Remove low-coverage nodes, mark connected components.
 ///  └──────┬──────┘
 ///         │
 ///         ▼
 ///  ┌─────────────┐   For each connected component with valid source/sink anchors:
-///  │ Inner loop:  │
-///  │ per-component│   1. Compress linear chains, remove low-cov nodes, remove tips
-///  │              │   2. Build TraversalIndex (flat adjacency list) on frozen graph
-///  │              │   3. HasCycle via O(V+E) three-color DFS on flat arrays
-///  │              │   4. Log graph complexity metrics (cyclomatic, density, etc.)
-///  │              │   5. Enumerate all source→sink walks via BFS walk-tree
+///  │ Inner loop: │
+///  │per-component│   1. Compress linear chains, remove low-cov nodes, remove tips
+///  │             │   2. Build TraversalIndex (flat adjacency list) on frozen graph
+///  │             │   3. HasCycle via O(V+E) three-color DFS on flat arrays
+///  │             │   4. Log graph complexity metrics (cyclomatic, density, etc.)
+///  │             │   5. Enumerate all source→sink walks via BFS walk-tree
 ///  └──────┬──────┘
 ///         │
 ///         ▼
 ///  ┌─────────────┐
-///  │  Assemble    │  Deduplicate haplotype sequences, prepend reference anchor.
-///  │  + return    │  Return assembled haplotypes for genotyping / variant calling.
+///  │  Assemble   │  Deduplicate haplotype sequences, prepend reference anchor.
+///  │  + return   │  Return assembled haplotypes for genotyping / variant calling.
 ///  └─────────────┘
 ///
 /// https://github.com/GATB/bcalm/blob/v2.2.3/bidirected-graphs-in-bcalm2/bidirected-graphs-in-bcalm2.md
@@ -136,25 +172,11 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
 
       LOG_TRACE("Found {}bp ref anchor for {} comp={} with k={}", current_anchor_length, reg_str, comp_id, mCurrK)
 
-      std::vector<std::string> haplotypes;
       mSourceAndSinkIds = NodeIDPair{source.mAnchorId, sink.mAnchorId};
       ref_anchor_seq = mRegion->SeqView().substr(source.mRefOffset, current_anchor_length);
       WriteDotDevelop(FOUND_REF_ANCHORS, comp_id);
 
-      // Pruning pipeline: compress linear chains, remove low-coverage nodes, remove tips.
-      // NOTE: The pre-compression HasCycle call (old line 103) has been removed. Graph
-      // compression only merges degree-2 linear chain nodes — it cannot introduce or
-      // remove cycles. Therefore cycle detection before compression was redundant with
-      // the cycle detection after compression. We now check only once, on the smaller
-      // (compressed) graph, which is faster.
-      CompressGraph(comp_id);
-      WriteDotDevelop(FIRST_COMPRESSION, comp_id);
-      RemoveLowCovNodes(comp_id);
-      WriteDotDevelop(SECOND_LOW_COV_REMOVAL, comp_id);
-      CompressGraph(comp_id);
-      WriteDotDevelop(SECOND_COMPRESSION, comp_id);
-      RemoveTips(comp_id);
-      WriteDotDevelop(SHORT_TIP_REMOVAL, comp_id);
+      PruneComponent(comp_id);
 
       // Build the flat traversal index on the frozen (fully-pruned) graph.
       // This maps NodeID -> contiguous u32 and constructs the CSR adjacency list.
@@ -182,21 +204,9 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
       }
 
       WriteDot(State::FULLY_PRUNED_GRAPH, comp_id);
-      LOG_TRACE("Starting walk enumeration for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
-      MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, &trav_idx);
-      auto path_seq = max_flow.NextPath();
 
-      while (path_seq) {
-        LOG_DEBUG("Assembled {}bp path sequence for {} comp={} with k={}", path_seq->length(), reg_str, comp_id, mCurrK)
-        haplotypes.emplace_back(std::move(*path_seq));
-        path_seq = max_flow.NextPath();
-      }
-
+      auto haplotypes = EnumerateAndSortHaplotypes(comp_id, trav_idx, ref_anchor_seq);
       if (!haplotypes.empty()) {
-        std::ranges::sort(haplotypes);
-        const auto dup_range = std::ranges::unique(haplotypes);
-        haplotypes.erase(dup_range.begin(), dup_range.end());
-        haplotypes.emplace(haplotypes.begin(), ref_anchor_seq);
         per_comp_haplotypes.emplace_back(std::move(haplotypes));
         anchor_start_idxs.emplace_back(source.mRefOffset);
         component_metrics.emplace_back(cx);
@@ -223,6 +233,60 @@ auto Graph::BuildComponentHaplotypes(RegionPtr region, ReadList reads) -> Result
   return {.mGraphHaplotypes = per_comp_haplotypes,
           .mAnchorStartIdxs = anchor_start_idxs,
           .mComponentMetrics = std::move(component_metrics)};
+}
+
+void Graph::PruneComponent(const usize component_id) {
+  // Pruning pipeline: compress linear chains, remove low-coverage nodes, remove tips.
+  // NOTE: The pre-compression HasCycle call (old line 103) has been removed. Graph
+  // compression only merges degree-2 linear chain nodes — it cannot introduce or
+  // remove cycles. Therefore cycle detection before compression was redundant with
+  // the cycle detection after compression. We now check only once, on the smaller
+  // (compressed) graph, which is faster.
+  CompressGraph(component_id);
+  WriteDotDevelop(FIRST_COMPRESSION, component_id);
+  RemoveLowCovNodes(component_id);
+  WriteDotDevelop(SECOND_LOW_COV_REMOVAL, component_id);
+  CompressGraph(component_id);
+  WriteDotDevelop(SECOND_COMPRESSION, component_id);
+  RemoveTips(component_id);
+  WriteDotDevelop(SHORT_TIP_REMOVAL, component_id);
+}
+
+auto Graph::EnumerateAndSortHaplotypes(usize comp_id, const TraversalIndex& trav_idx, std::string_view ref_anchor_seq) const -> std::vector<Path> {
+  std::vector<Graph::Path> haplotypes;
+  const auto reg_str = mRegion->ToSamtoolsRegion();
+
+  LOG_TRACE("Starting walk enumeration for {} with k={}, num_nodes={}", reg_str, mCurrK, mNodes.size())
+  MaxFlow max_flow(&mNodes, mSourceAndSinkIds, mCurrK, &trav_idx);
+  auto path_seq = max_flow.NextPath();
+
+  while (path_seq) {
+    LOG_DEBUG("Assembled {}bp path sequence for {} comp={} with k={}", path_seq->Sequence().length(), reg_str, comp_id, mCurrK)
+    haplotypes.emplace_back(std::move(*path_seq));
+    path_seq = max_flow.NextPath();
+  }
+
+  if (!haplotypes.empty()) {
+    // Sort non-reference ALT haplotypes strictly by descending mean coverage.
+    // This ensures downstream Greedy Insertion Bias in SPOA prioritizes dominant somatic signals.
+    std::ranges::sort(haplotypes, [](const Graph::Path& lhs, const Graph::Path& rhs) {
+      return lhs.MeanCoverage() > rhs.MeanCoverage();
+    });
+
+    // Deduplicate Sequence matches in O(N). Because the array is already sorted
+    // by coverage, this intrinsically retains the highest-coverage path for any duplicate sequence.
+    absl::flat_hash_set<std::string_view> seen_seqs;
+    std::erase_if(haplotypes, [&seen_seqs](const Graph::Path& path) {
+      auto [_, inserted] = seen_seqs.insert(path.Sequence());
+      return !inserted;
+    });
+
+    Graph::Path ref_path;
+    ref_path.AppendSequence(ref_anchor_seq);
+    haplotypes.emplace(haplotypes.begin(), std::move(ref_path));
+  }
+
+  return haplotypes;
 }
 
 void Graph::CompressGraph(const usize component_id) {

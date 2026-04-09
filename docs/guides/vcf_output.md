@@ -28,8 +28,9 @@ is not possible, so no state flags appear in the INFO field.
 
 | Field | VCF Type | Description | Range | Interpretation |
 |:------|:---------|:------------|:------|:---------------|
-| `TYPE` | String | Variant type | `SNV`, `INS`, `DEL`, `MNP` | The class of variant event detected during local assembly. |
-| `LENGTH` | Integer | Variant length in base pairs | ≥ 1 | For SNVs: always 1. For INDELs: the number of inserted or deleted bases. |
+| `MULTIALLELIC` | Flag | Multiallelic indicator | — | Present if the record natively aggregates more than one ALT structural allele evaluated at the exact same locus constraints. |
+| `TYPE` | String | Variant type | `SNV`, `INS`, `DEL`, `MNP` | The class of variant event detected during local assembly. Comma-separated array for multiallelic variants. |
+| `LENGTH` | Integer | Variant length in base pairs | ≥ 1 | For SNVs: always 1. For INDELs: the number of inserted or deleted bases. Comma-separated array for multiallelic variants. |
 
 ### Somatic State Flags (tumor-normal mode only)
 
@@ -140,4 +141,10 @@ chr1  12345  .  A  AT  3.00  .  TYPE=INS;LENGTH=1  GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:
 
 ```
 chr1  12345  .  A  AT  4.85  .  TUMOR;TYPE=INS;LENGTH=1;GRAPH_CX=0.85,0.01,3;SEQ_CX=20,0.50,0.69,0.22,3,−0.10,0.05,1.00,0.95,1,1  GT:AD:ADF:ADR:DP:RMQ:NPBQ:SB:SCA:FLD:RPCD:BQCD:MQCD:ASMD:SDFC:PRAD:PANG:PL:GQ  0/1:20,15:10,8:10,7:35:55.0,52.3:30.2,28.5:0.150:0.1200:15.3:-0.3200:-0.1500:-0.2800:0.450:1.00:1.3979:0.6435:0,42,180:42
+```
+
+### Native Multiallelic Mode
+
+```
+chr1  12345  .  A  AT,G  4.85  .  SHARED;MULTIALLELIC;TYPE=INS,SNV;LENGTH=1,1  GT:AD:ADF:ADR:DP:RMQ:NPBQ  1/2:10,15,5:5,8,3:5,7,2:30:55.0,52.3,60.0:30.2,28.5,35.0  0/1:25,5,0:15,3,0:10,2,0:30:58.1,50.0,0.0:29.8,25.0,0.0
 ```

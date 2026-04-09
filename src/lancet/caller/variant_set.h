@@ -15,48 +15,42 @@
 
 namespace lancet::caller {
 
+// ============================================================================
+// VariantSet: Multiallelic Graph Extraction Engine
+//
+// Extracts biologically complex multiallelic variants natively from SPOA
+// directed acyclic graphs by aggressively sweeping the topology concurrently.
+// It tracks divergent structural paths per haplotype and mathematically merges 
+// them into fully bundled `RawVariant` outputs with zero overlapping biases.
+// ============================================================================
 class VariantSet {
  public:
-  explicit VariantSet(const MsaBuilder& bldr, const core::Window& win, usize ref_anchor_start);
+  VariantSet() = default;
+  void ExtractVariantsFromGraph(const spoa::Graph& graph, const core::Window& win, usize ref_anchor_start);
 
-  using Btree = absl::btree_set<RawVariant>;
+  using BTree = absl::btree_set<RawVariant>;
 
-  [[nodiscard]] auto begin() -> Btree::iterator { return mResultVariants.begin(); }
-  [[nodiscard]] auto begin() const -> Btree::const_iterator { return mResultVariants.begin(); }
-  [[nodiscard]] auto cbegin() const -> Btree::const_iterator { return mResultVariants.cbegin(); }
+  [[nodiscard]] auto begin() -> BTree::iterator { return mResultVariants.begin(); }
+  [[nodiscard]] auto begin() const -> BTree::const_iterator { return mResultVariants.begin(); }
+  [[nodiscard]] auto cbegin() const -> BTree::const_iterator { return mResultVariants.cbegin(); }
 
-  [[nodiscard]] auto end() -> Btree::iterator { return mResultVariants.end(); }
-  [[nodiscard]] auto end() const -> Btree::const_iterator { return mResultVariants.end(); }
-  [[nodiscard]] auto cend() const -> Btree::const_iterator { return mResultVariants.cend(); }
+  [[nodiscard]] auto end() -> BTree::iterator { return mResultVariants.end(); }
+  [[nodiscard]] auto end() const -> BTree::const_iterator { return mResultVariants.end(); }
+  [[nodiscard]] auto cend() const -> BTree::const_iterator { return mResultVariants.cend(); }
 
-  [[nodiscard]] auto rbegin() -> Btree::reverse_iterator { return mResultVariants.rbegin(); }
-  [[nodiscard]] auto rbegin() const -> Btree::const_reverse_iterator { return mResultVariants.rbegin(); }
-  [[nodiscard]] auto crbegin() const -> Btree::const_reverse_iterator { return mResultVariants.crbegin(); }
+  [[nodiscard]] auto rbegin() -> BTree::reverse_iterator { return mResultVariants.rbegin(); }
+  [[nodiscard]] auto rbegin() const -> BTree::const_reverse_iterator { return mResultVariants.rbegin(); }
+  [[nodiscard]] auto crbegin() const -> BTree::const_reverse_iterator { return mResultVariants.crbegin(); }
 
-  [[nodiscard]] auto rend() -> Btree::reverse_iterator { return mResultVariants.rend(); }
-  [[nodiscard]] auto rend() const -> Btree::const_reverse_iterator { return mResultVariants.rend(); }
-  [[nodiscard]] auto crend() const -> Btree::const_reverse_iterator { return mResultVariants.crend(); }
+  [[nodiscard]] auto rend() -> BTree::reverse_iterator { return mResultVariants.rend(); }
+  [[nodiscard]] auto rend() const -> BTree::const_reverse_iterator { return mResultVariants.rend(); }
+  [[nodiscard]] auto crend() const -> BTree::const_reverse_iterator { return mResultVariants.crend(); }
 
   [[nodiscard]] auto IsEmpty() const -> bool { return mResultVariants.empty(); }
   [[nodiscard]] auto Count() const -> usize { return mResultVariants.size(); }
 
-  // Group variants by locus for multi-allelic VCF output.
-  // Variants at the same (chrom, position, ref_allele) become a single
-  // VCF record with comma-separated ALTs.
-  using LocusGroup = std::vector<const RawVariant*>;
-  using GroupedVariants = absl::btree_map<LocusKey, LocusGroup>;
-  [[nodiscard]] auto GroupByLocus() const -> GroupedVariants;
-
  private:
   absl::btree_set<RawVariant> mResultVariants;
-
-  using EndsGap = std::array<usize, 2>;
-  using StartAndEnd = std::array<usize, 2>;
-  using VarRanges = std::vector<StartAndEnd>;
-  using Alignment = std::array<std::string_view, 2>;
-  [[nodiscard]] static auto FindVariationRanges(const Alignment& aln_view, const EndsGap& gap_counts) -> VarRanges;
-  [[nodiscard]] static auto HasFlankMatches(const Alignment& aln_view, const StartAndEnd& vrange) -> bool;
-  [[nodiscard]] static auto CountEndsGap(absl::Span<const std::string_view> msa_view) -> EndsGap;
 };
 
 }  // namespace lancet::caller

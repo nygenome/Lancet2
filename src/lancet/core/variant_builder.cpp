@@ -28,11 +28,18 @@ namespace lancet::core {
 
 namespace {
 
-  /*
+/*
  * ============================================================================
  * SPOA MSA Parameter Rationale for Lancet2 Variant Extraction
  * ============================================================================
- * Values: Match: 2, Mismatch: -4, Gap1: -4,-2, Gap2: -24,-1
+ * Values: Match: 0, Mismatch: -6, Gap1: -6,-2, Gap2: -26,-1
+ *
+ * **SIMD Overflow Note**: All classical parameters (typically +2/-4) have 
+ * been mathematically shifted downwards by 2. Setting the Match ceiling rigidly 
+ * to 0 is mandatory because SPOA employs 8-bit AVX2 SIMD vector lanes. A 1000bp 
+ * window accumulating +2 match scores would reach 2000, severely overflowing the 
+ * signed 8-bit integers (max 127). By anchoring the Match score to 0, all runtime 
+ * scores accumulate negatively, organically staying within the unrolled boundaries.
  *
  * Unlike minimap2's `asm5` preset (which aggressively splits contigs at major
  * divergences for whole-genome synteny filtering), these parameters are tuned
@@ -54,31 +61,31 @@ namespace {
  *
  * 2. Mismatch Tolerance (Multi-Nucleotide Variants / MNVs):
  *    asm5 uses a +1 match / -19 mismatch, which shatters alignments at dense
- *    mutation clusters. We use +2 / -4, meaning only 2 matching bases are needed
- *    to offset a SNP. This keeps the MSA globally intact through complex variants.
+ *    mutation clusters. We use 0 / -6. The geometrical difference (6) keeps 
+ *    the MSA robustly intact while globally forcing alignments through complex variants.
  *
- * 3. Micro-Indel Sensitivity (Convex Model 1: -4, -2):
+ * 3. Micro-Indel Sensitivity (Convex Model 1: -6, -2):
  *    asm5's -39 gap open penalty prevents small indels, forcing them to misalign
- *    as false-positive SNPs. Our -4 open / -2 extend penalty allows true small
+ *    as false-positive SNPs. Our -6 open / -2 extend penalty allows true small
  *    biological indels to open naturally while still applying enough friction
  *    to prevent 1bp sequencing errors (e.g., homopolymer stutters) from opening gaps.
  *
- * 4. Large Insertion/Deletion Continuity (Convex Model 2: -24, -1):
+ * 4. Large Insertion/Deletion Continuity (Convex Model 2: -26, -1):
  *    asm5's -81 penalty for large gaps will soft-clip contigs right at an insertion/deletion
- *    breakpoint. Our parameters mathematically intersect at 20bp (4 + 2L = 24 + 1L).
+ *    breakpoint. Our parameters mathematically intersect at exactly 20bp (6 + 2L = 26 + 1L).
  *    For gaps > 20bp, the algorithm switches to Model 2 where the extension cost
  *    drops to -1. This "cheap extension" forces the DP matrix into mapping massive
  *    insertions/deletions as single, contiguous blocks in the MSA rather than
- *    dropping the alignment.
+ *    dropping the alignment entirely.
  *
  *    https://curiouscoding.nl/posts/pairwise-alignment ->
  *    – Convex dual affine gap scoring -> min(g1+(i-1)*e1, g2+(i-1)*e2)
  */
-constexpr i8 MSA_MATCH_SCORE = 2;
-constexpr i8 MSA_MISMATCH_SCORE = -4;
-constexpr i8 MSA_OPEN1_SCORE = -4;
+constexpr i8 MSA_MATCH_SCORE = 0;
+constexpr i8 MSA_MISMATCH_SCORE = -6;
+constexpr i8 MSA_OPEN1_SCORE = -6;
 constexpr i8 MSA_EXTEND1_SCORE = -2;
-constexpr i8 MSA_OPEN2_SCORE = -24;
+constexpr i8 MSA_OPEN2_SCORE = -26;
 constexpr i8 MSA_EXTEND2_SCORE = -1;
 constexpr u8 DNA_ALPHABET_SIZE = 4;
 constexpr u32 PREALLOC_WINDOW_LENGTH_MULTIPLIER = 3;
@@ -87,10 +94,13 @@ constexpr u32 PREALLOC_WINDOW_LENGTH_MULTIPLIER = 3;
 
 VariantBuilder::VariantBuilder(std::shared_ptr<const Params> params, const u32 window_length)
     : mDebruijnGraph(params->mGraphParams), mReadCollector(params->mRdCollParams), mParamsPtr(std::move(params)),
-      mAlnEngine(spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE,
-        MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE)),
+      mSpoaState{
+          .mEngine = spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, MSA_MATCH_SCORE, MSA_MISMATCH_SCORE,
+                                                   MSA_OPEN1_SCORE, MSA_EXTEND1_SCORE, MSA_OPEN2_SCORE, MSA_EXTEND2_SCORE),
+          .mGraph = spoa::Graph()
+      },
       mAnnotator(mParamsPtr->mGcFraction) {
-  mAlnEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
+  mSpoaState.mEngine->Prealloc(window_length * PREALLOC_WINDOW_LENGTH_MULTIPLIER, DNA_ALPHABET_SIZE);
   mGenotyper.SetNumSamples(mParamsPtr->mRdCollParams.SamplesCount());
 }
 
@@ -148,12 +158,23 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
   for (usize idx = 0; idx < component_haplotypes.size(); ++idx) {
     const auto nhaps = component_haplotypes[idx].size();
     const auto anchor_start = window->StartPos1() + dbg_rslt.mAnchorStartIdxs[idx];
-    const std::vector<std::string> &comp_haps = component_haplotypes[idx];
+    const std::vector<cbdg::Graph::Path> &comp_paths = component_haplotypes[idx];
+    
+    std::vector<std::string> comp_haps;
+    comp_haps.reserve(comp_paths.size());
+    for (const auto& path : comp_paths) {
+      comp_haps.emplace_back(std::string(path.Sequence()));
+    }
+    
     LOG_DEBUG("Building MSA for graph component {} from window {} with {} haplotypes", idx, reg_str, nhaps)
 
     const absl::Span<const std::string> ref_and_alt_haps = absl::MakeConstSpan(comp_haps);
-    const caller::MsaBuilder msa_builder(ref_and_alt_haps, *mAlnEngine, MakeGfaPath(*window, idx));
-    const caller::VariantSet vset(msa_builder, *window, anchor_start);
+    mSpoaState.UpdateSpoaState(ref_and_alt_haps);
+    // only serialize if we have a path to serialize to
+    mSpoaState.SerializeGraph(MakeGfaPath(*window, idx));
+    
+    caller::VariantSet vset;
+    vset.ExtractVariantsFromGraph(mSpoaState.mGraph, *window, anchor_start);
 
     // Annotate complexity features if enabled — gated on CLI flags
     if (mParamsPtr->mEnableSequenceComplexity) {
@@ -170,29 +191,28 @@ auto VariantBuilder::ProcessWindow(const std::shared_ptr<const Window> &window) 
 
     LOG_DEBUG("Found variant(s) in graph component {} for window {} with {} haplotypes", idx, reg_str, nhaps)
     auto genotyped = mGenotyper.Genotype(ref_and_alt_haps, reads, vset);
-    auto grouped = vset.GroupByLocus();
-
+    
     // Drop variants where the graph assembled a haplotype but no reads actually support it.
     static const auto HasAltSupport = [](const caller::SupportArray& evidence) {
       return std::ranges::any_of(evidence, [](const auto& item) { return item.data && item.data->TotalAltCov() > 0; });
     };
 
-    for (const auto& [locus_key, locus_variants] : grouped) {
-      caller::VariantCall::SupportsByVariant locus_supports;
-      for (const auto* var_ptr : locus_variants) {
-        auto it = genotyped.find(var_ptr);
-        if (it == genotyped.end() || !HasAltSupport(it->second)) continue;
-        locus_supports.emplace(var_ptr, std::move(it->second));
+    std::ranges::for_each(vset, [&](const auto& var) {
+      caller::VariantCall::SupportsByVariant var_supports;
+      if (auto it = genotyped.find(&var); it != genotyped.end() && HasAltSupport(it->second)) {
+        var_supports.emplace(&var, std::move(it->second));
       }
 
-      if (locus_supports.empty()) continue;
+      if (var_supports.empty()) return;
+
       const caller::VariantCall::FeatureFlags feat_flags{
           .enable_graph_complexity = mParamsPtr->mEnableGraphComplexity,
           .enable_sequence_complexity = mParamsPtr->mEnableSequenceComplexity,
       };
+      
       variants.emplace_back(std::make_unique<caller::VariantCall>(
-          absl::MakeConstSpan(locus_variants), std::move(locus_supports), samples, feat_flags, total_cov));
-    }
+          &var, std::move(var_supports), samples, feat_flags, total_cov));
+    });
   }
 
   if (variants.empty()) {

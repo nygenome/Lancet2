@@ -56,6 +56,12 @@ Individual completed walks are dynamically aligned together into a standard unif
 
 Once the variant haplotypes are constructed from the MSA, Lancet2 utilizes custom `minimap2` interfaces to align the raw window reads back directly to the assembled haplotypes, enabling highly precise variant allele genotyping and likelihood scoring.
 
+To precisely handle massive structural variations and hyper-mutated profiles natively during this step, Lancet2 specifically overrides standard `minimap2` global heuristics:
+* **Z-Drop Disabled**: Prevent silent alignment truncations across massive >300bp somatic deletions.
+* **Inflated Bandwidth (`bw`)**: Safely envelopes long >2KB structural insertions by bypassing matrix boundaries explicitly.
+* **Hyper-Sensitive Seeding (`k` / `w`)**: Minimum anchor size drops natively to reliably map highly mutated read fragments.
+Because the computational search space natively limits itself entirely inside the local micro-assembly contig window rather than full genome tracks, Lancet2 successfully captures absolute mathematical trace-exactness on structural variations with virtually zero SIMD runtime penalty.
+
 * **Read more:** [Alignment-Derived Annotations](alignment_annotations.md)
 
 ## 6. Coverage-Invariant ML Genotyping
