@@ -1,4 +1,13 @@
 
+<a name="v2.10.1"></a>
+## [v2.10.1](https://github.com/nygenome/Lancet2/compare/v2.10.0...v2.10.1) (2026-04-10)
+
+### Refactoring
+
+* fix CI workflows and add pixi bootstrap to dev scripts
+* Update release notes in changelog
+
+
 <a name="v2.10.0"></a>
 ## [v2.10.0](https://github.com/nygenome/Lancet2/compare/v2.9.0...v2.10.0) (2026-04-10)
 
