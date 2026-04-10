@@ -6,8 +6,6 @@
 #include <functional>
 #include <memory>
 #include <numeric>
-#include <spdlog/fmt/bundled/base.h>
-#include <spdlog/fmt/bundled/format.h>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -52,7 +50,9 @@ extern "C" {
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "concurrentqueue.h"
+#include "spdlog/fmt/bundled/base.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 using lancet::base::EtaTimer;
 using lancet::core::AsyncWorker;
@@ -87,15 +87,11 @@ void LogWindowStats(WindowStats const& stats) {
   });
 }
 
-}  // namespace
-
-// NOLINTBEGIN(performance-unnecessary-value-param)
-// NOLINTNEXTLINE(readability-function-size)  // TODO(lancet): refactor to reduce function size
-static void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken const* in_token,
-                           AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
-                           AsyncWorker::VariantStorePtr vstore,
-                           AsyncWorker::BuilderParamsPtr params, u32 window_length) {
-  // NOLINTEND(performance-unnecessary-value-param)
+// NOLINTBEGIN(performance-unnecessary-value-param,readability-function-size)
+void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken const* in_token,
+                    AsyncWorker::InQueuePtr in_queue, AsyncWorker::OutQueuePtr out_queue,
+                    AsyncWorker::VariantStorePtr vstore, AsyncWorker::BuilderParamsPtr params,
+                    u32 window_length) {
 #ifdef LANCET_PROFILE_MODE
   if (ProfilingIsEnabledForAllThreads() != 0) ProfilerRegisterThread();
 #endif
@@ -103,6 +99,9 @@ static void PipelineWorker(std::stop_token stop_token, moodycamel::ProducerToken
                                               std::move(vstore), std::move(params), window_length);
   worker->Process(std::move(stop_token), *in_token);
 }
+// NOLINTEND(performance-unnecessary-value-param,readability-function-size)
+
+}  // namespace
 
 namespace lancet::cli {
 

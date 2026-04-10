@@ -35,6 +35,7 @@ VariantAnnotator::VariantAnnotator(f64 gc_frac) : mSeqCxScorer(gc_frac) {}
 // If a variant only exists on the REF haplotype (no ALT haps), we score
 // REF vs REF to populate context features (deltas will be zero).
 // ============================================================================
+// NOLINTNEXTLINE(readability-function-size)
 void VariantAnnotator::AnnotateSequenceComplexity(caller::VariantSet const& vset,
                                                   absl::Span<std::string const> haplotypes) const {
   static constexpr usize REF_HAP_IDX = 0;
@@ -56,9 +57,7 @@ void VariantAnnotator::AnnotateSequenceComplexity(caller::VariantSet const& vset
       auto const alt_len = std::max(ref_len, alt.mSequence.size());
 
       for (auto const& [hap_idx, hap_pos] : alt.mLocalHapStart0Idxs) {
-        if (hap_idx >= haplotypes.size() || hap_idx == REF_HAP_IDX) {
-          continue;
-        }
+        if (hap_idx >= haplotypes.size() || hap_idx == REF_HAP_IDX) continue;
 
         auto cplx =
             mSeqCxScorer.Score(ref_hap, ref_pos, ref_len, haplotypes[hap_idx], hap_pos, alt_len);

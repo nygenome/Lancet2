@@ -7,12 +7,11 @@
 #include <iostream>
 #include <limits>
 #include <memory>
-#include <spdlog/fmt/bundled/format.h>
-#include <stdio.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
 
+#include <cstdio>
 #include <cstdlib>
 
 extern "C" {
@@ -29,6 +28,7 @@ extern "C" {
 
 #include "spdlog/common.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 #include "spdlog/fmt/bundled/ostream.h"
 
 namespace {

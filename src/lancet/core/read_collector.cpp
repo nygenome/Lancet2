@@ -14,13 +14,13 @@
 #include "absl/strings/ascii.h"
 #include "absl/types/span.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 #include <algorithm>
 #include <functional>
 #include <iterator>
 #include <memory>
 #include <random>
-#include <spdlog/fmt/bundled/format.h>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -150,8 +150,9 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     extractor->SetRegionToExtract(region_spec);
     for (auto const& aln : *extractor) {
       auto const bflag = aln.Flag();
-      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) {
         continue;
+      }
 
       auto const qhash = HashQname(aln.QnameView());
       bool const passes_filters = aln.MapQual() >= 20;
@@ -187,8 +188,11 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
 
     // Shuffle unique qname hashes and select the first `sampled_read_count` entries.
     // This guarantees that if Mate1 is accepted, Mate2 is symmetrically accepted.
+    // Deterministic seed for reproducible downsampling —
+    // variant calls must not change between runs on identical inputs.
     std::shuffle(pass_qname_hashes.begin(), pass_qname_hashes.end(),
-                 std::default_random_engine(0));  // NOLINT(cert-msc51-cpp)
+                 // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+                 std::default_random_engine(0));
     absl::flat_hash_set<u64> const keep_qnames(pass_qname_hashes.begin(),
                                                pass_qname_hashes.begin() +
                                                    static_cast<i64>(sampled_read_count));
@@ -200,8 +204,9 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     extractor->SetRegionToExtract(region_spec);
     for (auto const& aln : *extractor) {
       auto const bflag = aln.Flag();
-      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) {
         continue;
+      }
       if (!keep_qnames.contains(HashQname(aln.QnameView()))) continue;
 
       // Only kept reads trigger BuildSequence/BuildQualities via the Read constructor
@@ -256,8 +261,9 @@ auto ReadCollector::CollectRegionResult(Region const& region) -> Result {
     if (lhs.PassesAlnFilters() != rhs.PassesAlnFilters()) {
       return static_cast<int>(lhs.PassesAlnFilters()) > static_cast<int>(rhs.PassesAlnFilters());
     }
-    if (lhs.TagKind() != rhs.TagKind())
+    if (lhs.TagKind() != rhs.TagKind()) {
       return static_cast<u8>(lhs.TagKind()) < static_cast<u8>(rhs.TagKind());
+    }
     if (lhs.SampleName() != rhs.SampleName()) return lhs.SampleName() < rhs.SampleName();
     if (lhs.QnameView() != rhs.QnameView()) return lhs.QnameView() < rhs.QnameView();
     if (lhs.ChromIndex() != rhs.ChromIndex()) return lhs.ChromIndex() < rhs.ChromIndex();
@@ -295,8 +301,9 @@ auto ReadCollector::IsActiveRegion(Params const& params, Region const& region) -
 
     for (auto const& aln : extractor) {
       auto const bflag = aln.Flag();
-      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0)
+      if (bflag.IsQcFail() || bflag.IsDuplicate() || bflag.IsUnmapped() || aln.MapQual() == 0) {
         continue;
+      }
 
       if (aln.HasTag("MD")) {
         auto const md_tag = aln.GetTag<std::string_view>("MD");

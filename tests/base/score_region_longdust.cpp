@@ -58,12 +58,12 @@ namespace {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-static constexpr std::array<i64, 4> SCALES = {50, 100, 500, 1000};
-static constexpr usize NUM_SCALES = SCALES.size();
-static constexpr usize BALANCED_SAMPLES_PER_SUBCAT = 5000;
-static constexpr usize TEST_SAMPLES_PER_SUBCAT = 8;
+constexpr std::array<i64, 4> SCALES = {50, 100, 500, 1000};
+constexpr usize NUM_SCALES = SCALES.size();
+constexpr usize BALANCED_SAMPLES_PER_SUBCAT = 5000;
+constexpr usize TEST_SAMPLES_PER_SUBCAT = 8;
 
-static constexpr std::array<std::string_view, 12> GIAB_SKIP_PREFIXES = {
+constexpr std::array<std::string_view, 12> GIAB_SKIP_PREFIXES = {
     "AllHomopolymers",
     "AllTandemRepeats",
     "allTandemRepeats",
@@ -82,29 +82,29 @@ static constexpr std::array<std::string_view, 12> GIAB_SKIP_PREFIXES = {
 
 /// A loaded BED annotation with source-specific category/subcategory.
 struct BedAnnotation {
-  std::string chrom;
-  i64 start;           // 0-based inclusive
-  i64 end;             // 0-based exclusive
-  std::string source;  // e.g. "RepeatMasker", "GIAB/LowComplexity"
-  std::string name;    // subcategory (source-specific column)
-  u8 chrom_idx = 0;    // FASTA chromosome order index
+  std::string mChrom;
+  i64 mStart;           // 0-based inclusive
+  i64 mEnd;             // 0-based exclusive
+  std::string mSource;  // e.g. "RepeatMasker", "GIAB/LowComplexity"
+  std::string mName;    // subcategory (source-specific column)
+  u8 mChromIdx = 0;     // FASTA chromosome order index
 };
 
 /// A single scoring window derived from one BedAnnotation at one scale.
 /// This is the atomic unit of work, sorting, and output.
 struct ScoringWindow {
-  usize parent_idx;  // index into annotations[] (for source/name/chrom lookup)
-  u8 chrom_idx;      // FASTA order, duplicated for fast sorting
-  i64 window_start;  // 0-based inclusive
-  i64 window_end;    // 0-based exclusive
-  i64 scale;
-  i64 region_length;  // original annotation span (end - start)
+  usize mParentIdx;  // index into annotations[] (for source/name/chrom lookup)
+  u8 mChromIdx;      // FASTA order, duplicated for fast sorting
+  i64 mWindowStart;  // 0-based inclusive
+  i64 mWindowEnd;    // 0-based exclusive
+  i64 mScale;
+  i64 mRegionLength;  // original annotation span (end - start)
 };
 
 /// Result from scoring a single window.
 struct ScoredWindow {
-  usize window_idx;  // index into windows[]
-  double score;
+  usize mWindowIdx;  // index into windows[]
+  double mScore;
 };
 
 // ── Utility ─────────────────────────────────────────────────────────────────
@@ -120,21 +120,21 @@ auto ShouldSkipGiab(std::string_view name) -> bool {
 // ── Reference Caching ───────────────────────────────────────────────────────
 
 struct CachedReference {
-  absl::flat_hash_map<std::string, std::string> sequences;
-  absl::flat_hash_map<std::string, i64> lengths;
-  absl::flat_hash_map<std::string, u8> chrom_order;
+  absl::flat_hash_map<std::string, std::string> mSequences;
+  absl::flat_hash_map<std::string, i64> mLengths;
+  absl::flat_hash_map<std::string, u8> mChromOrder;
 
   static auto Build(lancet::hts::Reference const& ref) -> CachedReference {
     CachedReference cache;
     auto const chroms = ref.ListChroms();
     fmt::print(stderr, "Caching {} chromosome sequences...\n", chroms.size());
     for (auto const& chrom : chroms) {
-      auto const nm = chrom.Name();
-      auto const len = static_cast<i64>(chrom.Length());
-      fmt::print(stderr, "  {} ({} bp)\n", nm, len);
-      cache.sequences.emplace(nm, std::string(ref.MakeRegion(nm.c_str()).SeqView()));
-      cache.lengths.emplace(nm, len);
-      cache.chrom_order.emplace(nm, static_cast<u8>(chrom.Index()));
+      auto const cname = chrom.Name();
+      auto const clen = static_cast<i64>(chrom.Length());
+      fmt::print(stderr, "  {} ({} bp)\n", cname, clen);
+      cache.mSequences.emplace(cname, std::string(ref.MakeRegion(cname.c_str()).SeqView()));
+      cache.mLengths.emplace(cname, clen);
+      cache.mChromOrder.emplace(cname, static_cast<u8>(chrom.Index()));
     }
     fmt::print(stderr, "Done caching reference.\n\n");
     return cache;
@@ -165,16 +165,20 @@ auto ParsePlainBed(std::filesystem::path const& filepath, CachedReference const&
     auto const chrom = std::string(fields[0]);
     if (!IsValidChrom(chrom)) continue;
 
-    auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end()) continue;
+    auto const iter = cache.mChromOrder.find(chrom);
+    if (iter == cache.mChromOrder.end()) continue;
 
-    std::string name = fixed_name;
+    std::string fname = fixed_name;
     if (subcat_column >= 0 && static_cast<usize>(subcat_column) < fields.size()) {
-      name = std::string(fields[subcat_column]);
+      fname = std::string(fields[subcat_column]);
     }
 
-    result.push_back({chrom, std::stol(std::string(fields[1])), std::stol(std::string(fields[2])),
-                      source, std::move(name), it->second});
+    result.push_back({.mChrom = chrom,
+                      .mStart = std::stol(std::string(fields[1])),
+                      .mEnd = std::stol(std::string(fields[2])),
+                      .mSource = source,
+                      .mName = std::move(fname),
+                      .mChromIdx = iter->second});
   }
   return result;
 }
@@ -184,14 +188,15 @@ auto ParseGzippedBed(std::filesystem::path const& filepath, CachedReference cons
                      std::string const& source, std::string const& fixed_name)
     -> std::vector<BedAnnotation> {
   std::vector<BedAnnotation> result;
-  gzFile gz = gzopen(filepath.c_str(), "r");
-  if (!gz) {
+  gzFile gzfp = gzopen(filepath.c_str(), "r");
+  if (!gzfp) {
     fmt::print(stderr, "  Warning: cannot open {}\n", filepath.string());
     return result;
   }
 
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[4096];
-  while (gzgets(gz, buf, sizeof(buf)) != nullptr) {
+  while (gzgets(gzfp, buf, sizeof(buf)) != nullptr) {
     std::string line(buf);
     absl::StripTrailingAsciiWhitespace(&line);
     if (line.empty() || line[0] == '#' || line[0] == 't') continue;
@@ -201,13 +206,17 @@ auto ParseGzippedBed(std::filesystem::path const& filepath, CachedReference cons
     auto const chrom = std::string(fields[0]);
     if (!IsValidChrom(chrom)) continue;
 
-    auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end()) continue;
+    auto const iter = cache.mChromOrder.find(chrom);
+    if (iter == cache.mChromOrder.end()) continue;
 
-    result.push_back({chrom, std::stol(std::string(fields[1])), std::stol(std::string(fields[2])),
-                      source, fixed_name, it->second});
+    result.push_back({.mChrom = chrom,
+                      .mStart = std::stol(std::string(fields[1])),
+                      .mEnd = std::stol(std::string(fields[2])),
+                      .mSource = source,
+                      .mName = fixed_name,
+                      .mChromIdx = iter->second});
   }
-  gzclose(gz);
+  gzclose(gzfp);
   return result;
 }
 
@@ -220,9 +229,9 @@ auto LoadGiab(std::filesystem::path const& data_dir, CachedReference const& cach
   if (!std::filesystem::exists(giab_dir)) return all;
 
   struct GiabTarget {
-    std::filesystem::path path;
-    std::string source;
-    std::string strat_name;
+    std::filesystem::path mPath;
+    std::string mSource;
+    std::string mStratName;
   };
 
   std::vector<GiabTarget> targets;
@@ -237,11 +246,13 @@ auto LoadGiab(std::filesystem::path const& data_dir, CachedReference const& cach
     if (pfx != std::string::npos) strat = strat.substr(pfx + 10);
     if (ShouldSkipGiab(strat)) continue;
 
-    targets.push_back({entry.path(),
-                       absl::StrCat("GIAB/", entry.path().parent_path().filename().string()),
-                       std::move(strat)});
+    targets.push_back(
+        {.mPath = entry.path(),
+         .mSource = absl::StrCat("GIAB/", entry.path().parent_path().filename().string()),
+         .mStratName = std::move(strat)});
   }
-  std::ranges::sort(targets, [](auto const& a, auto const& b) { return a.path < b.path; });
+  std::ranges::sort(targets,
+                    [](auto const& lhs, auto const& rhs) { return lhs.mPath < rhs.mPath; });
   fmt::print(stderr, "  GIAB: {} primary BED files to load in parallel\n", targets.size());
 
   absl::Mutex mtx;
@@ -250,9 +261,9 @@ auto LoadGiab(std::filesystem::path const& data_dir, CachedReference const& cach
     loaders.reserve(targets.size());
     for (auto const& tgt : targets) {
       loaders.emplace_back([&tgt, &cache, &all, &mtx] {
-        auto regions = ParseGzippedBed(tgt.path, cache, tgt.source, tgt.strat_name);
-        fmt::print(stderr, "    {}/{} → {} regions\n", tgt.source, tgt.strat_name, regions.size());
-        absl::MutexLock lock(mtx);
+        auto regions = ParseGzippedBed(tgt.mPath, cache, tgt.mSource, tgt.mStratName);
+        fmt::print(stderr, "    {}/{} → {} regions\n", tgt.mSource, tgt.mStratName, regions.size());
+        absl::MutexLock const lock(mtx);
         all.insert(all.end(), std::make_move_iterator(regions.begin()),
                    std::make_move_iterator(regions.end()));
       });
@@ -292,14 +303,18 @@ auto LoadTelomere(std::filesystem::path const& data_dir, CachedReference const& 
     if (fields.size() < 3) continue;
     auto const chrom = std::string(fields[0]);
     if (!IsValidChrom(chrom)) continue;
-    auto const it = cache.chrom_order.find(chrom);
-    if (it == cache.chrom_order.end()) continue;
+    auto const iter = cache.mChromOrder.find(chrom);
+    if (iter == cache.mChromOrder.end()) continue;
 
     auto const start = std::stol(std::string(fields[1]));
     auto const end = std::stol(std::string(fields[2]));
     auto const* arm = (start == 0) ? "p-arm" : "q-arm";
-    result.push_back(
-        {chrom, start, end, "Telomere", absl::StrCat(chrom, "_", arm, "_telomere"), it->second});
+    result.push_back({.mChrom = chrom,
+                      .mStart = start,
+                      .mEnd = end,
+                      .mSource = "Telomere",
+                      .mName = absl::StrCat(chrom, "_", arm, "_telomere"),
+                      .mChromIdx = iter->second});
   }
   return result;
 }
@@ -329,7 +344,7 @@ auto LoadAllAnnotations(std::filesystem::path const& data_dir, CachedReference c
 
   auto merge = [&](std::vector<BedAnnotation> batch, std::string_view label) {
     fmt::print(stderr, "  {} → {} regions\n", label, batch.size());
-    absl::MutexLock lock(mtx);
+    absl::MutexLock const lock(mtx);
     all.insert(all.end(), std::make_move_iterator(batch.begin()),
                std::make_move_iterator(batch.end()));
   };
@@ -361,26 +376,31 @@ auto ExpandAndSortWindows(std::vector<BedAnnotation> const& annotations,
   windows.reserve(annotations.size() * NUM_SCALES);
 
   for (usize ann_idx = 0; ann_idx < annotations.size(); ++ann_idx) {
-    auto const& ann = annotations[ann_idx];
-    auto const chrom_len = cache.lengths.at(ann.chrom);
-    i64 const center = (ann.start + ann.end) / 2;
-    i64 const region_length = ann.end - ann.start;
+    auto const& annot = annotations[ann_idx];
+    auto const chrom_len = cache.mLengths.at(annot.mChrom);
+    i64 const center = (annot.mStart + annot.mEnd) / 2;
+    i64 const region_length = annot.mEnd - annot.mStart;
 
     for (auto const scale : SCALES) {
-      i64 const ws = std::max<i64>(0, center - scale);
-      i64 const we = std::min(chrom_len, center + scale);
-      if (we - ws < 7) continue;
+      i64 const wstart = std::max<i64>(0, center - scale);
+      i64 const wend = std::min(chrom_len, center + scale);
+      if (wend - wstart < 7) continue;
 
-      windows.push_back({ann_idx, ann.chrom_idx, ws, we, scale, region_length});
+      windows.push_back({.mParentIdx = ann_idx,
+                         .mChromIdx = annot.mChromIdx,
+                         .mWindowStart = wstart,
+                         .mWindowEnd = wend,
+                         .mScale = scale,
+                         .mRegionLength = region_length});
     }
   }
 
   fmt::print(stderr, "Sorting {} windows by genome position...\n", windows.size());
-  std::ranges::sort(windows, [](ScoringWindow const& a, ScoringWindow const& b) {
-    if (a.chrom_idx != b.chrom_idx) return a.chrom_idx < b.chrom_idx;
-    if (a.window_start != b.window_start) return a.window_start < b.window_start;
-    if (a.window_end != b.window_end) return a.window_end < b.window_end;
-    return a.scale < b.scale;
+  std::ranges::sort(windows, [](ScoringWindow const& lhs, ScoringWindow const& rhs) {
+    if (lhs.mChromIdx != rhs.mChromIdx) return lhs.mChromIdx < rhs.mChromIdx;
+    if (lhs.mWindowStart != rhs.mWindowStart) return lhs.mWindowStart < rhs.mWindowStart;
+    if (lhs.mWindowEnd != rhs.mWindowEnd) return lhs.mWindowEnd < rhs.mWindowEnd;
+    return lhs.mScale < rhs.mScale;
   });
 
   fmt::print(stderr, "Done: {} sorted scoring windows.\n\n", windows.size());
@@ -396,17 +416,17 @@ auto BuildTestSampleSet(std::vector<BedAnnotation> const& annotations)
     -> absl::flat_hash_set<usize> {
   // Group annotation indices by subcategory key
   absl::flat_hash_map<std::string, std::vector<usize>> groups;
-  for (usize i = 0; i < annotations.size(); ++i) {
-    auto const key = absl::StrCat(annotations[i].source, "\t", annotations[i].name);
-    groups[key].push_back(i);
+  for (usize idx = 0; idx < annotations.size(); ++idx) {
+    auto const key = absl::StrCat(annotations[idx].mSource, "\t", annotations[idx].mName);
+    groups[key].push_back(idx);
   }
 
   absl::flat_hash_set<usize> test_set;
   for (auto const& [key, indices] : groups) {
-    usize const n = indices.size();
-    usize const target = std::min(n, TEST_SAMPLES_PER_SUBCAT);
-    for (usize k = 0; k < target; ++k) {
-      test_set.insert(indices[k * n / target]);  // evenly spaced
+    usize const count = indices.size();
+    usize const target = std::min(count, TEST_SAMPLES_PER_SUBCAT);
+    for (usize kidx = 0; kidx < target; ++kidx) {
+      test_set.insert(indices[kidx * count / target]);  // evenly spaced
     }
   }
 
@@ -422,73 +442,78 @@ using InputQueue = moodycamel::ConcurrentQueue<usize>;
 using OutputQueue = moodycamel::ConcurrentQueue<ScoredWindow>;
 
 /// Worker: dequeues a window index, scores the subsequence, enqueues result.
+// NOLINTBEGIN(performance-unnecessary-value-param,readability-function-size)
 void ScoringWorker(std::stop_token stoken, moodycamel::ProducerToken const& in_token,
                    std::shared_ptr<InputQueue> in_queue, std::shared_ptr<OutputQueue> out_queue,
                    std::vector<ScoringWindow> const* windows,
                    std::vector<BedAnnotation> const* annotations, CachedReference const* cache) {
-  lancet::base::LongdustQScorer scorer(7, 10'001);
+  lancet::base::LongdustQScorer const scorer(7, 10'001);
   moodycamel::ProducerToken const out_token(*out_queue);
-  usize win_idx = 0;
+  usize widx = 0;
 
   while (true) {
     if (stoken.stop_requested()) break;
-    if (!in_queue->try_dequeue_from_producer(in_token, win_idx)) continue;
+    if (!in_queue->try_dequeue_from_producer(in_token, widx)) continue;
 
-    auto const& win = (*windows)[win_idx];
-    auto const& ann = (*annotations)[win.parent_idx];
-    auto const& chrom_seq = cache->sequences.at(ann.chrom);
+    auto const& wndw = (*windows)[widx];
+    auto const& annot = (*annotations)[wndw.mParentIdx];
+    auto const& chrom_seq = cache->mSequences.at(annot.mChrom);
 
-    auto const len = static_cast<usize>(win.window_end - win.window_start);
+    auto const slen = static_cast<usize>(wndw.mWindowEnd - wndw.mWindowStart);
     auto const subseq =
-        std::string_view(chrom_seq).substr(static_cast<usize>(win.window_start), len);
+        std::string_view(chrom_seq).substr(static_cast<usize>(wndw.mWindowStart), slen);
 
-    out_queue->enqueue(out_token, ScoredWindow{win_idx, scorer.Score(subseq)});
+    out_queue->enqueue(out_token, ScoredWindow{.mWindowIdx = widx, .mScore = scorer.Score(subseq)});
   }
 }
+// NOLINTEND(performance-unnecessary-value-param,readability-function-size)
 
 // ── Output Formatting ───────────────────────────────────────────────────────
 
-auto FormatLine(BedAnnotation const& ann, ScoringWindow const& win, double score) -> std::string {
-  return fmt::format("{}\t{}\t{}\t{}\t{}\t{}:{}-{}\t{}\t{}\t{}\n", ann.chrom, win.window_start,
-                     win.window_end, ann.source, ann.name, ann.chrom, win.window_start + 1,
-                     win.window_end, win.scale, win.region_length, score);
+auto FormatLine(BedAnnotation const& annot, ScoringWindow const& wndw, double score)
+    -> std::string {
+  return fmt::format("{}\t{}\t{}\t{}\t{}\t{}:{}-{}\t{}\t{}\t{}\n", annot.mChrom, wndw.mWindowStart,
+                     wndw.mWindowEnd, annot.mSource, annot.mName, annot.mChrom,
+                     wndw.mWindowStart + 1, wndw.mWindowEnd, wndw.mScale, wndw.mRegionLength,
+                     score);
 }
 
 // ── ETA Timer ───────────────────────────────────────────────────────────────
 
 class EtaTimer {
  public:
-  explicit EtaTimer(usize total) : total_(total) {}
+  explicit EtaTimer(usize total) : mTotal(total) {}
 
   void Increment() {
-    done_++;
-    double const secs = absl::ToDoubleSeconds(timer_.Runtime());
-    if (secs > 0) rate_ = static_cast<double>(done_) / secs;
+    mDone++;
+    double const secs = absl::ToDoubleSeconds(mTimer.Runtime());
+    if (secs > 0) mRate = static_cast<double>(mDone) / secs;
   }
 
-  [[nodiscard]] auto Elapsed() -> absl::Duration { return timer_.Runtime(); }
+  [[nodiscard]] auto Elapsed() -> absl::Duration { return mTimer.Runtime(); }
 
   [[nodiscard]] auto EstimatedEta() const -> absl::Duration {
-    if (rate_ <= 0) return absl::InfiniteDuration();
-    return absl::Seconds(static_cast<double>(total_ - done_) / rate_);
+    if (mRate <= 0) return absl::InfiniteDuration();
+    return absl::Seconds(static_cast<double>(mTotal - mDone) / mRate);
   }
 
-  [[nodiscard]] auto RatePerSecond() const -> double { return rate_; }
+  [[nodiscard]] auto RatePerSecond() const -> double { return mRate; }
   [[nodiscard]] auto PercentDone() const -> double {
-    return 100.0 * static_cast<double>(done_) / static_cast<double>(total_);
+    return 100.0 * static_cast<double>(mDone) / static_cast<double>(mTotal);
   }
 
  private:
-  usize done_ = 0;
-  usize total_;
-  Timer timer_;
-  double rate_ = 0;
+  usize mDone = 0;
+  usize mTotal;
+  Timer mTimer;
+  double mRate = 0;
 };
 
 }  // namespace
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto main(int argc, char** argv) -> int {
   if (argc < 6) {
     fmt::print(
@@ -534,26 +559,26 @@ auto main(int argc, char** argv) -> int {
   fmt::print(stderr, "Step 3: Balanced sampling (≤{} per subcategory)...\n",
              BALANCED_SAMPLES_PER_SUBCAT);
   absl::flat_hash_map<std::string, std::vector<usize>> subcat_groups;
-  for (usize i = 0; i < all_annotations.size(); ++i) {
-    auto const key = absl::StrCat(all_annotations[i].source, "\t", all_annotations[i].name);
-    subcat_groups[key].push_back(i);
+  for (usize idx = 0; idx < all_annotations.size(); ++idx) {
+    auto const key = absl::StrCat(all_annotations[idx].mSource, "\t", all_annotations[idx].mName);
+    subcat_groups[key].push_back(idx);
   }
 
   absl::flat_hash_set<usize> balanced_set;
   for (auto const& [key, indices] : subcat_groups) {
-    usize const n = indices.size();
-    usize const target = std::min(n, BALANCED_SAMPLES_PER_SUBCAT);
-    for (usize k = 0; k < target; ++k) {
-      balanced_set.insert(indices[k * n / target]);  // evenly spaced
+    usize const count = indices.size();
+    usize const target = std::min(count, BALANCED_SAMPLES_PER_SUBCAT);
+    for (usize kidx = 0; kidx < target; ++kidx) {
+      balanced_set.insert(indices[kidx * count / target]);  // evenly spaced
     }
   }
 
   // Build the balanced annotation vector (only sampled annotations)
   std::vector<BedAnnotation> annotations;
   annotations.reserve(balanced_set.size());
-  for (usize i = 0; i < all_annotations.size(); ++i) {
-    if (balanced_set.contains(i)) {
-      annotations.push_back(std::move(all_annotations[i]));
+  for (usize idx = 0; idx < all_annotations.size(); ++idx) {
+    if (balanced_set.contains(idx)) {
+      annotations.push_back(std::move(all_annotations[idx]));
     }
   }
   all_annotations.clear();
@@ -597,7 +622,7 @@ auto main(int argc, char** argv) -> int {
              num_windows);
   std::vector<std::jthread> workers;
   workers.reserve(num_threads);
-  for (usize t = 0; t < num_threads; ++t) {
+  for (usize tidx = 0; tidx < num_threads; ++tidx) {
     workers.emplace_back(ScoringWorker, std::ref(producer_token), send_queue, recv_queue, &windows,
                          &annotations, &cache);
   }
@@ -617,13 +642,14 @@ auto main(int argc, char** argv) -> int {
 
   while (num_completed < num_windows) {
     if (!recv_queue->try_dequeue(consumer_token, incoming)) {
+      // NOLINTNEXTLINE(google-build-using-namespace)
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(100ms);
       continue;
     }
 
-    scores[incoming.window_idx] = incoming.score;
-    done[incoming.window_idx] = true;
+    scores[incoming.mWindowIdx] = incoming.mScore;
+    done[incoming.mWindowIdx] = true;
     num_completed++;
     eta.Increment();
 
@@ -638,14 +664,14 @@ auto main(int argc, char** argv) -> int {
 
     // Flush completed windows in sorted order
     while (idx_to_flush < num_windows && done[idx_to_flush]) {
-      auto const& win = windows[idx_to_flush];
-      auto const& ann = annotations[win.parent_idx];
-      auto const line = FormatLine(ann, win, scores[idx_to_flush]);
+      auto const& wndw = windows[idx_to_flush];
+      auto const& annot = annotations[wndw.mParentIdx];
+      auto const line = FormatLine(annot, wndw, scores[idx_to_flush]);
 
       output_bed << line;
       rows_written++;
 
-      if (test_set.contains(win.parent_idx)) {
+      if (test_set.contains(wndw.mParentIdx)) {
         test_out << line;
         test_rows_written++;
       }

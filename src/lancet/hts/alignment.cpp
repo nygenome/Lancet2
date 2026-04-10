@@ -68,6 +68,8 @@ auto Alignment::QnameView() const noexcept -> std::string_view {
   if (mRawAln == nullptr) {
     return {};
   }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   return bam_get_qname(mRawAln);
 }
 
@@ -82,6 +84,8 @@ auto Alignment::CigarData() const -> std::vector<CigarUnit> {
   if (mRawAln == nullptr) {
     return {};
   }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
   std::vector<CigarUnit> result;
@@ -96,6 +100,8 @@ auto Alignment::CigarString() const -> std::string {
   if (mRawAln == nullptr) {
     return {};
   }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
   std::string result;
@@ -348,6 +354,7 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
     return false;
   }
 
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
 

@@ -4,11 +4,11 @@
 #include "lancet/caller/raw_variant.h"
 #include "lancet/core/window.h"
 
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
 #include "spoa/graph.hpp"
 
-#include <absl/container/btree_set.h>
 #include <algorithm>
 #include <limits>
 #include <string>
@@ -21,6 +21,8 @@
 namespace {
 
 using lancet::caller::RawVariant;
+
+constexpr usize REF_HAP_IDX = 0;
 
 // =========================================================================================
 // STRICT SEQUENCE CORE LENGTH CALCULATOR
@@ -66,12 +68,6 @@ inline auto CalculateVariantLength(std::string_view ref, std::string_view alt,
   return alt_len - static_cast<i64>(start_match) - static_cast<i64>(end_match);
 }
 
-}  // namespace
-
-static constexpr usize REF_HAP_IDX = 0;
-
-namespace lancet::caller {
-
 // =========================================================================================
 // THE INTUITIVE PRIMER: NATIVE TOPOLOGICAL BUBBLE SINKING
 // =========================================================================================
@@ -113,21 +109,17 @@ namespace lancet::caller {
 //
 // HOW THE SWEEP EXTRACTOR ALGORITHM WORKS: ("Greedy Sink")
 // 1. We track an array of active pointers representing exactly where every path is locally.
-// 2. If the pointers lose uniform consensus (meaning they point to different topological DAG
-// nodes),
-//    a mathematical "Bubble" has triggered!
+// 2. If the pointers lose uniform consensus (meaning they point to different
+//    topological DAG nodes), a mathematical "Bubble" has triggered!
 // 3. To perfectly map the bubble without traversing paths unevenly, we evaluate every active
-// pointer's
-//    `Rank` (its globally unique, topologically sorted 5'-to-3' graph depth indicator).
+//    pointer's `Rank` (its globally unique, topologically sorted 5'-to-3' graph depth indicator).
 // 4. We continually advance EXCLUSIVELY the pointer that possesses the MATHEMATICALLY LOWEST rank,
 //    strictly extracting its characters into a string buffer natively.
 // 5. This causes computationally "lagging" pointers to march forward until mathematically EVERY
-// path
-//    inherently syncs identically onto the exact same `Rank` (the unified convergence target!).
+//    path inherently syncs identically onto the exact same `Rank` (the unified convergence target)
 // 6. We universally collect the buffered sequence strings across all paths, route them through the
 //    `VariantBubble` for robust VCF multi-allelic trimming parsimony, and register the payload!
-// =========================================================================================
-
+// ================================================================================================
 // Isolates algorithmic string Math and left-align computations fully away from graph logic headers
 class VariantBubble {
  public:
@@ -150,18 +142,18 @@ class VariantBubble {
     // Erases rightward bloat first allowing indels to left-align against leftward structural
     // boundaries.
     ApplyUnifiedTrim(
-        [](std::string_view r, std::string_view a) -> bool {
-          return a.length() > 1 && a.back() == r.back();
+        [](std::string_view rseq, std::string_view aseq) -> bool {
+          return aseq.length() > 1 && aseq.back() == rseq.back();
         },
-        [](std::string& t) -> void { t.pop_back(); });
+        [](std::string& tseq) -> void { tseq.pop_back(); });
 
     // Left Trim (e.g. REF: "TTC", ALTS: ["TGC"] => "TC", ["GC"])
     usize const initial_ref_len = mRefAllele.length();
     ApplyUnifiedTrim(
-        [](std::string_view r, std::string_view a) -> bool {
-          return a.length() > 1 && a.front() == r.front();
+        [](std::string_view rseq, std::string_view aseq) -> bool {
+          return aseq.length() > 1 && aseq.front() == rseq.front();
         },
-        [](std::string& t) -> void { t.erase(0, 1); });
+        [](std::string& tseq) -> void { tseq.erase(0, 1); });
 
     // Correcting Start Pos! Every left character dropped dynamically sweeps Genomic Start `+1`.
     mGenomeStartPos += (initial_ref_len - mRefAllele.length());
@@ -173,15 +165,21 @@ class VariantBubble {
   // `string_view` for speed) and `do_trim` (executes the heavy string mutation).
   template <typename CanTrimFunc, typename DoTrimFunc>
   void ApplyUnifiedTrim(CanTrimFunc can_trim, DoTrimFunc do_trim) {
-    while (mRefAllele.length() > 1) {  // Guard ensuring bounding box doesn't evaporate completely!
+    // Guard ensuring bounding box doesn't evaporate completely!
+    while (mRefAllele.length() > 1) {
       bool unanimously_shared = true;
       std::string_view const ref_view(mRefAllele);
+
+      // NOLINTNEXTLINE(readability-identifier-length)
       for (auto const& [alt_seq, _] : mAltAllelesToHaps) {
         if (!can_trim(ref_view, std::string_view(alt_seq))) {
           unanimously_shared = false;
-          break;  // Any deviation stops the trimming completely across ALL alleles globally
+          // Any deviation stops the trimming
+          // completely across ALL alleles globally
+          break;
         }
       }
+
       if (!unanimously_shared) {
         break;
       }
@@ -199,6 +197,7 @@ class VariantBubble {
         do_trim(new_alt);
         rehashed_map[std::move(new_alt)] = std::move(haps);
       }
+
       mAltAllelesToHaps = std::move(rehashed_map);
     }
   }
@@ -214,17 +213,16 @@ class VariantBubble {
 // =========================================================================================
 class VariantExtractor {
  public:
-  VariantExtractor(spoa::Graph const& graph, core::Window const& win, usize anchor_start)
-      : graph_(graph),
+  VariantExtractor(spoa::Graph const& graph, lancet::core::Window const& win, usize anchor_start)
+      : mGraph(graph),
         mWin(win),
         mRefAnchorStart(anchor_start),
         mCurrentRefPos(anchor_start),
-        num_seqs_(graph_.sequences().size()) {
-    if (num_seqs_ < 2) {
-      return;  // Natively nothing to discover against isolated references
-    }
+        mNumSeqs(mGraph.sequences().size()) {
+    // Natively nothing to discover against isolated references
+    if (mNumSeqs < 2) return;
 
-    mCurrentHapPos.assign(num_seqs_, 0);  // Initializes array accurately bounding paths
+    mCurrentHapPos.assign(mNumSeqs, 0);  // Initializes array accurately bounding paths
 
     // ===========================================================================
     // RANK LOOKUP INITIALIZATION:  O(N) Inverse Topological Indexing
@@ -238,17 +236,17 @@ class VariantExtractor {
     // We inverse it here, meaning if you pass ANY native `.id`, `node_to_rank_[id]`
     // retrieves its true mathematical biological left-to-right progressive rank value `O(1)`.
     // ===========================================================================
-    auto const& topological_order = graph_.rank_to_node();
+    auto const& topological_order = mGraph.rank_to_node();
     // Instantiate graph memory maps matching natively biological pathways.
-    mActivePtrs.assign(num_seqs_, nullptr);
-    mNodeToRank.assign(graph_.nodes().size(), std::numeric_limits<u32>::max());
+    mActivePtrs.assign(mNumSeqs, nullptr);
+    mNodeToRank.assign(mGraph.nodes().size(), std::numeric_limits<u32>::max());
     for (u32 rank = 0; rank < topological_order.size(); ++rank) {
       mNodeToRank[topological_order[rank]->id] = rank;
     }
 
     // Cache initial coordinate origins representing all continuous biological pathways
-    for (usize i = 0; i < num_seqs_; ++i) {
-      mActivePtrs[i] = graph_.sequences()[i];
+    for (usize i = 0; i < mNumSeqs; ++i) {
+      mActivePtrs[i] = mGraph.sequences()[i];
     }
   }
 
@@ -288,20 +286,18 @@ class VariantExtractor {
   //                                  `RawVariant::ClassifyVariant` and emitting `RawVariant` sets
   //                                  seamlessly!
   // ===================================================================================================
-  // Single public interface endpoint parsing variants continuously directly into the tracking
-  // payload container
+  // Single public interface endpoint parsing variants continuously
+  // directly into the tracking payload container
   void SearchAndExtractTo(absl::btree_set<RawVariant>& out_variants) {
-    if (num_seqs_ < 2) {
+    if (mNumSeqs < 2) {
       return;
     }
 
     while (true) {
       if (AreAllPathsConverged()) {
-        // If everyone identically evaluates native `nullptr`, biological tracking universally
-        // concludes!
-        if (mActivePtrs[REF_HAP_IDX] == nullptr) {
-          break;
-        }
+        // If everyone identically evaluates native `nullptr`,
+        // biological tracking universally concludes!
+        if (mActivePtrs[REF_HAP_IDX] == nullptr) break;
         AdvanceConvergedPaths();
       } else {
         EatTopologicalBubble(out_variants);
@@ -314,25 +310,23 @@ class VariantExtractor {
   // uniformly 8B sized references, integers, and raw pointers perfectly eliminating waste.
   std::vector<u32> mNodeToRank;
   std::vector<spoa::Graph::Node const*> mActivePtrs;
-  std::vector<usize>
-      mCurrentHapPos;  // Dynamically tracks each active path's exact physical array offset
+  // Dynamically tracks each active path's exact physical array offset
+  std::vector<usize> mCurrentHapPos;
   // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
-  spoa::Graph const& graph_;
-  core::Window const& mWin;
+  spoa::Graph const& mGraph;
+  lancet::core::Window const& mWin;
   // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
   usize mRefAnchorStart;
   usize mCurrentRefPos;
-  usize num_seqs_;
+  usize mNumSeqs;
   // Mandatory dynamically updated VCF Anchor boundary
   spoa::Graph::Node const* mPrevMatchNode = nullptr;
 
   // O(M_paths) inline evaluating if NO multiallelic divergence exists currently locally
   [[nodiscard]] auto AreAllPathsConverged() const -> bool {
     auto const* target = mActivePtrs[REF_HAP_IDX];
-    for (usize i = 1; i < num_seqs_; ++i) {
-      if (mActivePtrs[i] != target) {
-        return false;
-      }
+    for (usize i = 1; i < mNumSeqs; ++i) {
+      if (mActivePtrs[i] != target) return false;
     }
     return true;
   }
@@ -340,20 +334,22 @@ class VariantExtractor {
   // Step continuous matched blocks homogeneously concurrently
   void AdvanceConvergedPaths() {
     mPrevMatchNode = mActivePtrs[REF_HAP_IDX];
-    for (usize i = 0; i < num_seqs_; ++i) {
+    for (usize i = 0; i < mNumSeqs; ++i) {
       if (mActivePtrs[i]) {
         mActivePtrs[i] = mActivePtrs[i]->Successor(i);
-        mCurrentHapPos[i]++;  // Dynamically advance sequence coordinate
+        // Dynamically advance sequence coordinate
+        mCurrentHapPos[i]++;
       }
     }
+
     mCurrentRefPos++;
   }
 
   // Controller natively consuming open bubbles and emitting clean Multiallelic Set payloads!
   void EatTopologicalBubble(absl::btree_set<RawVariant>& out_variants) {
-    std::vector<std::string> raw_alleles(num_seqs_,
-                                         "");  // Initialize empty base sequences uniformly
-    std::vector<usize> bubble_hap_starts(num_seqs_, 0);
+    // Initialize empty base sequences uniformly
+    std::vector<std::string> raw_alleles(mNumSeqs, "");
+    std::vector<usize> bubble_hap_starts(mNumSeqs, 0);
 
     // 1. Anchor
     usize const exact_start_pos =
@@ -378,20 +374,19 @@ class VariantExtractor {
     bool const has_prev = (mPrevMatchNode != nullptr);
     auto const anchor_offset = static_cast<usize>(has_prev);
 
-    // Branchlessly shifts the universal genomic coordinate logically backward by exactly 1 if an
-    // anchor exists
+    // Branchlessly shifts the universal genomic coordinate logically
+    // backward by exactly 1 if an anchor exists
     usize const bubble_start_pos = mCurrentRefPos - anchor_offset;
 
     // We retroactively extract the LAST confirmed unified anchor base to prefix the sequences!
     if (has_prev) {
-      char const decoder_val = static_cast<char>(graph_.decoder(mPrevMatchNode->code));
-      for (auto& allele : raw_alleles) {
-        allele += decoder_val;
-      }
+      char const decoder_val = static_cast<char>(mGraph.decoder(mPrevMatchNode->code));
+      std::for_each(raw_alleles.begin(), raw_alleles.end(),
+                    [decoder_val](std::string& allele) { allele += decoder_val; });
     }
 
     // Branchlessly record matrix boundaries uniformly
-    for (usize i = 0; i < num_seqs_; ++i) {
+    for (usize i = 0; i < mNumSeqs; ++i) {
       out_hap_starts[i] = mCurrentHapPos[i] - anchor_offset;
     }
 
@@ -403,14 +398,13 @@ class VariantExtractor {
   // Using `absl::Span` ensures `raw_alleles` memory modifications are written precisely
   // natively back to the source string vectors without executing vector copying internally.
   // ===========================================================================
-  // Pushes active pointers topologically forward until universal convergence is re-established
-  // natively
+  // Pushes active pointers topologically forward until universal
+  // convergence is re-established natively
   void SinkPointers(absl::Span<std::string> raw_alleles) {
     while (!AreAllPathsConverged()) {
       u32 const min_rank = FindLowestActiveRank();
-      if (min_rank == std::numeric_limits<u32>::max()) {
-        break;
-      }
+      if (min_rank == std::numeric_limits<u32>::max()) break;
+
       ConsumePathsAtRank(min_rank, raw_alleles);
     }
   }
@@ -418,43 +412,44 @@ class VariantExtractor {
   // Phase 1: Determine the lowest active topological boundary amongst traversing sets
   [[nodiscard]] auto FindLowestActiveRank() const -> u32 {
     u32 min_rank = std::numeric_limits<u32>::max();
-    for (auto const* p : mActivePtrs) {
-      if (p != nullptr) {
-        min_rank = std::min(min_rank, mNodeToRank.at(p->id));
+    for (auto const* nptr : mActivePtrs) {
+      if (nptr != nullptr) {
+        min_rank = std::min(min_rank, mNodeToRank.at(nptr->id));
       }
     }
+
     return min_rank;
   }
 
-  // Phase 2: Selectively consume and roll exclusively paths pinned precisely against that lowest
-  // rank
+  // Phase 2: Selectively consume and roll exclusively paths
+  // pinned precisely against that lowest rank
   void ConsumePathsAtRank(u32 target_rank, absl::Span<std::string> raw_alleles) {
-    for (usize i = 0; i < num_seqs_; ++i) {
+    for (usize i = 0; i < mNumSeqs; ++i) {
       if (mActivePtrs[i] != nullptr && mNodeToRank.at(mActivePtrs[i]->id) == target_rank) {
-        raw_alleles[i] += static_cast<char>(graph_.decoder(mActivePtrs[i]->code));
+        raw_alleles[i] += static_cast<char>(mGraph.decoder(mActivePtrs[i]->code));
         mActivePtrs[i] = mActivePtrs[i]->Successor(i);
 
-        mCurrentHapPos[i]++;  // Tracking local path lengths natively mathematically
+        // Tracking local path lengths natively mathematically
+        mCurrentHapPos[i]++;
 
-        // Critical Update! Only the native biological Reference Index modifies universal REF
-        // coordinates.
-        if (i == REF_HAP_IDX) {
-          mCurrentRefPos++;
-        }
+        // Critical Update! Only the native biological Reference
+        // Index modifies universal REF coordinates.
+        if (i == REF_HAP_IDX) mCurrentRefPos++;
       }
     }
   }
 
   // Phase 3: Cluster disjoint sequence strings upon convergence organically, and precisely purge
   // parsimony padding.
-  auto CreateNormalizedBubble(usize genome_start_pos, std::vector<std::string> raw_alleles) const
+  [[nodiscard]] auto CreateNormalizedBubble(usize genome_start_pos,
+                                            std::vector<std::string> raw_alleles) const
       -> VariantBubble {
     VariantBubble bubble;
     bubble.mGenomeStartPos = genome_start_pos;
     bubble.mRefAllele = std::move(raw_alleles[REF_HAP_IDX]);
 
     // Exclude the pure identical reference tracks. Everything else goes into the variant parser
-    for (usize alt_idx = 1; alt_idx < num_seqs_; ++alt_idx) {
+    for (usize alt_idx = 1; alt_idx < mNumSeqs; ++alt_idx) {
       if (raw_alleles[alt_idx] != bubble.mRefAllele) {
         bubble.mAltAllelesToHaps[raw_alleles[alt_idx]].push_back(alt_idx);
       }
@@ -468,42 +463,45 @@ class VariantExtractor {
   // multiallelic payloads.
   auto AssembleMultiallelicVariant(VariantBubble bubble) -> RawVariant {
     // Instantiate unified multiallelic VCF bucket correctly capturing complex fields.
-    RawVariant multiallelic_var;
-    multiallelic_var.mChromIndex = mWin.ChromIndex();
-    multiallelic_var.mChromName = mWin.ChromName();
-    multiallelic_var.mGenomeChromPos1 = bubble.mGenomeStartPos;
-    multiallelic_var.mLocalRefStart0Idx =
-        bubble.mHapStarts[REF_HAP_IDX];  // Statically locks to REF coordinate flawlessly
-    multiallelic_var.mRefAllele = std::move(bubble.mRefAllele);
+    RawVariant multi_var;
+    multi_var.mChromIndex = mWin.ChromIndex();
+    multi_var.mChromName = mWin.ChromName();
+    multi_var.mGenomeChromPos1 = bubble.mGenomeStartPos;
+
+    // Statically locks to REF coordinate flawlessly
+    multi_var.mLocalRefStart0Idx = bubble.mHapStarts[REF_HAP_IDX];
+    multi_var.mRefAllele = std::move(bubble.mRefAllele);
 
     // Populate disjoint variant structures
     for (auto& [normalized_alt, haps] : bubble.mAltAllelesToHaps) {
       RawVariant::AltAllele sub_alt;
       sub_alt.mSequence = normalized_alt;
-      sub_alt.mType = RawVariant::ClassifyVariant(multiallelic_var.mRefAllele, sub_alt.mSequence);
+      sub_alt.mType = RawVariant::ClassifyVariant(multi_var.mRefAllele, sub_alt.mSequence);
       sub_alt.mLength =
-          CalculateVariantLength(multiallelic_var.mRefAllele, sub_alt.mSequence, sub_alt.mType);
+          CalculateVariantLength(multi_var.mRefAllele, sub_alt.mSequence, sub_alt.mType);
 
       for (usize const hap_id : haps) {
         sub_alt.mLocalHapStart0Idxs.emplace(hap_id, bubble.mHapStarts[hap_id]);
       }
 
-      multiallelic_var.mAlts.push_back(std::move(sub_alt));
+      multi_var.mAlts.push_back(std::move(sub_alt));
     }
 
-    // `RawVariant` utilizes std::vector equality natively, so sequence elements MUST
-    // strictly align uniformly to generate completely identical hashes reliably inside the set
-    // arrays later on.
-    std::sort(multiallelic_var.mAlts.begin(), multiallelic_var.mAlts.end());
-    return multiallelic_var;
+    // `RawVariant` utilizes std::vector equality natively, so sequence elements MUST strictly
+    // align uniformly to generate completely identical hashes reliably inside set arrays later.
+    std::sort(multi_var.mAlts.begin(), multi_var.mAlts.end());
+    return multi_var;
   }
 };
 
+}  // namespace
+
+namespace lancet::caller {
+
 void VariantSet::ExtractVariantsFromGraph(spoa::Graph const& graph, core::Window const& win,
                                           usize ref_anchor_start) {
-  if (graph.sequences().size() < 2) {
-    return;
-  }
+  if (graph.sequences().size() < 2) return;
+
   VariantExtractor extractor(graph, win, ref_anchor_start);
   extractor.SearchAndExtractTo(this->mResultVariants);
 }

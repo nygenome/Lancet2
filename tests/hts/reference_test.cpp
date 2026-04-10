@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <optional>
 
-using namespace lancet::hts;
+using lancet::hts::Reference;
 
 TEST_CASE("Reference::Reference()", "[lancet][hts][Reference]") {
   auto const ref_path = MakePath(FULL_DATA_DIR, GRCH38_REF_NAME);
@@ -29,10 +29,10 @@ TEST_CASE("Reference::ListChroms()", "[lancet][hts][Reference]") {
   }
 
   SECTION("Reference must list the correct information for chromosomes") {
-    for (usize idx = 0; idx < NUM_AUTOSOMES_XY; ++idx) {
-      CHECK(chromosomes.at(idx).Name() == GRCH38_NAMES_AUTOSOMES_XY.at(idx));
-      CHECK(chromosomes.at(idx).Length() == GRCH38_LENGTHS_AUTOSOMES_XY.at(idx));
-      CHECK(chromosomes.at(idx).Index() == idx);
+    for (usize cidx = 0; cidx < NUM_AUTOSOMES_XY; ++cidx) {
+      CHECK(chromosomes.at(cidx).Name() == GRCH38_NAMES_AUTOSOMES_XY.at(cidx));
+      CHECK(chromosomes.at(cidx).Length() == GRCH38_LENGTHS_AUTOSOMES_XY.at(cidx));
+      CHECK(chromosomes.at(cidx).Index() == cidx);
     }
   }
 }
@@ -60,7 +60,7 @@ TEST_CASE("Reference::MakeRegion(const char*)", "[lancet][hts][Reference]") {
 
   SECTION("Can make Reference::Region from {HLA-B*15:01:01:02N}") {
     auto const region = ref.MakeRegion("{HLA-B*15:01:01:02N}");
-    static constexpr auto expected_seq = "ATGCGGGTCACGGCGCCCCGAACCGTCCTCCTGCTGCTCTCGGGAGCCCTGGCCCTG"
+    static constexpr auto EXPECTED_SEQ = "ATGCGGGTCACGGCGCCCCGAACCGTCCTCCTGCTGCTCTCGGGAGCCCTGGCCCTG"
                                          "ACCGAGACCTGGGCCGGTGAGTGCGGGGTCGGCAGGGAAATGGCCTCTGTGGG"
                                          "GAGGAGCGAGGGGACCGCAGGCGGGGGCGCAGGACCCGGGGAGCCGCGCCGGGAGGA"
                                          "GGGTCGGGCCCCTCCTCGCCCCCAGGCTCCCACTCCATGAGGTATTTCTACAC"
@@ -88,52 +88,52 @@ TEST_CASE("Reference::MakeRegion(const char*)", "[lancet][hts][Reference]") {
     CHECK(region.StartPos1() == 1);
     CHECK(region.EndPos1() == region.Length());
     CHECK(region.Length() == 1208);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from {HLA-A*01:01:01:01}:100-110") {
     auto const region = ref.MakeRegion("{HLA-A*01:01:01:01}:100-110");
-    static constexpr auto expected_seq = "GGGGATTCCCC";
+    static constexpr auto EXPECTED_SEQ = "GGGGATTCCCC";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 100);
     CHECK(region.EndPos1() == 110);
     CHECK(region.Length() == 11);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from {HLA-A*01:01:01:01}:3434-") {
     auto const region = ref.MakeRegion("{HLA-A*01:01:01:01}:3434-");
-    static constexpr auto expected_seq =
+    static constexpr auto EXPECTED_SEQ =
         "CTGAGGTGTCTCCATCTCTGTCTCAACTTCATGGTGCACTGAGCTGTAACTTCTTCCTTCCCTATTAAAA";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 3434);
     CHECK(region.EndPos1() == 3503);
     CHECK(region.Length() == 70);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from {HLA-A*01:01:01:01}:-5") {
     auto const region = ref.MakeRegion("{HLA-A*01:01:01:01}:-5");
-    static constexpr auto expected_seq = "CAGGA";
+    static constexpr auto EXPECTED_SEQ = "CAGGA";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 1);
     CHECK(region.EndPos1() == 5);
     CHECK(region.Length() == 5);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region chr18:48343-48343") {
     auto const region = ref.MakeRegion("chr18:48343-48343");
-    static constexpr auto expected_seq = "C";
+    static constexpr auto EXPECTED_SEQ = "C";
     CHECK(region.ChromName() == "chr18");
     CHECK(region.ChromIndex() == 17);
     CHECK(region.StartPos1() == 48'343);
     CHECK(region.EndPos1() == 48'343);
     CHECK(region.Length() == 1);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 }
 
@@ -143,7 +143,7 @@ TEST_CASE("Reference::MakeRegion(const std::string&, const OneBasedClosedOptiona
 
   SECTION("Can make Reference::Region from (\"HLA-B*15:01:01:02N\", {})") {
     auto const region = ref.MakeRegion("HLA-B*15:01:01:02N", {});
-    static constexpr auto expected_seq = "ATGCGGGTCACGGCGCCCCGAACCGTCCTCCTGCTGCTCTCGGGAGCCCTGGCCCTG"
+    static constexpr auto EXPECTED_SEQ = "ATGCGGGTCACGGCGCCCCGAACCGTCCTCCTGCTGCTCTCGGGAGCCCTGGCCCTG"
                                          "ACCGAGACCTGGGCCGGTGAGTGCGGGGTCGGCAGGGAAATGGCCTCTGTGGG"
                                          "GAGGAGCGAGGGGACCGCAGGCGGGGGCGCAGGACCCGGGGAGCCGCGCCGGGAGGA"
                                          "GGGTCGGGCCCCTCCTCGCCCCCAGGCTCCCACTCCATGAGGTATTTCTACAC"
@@ -171,51 +171,51 @@ TEST_CASE("Reference::MakeRegion(const std::string&, const OneBasedClosedOptiona
     CHECK(region.StartPos1() == 1);
     CHECK(region.EndPos1() == region.Length());
     CHECK(region.Length() == 1208);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from (\"HLA-A*01:01:01:01\", {100, 110})") {
     auto const region = ref.MakeRegion("HLA-A*01:01:01:01", {100, 110});
-    static constexpr auto expected_seq = "GGGGATTCCCC";
+    static constexpr auto EXPECTED_SEQ = "GGGGATTCCCC";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 100);
     CHECK(region.EndPos1() == 110);
     CHECK(region.Length() == 11);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from (\"HLA-A*01:01:01:01\", {3434, std::nullopt})") {
     auto const region = ref.MakeRegion("HLA-A*01:01:01:01", {3434, std::nullopt});
-    static constexpr auto expected_seq =
+    static constexpr auto EXPECTED_SEQ =
         "CTGAGGTGTCTCCATCTCTGTCTCAACTTCATGGTGCACTGAGCTGTAACTTCTTCCTTCCCTATTAAAA";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 3434);
     CHECK(region.EndPos1() == 3503);
     CHECK(region.Length() == 70);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from (\"HLA-A*01:01:01:01\", {std::nullopt, 5})") {
     auto const region = ref.MakeRegion("HLA-A*01:01:01:01", {std::nullopt, 5});
-    static constexpr auto expected_seq = "CAGGA";
+    static constexpr auto EXPECTED_SEQ = "CAGGA";
     CHECK(region.ChromName() == "HLA-A*01:01:01:01");
     CHECK(region.ChromIndex() == 2841);
     CHECK(region.StartPos1() == 1);
     CHECK(region.EndPos1() == 5);
     CHECK(region.Length() == 5);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 
   SECTION("Can make Reference::Region from (\"chr18\", {48343, 48343})") {
     auto const region = ref.MakeRegion("chr18", {48'343, 48'343});
-    static constexpr auto expected_seq = "C";
+    static constexpr auto EXPECTED_SEQ = "C";
     CHECK(region.ChromName() == "chr18");
     CHECK(region.ChromIndex() == 17);
     CHECK(region.StartPos1() == 48'343);
     CHECK(region.EndPos1() == 48'343);
     CHECK(region.Length() == 1);
-    CHECK(region.SeqView() == expected_seq);
+    CHECK(region.SeqView() == EXPECTED_SEQ);
   }
 }

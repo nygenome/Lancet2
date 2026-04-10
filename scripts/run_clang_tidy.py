@@ -61,6 +61,7 @@ def main() -> int:
     cmd: list[str] = [
         "pixi", "run", "run-clang-tidy",
         "-p", str(build_dir),
+        "-quiet", "-use-color",
         f"-header-filter={HEADER_FILTER}",
     ]
 

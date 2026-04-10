@@ -25,7 +25,7 @@ class VariantStore {
 
   VariantStore() = default;
 
-  void AddVariants(std::vector<Value>&& variants);
+  void AddVariants(std::vector<Value> variants);
   void FlushVariantsBeforeWindow(Window const& win, std::ostream& out);
   void FlushAllVariantsInStore(std::ostream& out);
 

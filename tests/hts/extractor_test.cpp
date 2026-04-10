@@ -10,7 +10,9 @@
 #include <iterator>
 #include <stdexcept>
 
-using namespace lancet::hts;
+using lancet::hts::Alignment;
+using lancet::hts::Extractor;
+using lancet::hts::Reference;
 
 TEST_CASE("Extractor::Extractor()", "[lancet][hts][Extractor]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
@@ -78,6 +80,7 @@ TEST_CASE("Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region
   }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][Extractor]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
   auto const tumor_cram_path = MakePath(FULL_DATA_DIR, TUMOR_CRAM_NAME);

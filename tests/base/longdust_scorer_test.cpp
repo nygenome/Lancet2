@@ -24,14 +24,14 @@ namespace {
 
 // ── Shared constants & helpers ──────────────────────────────────────────────
 
-static constexpr auto CHM13_REF_NAME = "chm13v2.0.fa.gz";
-static constexpr auto CALIBRATION_TSV = "longdust_calibration_test_regions.tsv";
+constexpr auto CHM13_REF_NAME = "chm13v2.0.fa.gz";
+constexpr auto CALIBRATION_TSV = "longdust_calibration_test_regions.tsv";
 
 /// Build a tandem repeat string: motif repeated `copies` times.
 inline auto BuildRepeat(std::string_view motif, usize copies) -> std::string {
   std::string result;
   result.reserve(motif.size() * copies);
-  for (usize i = 0; i < copies; ++i) {
+  for (usize iter = 0; iter < copies; ++iter) {
     result.append(motif);
   }
   return result;
@@ -44,7 +44,7 @@ inline auto RandomDna(usize length, u64 seed = 42) -> std::string {
   std::uniform_int_distribution<usize> dist(0, 3);
   std::string result;
   result.reserve(length);
-  for (usize i = 0; i < length; ++i) {
+  for (usize iter = 0; iter < length; ++iter) {
     result.push_back(BASES.at(dist(gen)));
   }
   return result;
@@ -52,14 +52,16 @@ inline auto RandomDna(usize length, u64 seed = 42) -> std::string {
 
 /// RAII wrapper for longdust data (auto-destroys on scope exit).
 struct LdContext {
-  ld_opt_t opt{};
-  ld_data_t* data = nullptr;
+  ld_opt_t mOpt{};
+  ld_data_t* mData = nullptr;
 
+  // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer)
   LdContext() {
-    ld_opt_init(&opt);
-    data = ld_data_init(nullptr, &opt);
+    ld_opt_init(&mOpt);
+    mData = ld_data_init(nullptr, &mOpt);
   }
-  ~LdContext() { ld_data_destroy(data); }
+  // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
+  ~LdContext() { ld_data_destroy(mData); }
   LdContext(LdContext const&) = delete;
   auto operator=(LdContext const&) -> LdContext& = delete;
   LdContext(LdContext&&) = delete;
@@ -68,15 +70,15 @@ struct LdContext {
 
 /// Row from the calibration TSV (new format with BED coordinates and pre-computed scores).
 struct CalibrationRow {
-  std::string chrom;   // e.g. "chr1"
-  i64 start;           // 0-based start
-  i64 end;             // 0-based end (exclusive)
-  std::string source;  // category (e.g. "GIAB/LowComplexity")
-  std::string name;    // subcategory (e.g. "SimpleRepeat_diTR_11to50_slop5")
-  std::string region;  // samtools region (e.g. "chr1:100-200")
-  int scale = 0;
-  int region_length = 0;
-  double expected_score{};  // pre-computed LCR score
+  std::string mChrom;   // e.g. "chr1"
+  i64 mStart = 0;       // 0-based start
+  i64 mEnd = 0;         // 0-based end (exclusive)
+  std::string mSource;  // category (e.g. "GIAB/LowComplexity")
+  std::string mName;    // subcategory (e.g. "SimpleRepeat_diTR_11to50_slop5")
+  std::string mRegion;  // samtools region (e.g. "chr1:100-200")
+  int mScale = 0;
+  int mRegionLength = 0;
+  double mExpectedScore{};  // pre-computed LCR score
 };
 
 /// Parse the calibration TSV into a vector of rows.
@@ -87,24 +89,28 @@ inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector
   std::getline(infile, line);  // skip header
   while (std::getline(infile, line)) {
     if (line.empty()) continue;
-    CalibrationRow r;
+    CalibrationRow row;
     std::istringstream iss(line);
-    std::string start_s, end_s, scale_s, rlen_s, score_s;
-    std::getline(iss, r.chrom, '\t');
+    std::string start_s;
+    std::string end_s;
+    std::string scale_s;
+    std::string rlen_s;
+    std::string score_s;
+    std::getline(iss, row.mChrom, '\t');
     std::getline(iss, start_s, '\t');
     std::getline(iss, end_s, '\t');
-    std::getline(iss, r.source, '\t');
-    std::getline(iss, r.name, '\t');
-    std::getline(iss, r.region, '\t');
+    std::getline(iss, row.mSource, '\t');
+    std::getline(iss, row.mName, '\t');
+    std::getline(iss, row.mRegion, '\t');
     std::getline(iss, scale_s, '\t');
     std::getline(iss, rlen_s, '\t');
     std::getline(iss, score_s, '\t');
-    r.start = std::stol(start_s);
-    r.end = std::stol(end_s);
-    r.scale = std::stoi(scale_s);
-    r.region_length = std::stoi(rlen_s);
-    r.expected_score = score_s.empty() ? 0.0 : std::stod(score_s);
-    rows.push_back(std::move(r));
+    row.mStart = std::stol(start_s);
+    row.mEnd = std::stol(end_s);
+    row.mScale = std::stoi(scale_s);
+    row.mRegionLength = std::stoi(rlen_s);
+    row.mExpectedScore = score_s.empty() ? 0.0 : std::stod(score_s);
+    rows.push_back(std::move(row));
   }
   return rows;
 }
@@ -112,8 +118,8 @@ inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector
 }  // namespace
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  PART 1: Longdust Cross-Validation                                      ║
-// ║  Verify exact mathematical parity between LongdustQScorer and longdust C.     ║
+// ║  PART 1: Longdust Cross-Validation                                       ║
+// ║  Verify exact mathematical parity between LongdustQScorer and longdust C.║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 // ============================================================================
@@ -127,8 +133,8 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
   REQUIRE(std::filesystem::exists(ref_path));
   lancet::hts::Reference const ref(ref_path);
   lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
-  LdContext ld;
-  REQUIRE(ld.data != nullptr);
+  LdContext lctx;
+  REQUIRE(lctx.mData != nullptr);
   constexpr double EPS = 1e-9;
 
   // Telomere: (TTAGGG)n — highest complexity score
@@ -137,7 +143,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:1-200");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.6);
   }
 
@@ -146,7 +152,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr2:242696553-242696752");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.5);
   }
 
@@ -156,7 +162,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:126828705-126828904");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.3);
   }
 
@@ -166,7 +172,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:121619170-121619469");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 300)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 300)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.0);
   }
 
@@ -176,7 +182,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:153735-153878");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 144)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 144)).epsilon(EPS));
     CHECK(scorer.Score(seq) > 0.2);
   }
 
@@ -185,7 +191,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:10000001-10000200");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
     CHECK(scorer.Score(seq) < 0.3);
   }
 
@@ -194,7 +200,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
     auto const region = ref.MakeRegion("chr1:3001-3200");
     auto const seq = std::string(region.SeqView());
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
   }
 }
 
@@ -204,16 +210,18 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
 
 TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
           "[lancet][base][longdust_scorer][cross_validation]") {
-  LdContext ld;
-  auto const* d = reinterpret_cast<ld_test_data_s const*>(ld.data);
+  LdContext const lctx;
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const* ldat = reinterpret_cast<ld_test_data_s const*>(lctx.mData);
   lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
 
   // For a homopolymer of ℓ+k-1 bases: Q = lgamma(ℓ+1) - f(ℓ)
   // so f(ℓ) = lgamma(ℓ+1) - ScoreOneStrand() * ℓ
-  for (int ell : {10, 50, 100, 200, 500, 1000, 2000, 4000}) {
+  for (int const ell : {10, 50, 100, 200, 500, 1000, 2000, 4000}) {
     auto const seq = std::string(ell + 6, 'A');  // k=7 → ℓ k-mers
-    double const ld_f = d->f[ell];
-    double const our_f = std::lgamma(static_cast<f64>(ell + 1)) - scorer.ScoreOneStrand(seq) * ell;
+    double const ld_f = ldat->f[ell];
+    double const our_f =
+        std::lgamma(static_cast<f64>(ell + 1)) - (scorer.ScoreOneStrand(seq) * ell);
     INFO("ℓ=" << ell << " ld_f=" << ld_f << " our_f=" << our_f);
     CHECK(our_f == Catch::Approx(ld_f).epsilon(1e-9));
   }
@@ -227,49 +235,49 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
           "[lancet][base][longdust_scorer][cross_validation]") {
   lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
-  LdContext ld;
+  LdContext const lctx;
   constexpr double EPS = 1e-9;
 
   SECTION("Homopolymer poly-A 50bp") {
     auto const seq = std::string(50, 'A');
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 50)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 50)).epsilon(EPS));
   }
 
   SECTION("Homopolymer poly-A 100bp") {
     auto const seq = std::string(100, 'A');
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 100)).epsilon(EPS));
   }
 
   SECTION("Dinucleotide (CA)x50") {
     auto const seq = BuildRepeat("CA", 50);
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 100)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 100)).epsilon(EPS));
   }
 
   SECTION("Trinucleotide (CAG)x40") {
     auto const seq = BuildRepeat("CAG", 40);
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 120)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 120)).epsilon(EPS));
   }
 
   SECTION("Random DNA 200bp") {
     auto const seq = RandomDna(200);
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 200)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 200)).epsilon(EPS));
   }
 
   SECTION("Random DNA 500bp") {
     auto const seq = RandomDna(500, 789);
     CHECK(scorer.Score(seq) ==
-          Catch::Approx(ld_test_q_both_strands(ld.data, seq.c_str(), 500)).epsilon(EPS));
+          Catch::Approx(ld_test_q_both_strands(lctx.mData, seq.c_str(), 500)).epsilon(EPS));
   }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  PART 2: Scorer Properties                                              ║
-// ║  Unit tests for edge cases, monotonicity, and strand behaviour.         ║
+// ║  PART 2: Scorer Properties                                               ║
+// ║  Unit tests for edge cases, monotonicity, and strand behaviour.          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][longdust_scorer]") {
@@ -298,18 +306,18 @@ TEST_CASE("Score: detects homopolymer runs", "[lancet][base][longdust_scorer]") 
 
 TEST_CASE("Score: increases with repeat copy number", "[lancet][base][longdust_scorer]") {
   lancet::base::LongdustQScorer const scorer(7);
-  auto const t5 = scorer.Score(BuildRepeat("TTAGGG", 5));
-  auto const t10 = scorer.Score(BuildRepeat("TTAGGG", 10));
-  auto const t20 = scorer.Score(BuildRepeat("TTAGGG", 20));
-  CHECK(t5 < t10);
-  CHECK(t10 <= t20);
+  auto const score5 = scorer.Score(BuildRepeat("TTAGGG", 5));
+  auto const score10 = scorer.Score(BuildRepeat("TTAGGG", 10));
+  auto const score20 = scorer.Score(BuildRepeat("TTAGGG", 20));
+  CHECK(score5 < score10);
+  CHECK(score10 <= score20);
 }
 
 TEST_CASE("Score: uses both strands (max of fwd/rev)", "[lancet][base][longdust_scorer]") {
   lancet::base::LongdustQScorer const scorer(7);
-  auto const polyT = std::string(30, 'T');
-  CHECK(scorer.Score(polyT) > 0.6);
-  CHECK(scorer.Score(polyT) >= scorer.ScoreOneStrand(polyT));
+  auto const poly_t = std::string(30, 'T');
+  CHECK(scorer.Score(poly_t) > 0.6);
+  CHECK(scorer.Score(poly_t) >= scorer.ScoreOneStrand(poly_t));
 }
 
 TEST_CASE("Score: case-insensitive", "[lancet][base][longdust_scorer]") {
@@ -326,7 +334,7 @@ TEST_CASE("Score: N bases reduce score", "[lancet][base][longdust_scorer]") {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  PART 3: Score Formatting & Constants                                   ║
+// ║  PART 3: Score Formatting & Constants                                    ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
@@ -354,14 +362,14 @@ TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  PART 4: Multi-Scale Calibration from TSV                               ║
-// ║                                                                         ║
+// ║  PART 4: Multi-Scale Calibration from TSV                                ║
+// ║                                                                          ║
 // ║  Validates pre-computed LCR scores from the test calibration TSV.        ║
 // ║  The TSV is generated by ScoreRegionLCR with balanced sampling           ║
 // ║  (≤5000 regions per subcategory, ~8 sampled for test TSV).               ║
-// ║                                                                         ║
+// ║                                                                          ║
 // ║  TSV format: chrom start end source name region scale region_length score║
-// ║  Generated by: ScoreRegionLCR (tests/base/score_region_lcr.cpp)         ║
+// ║  Generated by: ScoreRegionLCR (tests/base/score_region_lcr.cpp)          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 //
 // CALIBRATION SUMMARY — from CHM13v2.0 balanced analysis (133,714 regions)
@@ -444,10 +452,10 @@ TEST_CASE("Calibration: multi-scale scores across all annotation sources",
   INFO("Loaded " << rows.size() << " calibration rows from " << CALIBRATION_TSV);
   REQUIRE(!rows.empty());
 
-  for (auto const& r : rows) {
-    DYNAMIC_SECTION(r.source << " | " << r.name << " @" << r.scale << "bp") {
-      auto const rgn = ref.MakeRegion(r.region.c_str());
-      CHECK(scorer.Score(rgn.SeqView()) == Catch::Approx(r.expected_score).margin(MARGIN));
+  for (auto const& row : rows) {
+    DYNAMIC_SECTION(row.mSource << " | " << row.mName << " @" << row.mScale << "bp") {
+      auto const rgn = ref.MakeRegion(row.mRegion.c_str());
+      CHECK(scorer.Score(rgn.SeqView()) == Catch::Approx(row.mExpectedScore).margin(MARGIN));
     }
   }
 }

@@ -15,6 +15,7 @@
 
 namespace lancet::caller::tests {
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload Sets",
           "[lancet][caller][VariantSet]") {
   // We bind a linear Smith-Waterman engine to dynamically forge graphs universally natively out of
@@ -27,8 +28,8 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     // [ALT]:  A G C G   => (SNV: T -> G)
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "AGCG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "AGCG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -52,8 +53,8 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     // [ALT]:      A - - G   => (DEL: ATC -> A)
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "AG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "AG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -84,8 +85,8 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     // structures.
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATGTGC", "ACGTGC", "AGC", "ATGTAC"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATGTGC", "ACGTGC", "AGC", "ATGTAC"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -119,7 +120,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
   SECTION("Calculates a Pure Structural Insertion gracefully bounded universally against the exact "
           "Reference Target") {
     //                                  [ALT]
-    //                          .--> (A)[3] --> (A)[4] --.
+    //                          .-->(A)[3] --> (A)[4] --.
     //                         /                          \
     //   Anchor: (T)[2] ------+                            +-----> Target: (C)[5] (CONVERGED!)
     //                         \                          /
@@ -129,8 +130,8 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     // ALT:  A T A A C G
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "ATAACG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "ATAACG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -145,17 +146,17 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
   }
 
   SECTION("Safeguards symmetrical boundaries against MNP shattering properly natively") {
-    //                         .--> (A) --> (A) --.
+    //                         .-->(A) --> (A) --.
     //                        /                    \
     //          (A) ---------+                      +----> (G)
     //                        \                    /
-    //                         `--> (T) --> (C) --'
+    //                         `-->(T) --> (C) --'
     // REF:  A T C G
     // ALT:  A A A G   (MNP: TC -> AA)
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "AAAG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "AAAG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -171,17 +172,17 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
   }
 
   SECTION("Fuses massive Complex Variants natively without misalignment biases during Extraction") {
-    //                         .--> (A) --> (A) --> (A) --.
+    //                         .-->(A) --> (A) --> (A) --.
     //                        /                            \
     //          (A) ---------+                              +----> (G)
     //                        \                            /
-    //                         `------> (T) --> (C) ------'
+    //                         `------>(T) --> (C) ------'
     // REF:  A T C G
     // ALT:  A A A A G   (CPX: TC -> AAA)
 
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "AAAAG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "AAAAG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);
@@ -194,7 +195,7 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
     auto first_var = *caller_set.begin();
     REQUIRE(first_var.mGenomeChromPos1 == 100);
-    REQUIRE(first_var.mRefAllele == "");  // Natively evaluated pure raw insertion
+    REQUIRE(first_var.mRefAllele.empty());  // Natively evaluated pure raw insertion
     REQUIRE(first_var.mAlts[0].mSequence == "A");
 
     auto second_var = *std::next(caller_set.begin());
@@ -206,13 +207,13 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
 
   SECTION(
       "Handles Nested N-Way Sink Synchronization effectively inside dense mutational clusters") {
-    //                          .--> (G)[3] --.     [ALT1: SNV]
+    //                          .-->(G)[3] --.     [ALT1: SNV]
     //                         /               \
-    //                        +----> (A)[4] ----+   [ALT2: SNV]
+    //                        +---->(A)[4] ----+   [ALT2: SNV]
     //                       /                   \
-    //  Anchor: (A)[2] -----+---------------------+-----> Target: (C)[5] (CONVERGED!)
+    //  Anchor: (A)[2] -----+---------------------+------> Target: (C)[5] (CONVERGED!)
     //                       \                   /  [ALT3: DEL]
-    //                        `----> (T)[6] ----'   [REF]
+    //                        `---->(T)[6] ----'   [REF]
     // REF:  A T C G
     // ALT1: A G C G
     // ALT2: A A C G
@@ -220,8 +221,8 @@ TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload 
     //
     // Note: A C G logically skips the T, merging identically into C!
     spoa::Graph graph{};
-    std::vector<std::string> seqs = {"ATCG", "AGCG", "AACG", "ACG"};
-    for (auto const& s : seqs) graph.AddAlignment(alignment_engine->Align(s, graph), s);
+    std::vector<std::string> const seqs = {"ATCG", "AGCG", "AACG", "ACG"};
+    for (auto const& seq : seqs) graph.AddAlignment(alignment_engine->Align(seq, graph), seq);
 
     VariantSet caller_set;
     caller_set.ExtractVariantsFromGraph(graph, core::Window{}, 100);

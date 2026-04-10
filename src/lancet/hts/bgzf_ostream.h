@@ -49,7 +49,7 @@ class BgzfStreambuf : public std::streambuf {
 
 enum class BgzfFormat : u8 { UNSPECIFIED, GFF, BED, VCF };
 
-// NOLINTNEXTLINE(fuchsia-multiple-inheritance)
+// NOLINTNEXTLINE(misc-multiple-inheritance)
 class BgzfOstream : public std::ostream {
  public:
   BgzfOstream() : std::ostream(nullptr) {}

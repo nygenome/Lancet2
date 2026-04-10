@@ -94,6 +94,7 @@
 #     --fix reorders and adds includes, breaking carefully ordered headers
 #     (extern "C" blocks, transitive dependency chains).
 #
+UseColor: true
 Checks: >-
   -*,
   bugprone-*,

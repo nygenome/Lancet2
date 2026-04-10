@@ -15,7 +15,9 @@
 #include <string>
 #include <string_view>
 
-using namespace lancet::cbdg;
+using lancet::cbdg::Kmer;
+using lancet::cbdg::MakeFwdEdgeKind;
+using lancet::cbdg::RevEdgeKind;
 
 namespace {
 
@@ -28,8 +30,8 @@ inline auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
   std::uniform_int_distribution<usize> base_chooser(0, 3);
   std::string result(seq_len, 'N');
 
-  for (usize idx = 0; idx < seq_len; ++idx) {
-    result[idx] = BASES.at(base_chooser(generator));
+  for (usize iter = 0; iter < seq_len; ++iter) {
+    result[iter] = BASES.at(base_chooser(generator));
   }
 
   return result;
@@ -68,21 +70,21 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
   static constexpr auto KMER_SIZE = 11;
 
   absl::FixedArray<std::string, NUM_RANDOM_ITERATIONS> sequences(NUM_RANDOM_ITERATIONS, "");
-  for (usize idx = 0; idx < NUM_RANDOM_ITERATIONS; ++idx) {
-    sequences.at(idx) = GenerateRandomDnaSequence(SEQ_LEN);
+  for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
+    sequences.at(iter) = GenerateRandomDnaSequence(SEQ_LEN);
   }
 
   for (auto const& sequence : sequences) {
     auto const slides_list = SlidingView(sequence, 12);
-    for (auto const& seq : slides_list) {
-      auto const rc_seq = RevComp(seq);
+    for (auto const& slide : slides_list) {
+      auto const rc_seq = RevComp(slide);
 
-      CAPTURE(seq.substr(0, KMER_SIZE), seq.substr(1, KMER_SIZE));
+      CAPTURE(slide.substr(0, KMER_SIZE), slide.substr(1, KMER_SIZE));
       CAPTURE(rc_seq.substr(0, KMER_SIZE), rc_seq.substr(1, KMER_SIZE));
 
       SECTION("Forward direction merge") {
-        auto first = Kmer(seq.substr(0, KMER_SIZE));
-        auto const second = Kmer(seq.substr(1, KMER_SIZE));
+        auto first = Kmer(slide.substr(0, KMER_SIZE));
+        auto const second = Kmer(slide.substr(1, KMER_SIZE));
         auto const fwd_edge = MakeFwdEdgeKind({first.SignFor(DFLT_ORD), second.SignFor(DFLT_ORD)});
 
         CAPTURE(first.SequenceFor(DFLT_ORD), first.SignFor(DFLT_ORD));
@@ -91,12 +93,12 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
 
         first.Merge(second, fwd_edge, KMER_SIZE);
         CAPTURE(first.SequenceFor(DFLT_ORD), first.SignFor(DFLT_ORD));
-        REQUIRE(MatchesOneOfTwo(first.SequenceFor(DFLT_ORD), {seq, rc_seq}));
+        REQUIRE(MatchesOneOfTwo(first.SequenceFor(DFLT_ORD), {slide, rc_seq}));
       }
 
       SECTION("Reverse direction merge") {
-        auto first = Kmer(seq.substr(1, KMER_SIZE));
-        auto const second = Kmer(seq.substr(0, KMER_SIZE));
+        auto first = Kmer(slide.substr(1, KMER_SIZE));
+        auto const second = Kmer(slide.substr(0, KMER_SIZE));
         auto const rev_edge =
             RevEdgeKind(MakeFwdEdgeKind({second.SignFor(DFLT_ORD), first.SignFor(DFLT_ORD)}));
 
@@ -106,7 +108,7 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
 
         first.Merge(second, rev_edge, KMER_SIZE);
         CAPTURE(first.SequenceFor(DFLT_ORD), first.SignFor(DFLT_ORD));
-        REQUIRE(MatchesOneOfTwo(first.SequenceFor(DFLT_ORD), {seq, rc_seq}));
+        REQUIRE(MatchesOneOfTwo(first.SequenceFor(DFLT_ORD), {slide, rc_seq}));
       }
     }
   }
@@ -123,7 +125,7 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
   std::uniform_int_distribution<usize> seq_len_picker(3 * MAX_KMER_SIZE, MAX_SEQ_LEN);
   std::uniform_int_distribution<usize> ksize_picker(MIN_KMER_SIZE, MAX_KMER_SIZE);
 
-  for (usize idx = 0; idx < NUM_RANDOM_ITERATIONS; ++idx) {
+  for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
     auto const kmer_size = static_cast<usize>((2 * ksize_picker(generator)) + 1);
     auto const total_length = static_cast<usize>(seq_len_picker(generator));
 
@@ -133,12 +135,12 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
 
     CAPTURE(kmer_size, total_length, first_length, second_start, second_length);
     auto const sequence = GenerateRandomDnaSequence(total_length);
-    std::string_view const seq = sequence;
+    std::string_view const slide = sequence;
     auto const rc_seq = RevComp(sequence);
 
     SECTION("Forward direction merge") {
-      auto fwd_first = Kmer(seq.substr(0, first_length));
-      auto const fwd_second = Kmer(seq.substr(second_start, second_length));
+      auto fwd_first = Kmer(slide.substr(0, first_length));
+      auto const fwd_second = Kmer(slide.substr(second_start, second_length));
       auto const fwd_edge =
           MakeFwdEdgeKind({fwd_first.SignFor(DFLT_ORD), fwd_second.SignFor(DFLT_ORD)});
 
@@ -148,12 +150,12 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
 
       fwd_first.Merge(fwd_second, fwd_edge, kmer_size);
       CAPTURE(fwd_first.SequenceFor(DFLT_ORD), fwd_first.SignFor(DFLT_ORD));
-      REQUIRE(MatchesOneOfTwo(fwd_first.SequenceFor(DFLT_ORD), {seq, rc_seq}));
+      REQUIRE(MatchesOneOfTwo(fwd_first.SequenceFor(DFLT_ORD), {slide, rc_seq}));
     }
 
     SECTION("Reverse direction merge") {
-      auto rev_first = Kmer(seq.substr(second_start, second_length));
-      auto const rev_second = Kmer(seq.substr(0, first_length));
+      auto rev_first = Kmer(slide.substr(second_start, second_length));
+      auto const rev_second = Kmer(slide.substr(0, first_length));
       auto const rev_edge =
           RevEdgeKind(MakeFwdEdgeKind({rev_second.SignFor(DFLT_ORD), rev_first.SignFor(DFLT_ORD)}));
 
@@ -163,14 +165,14 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
 
       rev_first.Merge(rev_second, rev_edge, kmer_size);
       CAPTURE(rev_first.SequenceFor(DFLT_ORD), rev_first.SignFor(DFLT_ORD));
-      REQUIRE(MatchesOneOfTwo(rev_first.SequenceFor(DFLT_ORD), {seq, rc_seq}));
+      REQUIRE(MatchesOneOfTwo(rev_first.SequenceFor(DFLT_ORD), {slide, rc_seq}));
     }
   }
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
-  for (usize idx = 0; idx < NUM_RANDOM_ITERATIONS; ++idx) {
+  for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
     static constexpr usize LONG_SEQ_LEN = 1024;
     static constexpr usize MER_SIZE = 21;
 
@@ -180,13 +182,13 @@ TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]
 
     SECTION("Forward direction merge") {
       Kmer merged_seq;
-      for (auto const& mer : mers_list) {
+      for (auto const& kmer : mers_list) {
         auto const fwd_edge =
-            MakeFwdEdgeKind({merged_seq.SignFor(DFLT_ORD), mer.SignFor(DFLT_ORD)});
+            MakeFwdEdgeKind({merged_seq.SignFor(DFLT_ORD), kmer.SignFor(DFLT_ORD)});
         CAPTURE(merged_seq.SequenceFor(DFLT_ORD), merged_seq.SignFor(DFLT_ORD));
-        CAPTURE(mer.SequenceFor(DFLT_ORD), mer.SignFor(DFLT_ORD));
+        CAPTURE(kmer.SequenceFor(DFLT_ORD), kmer.SignFor(DFLT_ORD));
         CAPTURE(fwd_edge);
-        merged_seq.Merge(mer, fwd_edge, MER_SIZE);
+        merged_seq.Merge(kmer, fwd_edge, MER_SIZE);
       }
 
       CHECK(MatchesOneOfTwo(merged_seq.SequenceFor(DFLT_ORD), {sequence, rc_sequence}));
@@ -194,13 +196,13 @@ TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]
 
     SECTION("Reverse direction merge") {
       Kmer rev_merged_seq;
-      for (auto const& mer : std::ranges::reverse_view(mers_list)) {
-        auto const rev_edge =
-            RevEdgeKind(MakeFwdEdgeKind({mer.SignFor(DFLT_ORD), rev_merged_seq.SignFor(DFLT_ORD)}));
+      for (auto const& kmer : std::ranges::reverse_view(mers_list)) {
+        auto const rev_edge = RevEdgeKind(
+            MakeFwdEdgeKind({kmer.SignFor(DFLT_ORD), rev_merged_seq.SignFor(DFLT_ORD)}));
         CAPTURE(rev_merged_seq.SequenceFor(DFLT_ORD), rev_merged_seq.SignFor(DFLT_ORD));
-        CAPTURE(mer.SequenceFor(DFLT_ORD), mer.SignFor(DFLT_ORD));
+        CAPTURE(kmer.SequenceFor(DFLT_ORD), kmer.SignFor(DFLT_ORD));
         CAPTURE(rev_edge);
-        rev_merged_seq.Merge(mer, rev_edge, MER_SIZE);
+        rev_merged_seq.Merge(kmer, rev_edge, MER_SIZE);
       }
 
       CHECK(MatchesOneOfTwo(rev_merged_seq.SequenceFor(DFLT_ORD), {sequence, rc_sequence}));

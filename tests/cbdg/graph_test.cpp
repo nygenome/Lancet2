@@ -12,7 +12,16 @@
 #include <string>
 #include <vector>
 
-using namespace lancet::cbdg;
+using lancet::cbdg::Edge;
+using lancet::cbdg::Graph;
+using lancet::cbdg::Kmer;
+using lancet::cbdg::Label;
+using lancet::cbdg::MakeFwdEdgeKind;
+using lancet::cbdg::Node;
+using lancet::cbdg::NodeID;
+using lancet::cbdg::NodeIDPair;
+using lancet::cbdg::RevEdgeKind;
+using lancet::cbdg::TraversalIndex;
 
 namespace {
 
@@ -24,10 +33,10 @@ struct TestGraph {
 
   auto AddNode(std::string_view seq, Label label = Label(Label::REFERENCE)) -> NodeID {
     auto mer = Kmer(seq);
-    auto const nid = mer.Identifier();
-    mNodes.try_emplace(nid, std::make_unique<Node>(std::move(mer), label));
-    mNodeIds.push_back(nid);
-    return nid;
+    auto const node_id = mer.Identifier();
+    mNodes.try_emplace(node_id, std::make_unique<Node>(std::move(mer), label));
+    mNodeIds.push_back(node_id);
+    return node_id;
   }
 
   void AddEdge(NodeID src, NodeID dst) {
@@ -41,7 +50,7 @@ struct TestGraph {
   }
 
   void SetAllComponentId(usize comp_id) {
-    for (auto& [nid, node_ptr] : mNodes) {
+    for (auto& [node_id, node_ptr] : mNodes) {
       node_ptr->SetComponentId(comp_id);
     }
   }
@@ -53,6 +62,7 @@ struct TestGraph {
 //  TraversalIndex tests
 // ============================================================================
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("TraversalIndex state index helpers", "[lancet][cbdg][TraversalIndex]") {
   SECTION("MakeState encodes node index and sign") {
     CHECK(TraversalIndex::MakeState(0, Kmer::Sign::PLUS) == 0);
@@ -64,10 +74,10 @@ TEST_CASE("TraversalIndex state index helpers", "[lancet][cbdg][TraversalIndex]"
   }
 
   SECTION("NodeIdxOf and SignOf are inverse of MakeState") {
-    for (u32 ni = 0; ni < 10; ni++) {
+    for (u32 nidx = 0; nidx < 10; nidx++) {
       for (auto sign : {Kmer::Sign::PLUS, Kmer::Sign::MINUS}) {
-        auto const state = TraversalIndex::MakeState(ni, sign);
-        CHECK(TraversalIndex::NodeIdxOf(state) == ni);
+        auto const state = TraversalIndex::MakeState(nidx, sign);
+        CHECK(TraversalIndex::NodeIdxOf(state) == nidx);
         CHECK(TraversalIndex::SignOf(state) == sign);
       }
     }
@@ -87,13 +97,13 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   // V=3, E=2 (unduplicated), M = E-V+1 = 0 (no cycles)
   // density = 2/3 ≈ 0.67, max_degree = 1, branch_points = 0
 
-  TestGraph tg;
-  auto const a = tg.AddNode("ACGTACGTACG");  // 11-mers
-  auto const b = tg.AddNode("CGTACGTACGA");
-  auto const c = tg.AddNode("GTACGTACGAC");
-  tg.AddEdge(a, b);
-  tg.AddEdge(b, c);
-  tg.SetAllComponentId(1);
+  TestGraph tgraph;
+  auto const nid_a = tgraph.AddNode("ACGTACGTACG");  // 11-mers
+  auto const nid_b = tgraph.AddNode("CGTACGTACGA");
+  auto const nid_c = tgraph.AddNode("GTACGTACGAC");
+  tgraph.AddEdge(nid_a, nid_b);
+  tgraph.AddEdge(nid_b, nid_c);
+  tgraph.SetAllComponentId(1);
 
   // Use the Graph's ComputeGraphComplexity indirectly by constructing a Graph
   // and calling the method. Since we can't easily do that without the full
@@ -105,21 +115,22 @@ TEST_CASE("GraphComplexity for linear chain", "[lancet][cbdg][GraphComplexity]")
   usize max_dir = 0;
   usize branches = 0;
 
-  for (auto const& [nid, node_ptr] : tg.mNodes) {
+  for (auto const& [node_id, node_ptr] : tgraph.mNodes) {
     if (node_ptr->GetComponentId() != 1) continue;
     num_nodes++;
     auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
     usize oppo_edges = 0;
     for (Edge const& edge : *node_ptr) {
-      if (edge.SrcSign() == dflt_sign)
+      if (edge.SrcSign() == dflt_sign) {
         dflt_edges++;
-      else
+      } else {
         oppo_edges++;
+      }
     }
     num_edges_raw += dflt_edges + oppo_edges;
-    auto const md = std::max(dflt_edges, oppo_edges);
-    max_dir = std::max(max_dir, md);
+    auto const max_d = std::max(dflt_edges, oppo_edges);
+    max_dir = std::max(max_dir, max_d);
     if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
   }
   usize const num_edges = num_edges_raw / 2;
@@ -144,37 +155,38 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
   // V=4, E=4 (unduplicated), M = 4-4+1 = 1 (one independent cycle)
   // max_degree = 2 (A has 2 outgoing), branch_points = 1 (A)
 
-  TestGraph tg;
-  auto const a = tg.AddNode("ACGTACGTACG");
-  auto const b = tg.AddNode("CGTACGTACGA");
-  auto const c = tg.AddNode("GTACGTACGAC");
-  auto const d = tg.AddNode("TACGTACGACG");
-  tg.AddEdge(a, b);
-  tg.AddEdge(a, c);
-  tg.AddEdge(b, d);
-  tg.AddEdge(c, d);
-  tg.SetAllComponentId(1);
+  TestGraph tgraph;
+  auto const nid_a = tgraph.AddNode("ACGTACGTACG");
+  auto const nid_b = tgraph.AddNode("CGTACGTACGA");
+  auto const nid_c = tgraph.AddNode("GTACGTACGAC");
+  auto const nid_d = tgraph.AddNode("TACGTACGACG");
+  tgraph.AddEdge(nid_a, nid_b);
+  tgraph.AddEdge(nid_a, nid_c);
+  tgraph.AddEdge(nid_b, nid_d);
+  tgraph.AddEdge(nid_c, nid_d);
+  tgraph.SetAllComponentId(1);
 
   usize num_nodes = 0;
   usize num_edges_raw = 0;
   usize max_dir = 0;
   usize branches = 0;
 
-  for (auto const& [nid, node_ptr] : tg.mNodes) {
+  for (auto const& [node_id, node_ptr] : tgraph.mNodes) {
     if (node_ptr->GetComponentId() != 1) continue;
     num_nodes++;
     auto const dflt_sign = node_ptr->SignFor(Kmer::Ordering::DEFAULT);
     usize dflt_edges = 0;
     usize oppo_edges = 0;
     for (Edge const& edge : *node_ptr) {
-      if (edge.SrcSign() == dflt_sign)
+      if (edge.SrcSign() == dflt_sign) {
         dflt_edges++;
-      else
+      } else {
         oppo_edges++;
+      }
     }
     num_edges_raw += dflt_edges + oppo_edges;
-    auto const md = std::max(dflt_edges, oppo_edges);
-    max_dir = std::max(max_dir, md);
+    auto const max_d = std::max(dflt_edges, oppo_edges);
+    max_dir = std::max(max_dir, max_d);
     if (dflt_edges >= 2 || oppo_edges >= 2) branches++;
   }
   usize const num_edges = num_edges_raw / 2;
@@ -193,16 +205,16 @@ TEST_CASE("GraphComplexity for single bubble", "[lancet][cbdg][GraphComplexity]"
 // ============================================================================
 
 TEST_CASE("TraversalIndex IsSinkState", "[lancet][cbdg][TraversalIndex]") {
-  TraversalIndex idx;
-  idx.mSnkNodeIdx = 3;
-  idx.mAdjRanges.resize(10);
+  TraversalIndex tidx;
+  tidx.mSnkNodeIdx = 3;
+  tidx.mAdjRanges.resize(10);
 
   // Both + and - states of node 3 should be sink states
-  CHECK(idx.IsSinkState(TraversalIndex::MakeState(3, Kmer::Sign::PLUS)));
-  CHECK(idx.IsSinkState(TraversalIndex::MakeState(3, Kmer::Sign::MINUS)));
+  CHECK(tidx.IsSinkState(TraversalIndex::MakeState(3, Kmer::Sign::PLUS)));
+  CHECK(tidx.IsSinkState(TraversalIndex::MakeState(3, Kmer::Sign::MINUS)));
 
   // Other nodes are not sink states
-  CHECK_FALSE(idx.IsSinkState(TraversalIndex::MakeState(0, Kmer::Sign::PLUS)));
-  CHECK_FALSE(idx.IsSinkState(TraversalIndex::MakeState(1, Kmer::Sign::MINUS)));
-  CHECK_FALSE(idx.IsSinkState(TraversalIndex::MakeState(4, Kmer::Sign::PLUS)));
+  CHECK_FALSE(tidx.IsSinkState(TraversalIndex::MakeState(0, Kmer::Sign::PLUS)));
+  CHECK_FALSE(tidx.IsSinkState(TraversalIndex::MakeState(1, Kmer::Sign::MINUS)));
+  CHECK_FALSE(tidx.IsSinkState(TraversalIndex::MakeState(4, Kmer::Sign::PLUS)));
 }

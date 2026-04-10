@@ -132,8 +132,8 @@ auto VariantSupport::TotalAlleleCov(AlleleIndex const idx) const -> usize {
 
 auto VariantSupport::TotalSampleCov() const noexcept -> usize {
   usize total = 0;
-  for (auto const& i : mAlleleData) {
-    total += i.mFwdBaseQuals.size() + i.mRevBaseQuals.size();
+  for (auto const& entry : mAlleleData) {
+    total += entry.mFwdBaseQuals.size() + entry.mRevBaseQuals.size();
   }
   return total;
 }

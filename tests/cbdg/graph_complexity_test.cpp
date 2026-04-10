@@ -21,10 +21,10 @@
 TEST_CASE("GraphComplexity::IsComplex default is not complex", "[lancet][cbdg][graph_complexity]") {
   using lancet::cbdg::GraphComplexity;
 
-  GraphComplexity const cx;
-  CHECK_FALSE(cx.IsComplex());
-  CHECK(cx.CyclomaticComplexity() == 0);
-  CHECK(cx.NumBranchPoints() == 0);
+  GraphComplexity const cplx;
+  CHECK_FALSE(cplx.IsComplex());
+  CHECK(cplx.CyclomaticComplexity() == 0);
+  CHECK(cplx.NumBranchPoints() == 0);
 }
 
 TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][graph_complexity]") {
@@ -41,8 +41,8 @@ TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][g
 TEST_CASE("GEI: default-constructed → GEI = 0", "[lancet][cbdg][graph_complexity][gei]") {
   using lancet::cbdg::GraphComplexity;
 
-  GraphComplexity const cx;
-  CHECK(cx.GraphEntanglementIndex() == Catch::Approx(0.0).margin(1e-10));
+  GraphComplexity const cplx;
+  CHECK(cplx.GraphEntanglementIndex() == Catch::Approx(0.0).margin(1e-10));
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -51,14 +51,14 @@ TEST_CASE("GEI: default-constructed → GEI = 0", "[lancet][cbdg][graph_complexi
 
 TEST_CASE("GraphMetrics::FormatVcfValue: 3 comma-separated values",
           "[lancet][cbdg][graph_complexity][format]") {
-  lancet::caller::RawVariant::GraphMetrics gm;
-  gm.mGraphEntanglementIndex = 2.345;
-  gm.mTipToPathCovRatio = 0.15;
-  gm.mMaxSingleDirDegree = 4;
+  lancet::caller::RawVariant::GraphMetrics gmtx;
+  gmtx.mGraphEntanglementIndex = 2.345;
+  gmtx.mTipToPathCovRatio = 0.15;
+  gmtx.mMaxSingleDirDegree = 4;
 
-  auto const vcf = gm.FormatVcfValue();
+  auto const vcf_val = gmtx.FormatVcfValue();
   // 3 values → 2 commas
-  CHECK(std::count(vcf.begin(), vcf.end(), ',') == 2);
+  CHECK(std::count(vcf_val.begin(), vcf_val.end(), ',') == 2);
   // Ends with ",4" (the MaxSingleDirDegree)
-  CHECK(vcf.find(",4") != std::string::npos);
+  CHECK(vcf_val.find(",4") != std::string::npos);
 }

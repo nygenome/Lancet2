@@ -11,7 +11,9 @@
 namespace {
 
 void ExtractorCramCoreQname(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -23,7 +25,9 @@ void ExtractorCramCoreQname(benchmark::State& state) {
 }
 
 void ExtractorCramCigarSeqQual(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -34,7 +38,9 @@ void ExtractorCramCigarSeqQual(benchmark::State& state) {
 }
 
 void ExtractorCramAuxRgaux(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -46,7 +52,9 @@ void ExtractorCramAuxRgaux(benchmark::State& state) {
 }
 
 void ExtractorBamCoreQname(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -59,7 +67,9 @@ void ExtractorBamCoreQname(benchmark::State& state) {
 }
 
 void ExtractorBamCigarSeqQual(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -71,7 +81,9 @@ void ExtractorBamCigarSeqQual(benchmark::State& state) {
 }
 
 void ExtractorBamAuxRgaux(benchmark::State& state) {
-  using namespace lancet::hts;
+  using lancet::hts::Alignment;
+  using lancet::hts::Extractor;
+  using lancet::hts::Reference;
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);

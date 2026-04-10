@@ -7,7 +7,9 @@
 #include <random>
 #include <string>
 
-[[nodiscard]] inline static auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
+namespace {
+
+[[nodiscard]] inline auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
   static constexpr std::array<char, 4> BASES = {'A', 'C', 'G', 'T'};
 
   std::random_device device;
@@ -22,8 +24,6 @@
 
   return result;
 }
-
-namespace {
 
 void BenchHammingNaive(benchmark::State& state) {
   std::string const first = GenerateRandomDnaSequence(static_cast<usize>(state.range(0)));

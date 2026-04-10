@@ -85,11 +85,11 @@ VariantCall::VariantCall(RawVariant const* var, SupportsByVariant const& all_sup
 //   3. BuildInfoField     — INFO string assembly
 // ============================================================================
 void VariantCall::Finalize(SupportArray const& evidence, Samples samps, FeatureFlags features) {
-  static auto const IS_TUMOR = [](auto const& s) -> bool {
-    return s.TagKind() == cbdg::Label::TUMOR;
+  static auto const IS_TUMOR = [](auto const& sinfo) -> bool {
+    return sinfo.TagKind() == cbdg::Label::TUMOR;
   };
-  static auto const IS_NORMAL = [](auto const& s) -> bool {
-    return s.TagKind() == cbdg::Label::NORMAL;
+  static auto const IS_NORMAL = [](auto const& sinfo) -> bool {
+    return sinfo.TagKind() == cbdg::Label::NORMAL;
   };
   auto const tumor_normal_mode =
       std::ranges::any_of(samps, IS_TUMOR) && std::ranges::any_of(samps, IS_NORMAL);
@@ -232,14 +232,14 @@ auto VariantCall::GenotypeFromGLIndex(usize const gl_index, usize const /*num_al
     klen += dkmer;
   }
   auto const jdx = dkmer - 1;
-  auto const i = gl_index - klen + jdx;
+  auto const aidx = gl_index - klen + jdx;
 
   // This should never trigger: gl_index comes from std::min_element over the
   // PL vector (size = num_alleles*(num_alleles+1)/2), so the inverted (i,j)
   // will always satisfy i <= j < num_alleles. If it does fire, ComputePLs or
   // its caller has a bug — don't silently return "0/0" and mask it.
-  LANCET_ASSERT(i < num_alleles && jdx < num_alleles);
-  return fmt::format("{}/{}", i, jdx);
+  LANCET_ASSERT(aidx < num_alleles && jdx < num_alleles);
+  return fmt::format("{}/{}", aidx, jdx);
 }
 
 void VariantCall::UpdateSiteQuality(core::SampleInfo const& sinfo, VariantSupport const* support,

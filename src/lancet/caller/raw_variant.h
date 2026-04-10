@@ -163,10 +163,14 @@ class RawVariant {
 
   friend auto operator<(RawVariant const& lhs, RawVariant const& rhs) -> bool {
     if (lhs.mChromIndex != rhs.mChromIndex) return lhs.mChromIndex < rhs.mChromIndex;
-    if (lhs.mGenomeChromPos1 != rhs.mGenomeChromPos1)
+
+    if (lhs.mGenomeChromPos1 != rhs.mGenomeChromPos1) {
       return lhs.mGenomeChromPos1 < rhs.mGenomeChromPos1;
+    }
+
     if (lhs.mRefAllele != rhs.mRefAllele) return lhs.mRefAllele < rhs.mRefAllele;
-    return lhs.mAlts < rhs.mAlts;  // Lexical vector comparison behaves safely
+    // Lexical vector comparison behaves safely
+    return lhs.mAlts < rhs.mAlts;
   }
 
   friend auto operator!=(RawVariant const& lhs, RawVariant const& rhs) -> bool {

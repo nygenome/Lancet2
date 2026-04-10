@@ -16,7 +16,7 @@
 
 namespace lancet::core {
 
-void VariantStore::AddVariants(std::vector<Value>&& variants) {
+void VariantStore::AddVariants(std::vector<Value> variants) {
   if (variants.empty()) return;
 
   for (auto&& curr : variants) {

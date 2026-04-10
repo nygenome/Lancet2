@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <functional>
 #include <iterator>
-#include <spdlog/fmt/bundled/format.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -30,6 +29,7 @@ extern "C" {
 #include "absl/strings/strip.h"
 #include "absl/types/span.h"
 #include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 namespace lancet::hts {
 
@@ -132,10 +132,10 @@ auto Extractor::ChromName(i32 chrom_index) const -> std::string {
 
 void Extractor::SetCramRequiredFields(Alignment::Fields fields) {
   if (mFilePtr->format.format == cram && fields != Alignment::Fields::AUX_RGAUX) {
-    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_REQUIRED_FIELDS,
-                    fields);  // NOLINT(cppcoreguidelines-pro-type-vararg)
-    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_DECODE_MD,
-                    0);  // NOLINT(cppcoreguidelines-pro-type-vararg)
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-vararg)
+    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_REQUIRED_FIELDS, fields);
+    cram_set_option(mFilePtr->fp.cram, CRAM_OPT_DECODE_MD, 0);
+    // NOLINTEND(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-vararg)
   }
 }
 

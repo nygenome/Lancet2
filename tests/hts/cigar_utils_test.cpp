@@ -11,7 +11,9 @@ extern "C" {
 #include "lancet/base/types.h"
 #include "lancet/hts/cigar_unit.h"
 
-using namespace lancet::hts;
+using lancet::hts::CigarRefPosToQueryPos;
+using lancet::hts::CigarUnit;
+using lancet::hts::ComputeEditDistance;
 
 namespace {
 
@@ -39,8 +41,8 @@ namespace {
   }();
 
   std::vector<u8> result(seq.size());
-  for (usize i = 0; i < seq.size(); ++i) {
-    result[i] = ENCODE[static_cast<u8>(seq[i])];
+  for (usize iter = 0; iter < seq.size(); ++iter) {
+    result[iter] = ENCODE[static_cast<u8>(seq[iter])];
   }
   return result;
 }
