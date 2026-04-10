@@ -121,32 +121,19 @@ namespace lancet::cli {
 CliInterface::CliInterface()
     : mCliApp(fmt::format(APP_NAME_FMT_STR, LancetFullVersion())),
       mParamsPtr(std::make_shared<CliParams>()) {
-  mCliApp.require_subcommand(1);
+  // Allow 0 or 1 subcommands so that bare `Lancet2`, `Lancet2 -h`, and `Lancet2 -v`
+  // can all be parsed without CLI11 throwing a RequiredError (exit code 106).
+  mCliApp.require_subcommand(0, 1);
   PipelineSubcmd(&mCliApp, mParamsPtr);
 
-  static auto const VERSION_PRINTER = [](usize const count) -> void {
-    if (count > 0) {
-      fmt::print(std::cout, "Lancet {}\n", LancetFullVersion());
-      std::exit(EXIT_SUCCESS);
-    }
-  };
-
-  static auto const HELP_PRINTER = [this](usize const count) -> void {
-    if (count > 0) {
-      fmt::print(std::cerr, "{}",
-                 this->mCliApp.help(this->mCliApp.get_name(), CLI::AppFormatMode::Normal));
-      std::exit(EXIT_SUCCESS);
-    }
-  };
-
-  mCliApp.set_help_flag();
-  mCliApp.failure_message(CLI::FailureMessage::help);
   static constexpr usize DEFAULT_TERMINAL_FORMATTER_WIDTH = 100;
   mCliApp.get_formatter()->column_width(DEFAULT_TERMINAL_FORMATTER_WIDTH);
-  mCliApp.add_flag_function("-v,--version", VERSION_PRINTER, "Print Lancet version information")
-      ->group("Flags");
-  mCliApp.add_flag_function("-h,--help", HELP_PRINTER, "Print this help message and exit")
-      ->group("Flags");
+  mCliApp.failure_message(CLI::FailureMessage::help);
+
+  // Use CLI11's native version/help flag handlers. These throw CallForVersion/CallForHelp
+  // (both subclasses of Success with exit code 0) which are caught cleanly in RunMain.
+  mCliApp.set_version_flag("-v,--version", LancetFullVersion(), "Print Lancet version information");
+  mCliApp.set_help_flag("-h,--help", "Print this help message and exit");
 }
 
 auto CliInterface::RunMain(int const argc, char const** argv) -> int {
@@ -157,12 +144,23 @@ auto CliInterface::RunMain(int const argc, char const** argv) -> int {
     return mCliApp.exit(err);
   }
 
+  // If no subcommand was provided (bare `Lancet2`), print help and exit successfully.
+  if (mCliApp.get_subcommands().empty()) {
+    fmt::print(std::cout, "{}", mCliApp.help());
+    return EXIT_SUCCESS;
+  }
+
   return EXIT_SUCCESS;
 }
 
 void CliInterface::PipelineSubcmd(CLI::App* app, std::shared_ptr<CliParams>& params) {
   auto* subcmd = app->add_subcommand("pipeline", "Run the Lancet variant calling pipeline");
   subcmd->option_defaults()->always_capture_default();
+
+  // Print help and exit 0 when pipeline subcommand is invoked with no arguments.
+  subcmd->preparse_callback([subcmd](std::size_t remaining) -> void {
+    if (remaining == 0) throw CLI::CallForHelp();
+  });
 
   auto& wb_prms = params->mWindowBuilder;
   auto& vb_prms = params->mVariantBuilder;
