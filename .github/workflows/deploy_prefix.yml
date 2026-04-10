@@ -44,7 +44,7 @@ jobs:
           echo "LANCET_BUILD_STRING=${BRANCH}_${HASH}_0" >> "$GITHUB_ENV"
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0.8.8
+        uses: prefix-dev/setup-pixi@v0.9.5
         with:
           run-install: false
 
