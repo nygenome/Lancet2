@@ -1,4 +1,35 @@
 
+<a name="v2.10.0"></a>
+## [v2.10.0](https://github.com/nygenome/Lancet2/compare/v2.9.0...v2.10.0) (2026-04-10)
+
+### Bug Fixes
+
+* normalize CLI exit codes for help, version, and no-arg invocations
+* resolve VCF sorting failure from missing chromosome name and variant identity redesign
+* typo in vcf by using fmt instead of printf style
+
+### New Features
+
+* integrate SPOA-native variant extraction and optimize genotyping
+
+### Performance Improvements
+
+* streamline pipeline orchestrator and strictly encapsulate AoS memory models
+
+### Refactoring
+
+* add prefix.dev deployment pipeline and update install docs
+* resolve clang tidy check warnings
+* apply clang format fixes
+* remove redundant clang-tidy checks
+* standardize codebase tooling and fix clang-tidy regressions
+* dev dependencies update
+* update dev env deps
+* update conda recipe with new tag
+* Update release notes in changelog
+* fix changelog script
+
+
 <a name="v2.9.0"></a>
 ## [v2.9.0](https://github.com/nygenome/Lancet2/compare/v2.8.7...v2.9.0) (2026-04-07)
 
