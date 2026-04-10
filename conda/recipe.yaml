@@ -3,7 +3,7 @@ context:
 
 package:
   name: ${{ name|lower }}
-  version: ${{ env.get("LANCET_VERSION", "0.0.0") }}
+  version: ${{ env.get("LANCET_VERSION") }}
 
 source:
   # Mount the entire active local tree for rattler build
@@ -11,7 +11,7 @@ source:
 
 build:
   number: 0
-  string: ${{ env.get("LANCET_BUILD_STRING", "local_0") }}
+  string: ${{ env.get("LANCET_BUILD_STRING") }}
   script: |
     mkdir build && cd build
     cmake -GNinja \

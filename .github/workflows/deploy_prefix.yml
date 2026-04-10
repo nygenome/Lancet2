@@ -46,7 +46,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.8.8
         with:
-          run-environment: false
+          run-install: false
 
       - name: Build conda package
         run: pixi exec rattler-build build --recipe conda/recipe.yaml

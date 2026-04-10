@@ -15,9 +15,22 @@ Prerequisites:
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+def ensure_pixi() -> None:
+    """Install pixi if it is not already on PATH."""
+    if shutil.which("pixi") is not None:
+        return
+    print("pixi not found, installing...")
+    subprocess.run(
+        ["bash", "-c", "curl -fsSL https://pixi.sh/install.sh | bash"],
+        check=True,
+    )
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BUILD_DIR = "cmake-build-release"
@@ -58,6 +71,7 @@ def main() -> int:
         )
         return 1
 
+    ensure_pixi()
     cmd: list[str] = [
         "pixi", "run", "run-clang-tidy",
         "-p", str(build_dir),

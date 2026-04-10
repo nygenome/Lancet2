@@ -11,11 +11,25 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def ensure_pixi() -> None:
+    """Install pixi if it is not already on PATH."""
+    if shutil.which("pixi") is not None:
+        return
+    print("pixi not found, installing...")
+    subprocess.run(
+        ["bash", "-c", "curl -fsSL https://pixi.sh/install.sh | bash"],
+        check=True,
+    )
+
+
 DEFAULT_SOURCE_DIRS = ["src/lancet", "tests", "benchmarks"]
 SOURCE_EXTENSIONS = {".cpp", ".h"}
 
@@ -55,6 +69,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    ensure_pixi()
     # Resolve source paths relative to repo root
     if args.sources:
         paths = [REPO_ROOT / s for s in args.sources]

@@ -24,7 +24,7 @@ Lancet2 packages with **full native Cloud I/O support** (`s3://`, `gs://`, `http
 
 Development builds are published automatically on every commit. To install a specific stable release, pin the version:
 ```bash
-pixi global install --channel https://prefix.dev/channels/lancet2 'lancet2==v2.9.0'
+pixi global install --channel https://prefix.dev/channels/lancet2 'lancet2==v2.10.1'
 ```
 
 ### Build prerequisites
