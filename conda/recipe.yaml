@@ -1,19 +1,17 @@
 context:
   name: lancet2
-  version: "2.9.0"
 
 package:
   name: ${{ name|lower }}
-  version: ${{ version }}
+  version: ${{ env.get("LANCET_VERSION", "0.0.0") }}
 
 source:
-  # Mount the entire active local tree securely for local rattler build tests
-  # path: ..
-  url: https://github.com/nygenome/Lancet2/archive/refs/tags/v2.9.0.tar.gz
-  sha256: e676d9f991d800958e6cf1d451b42749e2ad1e5dadebd8d219192433efb644c9
+  # Mount the entire active local tree for rattler build
+  path: ..
 
 build:
   number: 0
+  string: ${{ env.get("LANCET_BUILD_STRING", "local_0") }}
   script: |
     mkdir build && cd build
     cmake -GNinja \
@@ -43,10 +41,10 @@ requirements:
 
 tests:
   - script:
-      - Lancet2 pipeline --help
+      - Lancet2 --version
 
 about:
   homepage: https://github.com/nygenome/Lancet2
   license: BSD-3-Clause
   license_file: LICENSE
-  summary: Lancet2 is a highly accurate somatic variant caller using localized colored de Bruijn graphs.
+  summary: Lancet2 is an accurate, C++-based variant caller utilizing localized colored de Bruijn graph assembly

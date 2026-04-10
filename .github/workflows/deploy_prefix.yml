@@ -1,0 +1,57 @@
+name: Build and Publish Conda Package
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-64
+          - os: macos-latest
+            platform: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute package version
+        run: |
+          TAG=$(git describe --abbrev=0 --tags 2>/dev/null || echo "v0.0.0")
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          HASH=$(git rev-parse --short=10 HEAD)
+          DISTANCE=$(git rev-list "${TAG}..HEAD" --count 2>/dev/null || echo "0")
+
+          # Stable release: tag as-is (e.g. "v2.9.0")
+          # Dev build: tag_branch_hash (e.g. "v2.9.0_main_441d081927")
+          if [ "${DISTANCE}" = "0" ]; then
+            echo "LANCET_VERSION=${TAG}" >> "$GITHUB_ENV"
+          else
+            echo "LANCET_VERSION=${TAG}_${BRANCH}_${HASH}" >> "$GITHUB_ENV"
+          fi
+          echo "LANCET_BUILD_STRING=${BRANCH}_${HASH}_0" >> "$GITHUB_ENV"
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.8.8
+        with:
+          run-environment: false
+
+      - name: Build conda package
+        run: pixi exec rattler-build build --recipe conda/recipe.yaml
+
+      - name: Upload to prefix.dev
+        env:
+          RATTLER_BUILD_PREFIX_DEV_TOKEN: ${{ secrets.PREFIX_API_KEY }}
+        run: pixi exec rattler-build upload prefix -c lancet2 output/**/*.conda

@@ -13,16 +13,18 @@ In addition to variant calling accuracy and improved somatic filtering, Lancet2 
 
 ## Installation
 
-### Pixi / Bioconda (Recommended)
-Lancet2 is natively distributed and dynamically linked via the global Bioconda network, with **full native Cloud I/O support** (`s3://`, `gs://`, `http(s)://`, etc.) completely enabled cleanly by default out of the box.
+### Pre-built packages (Recommended)
+Lancet2 packages with **full native Cloud I/O support** (`s3://`, `gs://`, `http(s)://`, etc.) are published to [prefix.dev/channels/lancet2](https://prefix.dev/channels/lancet2). Install using your preferred package manager:
 
-For significantly faster and strictly isolated local environment resolution, the recommended method is using [Pixi](https://pixi.sh/):
+| Package Manager | Install Command |
+|---|---|
+| [Pixi](https://pixi.sh/) (recommended) | `pixi global install --channel https://prefix.dev/channels/lancet2 lancet2` |
+| [Conda](https://docs.conda.io/) | `conda install -c https://prefix.dev/channels/lancet2 lancet2` |
+| [Mamba](https://mamba.readthedocs.io/) | `mamba install -c https://prefix.dev/channels/lancet2 lancet2` |
+
+Development builds are published automatically on every commit. To install a specific stable release, pin the version:
 ```bash
-pixi global install lancet2
-```
-Alternatively, using the standard Conda ecosystem:
-```bash
-conda install -c bioconda lancet2
+pixi global install --channel https://prefix.dev/channels/lancet2 'lancet2==v2.9.0'
 ```
 
 ### Build prerequisites
