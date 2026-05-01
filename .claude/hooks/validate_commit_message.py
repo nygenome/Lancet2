@@ -17,12 +17,7 @@ Hard blocks (exit 2):
   - type is not in allowed_types (would not appear in CHANGELOG)
   - type is not lowercase (chglog filter is case-sensitive)
   - subject too long, too short, ends with period, or starts with uppercase
-  - type requires a body (feat/fix/perf) but none was given
-
-Soft warns (printed to stderr, exit 0):
-  - subject's first word suggests non-imperative mood
-  - body line exceeds the configured wrap limit
-  - fixup!/squash! markers (should be rebased before push)
+  - substantive change (>30 staged lines) without a body
 
 Skips entirely (exit 0 silently):
   - any non-commit bash command
@@ -30,6 +25,12 @@ Skips entirely (exit 0 silently):
     prepare-commit-msg git hook for that surface)
   - `git commit --amend` reusing the prior message
   - merge and revert commits matching configured prefixes
+  - fixup!/squash! markers (intentional; rebase will clean them up)
+
+This hook is BLOCK-OR-PASS: it never prints advisory ("soft") warnings.
+Earlier versions emitted soft-warns for non-imperative mood, body-line
+length, body-shape, and trivial-pattern-with-large-diff. Those produced
+noise on commits that passed anyway and were removed.
 """
 import json
 import os
@@ -37,23 +38,6 @@ import re
 import shlex
 import sys
 from pathlib import Path
-
-# Heuristic: words at the start of a subject that suggest non-imperative mood.
-# Intentionally narrow to keep false-positive rate low.
-NON_IMPERATIVE_HINTS = {
-    "added", "adds", "adding",
-    "fixed", "fixes", "fixing",
-    "updated", "updates", "updating",
-    "changed", "changes", "changing",
-    "removed", "removes", "removing",
-    "refactored", "refactoring",
-    "improved", "improves", "improving",
-    "implemented", "implementing",
-    "created", "creates", "creating",
-    "deleted", "deletes", "deleting",
-    "renamed", "renaming",
-    "moved", "moving",
-}
 
 
 def load_config(project_dir: str) -> dict | None:
@@ -71,6 +55,50 @@ def load_config(project_dir: str) -> dict | None:
                 # Don't block on a broken config; let the user see the error elsewhere.
                 return None
     return None
+
+
+# Match a HEREDOC command substitution of the canonical Claude form
+# `$(cat <<'TAG'\n<body>\nTAG\n)`. The TAG may be single-quoted, double-quoted,
+# or unquoted, and `<<-` (tab-stripping) is tolerated. The body capture is
+# lazy so the closing `\nTAG\s*)` matches the *first* delimiter that follows
+# the body, not the last. This is the most common pattern Claude uses to pass
+# multi-line commit messages with embedded blank lines, and it is what bash
+# would otherwise expand before invoking git — but this hook runs before
+# bash, so we have to expand it ourselves to see the real message text.
+_HEREDOC_RE = re.compile(
+    r"^\$\(\s*cat\s+<<-?\s*['\"]?(?P<tag>\w+)['\"]?\s*\n(?P<body>.*?)\n(?P=tag)\s*\)$",
+    re.DOTALL,
+)
+
+
+def _resolve_heredoc(value: str) -> str:
+    """Return the inner body of a `$(cat <<'TAG' ... TAG)` HEREDOC, or `value`
+    unchanged if no such pattern is found."""
+    m = _HEREDOC_RE.match(value.strip())
+    return m.group("body") if m else value
+
+
+def _split_at_blank_lines(value: str) -> list[str]:
+    """Split a multi-line message into paragraphs at blank-line boundaries.
+
+    `git commit -m "subj\n\nbody1\n\nbody2"` is semantically equivalent to
+    `git commit -m subj -m body1 -m body2` — git uses the first paragraph
+    as the subject and remaining paragraphs as body sections. Returning a
+    paragraph list lets the rest of this hook treat both invocation styles
+    uniformly. A value with no blank lines returns a single-element list.
+    """
+    paragraphs: list[str] = []
+    current: list[str] = []
+    for line in value.split("\n"):
+        if line.strip() == "":
+            if current:
+                paragraphs.append("\n".join(current).rstrip())
+                current = []
+        else:
+            current.append(line)
+    if current:
+        paragraphs.append("\n".join(current).rstrip())
+    return paragraphs or [value]
 
 
 def extract_commit_messages(command: str) -> list[str] | None:
@@ -138,17 +166,16 @@ def is_fixup_or_squash(subject: str) -> bool:
     return subject.startswith("fixup!") or subject.startswith("squash!")
 
 
-def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple[list[str], list[str]]:
+def validate_message(messages: list[str], cfg: dict, command: str = "") -> list[str]:
     """
     Validate the parsed commit messages against the config.
-    Returns (hard_errors, soft_warnings). Hard errors block; soft warnings print only.
+    Returns the list of hard-error strings; an empty list means the commit
+    passes. The hook is block-or-pass; there are no soft-warning paths.
     """
     hard: list[str] = []
-    soft: list[str] = []
 
     if not messages:
-        # No -m means git will open $EDITOR; out of scope for this hook.
-        return hard, soft
+        return hard
 
     subject = messages[0].strip()
     body_paragraphs = [m.strip() for m in messages[1:] if m.strip()]
@@ -156,16 +183,11 @@ def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple
     # Skip auto-generated merge/revert commits entirely.
     auto_prefixes = cfg.get("auto_generated_subject_prefixes_allowed", [])
     if is_auto_generated(subject, auto_prefixes):
-        return hard, soft
+        return hard
 
-    # Soft-warn on fixup!/squash! commits.
+    # fixup!/squash! commits are intentional rebase fodder; pass through.
     if is_fixup_or_squash(subject):
-        if cfg.get("fixup_squash_handling", "soft_warn") == "soft_warn":
-            soft.append(
-                "Subject is a fixup!/squash! marker. These should be rebased away "
-                "(`git rebase -i --autosquash`) before push."
-            )
-        return hard, soft
+        return hard
 
     # ── Header parsing — match chglog's pattern exactly ──────────────────
     pattern_str = cfg.get("header_pattern", r"^(?P<type>\w+): (?P<subject>.+)$")
@@ -174,7 +196,7 @@ def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple
     except re.error as e:
         # Misconfigured pattern; fail open with a stderr note.
         print(f"⚠ commit-style: invalid header_pattern in config: {e}", file=sys.stderr)
-        return hard, soft
+        return hard
 
     m = header_re.match(subject)
     if not m:
@@ -187,7 +209,7 @@ def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple
             f"  Examples of correct subjects:\n"
             + "\n".join(f"    {ex}" for ex in cfg.get("examples_good", [])[:3])
         )
-        return hard, soft
+        return hard
 
     # Pull captures by group name when available, falling back to position.
     # The default config uses named groups; a user-overridden pattern from
@@ -209,7 +231,6 @@ def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple
             f"into the changelog."
         )
     elif allowed_types and ctype not in allowed_types:
-        # Build a helpful message that explains why this matters.
         sections = cfg.get("type_to_changelog_section", {})
         section_hints = ", ".join(
             f"{t}={sections.get(t, '?')!r}" for t in allowed_types
@@ -249,105 +270,34 @@ def validate_message(messages: list[str], cfg: dict, command: str = "") -> tuple
                 f"({subj_text[:30]!r}...)."
             )
 
-    # Imperative-mood heuristic.
-    imperative_setting = cfg.get("subject_imperative_mood", "soft_warn")
-    if imperative_setting in ("soft_warn", "hard_block") and subj_text:
-        words = subj_text.split()
-        first_word = words[0].lower() if words else ""
-        if first_word in NON_IMPERATIVE_HINTS:
-            msg = (
-                f"Subject's first word '{first_word}' suggests non-imperative mood. "
-                f"Conventional commits use imperative ('add' not 'added', "
-                f"'fix' not 'fixes')."
-            )
-            if imperative_setting == "hard_block":
-                hard.append(msg)
-            else:
-                soft.append(msg)
-
-    # ── Body validation ───────────────────────────────────────────────────
+    # ── Body-required gate ───────────────────────────────────────────────
     # Per docs_dev/style/cpp_style.md § Git commit messages, trivial commits
     # (typos, exec-bit, formatting, dep bumps) ship with no body; substantial
-    # commits use a two-section body.
+    # commits use a two-section body. The only body-related rule the hook
+    # enforces as a HARD block is: a non-trivial subject with a staged diff
+    # exceeding `small_diff_line_threshold` lines must carry a body.
     #
-    # We classify "substantial" using two signals, both regardless of type:
-    #   1. Subject pattern — matches one of trivial_commit_subject_patterns.
-    #   2. Diff size — insertions + deletions in the staged diff.
-    #
-    # Combinations:
-    #   trivial + small diff   + no body → silent pass
-    #   trivial + large diff   + no body → soft-warn (subject claims trivial,
-    #                                       but diff is large; double-check)
-    #   non-trivial + small    + no body → soft-warn (consider a body)
-    #   non-trivial + large    + no body → HARD BLOCK
-    #   any        + body      + any     → run body-shape checks
-    #
-    # If the diff size is unknowable (no git, not in a repo, etc.), we fail
-    # open: treat the commit as if it were small. Better to occasionally let
-    # a too-big-no-body slip through than to block legitimate commits in
-    # weird repo states.
-
+    # Diff size unknowable (no git, not in a repo, etc.) → fail open.
     is_trivial = _matches_trivial_pattern(subject, cfg)
     threshold = cfg.get("small_diff_line_threshold", 30)
 
-    if not body_paragraphs:
+    if not body_paragraphs and not is_trivial:
         diff_size = _get_diff_size(command)
-        is_small = diff_size is None or diff_size <= threshold
+        if diff_size is not None and diff_size > threshold:
+            hard.append(
+                f"Substantive change ({diff_size} lines) without a body.\n"
+                f"  Subject does not match a trivial pattern (typos, exec-bit, format,\n"
+                f"  dep bumps), and the staged diff exceeds the {threshold}-line threshold\n"
+                f"  beyond which the subject alone is unlikely to convey what changed.\n"
+                f"  Add a body with a context paragraph and file-list bullets:\n"
+                f"    git commit -m \"{subject}\" \\\n"
+                f"      -m \"Context paragraph explaining why...\" \\\n"
+                f"      -m \"- src/lancet/<layer>/file.cpp: what changed there\"\n"
+                f"  If the change really is trivial, use a subject pattern that\n"
+                f"  matches (e.g. 'chore: format ...', 'chore: bump ...', 'fix: typo ...')."
+            )
 
-        if is_trivial:
-            if not is_small:
-                soft.append(
-                    f"Subject matches a trivial pattern ('{subject}') but the staged "
-                    f"diff is {diff_size} lines (threshold {threshold}). If this is "
-                    f"actually a substantive change, add a body explaining what and why."
-                )
-            # else: silent pass — typical trivial commit
-        else:
-            # Subject is not trivial; body is expected unless diff is small.
-            if is_small:
-                size_phrase = (
-                    "diff size unavailable" if diff_size is None
-                    else f"only {diff_size} lines changed"
-                )
-                soft.append(
-                    f"Subject does not match a trivial pattern and {size_phrase}. "
-                    f"Consider adding a body explaining what changed and why; even "
-                    f"a one-paragraph context note helps reviewers and future-you."
-                )
-            else:
-                hard.append(
-                    f"Substantive change ({diff_size} lines) without a body.\n"
-                    f"  Subject does not match a trivial pattern (typos, exec-bit, format,\n"
-                    f"  dep bumps), and the staged diff exceeds the {threshold}-line threshold\n"
-                    f"  beyond which the subject alone is unlikely to convey what changed.\n"
-                    f"  Add a body with a context paragraph and file-list bullets:\n"
-                    f"    git commit -m \"{subject}\" \\\n"
-                    f"      -m \"Context paragraph explaining why...\" \\\n"
-                    f"      -m \"- src/lancet/<layer>/file.cpp: what changed there\"\n"
-                    f"  If the change really is trivial, use a subject pattern that\n"
-                    f"  matches (e.g. 'chore: format ...', 'chore: bump ...', 'fix: typo ...')."
-                )
-
-    # Body line-length check applies regardless of shape.
-    max_body_line = cfg.get("max_body_line_length", 100)
-    for paragraph in body_paragraphs:
-        for line in paragraph.split("\n"):
-            if len(line) > max_body_line:
-                soft.append(
-                    f"Body line exceeds {max_body_line} chars: "
-                    f"{line[:60]}... ({len(line)} chars)"
-                )
-                break  # one warning per paragraph is enough
-
-    # Body-shape check fires only when a body is present and is non-trivial.
-    if body_paragraphs and not is_trivial:
-        shape_warnings = _check_body_shape(body_paragraphs, cfg)
-        if cfg.get("body_shape_handling", "soft_warn") == "hard_block":
-            hard.extend(shape_warnings)
-        else:
-            soft.extend(shape_warnings)
-
-    return hard, soft
+    return hard
 
 
 def _matches_trivial_pattern(subject: str, cfg: dict) -> bool:
@@ -417,95 +367,6 @@ def _get_diff_size(command: str) -> int | None:
         return None
 
 
-def _check_body_shape(body_paragraphs: list[str], cfg: dict) -> list[str]:
-    """
-    Enforce the two-section body shape from docs_dev/style/cpp_style.md
-    § Git commit messages.
-
-    The body is interpreted as:
-      [context paragraph(s)] [optional language sub-header + file-list bullets]+
-
-    What we check:
-      - If file-list bullets are present at all, each must match the bullet pattern.
-      - If a language sub-header line is present, the lines after it (until the
-        next sub-header or end) should be file-list bullets.
-      - If the body has 3+ paragraphs and zero file-list bullets, recommend
-        adding the file list — at that volume the bullets aid review.
-
-    What we do NOT check:
-      - Whether context paragraphs use backticks (style preference, not
-        structural).
-      - Whether every changed file is mentioned in the file list (we don't
-        have the diff).
-      - Whether the brace shorthand `name.{h,cpp}` is used (the bullet
-        pattern allows it but doesn't require it).
-    """
-    warnings: list[str] = []
-
-    bullet_pat_str = cfg.get(
-        "file_list_bullet_pattern",
-        r"^- (?P<path>[\w./{}, *-]+):\s+(?P<change>.+)$",
-    )
-    subheader_pat_str = cfg.get(
-        "language_subheader_pattern",
-        r"^(?:C\+\+|Python|Shell|Bash|CMake|YAML|JSON|Markdown|Rust|Go) changes:$",
-    )
-    try:
-        bullet_re = re.compile(bullet_pat_str)
-        subheader_re = re.compile(subheader_pat_str)
-    except re.error:
-        return warnings  # fail open on misconfigured patterns
-
-    # Flatten paragraphs into lines for sequential analysis.
-    all_lines: list[str] = []
-    for p in body_paragraphs:
-        for line in p.split("\n"):
-            stripped = line.rstrip()
-            if stripped:
-                all_lines.append(stripped)
-
-    bullet_lines: list[str] = []
-    malformed_bullets: list[str] = []
-    in_file_list_block = False  # True after we see a sub-header or first bullet
-
-    for line in all_lines:
-        if subheader_re.match(line):
-            in_file_list_block = True
-            continue
-
-        # A line starting with "- " in the file-list region: must be a valid bullet.
-        if line.startswith("- "):
-            in_file_list_block = True
-            if bullet_re.match(line):
-                bullet_lines.append(line)
-            else:
-                malformed_bullets.append(line)
-        elif in_file_list_block:
-            # In a file-list region but not a bullet — usually a continuation
-            # line or a back-to-prose. Don't flag; the writer may have added
-            # a closing remark. Reset the region tracker so a subsequent
-            # rogue "- ..." line is still caught above.
-            pass
-
-    if malformed_bullets:
-        warnings.append(
-            "File-list bullets do not match the expected `- path: change` format:\n"
-            + "\n".join(f"    {b[:80]}" for b in malformed_bullets[:3])
-            + "\n  Expected form: `- src/lancet/<layer>/<file>: <what changed>` "
-            "or `- name.{h,cpp}: ...` for header/source pairs."
-        )
-
-    if len(body_paragraphs) >= 3 and not bullet_lines:
-        warnings.append(
-            "Body has 3+ paragraphs but no file-list bullets. "
-            "docs_dev/style/cpp_style.md § Git commit messages recommends "
-            "a `- path: change` section for substantial commits to aid "
-            "review and bisection."
-        )
-
-    return warnings
-
-
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -525,16 +386,47 @@ def main() -> int:
         # `git commit` with no -m — opens $EDITOR. Out of scope.
         return 0
 
+    # Expand HEREDOC command substitutions and split multi-line single-flag
+    # messages at blank lines so subject + body live as distinct entries
+    # (matching the layout the rest of the hook expects from multi-`-m`
+    # invocations). If a -m value contains a substitution we can't expand
+    # (anything other than the canonical `$(cat <<TAG ... TAG)` HEREDOC),
+    # we cannot see what git will actually commit; skip validation with a
+    # soft warning rather than block on a literal we know is incorrect.
+    #
+    # Important: the substitution check applies to the RAW value, not the
+    # expanded content. After successful HEREDOC expansion, the inner text
+    # is the literal commit message — and that text legitimately contains
+    # backticks (formatting identifier names) and may contain `$(` (citing
+    # shell snippets in a commit body). Those are NOT shell substitutions
+    # at the time git receives the -m value; bash already finished expanding
+    # before invoking git.
+    expanded: list[str] = []
+    unresolvable = False
+    for raw in messages:
+        resolved = _resolve_heredoc(raw)
+        if resolved == raw and ("$(" in raw or "`" in raw):
+            unresolvable = True
+            break
+        expanded.extend(_split_at_blank_lines(resolved))
+    if unresolvable:
+        print(
+            "⚠ commit-style: detected unresolvable shell substitution in a -m "
+            "value; skipping validation. The actual git invocation will use the "
+            "substituted text — please ensure it complies with Lancet2 commit "
+            "style (see .claude/commit-style.json).",
+            file=sys.stderr,
+        )
+        return 0
+    messages = expanded
+
     project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
     cfg = load_config(project_dir)
     if cfg is None:
         # No config; nothing to enforce. Fail open.
         return 0
 
-    hard, soft = validate_message(messages, cfg, command=command)
-
-    for w in soft:
-        print(f"⚠ commit-style: {w}", file=sys.stderr)
+    hard = validate_message(messages, cfg, command=command)
 
     if hard:
         print(

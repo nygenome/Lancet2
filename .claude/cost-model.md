@@ -20,7 +20,7 @@ The five mechanisms have meaningfully different cost shapes. Treating them the s
 
 ## How the bundle's choices map to this
 
-The bundle currently has 6 subagents, 11 skills, 13 slash commands, 12 hooks, AGENTS.md targeting ~150-180 lines after pruning, and a CLAUDE.md that is a 3-line wrapper importing AGENTS.md. The reasoning, mechanism by mechanism:
+The bundle currently has 6 subagents, 11 skills, 13 slash commands, 8 hooks, AGENTS.md targeting ~150-180 lines after pruning, and a CLAUDE.md that is a 3-line wrapper importing AGENTS.md. The reasoning, mechanism by mechanism:
 
 **Why few subagents.** Subagent descriptions are loaded every session, and the marginal value of adding another subagent has to exceed the per-session cost. The bundle previously had 13 subagents (six per-layer experts plus seven specialists). Most of the layer experts were taxonomy-driven rather than delegation-driven — Claude's natural action when asked about a layer is to read the actual files, which makes the agent provide little value over what reading provides. The six kept all benefit from context isolation: pre-merge review (fresh context), VCF schema validation (bulky read-only spec walk), performance analysis (profile state would dominate the main session), sanitizer report analysis (multi-thousand-line traces).
 

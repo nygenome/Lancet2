@@ -262,7 +262,8 @@ pixi run build-release                # Build Release (auto-runs configure-relea
 pixi run configure-debug              # CMake Debug (tests ON, compile_commands.json)
 pixi run build-debug                  # Build Debug (auto-runs configure-debug first)
 
-# Run tests (auto-builds Debug first)
+# Run tests (auto-builds Release first; LANCET_DEBUG_MODE is defined on the
+# test target unconditionally so LANCET_ASSERT keeps firing under Release)
 pixi run test
 
 # Run benchmarks in Release mode
@@ -299,13 +300,12 @@ python3 scripts/run_clang_format.py --fix src/lancet/caller/genotyper.cpp
 ### Static analysis
 
 ```bash
-pixi run lint-check                   # check-only (auto-builds Debug first for compile_commands.json)
-pixi run lint-fix                     # ⚠️ DO NOT USE — see warning below
-pixi run lint-all                     # run both fmt-check and lint-check
+pixi run lint-check                   # check-only (auto-builds Release first for compile_commands.json)
+pixi run lint-all                     # run fmt-check + lint-check + iwyu-check
 ```
 
 > [!CAUTION]
-> **Do NOT use `pixi run lint-fix`.** Clang-tidy auto-fixes have historically broken compilation and produced unreadable code. Always resolve clang-tidy warnings manually by reading the diagnostic, understanding the root cause, and writing the fix yourself. Manual resolution produces better code and avoids cascading breakage.
+> **Clang-tidy auto-fix is not supported in this project.** The `lint-fix` pixi task and the `--fix` flag on `scripts/run_clang_tidy.py` were removed because clang-tidy auto-fixes have historically broken compilation and produced unreadable code (modernize-use-trailing-return-type rewriting lambdas, modernize-use-ranges breaking sort, misc-include-cleaner reordering includes). Always resolve clang-tidy warnings manually by reading the diagnostic, understanding the root cause, and writing the fix yourself.
 
 For custom build directories, invoke the script directly:
 

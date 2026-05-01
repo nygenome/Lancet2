@@ -29,7 +29,7 @@ The `scripts/` directory holds 15 files (12 Python, 3 shell, 1 Jinja template) t
 **Lint and IWYU enforcement** — these implement the project's check/fix tasks.
 
 - `run_clang_format.py` — clang-format wrapper used by `pixi run fmt-check` / `fmt-fix`.
-- `run_clang_tidy.py` — clang-tidy wrapper used by `pixi run lint-check` / `lint-fix`.
+- `run_clang_tidy.py` — clang-tidy wrapper used by `pixi run lint-check`. Auto-fix mode (`--fix`) is intentionally NOT supported in this project; clang-tidy auto-fix has historically broken compilation, so violations are resolved by editing source manually. See AGENTS.md "invoking clang-tidy" callout.
 - `run_iwyu.py` — IWYU wrapper used by `pixi run iwyu-check` / `iwyu-fix`.
 
 This skill walks the sync between these scripts and the rest of the codebase.
@@ -60,7 +60,7 @@ For a VCF field change, `truth_concordance.py` and `analyze_probe_results.py` ar
 
 ## Step 3 — When the script is the source of truth, find the C++ consumers
 
-The lint/IWYU/format scripts are the project's enforcement mechanism. If `run_clang_tidy.py` changes its CLI surface, the pixi tasks in `pixi.toml` that invoke it (`lint-check`, `lint-fix`) need to update too. Same for `run_clang_format.py` and `run_iwyu.py`.
+The lint/IWYU/format scripts are the project's enforcement mechanism. If `run_clang_tidy.py` changes its CLI surface, the pixi task `lint-check` that invokes it needs to update too. Same for `run_clang_format.py` (`fmt-check`/`fmt-fix`) and `run_iwyu.py` (`iwyu-check`/`iwyu-fix`).
 
 If `export_docs.py` changes its output format, the `docs-export` pixi task and any downstream tooling that consumes the exported Markdown need to update.
 

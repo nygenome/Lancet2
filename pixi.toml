@@ -158,8 +158,8 @@ build-profile-gcc = {
 # ── Test & Benchmark ────────────────────────────────────────────────────────
 test = {
 
-  cmd = "./cmake-build-debug/tests/TestLancet2",
-  depends-on = ["build-debug"],
+  cmd = "./cmake-build-release/tests/TestLancet2",
+  depends-on = ["build-release"],
   description = "Run unit tests using Catch2 framework (clang build)"}
 
 bench = {
@@ -185,12 +185,6 @@ fmt-fix = {
 
   cmd = "python3 scripts/run_clang_format.py --fix",
   description = "Apply clang-format to all C++ sources"}
-
-lint-fix = {
-
-  cmd = "python3 scripts/run_clang_tidy.py --fix",
-  depends-on = ["build-release"],
-  description = "Run clang-tidy with auto-fix (review changes carefully)"}
 
 iwyu-fix = {
 

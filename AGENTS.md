@@ -17,7 +17,7 @@ pixi run configure-release            # CMake Release configure → cmake-build-
 pixi run build-release                # Release build (auto-runs configure-release first)
 pixi run configure-debug              # Debug configure with tests + compile_commands.json
 pixi run build-debug                  # Debug build (auto-runs configure-debug first)
-pixi run test                         # Run Catch2 tests (auto-builds Debug first)
+pixi run test                         # Run Catch2 tests (auto-builds Release first)
 pixi run bench                        # Run benchmarks (configure with -DLANCET_BENCHMARKS=ON)
 pixi run lint-all                     # fmt-check + lint-check + iwyu-check (CI gates)
 pixi run fmt-fix                      # apply clang-format
@@ -27,8 +27,12 @@ pixi run docs-build                   # strict, zero-warning
 
 Sanitizer trees (`cmake-build-asan/`, `cmake-build-tsan/`) are configured manually by the `sanitizer-triage` skill because they require disabling the static mimalloc link. The profiling build (`pixi run configure-profile` / `pixi run build-profile`) is documented in the `profile-and-optimize` skill; reach for the skill rather than configuring profiling builds inline.
 
-<important_if context="invoking pixi commands">
-**Do NOT run `pixi run lint-fix`.** Clang-tidy auto-fixes have historically broken compilation. Always resolve `lint-check` warnings manually.
+The `test` task uses the Release tree (`cmake-build-release/tests/TestLancet2`) because `lint-check` and `iwyu-check` already build that tree at commit time, and `tests/CMakeLists.txt` defines `LANCET_DEBUG_MODE` on the test target unconditionally so `LANCET_ASSERT` keeps firing under Release. The `build-debug` tree exists for explicit debug iteration but is not on the default flow.
+
+`/check` is the canonical validation entry point. It runs `pixi run iwyu-fix` (mutating; auto-formats and fixes includes), then read-only `lint-check` and `test` against the Release tree. On full success it writes a `git stash create` hash to `.claude/cache/last-check-state` (gitignored). The `pre_commit_gate.sh` PreToolUse hook reads that marker at `git commit` time and silently passes if the hash matches the about-to-be-committed working tree (~50ms). If the marker is missing or stale, the gate blocks with "run /check first". Run `/check` whenever you've made non-trivial source changes; commits without a fresh `/check` will be blocked.
+
+<important_if context="invoking clang-tidy">
+**Never reach for clang-tidy's `--fix` / `-fix` mode.** It has historically broken compilation in this project (modernize-use-trailing-return-type rewriting lambdas, modernize-use-ranges breaking sort with no `<=>`, misc-include-cleaner reordering includes). The `lint-fix` pixi task and the `--fix` flag on `scripts/run_clang_tidy.py` were removed for this reason. Resolve every `lint-check` warning by reading the diagnostic, understanding the root cause, and editing the source by hand. `pixi run iwyu-fix` (which auto-fixes includes and re-formats) is fine; clang-tidy auto-fix is not.
 </important_if>
 
 ## Architecture: six-layer dependency chain

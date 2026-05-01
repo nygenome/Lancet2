@@ -4,22 +4,6 @@
   "autoUpdatesChannel": "stable",
 
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && bash .claude/hooks/session_start.sh"
-          },
-          {
-            "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && bash .claude/hooks/log_session_start.sh"
-          }
-        ]
-      }
-    ],
-
     "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -55,32 +39,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/iwyu_check_on_commit.sh\""
-          }
-        ]
-      }
-    ],
-
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && bash .claude/hooks/post_edit_format.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/log_post_tool_use.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/log_post_tool_use.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_commit_gate.sh\""
           }
         ]
       }
@@ -92,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && bash .claude/hooks/stop_validate.sh"
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && bash .claude/hooks/stop_reminder.sh"
           }
         ]
       }

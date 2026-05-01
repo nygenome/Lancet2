@@ -13,7 +13,7 @@ Eleven skills live here. Each one is a procedure that Claude applies with judgme
 - **`schema-migration`** — interview-driven workflow for VCF FORMAT/INFO/FILTER changes and CLI flag changes. Walks the five-operation matrix (add / rename / cardinality-change / remove / silent-semantic-change), proposes coordinated edits across vcf_header_builder.cpp + caller code + tests + docs, and invokes the `vcf-validator` subagent before merge.
 - **`documentation-sync`** — keeps in-source documentation (header comments, docstrings) in sync with the user-facing guides under `docs/`. Surfaces drift in both directions (code → docs and docs → code) before applying coordinated edits.
 - **`python-script-sync`** — maintains the contract between the C++ pipeline and the Python tooling under `scripts/` (analyze_*, run_clang_*, build_*, bump_version, update_changelog, etc.). Catches drift when the C++ side changes a TSV column or log format that a script consumes.
-- **`cmake-build-sync`** — covers the full chain of changes for adding source files, layers, dependencies, build options, link-line changes, and compile-flag changes. Aware of the protected-paths boundary around `cmake/` and `pixi.toml`.
+- **`cmake-sync`** — covers the full chain of changes for adding source files, layers, dependencies, build options, link-line changes, and compile-flag changes. Aware of the protected-paths boundary around `cmake/` and `pixi.toml`.
 - **`release-notes`** — distills a CHANGELOG range into a categorized impact summary (breaking / schema / feature / fix / perf / internal). Complements but does not replace the chglog-generated CHANGELOG.md; produces the announcement-style narrative for users.
 
 ## Why skills and not AGENTS.md content?

@@ -6,7 +6,7 @@ Thirteen slash commands live here. Each one is a workflow the user wants to star
 
 Operational commands:
 
-- **`/check`** — runs the full validation gauntlet (`pixi run build-debug`, `pixi run test`, `pixi run iwyu-fix`, `pixi run lint-check`) in that order. Same sequence the `stop_validate.sh` Stop hook runs. Use mid-session to verify a change is clean without waiting for the Stop hook. The CI gate; if `/check` is green locally, CI will be green.
+- **`/check`** — fix-mode validation: runs `pixi run iwyu-fix` (which chains clang-format), `pixi run lint-check` (read-only; clang-tidy auto-fix is forbidden), then `pixi run test` against the Release tree. Mirrors the scope of the `pre_commit_gate.sh` PreToolUse hook but applies fixes where the gate runs read-only equivalents. Use to make the diff clean before staging; the gate is the safety net at `git commit` time.
 - **`/e2e`** — runs the full Lancet2 pipeline twice: germline (NA12878 / chr1) then somatic (HCC1395 tumor + HCC1395BL normal / chr4). Confirms exit-0 and a reasonable variant count for each. Truth-set comparison is a separate harness and is not done here.
 - **`/commit`** — composes a commit message in the project's two-section style (subject + context paragraphs + optional file-list bullets), grounded in `docs_dev/style/cpp_style.md` § Git commit messages and `.chglog/config.yml`. The validate_commit_message hook independently double-checks at the moment of `git commit`.
 - **`/spec`** — interview-driven feature specification. Asks the user 3-7 questions via `AskUserQuestion`, drafts a spec at `notes/<FEATURE>/spec.md`, and writes a kickoff prompt at `notes/<FEATURE>/kickoff.md` for a fresh execution session. Use for substantive features (above ~50 lines or touching multiple files).

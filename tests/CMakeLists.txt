@@ -49,6 +49,12 @@ add_executable(TestLancet2
 target_include_directories(TestLancet2 PRIVATE "${CMAKE_BINARY_DIR}/generated" "${CMAKE_SOURCE_DIR}"
 		"${PROJECT_SOURCE_DIR}/tests" "${longdust_SOURCE_DIR}")
 target_link_libraries(TestLancet2 PRIVATE Catch2 absl::strings lancet_cli zlibstatic)
+# LANCET_DEBUG_MODE enables LANCET_ASSERT (see src/lancet/base/assert.h). The macro
+# is normally tied to Debug builds via CMakeLists.txt, but the project's pre-commit
+# gate runs the Release-tree test binary (reusing the same build that lint-check /
+# iwyu-check produced). Defining the macro on the test target unconditionally keeps
+# assertion coverage regardless of CMAKE_BUILD_TYPE.
+target_compile_definitions(TestLancet2 PRIVATE LANCET_DEBUG_MODE)
 set_target_properties(TestLancet2 PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 set_property(TARGET TestLancet2 PROPERTY $<$<ENABLE_LTO>:INTERPROCEDURAL_OPTIMIZATION TRUE>)
 

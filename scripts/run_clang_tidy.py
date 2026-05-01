@@ -3,9 +3,13 @@
 
 Usage:
     ./scripts/run_clang_tidy.py                              # check-only
-    ./scripts/run_clang_tidy.py --fix                        # apply auto-fixes
     ./scripts/run_clang_tidy.py --build-dir build            # custom build dir
-    ./scripts/run_clang_tidy.py --fix --build-dir build      # fix with custom dir
+
+Auto-fix mode is intentionally NOT supported. Clang-tidy's auto-fix has
+historically broken compilation and produced unreadable code in this
+project; every clang-tidy diagnostic must be resolved by reading the
+warning, understanding the root cause, and editing the source by hand.
+See AGENTS.md for the project-wide rule.
 
 Prerequisites:
     - Build directory with compile_commands.json
@@ -187,12 +191,7 @@ def print_summary(diagnostics: list[Diagnostic]) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run clang-tidy on Lancet2 source files."
-    )
-    parser.add_argument(
-        "--fix",
-        action="store_true",
-        help="Apply clang-tidy auto-fixes (default: check-only)",
+        description="Run clang-tidy on Lancet2 source files (check-only)."
     )
     parser.add_argument(
         "--build-dir",
@@ -222,16 +221,7 @@ def main() -> int:
         f"-header-filter={HEADER_FILTER}",
     ]
 
-    if args.fix:
-        cmd.append("-fix")
-        print("==> Running clang-tidy with auto-fix on Lancet sources...")
-        print("    WARNING: Review changes carefully — some auto-fixes may break compilation.")
-        print("    Known problematic checks (disabled in .clang-tidy):")
-        print("      - modernize-use-trailing-return-type (-> auto on lambdas)")
-        print("      - modernize-use-ranges (std::sort -> ranges::sort breaks w/o <=>)")
-        print("      - misc-include-cleaner (reorders includes)")
-    else:
-        print("==> Running clang-tidy check on Lancet sources (no fixes)...")
+    print("==> Running clang-tidy check on Lancet sources (no fixes)...")
 
     print(f"    Build dir: {build_dir.relative_to(REPO_ROOT)}")
     print(f"    File filter: {FILE_FILTER}")

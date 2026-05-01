@@ -18,9 +18,9 @@ For each pairing, the procedure is the same: read the source, read the bundle's 
 
 **Source of truth:** `pixi.toml` `[tasks]` block.
 
-Read `pixi.toml` and extract every task name. The names that should exist (from the project's history plus the bundle's integration additions) are `configure-release`, `build-release`, `configure-debug`, `build-debug`, `configure-profile`, `build-profile`, `test`, `bench`, `lint-all`, `lint-check`, `fmt-check`, `fmt-fix`, `iwyu-check`, `iwyu-fix`, `docs-build`, `docs-serve`, plus the 12 sanitizer tasks the bundle adds (`configure-asan`, `build-asan`, `test-asan` and the parallel triples for `msan`, `tsan`, `ubsan`). If any have been renamed, added, or removed, that is a finding.
+Read `pixi.toml` and extract every task name. The names that should exist (from the project's history plus the bundle's integration additions) are `configure-release`, `build-release`, `configure-debug`, `build-debug`, `configure-profile`, `build-profile`, `test`, `bench`, `lint-all`, `lint-check`, `fmt-check`, `fmt-fix`, `iwyu-check`, `iwyu-fix`, `docs-build`, `docs-serve`, plus the 12 sanitizer tasks the bundle adds (`configure-asan`, `build-asan`, `test-asan` and the parallel triples for `msan`, `tsan`, `ubsan`). The `lint-fix` task was deliberately removed (clang-tidy auto-fix is forbidden in this project; see AGENTS.md "invoking clang-tidy" callout) — its absence is correct, its presence is a finding. If any other task has been renamed, added, or removed, that is a finding.
 
-**Bundle locations to check:** `AGENTS.md` (build-and-tooling section), `.claude/commands/check.md`, `.claude/commands/e2e.md`, `.claude/commands/README.md`, `.claude/skills/profile-and-optimize/SKILL.md`, `.claude/skills/sanitizer-triage/SKILL.md`, `.claude/agents/perf-analyst.md`. Grep for `pixi run` in each.
+**Bundle locations to check:** `AGENTS.md` (build-and-tooling section), `.claude/commands/check.md`, `.claude/commands/e2e.md`, `.claude/commands/README.md`, `.claude/hooks/pre_commit_gate.sh`, `.claude/hooks/stop_reminder.sh`, `.claude/skills/profile-and-optimize/SKILL.md`, `.claude/skills/sanitizer-triage/SKILL.md`, `.claude/agents/perf-analyst.md`. Grep for `pixi run` in each.
 
 Report any task name in the bundle that does not appear in `pixi.toml`.
 
@@ -46,7 +46,7 @@ Specific things to verify:
 - The `--probe-variants` and `--probe-results` pair, if mentioned in any docs, is mutually-required.
 - Any flag mentioned in `/e2e` (in the help-flag verification loop) actually exists.
 
-**Bundle locations to check:** `AGENTS.md` (build-and-tooling section), `.claude/commands/check.md`, `.claude/commands/e2e.md`, `.claude/commands/README.md`, `.claude/hooks/stop_validate.sh`, `.claude/hooks/iwyu_check_on_commit.sh`, `.claude/hooks/post_edit_format.sh`, `.claude/skills/profile-and-optimize/SKILL.md`, `.claude/skills/sanitizer-triage/SKILL.md`, `.claude/agents/perf-analyst.md`. Grep for `pixi run` in each.
+**Bundle locations to check:** `AGENTS.md` (build-and-tooling section), `.claude/commands/check.md`, `.claude/commands/e2e.md`, `.claude/commands/README.md`, `.claude/hooks/pre_commit_gate.sh`, `.claude/hooks/stop_reminder.sh`, `.claude/skills/profile-and-optimize/SKILL.md`, `.claude/skills/sanitizer-triage/SKILL.md`, `.claude/agents/perf-analyst.md`. Grep for `pixi run` in each.
 
 Report any flag the bundle relies on that is no longer present, plus any flag whose required-ness has changed in a way that affects the bundle's invocations.
 
