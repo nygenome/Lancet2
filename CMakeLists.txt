@@ -11,23 +11,24 @@
 message(STATUS "Current CMake version: ${CMAKE_VERSION}")
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
-project(lancet LANGUAGES C CXX
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" LANCET_VERSION_FROM_FILE LIMIT_COUNT 1)
+string(STRIP "${LANCET_VERSION_FROM_FILE}" LANCET_VERSION_FROM_FILE)
+project(lancet VERSION ${LANCET_VERSION_FROM_FILE} LANGUAGES C CXX
 		HOMEPAGE_URL https://github.com/nygenome/Lancet2
 		DESCRIPTION "Micro-assembly based somatic variant caller")
 
 # ── Version & Options ─────────────────────────────────────────────────────────
-# https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 include(cmake/version.cmake)
 include(CMakeDependentOption)
-set(PROJECT_VERSION ${LANCET2_GIT_TAG})
 message(STATUS "Lancet v${PROJECT_VERSION}")
 option(LANCET_TESTS "Builds the Lancet tests executable" "OFF")
 option(LANCET_BENCHMARKS "Builds the Lancet benchmarks executable" "OFF")
 option(LANCET_PROFILE_MODE "Enables CPU profiling for the Lancet executable" "OFF")
 option(LANCET_BUILD_STATIC "Builds a statically linked Lancet executable" "ON")
-option(LANCET_NATIVE_BUILD "Optimizes the build for the specific CPU. Faster but binary may not run on different hardware" "OFF")
-option(LANCET_VERBOSE_LOGS "Enables TRACE level log messages when --verbose flag is provided at runtime" "OFF")
-option(LANCET_SANITIZE_BUILD "Builds with a sanitizer (ASan/MSan/TSan/UBSan). Excludes mimalloc to avoid allocator-override interference" "OFF")
+option(LANCET_NATIVE_BUILD "Optimizes for host CPU. Faster but may not run on different machine" "OFF")
+option(LANCET_VERBOSE_LOGS "Enables TRACE level logging with --verbose flag" "OFF")
+option(LANCET_SANITIZE_BUILD "Builds with an LLVM sanitizer (ASan/MSan/TSan/UBSan)" "OFF")
+option(LANCET_QUIET_DEPS "Suppresses cmake configure output for third-party libraries" "ON")
 cmake_dependent_option(LANCET_ENABLE_CLOUD_IO "Enables native S3 and GCS streaming via libcurl" OFF "NOT LANCET_BUILD_STATIC" OFF)
 
 set_property(CACHE LANCET_TESTS PROPERTY STRINGS "OFF" "ON")
@@ -37,6 +38,7 @@ set_property(CACHE LANCET_BUILD_STATIC PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_NATIVE_BUILD PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_VERBOSE_LOGS PROPERTY STRINGS "OFF" "ON")
 set_property(CACHE LANCET_SANITIZE_BUILD PROPERTY STRINGS "OFF" "ON")
+set_property(CACHE LANCET_QUIET_DEPS PROPERTY STRINGS "OFF" "ON")
 if (NOT LANCET_BUILD_STATIC)
 	set_property(CACHE LANCET_ENABLE_CLOUD_IO PROPERTY STRINGS "OFF" "ON")
 endif ()

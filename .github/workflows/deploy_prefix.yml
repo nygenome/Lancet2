@@ -30,17 +30,18 @@ jobs:
 
       - name: Compute package version
         run: |
-          TAG=$(git describe --abbrev=0 --tags 2>/dev/null || echo "v0.0.0")
+          BASE_VERSION=$(cat VERSION | tr -d '[:space:]')
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
           HASH=$(git rev-parse --short=10 HEAD)
+          TAG=$(git describe --abbrev=0 --tags 2>/dev/null || echo "")
           DISTANCE=$(git rev-list "${TAG}..HEAD" --count 2>/dev/null || echo "0")
 
-          # Stable release: tag as-is (e.g. "v2.9.0")
-          # Dev build: tag_branch_hash (e.g. "v2.9.0_main_441d081927")
+          # Stable release: version as-is (e.g. "2.9.0")
+          # Dev build: version_branch_hash (e.g. "2.9.0_main_441d081927")
           if [ "${DISTANCE}" = "0" ]; then
-            echo "LANCET_VERSION=${TAG}" >> "$GITHUB_ENV"
+            echo "LANCET_VERSION=${BASE_VERSION}" >> "$GITHUB_ENV"
           else
-            echo "LANCET_VERSION=${TAG}_${BRANCH}_${HASH}" >> "$GITHUB_ENV"
+            echo "LANCET_VERSION=${BASE_VERSION}_${BRANCH}_${HASH}" >> "$GITHUB_ENV"
           fi
           echo "LANCET_BUILD_STRING=${BRANCH}_${HASH}_0" >> "$GITHUB_ENV"
 

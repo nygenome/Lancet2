@@ -28,7 +28,7 @@ configure-release = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure Release build with clang (extra CMake flags via --)"}
+  description = "Configure Release build with Clang"}
 
 configure-debug = {
 
@@ -43,7 +43,7 @@ configure-debug = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure Debug build with clang (tests ON, compile_commands.json)"}
+  description = "Configure Debug build with Clang"}
 
 # ── GCC variants (compiler-comparison and fallback) ─────────────────────────
 # Use these when you want to verify a build still compiles cleanly under
@@ -64,7 +64,7 @@ configure-release-gcc = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure Release build with GCC (compiler-comparison fallback)"}
+  description = "Configure Release build with GCC"}
 
 configure-debug-gcc = {
 
@@ -79,32 +79,43 @@ configure-debug-gcc = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure Debug build with GCC (compiler-comparison fallback)"}
+  description = "Configure Debug build with GCC"}
 
 # ── Build ───────────────────────────────────────────────────────────────────
+# Ninja auto-reconfigures when CMakeLists.txt or cmake/*.cmake files change
+# (via the RERUN_CMAKE rule in build.ninja). The explicit configure task only
+# runs when the build tree doesn't exist yet (fresh clone, deleted build dir).
 build-release = {
 
-  cmd = "cmake --build cmake-build-release",
-  depends-on = ["configure-release"],
-  description = "Build Lancet2 in Release mode (clang)"}
+  cmd = """\
+    test -f cmake-build-release/build.ninja \
+    || pixi run configure-release \
+    && cmake --build cmake-build-release""",
+  description = "Build in Release mode (Clang)"}
 
 build-debug = {
 
-  cmd = "cmake --build cmake-build-debug",
-  depends-on = ["configure-debug"],
-  description = "Build Lancet2 in Debug mode (clang, with tests)"}
+  cmd = """\
+    test -f cmake-build-debug/build.ninja \
+    || pixi run configure-debug \
+    && cmake --build cmake-build-debug""",
+  description = "Build in Debug mode with Clang"}
 
 build-release-gcc = {
 
-  cmd = "cmake --build cmake-build-release-gcc",
-  depends-on = ["configure-release-gcc"],
-  description = "Build Lancet2 in Release mode (GCC fallback)"}
+  cmd = """\
+    test -f cmake-build-release-gcc/build.ninja \
+    || pixi run configure-release-gcc \
+    && cmake --build cmake-build-release-gcc""",
+  description = "Build in Release mode with GCC"}
 
 build-debug-gcc = {
 
-  cmd = "cmake --build cmake-build-debug-gcc",
-  depends-on = ["configure-debug-gcc"],
-  description = "Build Lancet2 in Debug mode (GCC fallback, with tests)"}
+  cmd = """\
+    test -f cmake-build-debug-gcc/build.ninja \
+    || pixi run configure-debug-gcc \
+    && cmake --build cmake-build-debug-gcc""",
+  description = "Build in Debug mode with GCC"}
 
 # ── Profiling (RelWithDebInfo + gperftools) ─────────────────────────────────
 # Same flags as Release plus -g for DWARF debug info, enabling pprof
@@ -126,13 +137,15 @@ configure-profile = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure profiling build (clang, RelWithDebInfo + gperftools)"}
+  description = "Configure Profile build with Clang (uses gperftools)"}
 
 build-profile = {
 
-  cmd = "cmake --build cmake-build-relwithdebinfo",
-  depends-on = ["configure-profile"],
-  description = "Build Lancet2 for profiling (clang, RelWithDebInfo + gperftools)"}
+  cmd = """\
+    test -f cmake-build-relwithdebinfo/build.ninja \
+    || pixi run configure-profile \
+    && cmake --build cmake-build-relwithdebinfo""",
+  description = "Build in Profile mode with Clang (uses gperftools)"}
 
 configure-profile-gcc = {
 
@@ -147,73 +160,75 @@ configure-profile-gcc = {
     "-DLANCET_BUILD_STATIC=ON",
     "-DLANCET_ENABLE_CLOUD_IO=OFF",
   ],
-  description = "Configure profiling build (GCC fallback, RelWithDebInfo)"}
+  description = "Configure Profile build with GCC (uses gperftools)"}
 
 build-profile-gcc = {
 
-  cmd = "cmake --build cmake-build-relwithdebinfo-gcc",
-  depends-on = ["configure-profile-gcc"],
-  description = "Build Lancet2 for profiling (GCC fallback)"}
+  cmd = """\
+    test -f cmake-build-relwithdebinfo-gcc/build.ninja \
+    || pixi run configure-profile-gcc \
+    && cmake --build cmake-build-relwithdebinfo-gcc""",
+  description = "Build in Profile mode with GCC (uses gperftools)"}
 
 # ── Test & Benchmark ────────────────────────────────────────────────────────
 test = {
 
   cmd = "./cmake-build-release/tests/TestLancet2",
   depends-on = ["build-release"],
-  description = "Run unit tests using Catch2 framework (clang build)"}
+  description = "Run Release mode unit tests with Clang (uses Catch2)"}
 
 bench = {
 
   cmd = "./cmake-build-release/benchmarks/BenchmarkLancet2",
   depends-on = ["build-release"],
-  description = "Run micro-benchmarks using Google Benchmark (clang build)"}
+  description = "Run Release mode micro-benchmarks with Clang (uses Google Benchmark)"}
 
 test-gcc = {
 
   cmd = "./cmake-build-debug-gcc/tests/TestLancet2",
   depends-on = ["build-debug-gcc"],
-  description = "Run unit tests against the GCC build (compiler-comparison)"}
+  description = "Run Debug mode unit tests with GCC (uses Catch2)"}
 
 bench-gcc = {
 
   cmd = "./cmake-build-release-gcc/benchmarks/BenchmarkLancet2",
   depends-on = ["build-release-gcc"],
-  description = "Run micro-benchmarks against the GCC build (compiler-comparison)"}
+  description = "Run Release mode micro-benchmarks with GCC (uses Google Benchmark)"}
 
 # ── Fix (apply auto-fixes, then reformat) ───────────────────────────────────
 fmt-fix = {
 
   cmd = "python3 scripts/run_clang_format.py --fix",
-  description = "Apply clang-format to all C++ sources"}
+  description = "Apply clang-format fixes to all C++ sources"}
 
 iwyu-fix = {
 
   cmd = "python3 scripts/run_iwyu.py --fix && python3 scripts/run_clang_format.py --fix",
   depends-on = ["build-release"],
-  description = "Fix includes via IWYU, then reformat"}
+  description = "Apply IWYU fixes, then apply clang-format fixes"}
 
 # ── Check (CI gate — no modifications, exit 1 on violations) ────────────────
 fmt-check = {
 
   cmd = "python3 scripts/run_clang_format.py",
-  description = "Check C++ formatting (dry-run, fails on diff)"}
+  description = "Check C++ formatting violations with clang-format"}
 
 lint-check = {
 
   cmd = "python3 scripts/run_clang_tidy.py",
   depends-on = ["build-release"],
-  description = "Run clang-tidy on all sources (no fixes, fails on warnings)"}
+  description = "Check C++ static analysis violations with clang-tidy"}
 
 iwyu-check = {
 
   cmd = "python3 scripts/run_iwyu.py",
   depends-on = ["build-release"],
-  description = "Check include hygiene with IWYU (no fixes, fails on violations)"}
+  description = "Check C++ header include hygiene with IWYU"}
 
 lint-all = {
 
-  depends-on = ["fmt-check", "lint-check", "iwyu-check"],
-  description = "Run all checks (clang-format + clang-tidy + IWYU)"}
+  depends-on = ["fmt-check", "iwyu-check", "lint-check", ],
+  description = "Run all checks (clang-format + IWYU + clang-tidy)"}
 
 # ── Documentation ───────────────────────────────────────────────────────────
 docs-serve = { cmd = "mkdocs serve", description = "Serve docs locally at http://127.0.0.1:8000" }
@@ -379,15 +394,17 @@ configure-asan = {
 
 build-asan = {
 
-  cmd = "cmake --build cmake-build-asan",
-  depends-on = ["configure-asan"],
+  cmd = """\
+    test -f cmake-build-asan/build.ninja \
+    || pixi run configure-asan \
+    && cmake --build cmake-build-asan""",
   description = "Build Lancet2 with ASan+UBSan instrumentation"}
 
 test-asan = {
 
   cmd = "./cmake-build-asan/tests/TestLancet2",
   depends-on = ["build-asan"],
-  description = "Run Catch2 tests under ASan+UBSan"}
+  description = "Run Catch2 unit tests under ASan+UBSan"}
 
 # ── MSan (uninitialized-memory tracking) ────────────────────────────────────
 # Catches: reads of uninitialized memory across function boundaries.
@@ -418,15 +435,17 @@ configure-msan = {
 
 build-msan = {
 
-  cmd = "cmake --build cmake-build-msan",
-  depends-on = ["configure-msan"],
+  cmd = """\
+    test -f cmake-build-msan/build.ninja \
+    || pixi run configure-msan \
+    && cmake --build cmake-build-msan""",
   description = "Build Lancet2 with MSan instrumentation"}
 
 test-msan = {
 
   cmd = "./cmake-build-msan/tests/TestLancet2",
   depends-on = ["build-msan"],
-  description = "Run Catch2 tests under MSan"}
+  description = "Run Catch2 unit tests under MSan"}
 
 # ── TSan (data-race detection) ──────────────────────────────────────────────
 # Catches: data races, mutex misuse (double-lock, unlock-without-lock,
@@ -453,15 +472,17 @@ configure-tsan = {
 
 build-tsan = {
 
-  cmd = "cmake --build cmake-build-tsan",
-  depends-on = ["configure-tsan"],
+  cmd = """\
+    test -f cmake-build-tsan/build.ninja \
+    || pixi run configure-tsan \
+    && cmake --build cmake-build-tsan""",
   description = "Build Lancet2 with TSan instrumentation"}
 
 test-tsan = {
 
   cmd = "./cmake-build-tsan/tests/TestLancet2",
   depends-on = ["build-tsan"],
-  description = "Run Catch2 tests under TSan"}
+  description = "Run Catch2 unit tests under TSan"}
 
 # ── UBSan-only (rarely needed standalone; usually combined with ASan) ───────
 # When you specifically want UBSan diagnostics without ASan's overhead,
@@ -487,22 +508,24 @@ configure-ubsan = {
 
 build-ubsan = {
 
-  cmd = "cmake --build cmake-build-ubsan",
-  depends-on = ["configure-ubsan"],
+  cmd = """\
+    test -f cmake-build-ubsan/build.ninja \
+    || pixi run configure-ubsan \
+    && cmake --build cmake-build-ubsan""",
   description = "Build Lancet2 with UBSan-only instrumentation"}
 
 test-ubsan = {
 
   cmd = "./cmake-build-ubsan/tests/TestLancet2",
   depends-on = ["build-ubsan"],
-  description = "Run Catch2 tests under UBSan-only"}
+  description = "Run Catch2 unit tests under UBSan-only"}
 
 # ── Go Binary Management ───────────────────────────────────────────────────
 # All Go tools installed into $CONDA_PREFIX/bin
 ensure-git-chglog = {
 
   cmd = "GOBIN=$CONDA_PREFIX/bin go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest",
-  description = "Install/update git-chglog into the workspace"}
+  description = "Install/Update git-chglog into the workspace"}
 
 # NOTE: ensure-pprof and analyze-profile tasks live in the profiling
 # environment. Use: pixi run -e profiling analyze-profile <profile.bin>
@@ -529,6 +552,7 @@ git = "==2.53.0"
 make = "==4.4.1"
 cmake = "==4.3.2"
 ninja = "==1.13.2"
+ccache = "==4.13.4"
 bzip2 = "==1.0.8"
 liblzma = "==5.8.3"
 liblzma-devel = "==5.8.3"

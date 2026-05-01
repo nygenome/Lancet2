@@ -23,20 +23,23 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RECIPE="${REPO_ROOT}/conda/recipe.yaml"
 OUTPUT_DIR="${1:-${REPO_ROOT}/output}"
 
-# Compute version metadata from git, matching deploy_prefix.yml logic
-TAG=$(git -C "${REPO_ROOT}" describe --abbrev=0 --tags 2>/dev/null || echo "v0.0.0")
-BRANCH=$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD)
-HASH=$(git -C "${REPO_ROOT}" rev-parse --short=10 HEAD)
+# Read base version from VERSION file (single source of truth)
+BASE_VERSION=$(cat "${REPO_ROOT}/VERSION" | tr -d '[:space:]')
+
+# Augment with git metadata when available
+BRANCH=$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+HASH=$(git -C "${REPO_ROOT}" rev-parse --short=10 HEAD 2>/dev/null || echo "")
+TAG=$(git -C "${REPO_ROOT}" describe --abbrev=0 --tags 2>/dev/null || echo "")
 DISTANCE=$(git -C "${REPO_ROOT}" rev-list "${TAG}..HEAD" --count 2>/dev/null || echo "0")
 
-# Stable release: tag as-is (e.g. "v2.10.0")
-# Dev build: tag_branch_hash (e.g. "v2.10.0_main_441d081927")
-if [ "${DISTANCE}" = "0" ]; then
-  export LANCET_VERSION="${TAG}"
+# Stable release: version as-is (e.g. "2.10.0")
+# Dev build: version_branch_hash (e.g. "2.10.0_main_441d081927")
+if [ -z "${BRANCH}" ] || [ "${DISTANCE}" = "0" ]; then
+  export LANCET_VERSION="${BASE_VERSION}"
 else
-  export LANCET_VERSION="${TAG}_${BRANCH}_${HASH}"
+  export LANCET_VERSION="${BASE_VERSION}_${BRANCH}_${HASH}"
 fi
-export LANCET_BUILD_STRING="${BRANCH}_${HASH}_0"
+export LANCET_BUILD_STRING="${BRANCH:-local}_${HASH:-0000000000}_0"
 
 echo "LANCET_VERSION:      ${LANCET_VERSION}"
 echo "LANCET_BUILD_STRING: ${LANCET_BUILD_STRING}"

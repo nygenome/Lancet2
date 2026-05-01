@@ -1,36 +1,28 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Git Version Detection
+# Version Detection
 #
-# Extracts tag, branch, and short SHA from the Git repository at configure time.
-# Falls back to hardcoded defaults when Git metadata is unavailable (e.g., in
-# source archives without .git/). Generates lancet_version.h for compile-time
-# version embedding.
+# Reads the base version from the VERSION file at the project root (single
+# source of truth for CMake, Conda, and Docker). Optionally augments with
+# Git branch and short SHA when available. Generates lancet_version.h for
+# compile-time version embedding.
 # ═══════════════════════════════════════════════════════════════════════════════
-find_package(Git REQUIRED)
 set(LANCET2_VERSION_TAG ${PROJECT_VERSION})
 
-execute_process(COMMAND ${GIT_EXECUTABLE} describe --abbrev=0 --tags WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		OUTPUT_VARIABLE LANCET2_GIT_TAG ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		OUTPUT_VARIABLE LANCET2_GIT_BRANCH ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=10 --verify HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		OUTPUT_VARIABLE LANCET2_GIT_REVISION ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-if (NOT LANCET2_GIT_TAG)
-	set(LANCET2_GIT_TAG "2.8.7")
+find_package(Git QUIET)
+if (GIT_FOUND)
+	execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+			OUTPUT_VARIABLE LANCET2_GIT_BRANCH ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+	execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=10 --verify HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+			OUTPUT_VARIABLE LANCET2_GIT_REVISION ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif ()
 
 if (NOT LANCET2_GIT_BRANCH)
-	set(LANCET2_GIT_BRANCH "UNKNOWN")
+	set(LANCET2_GIT_BRANCH "")
 endif ()
 
 if (NOT LANCET2_GIT_REVISION)
-	set(LANCET2_GIT_REVISION "xxxxxxxxxx")
+	set(LANCET2_GIT_REVISION "")
 endif ()
-
-
-# Strip the 'v' prefix if it exists at the start of the string
-string(REGEX REPLACE "^v" "" LANCET2_GIT_TAG "${LANCET2_GIT_TAG}")
 
 set(LANCET2_VERSION_HEADER "${CMAKE_BINARY_DIR}/generated/lancet_version.h")
 configure_file("${CMAKE_SOURCE_DIR}/src/lancet/version.h.inc" ${LANCET2_VERSION_HEADER} @ONLY)

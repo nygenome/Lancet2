@@ -8,15 +8,6 @@ set(LANCET_FULL_DATA_DIR "${PROJECT_SOURCE_DIR}/data")
 set(LANCET_TEST_CONFIG_H "${CMAKE_BINARY_DIR}/generated/lancet_test_config.h")
 configure_file(test_config.h.inc ${LANCET_TEST_CONFIG_H} @ONLY)
 
-# ── Longdust C sources for cross-validation of LongdustQScorer ────────────────
-# Longdust is a C library (no CMakeLists.txt), so FetchContent_Populate
-# downloads the sources; we compile just the files we need.
-FetchContent_Declare(longdust GIT_REPOSITORY https://github.com/lh3/longdust GIT_TAG v1.4 SYSTEM)
-FetchContent_GetProperties(longdust)
-if (NOT longdust_POPULATED)
-	FetchContent_Populate(longdust)
-endif ()
-
 # ── Main test executable ──────────────────────────────────────────────────────
 add_executable(TestLancet2
 		# Layer 1: base — math, repeat, sequence complexity, gzip + tar.gz I/O

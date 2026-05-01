@@ -8,13 +8,16 @@
 
 namespace lancet::base {
 
-static constexpr auto LANCET_VERSION_TAG = lancet::VersionTag;
-static constexpr auto LANCET_GIT_BRANCH = lancet::GitBranch;
-static constexpr auto LANCET_GIT_REVISION = lancet::GitRevision;
+static constexpr auto VERSION_TAG = lancet::VersionTag;
+static constexpr auto GIT_BRANCH = lancet::GitBranch;
+static constexpr auto GIT_REVISION = lancet::GitRevision;
 
 [[nodiscard]] inline auto LancetFullVersion() -> std::string {
-  static auto const RESULT =
-      fmt::format("{}-{}-{}", LANCET_VERSION_TAG, LANCET_GIT_BRANCH, LANCET_GIT_REVISION);
+  if (GIT_BRANCH[0] == '\0' || GIT_REVISION[0] == '\0') {
+    return VERSION_TAG;
+  }
+
+  static auto const RESULT = fmt::format("{}_{}_{}", VERSION_TAG, GIT_BRANCH, GIT_REVISION);
   return RESULT;
 }
 
