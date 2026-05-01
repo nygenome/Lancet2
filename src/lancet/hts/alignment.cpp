@@ -234,7 +234,7 @@ auto Alignment::ToString(Reference const& ref) const -> std::string {
 
   auto const rnext = [&]() -> std::string {
     if (both_chroms_same) return "=";
-    if (mate_chrom.ok()) return std::string(mate_chrom->Name());
+    if (mate_chrom.ok()) return mate_chrom->Name();
     return "*";
   }();
 

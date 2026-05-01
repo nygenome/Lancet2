@@ -26,7 +26,16 @@ class BgzfStreambuf : public std::streambuf {
   auto operator=(BgzfStreambuf const& other) -> BgzfStreambuf& = default;
   auto operator=(BgzfStreambuf&& other) -> BgzfStreambuf& = default;
 
-  ~BgzfStreambuf() override { Close(); }
+  ~BgzfStreambuf() override {
+    // Destructors are implicitly noexcept; Close() may allocate when formatting
+    // its error-path log message. Swallow any propagated exception so unwind
+    // doesn't trigger std::terminate. Explicit Close() callers still see throws.
+    try {
+      Close();
+      // intentional swallow: dtor cannot propagate exceptions
+      // NOLINTNEXTLINE(bugprone-empty-catch)
+    } catch (...) {}
+  }
 
   auto Open(std::filesystem::path const& path, char const* mode) -> bool;
   void Close();
@@ -58,7 +67,14 @@ enum class BgzfFormat : u8 { UNSPECIFIED, GFF, BED, VCF };
 class BgzfOstream : public std::ostream {
  public:
   BgzfOstream() : std::ostream(nullptr) {}
-  ~BgzfOstream() override { Close(); }
+  ~BgzfOstream() override {
+    // See BgzfStreambuf::~BgzfStreambuf for rationale.
+    try {
+      Close();
+      // intentional swallow: dtor cannot propagate exceptions
+      // NOLINTNEXTLINE(bugprone-empty-catch)
+    } catch (...) {}
+  }
 
   BgzfOstream(BgzfOstream const&) = delete;
   BgzfOstream(BgzfOstream&&) = delete;

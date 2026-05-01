@@ -126,10 +126,10 @@ struct CachedReference {
 
   static auto Build(lancet::hts::Reference const& ref) -> CachedReference {
     CachedReference cache;
-    auto const chroms = ref.ListChroms();
+    auto const& chroms = ref.ListChroms();
     fmt::print(stderr, "Caching {} chromosome sequences...\n", chroms.size());
     for (auto const& chrom : chroms) {
-      auto const cname = chrom.Name();
+      auto const& cname = chrom.Name();
       auto const clen = static_cast<i64>(chrom.Length());
       fmt::print(stderr, "  {} ({} bp)\n", cname, clen);
       cache.mSequences.emplace(cname, std::string(ref.MakeRegion(cname.c_str()).SeqView()));
@@ -513,7 +513,8 @@ class EtaTimer {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+// Standalone debug program; exceptions abort with stack trace by design.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,bugprone-exception-escape)
 auto main(int argc, char** argv) -> int {
   if (argc < 6) {
     fmt::print(

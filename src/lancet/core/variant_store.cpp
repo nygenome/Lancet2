@@ -101,8 +101,13 @@ void VariantStore::FlushAllVariantsInStore(std::ostream& out) {
 void VariantStore::FlushExtractedVariants(std::vector<Value>& variants_to_write,
                                           std::ostream& out) {
   // Sort by genomic position (CHROM, POS) so VCF output is coordinate-ordered.
+  // libc++ stdlib false positive: introsort partition's `__pivot(__iter_move(__first))`
+  // resets a unique_ptr slot to null, but libc++ always swaps a valid object back
+  // into the slot before any comparator call — the comparator never sees null.
+  // NOLINTBEGIN(clang-analyzer-cplusplus.Move)
   std::ranges::sort(variants_to_write,
                     [](Value const& lhs, Value const& rhs) -> bool { return *lhs < *rhs; });
+  // NOLINTEND(clang-analyzer-cplusplus.Move)
 
   // Write sorted records to the output stream
   std::ranges::for_each(variants_to_write, [&out](Value const& item) {

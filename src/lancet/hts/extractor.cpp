@@ -268,7 +268,7 @@ void Extractor::EnsureValidBamOrCram(htsFile* raw_fp, std::string_view aln_path)
 }
 
 void Extractor::HeaderContigsCheck(sam_hdr_t* raw_hdr, Reference const& ref) {
-  auto const chroms = ref.ListChroms();
+  auto const& chroms = ref.ListChroms();
   if (chroms.size() != static_cast<usize>(sam_hdr_nref(raw_hdr))) {
     LOG_WARN("Number of reference contigs in the BAM/CRAM header don't match the reference FASTA")
   }

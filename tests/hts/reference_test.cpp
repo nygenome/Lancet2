@@ -22,7 +22,7 @@ TEST_CASE("Reference::Reference()", "[lancet][hts][Reference]") {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Reference::ListChroms()", "[lancet][hts][Reference]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
-  auto const chromosomes = ref.ListChroms();
+  auto const& chromosomes = ref.ListChroms();
   static constexpr usize NUM_AUTOSOMES_XY = 24;
 
   SECTION("Reference must contain the expected number of chromosomes") {

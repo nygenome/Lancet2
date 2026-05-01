@@ -21,10 +21,8 @@ class SampleInfo {
                       cbdg::Label::Tag const tag)
       : mSampleName(std::move(sample_name)), mFilePath(std::move(fpath)), mTag(tag) {}
 
-  [[nodiscard]] auto Path() const noexcept -> std::filesystem::path { return mFilePath; }
-  [[nodiscard]] auto FileName() const noexcept -> std::string {
-    return mFilePath.filename().string();
-  }
+  [[nodiscard]] auto Path() const noexcept -> std::filesystem::path const& { return mFilePath; }
+  [[nodiscard]] auto FileName() const -> std::string { return mFilePath.filename().string(); }
 
   [[nodiscard]] auto TagKind() const noexcept -> cbdg::Label::Tag { return mTag; }
   [[nodiscard]] auto NumSampledReads() const noexcept -> u64 { return mNumSampledReads; }

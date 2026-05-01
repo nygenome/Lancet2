@@ -231,7 +231,8 @@ void WriteSubcategoryAnalysis(
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+// Standalone debug program; exceptions abort with stack trace by design.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,bugprone-exception-escape)
 auto main(int argc, char** argv) -> int {
   if (argc < 3) {
     fmt::print(stderr, "Usage: AnalyzeLongdustScores <scored.bed.gz> <output_dir>\n\n"

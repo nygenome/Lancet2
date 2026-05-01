@@ -428,6 +428,11 @@ auto VariantSupport::ComputeGQ(absl::Span<u32 const> phred_likelihoods) -> u32 {
 auto VariantSupport::ComputeContinuousMixtureLods(usize const num_alleles) const
     -> std::vector<f64> {
   auto const num_al = static_cast<int>(num_alleles);
+  // Braced init `{num_al, 0.0}` would invoke vector's initializer_list<double> ctor
+  // (always size 2), silently losing the size-based fill semantics: num_al==0 must
+  // produce an empty vector, num_al==1 must produce {0.0}. Required by the per-allele
+  // CMLOD contract (REF at index 0 = 0.0; one score per allele).
+  // NOLINTNEXTLINE(modernize-return-braced-init-list)
   if (num_al < 2) return std::vector<f64>(num_al, 0.0);
 
   // Build AlleleBaseQuals views into private PerAlleleData.

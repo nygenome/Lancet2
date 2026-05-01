@@ -54,12 +54,11 @@ Reference::Reference(std::filesystem::path reference) : mFastaPath(std::move(ref
   }
 }
 
-auto Reference::ListChroms() const noexcept -> std::vector<Chrom> {
+auto Reference::ListChroms() const noexcept -> std::vector<Chrom> const& {
   return mChroms;
 }
 
-auto Reference::FindChromByName(std::string_view chrom_name) const noexcept
-    -> absl::StatusOr<Chrom> {
+auto Reference::FindChromByName(std::string_view chrom_name) const -> absl::StatusOr<Chrom> {
   auto const itr = std::ranges::find_if(
       mChroms, [&chrom_name](Chrom const& chrom) -> bool { return chrom.Name() == chrom_name; });
 
@@ -72,7 +71,7 @@ auto Reference::FindChromByName(std::string_view chrom_name) const noexcept
   return *itr;
 }
 
-auto Reference::FindChromByIndex(i64 chrom_index) const noexcept -> absl::StatusOr<Chrom> {
+auto Reference::FindChromByIndex(i64 chrom_index) const -> absl::StatusOr<Chrom> {
   auto const nchroms = mChroms.size();
   if (chrom_index < 0 || std::cmp_greater_equal(chrom_index, nchroms)) {
     return absl::Status(absl::StatusCode::kOutOfRange,

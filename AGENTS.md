@@ -82,9 +82,28 @@ When Claude is reasoning about correctness inside a layer, the relevant rule fil
 **Algorithms over manual loops.** Prefer `<algorithm>`, `<ranges>`, and Abseil utility headers when intent is clearer. Exception: when the algorithm form would hurt readability, complicate the code, or degrade performance, keep the loop. Use judgment — the goal is clarity, not dogma.
 
 <important_if intent="adding a NOLINT suppression of any kind">
-**NOLINT discipline.** Suppressions must be scoped: `// NOLINTNEXTLINE(check-name)` for one line, paired `NOLINTBEGIN(check-name)` / `NOLINTEND(check-name)` for blocks. Bare `// NOLINT` and `// NOLINT(check-name)` (the inline same-line forms) are forbidden — they pollute the statement line and make scannability hard. The `validate_naming.py` hook hard-blocks bare-NOLINT additions inside `src/lancet/`. Every suppression carries a rationale: `// NOLINTNEXTLINE(check-name) -- <reason>`. The first answer to "should I suppress this?" is always "no — fix the underlying issue." Reach for a suppression only when the check is genuinely wrong about this case, the diagnostic cannot be fixed without harming clarity or correctness, and you can articulate why. When refactoring, do not carry suppressions forward; remove all and re-add only after a documented simplification attempt.
+**NOLINT discipline.** Suppressions must be scoped: `// NOLINTNEXTLINE(check-name)` for one line, paired `NOLINTBEGIN(check-name)` / `NOLINTEND(check-name)` for blocks. Bare `// NOLINT` and `// NOLINT(check-name)` (the inline same-line forms) are forbidden — they pollute the statement line and make scannability hard. The `validate_naming.py` hook hard-blocks bare-NOLINT additions inside `src/lancet/`. The first answer to "should I suppress this?" is always "no — fix the underlying issue." Reach for a suppression only when the check is genuinely wrong about this case, the diagnostic cannot be fixed without harming clarity or correctness, and you can articulate why. When refactoring, do not carry suppressions forward; remove all and re-add only after a documented simplification attempt.
 
 **Scoped vs bare NOLINT — the structural reason.** The bare inline form (`int x; // NOLINT(check)`) is fragile under clang-format: when clang-format wraps long lines, it can move the comment away from the statement it suppresses, silently invalidating the suppression and re-introducing the warning. The scoped forms (`NOLINTNEXTLINE` and `NOLINTBEGIN`/`NOLINTEND`) anchor to surrounding lines, not the wrapped statement, so they survive any future formatting pass. This is not stylistic preference — it is the only form that's robust to the project's auto-format policy.
+
+**Rationale placement: always on lines ABOVE the NOLINT directive, regardless of length.** Every suppression carries a WHY-rationale, and that rationale is written on one or more `//` comment lines **immediately above** the `NOLINTNEXTLINE` or `NOLINTBEGIN` line. Do not put the rationale inline on the NOLINT line itself (no trailing `-- <reason>` clause). This rule applies to short rationales as well as long ones — uniform placement keeps the directive line scannable and keeps the WHY adjacent to the directive without crowding it. The canonical form is:
+
+```cpp
+// <WHY this suppression is justified>
+// NOLINTNEXTLINE(check-name)
+<line that needs the suppression>
+```
+
+For block suppressions:
+
+```cpp
+// <WHY this block needs to be silenced>
+// NOLINTBEGIN(check-name)
+<block>
+// NOLINTEND(check-name)
+```
+
+`NOLINTEND` carries no rationale (it's a closing token; the WHY belongs on the matching `NOLINTBEGIN`). The `validate_naming.py` hook enforces this layout for new NOLINT additions inside `src/lancet/` — it hard-blocks any new `NOLINTNEXTLINE`/`NOLINTBEGIN` that lacks a `//` comment on the line(s) immediately preceding it.
 
 **Disclosure rule for suppressions.** Whenever Claude adds a NOLINT suppression of any form (NOLINTNEXTLINE or NOLINTBEGIN/NOLINTEND), it must surface the addition explicitly in the summary of work — what was suppressed, where, why, and what was tried first. The disclosure is not optional and not for the user's review only; it is the mechanism that prevents the suppression from being a quiet workaround for a real violation. The `fresh-reviewer` subagent flags any undisclosed new suppression at PR time as a finding.
 </important_if>

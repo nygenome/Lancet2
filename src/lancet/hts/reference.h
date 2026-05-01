@@ -35,14 +35,15 @@ class Reference {
   explicit Reference(std::filesystem::path reference);
   Reference() = delete;
 
-  [[nodiscard]] auto FastaPath() const noexcept -> std::filesystem::path { return mFastaPath; }
+  [[nodiscard]] auto FastaPath() const noexcept -> std::filesystem::path const& {
+    return mFastaPath;
+  }
 
   class Chrom;
 
-  [[nodiscard]] auto ListChroms() const noexcept -> std::vector<Chrom>;
-  [[nodiscard]] auto FindChromByName(std::string_view chrom_name) const noexcept
-      -> absl::StatusOr<Chrom>;
-  [[nodiscard]] auto FindChromByIndex(i64 chrom_index) const noexcept -> absl::StatusOr<Chrom>;
+  [[nodiscard]] auto ListChroms() const noexcept -> std::vector<Chrom> const&;
+  [[nodiscard]] auto FindChromByName(std::string_view chrom_name) const -> absl::StatusOr<Chrom>;
+  [[nodiscard]] auto FindChromByIndex(i64 chrom_index) const -> absl::StatusOr<Chrom>;
 
   class Region;
 
@@ -103,7 +104,7 @@ class Reference::Chrom {
  public:
   Chrom() = default;
 
-  [[nodiscard]] auto Name() const noexcept -> std::string { return mName; }
+  [[nodiscard]] auto Name() const noexcept -> std::string const& { return mName; }
   [[nodiscard]] auto Index() const noexcept -> usize { return mIdx; }
   [[nodiscard]] auto Length() const noexcept -> u64 { return mLength; }
 

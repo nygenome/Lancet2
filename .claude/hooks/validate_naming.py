@@ -14,10 +14,12 @@ What it catches (only inside src/lancet/<layer>/ files):
   - bare `// NOLINT` (inline) suppressions — only scoped NOLINTNEXTLINE /
     NOLINTBEGIN+NOLINTEND forms are allowed
   - Trailing underscore convention (some C++ codebases use trailing _, Lancet2 uses leading m)
-  - NEW (Phase 4+): NOLINT additions without a `-- <rationale>` clause are
-    hard-blocked. Every suppression must be accompanied by a brief, explicit
-    rationale; clang-tidy is the source of truth for everything else, so a
-    silent NOLINT defeats the project's discipline.
+  - NEW (Phase 5+): scoped `NOLINTNEXTLINE`/`NOLINTBEGIN` additions without
+    a `//` rationale comment on the line(s) immediately above the directive
+    are hard-blocked. Every suppression must be accompanied by an explicit
+    WHY written on the lines directly preceding the NOLINT directive — the
+    inline `-- <reason>` form is no longer accepted, regardless of brevity.
+    `NOLINTEND` is exempt (its rationale lives on the matching NOLINTBEGIN).
 
 What it deliberately does NOT check:
   - Function/class case (clang-tidy catches reliably)
@@ -104,55 +106,26 @@ HARD_PATTERNS = [
     # excludes NOLINTNEXTLINE/BEGIN/END).
     (
         re.compile(r"//\s*NOLINT(?!NEXTLINE|BEGIN|END)\b"),
-        "Bare `// NOLINT` (inline form) is forbidden. Use a scoped form:\n"
-        "    // NOLINTNEXTLINE(check-name) -- <rationale>\n"
+        "Bare `// NOLINT` (inline form) is forbidden. Use a scoped form with\n"
+        "  the rationale on a comment line ABOVE the directive:\n"
+        "    // <WHY this suppression is justified>\n"
+        "    // NOLINTNEXTLINE(check-name)\n"
         "    <line that needs the suppression>\n"
         "  or, for a multi-line block:\n"
-        "    // NOLINTBEGIN(check-name) -- <rationale>\n"
+        "    // <WHY this block needs to be silenced>\n"
+        "    // NOLINTBEGIN(check-name)\n"
         "    <block>\n"
         "    // NOLINTEND(check-name)\n"
         "  The bare inline form pollutes the statement line and makes\n"
         "  scannability hard. The choice of scoped form is independent of\n"
         "  whether the suppression is justified — use the scoped form\n"
-        "  regardless. Also, every suppression must include a rationale\n"
-        "  (the project convention is `-- <reason>` after the check name)\n"
-        "  and Claude must disclose any newly added suppression in its\n"
-        "  summary of work; see AGENTS.md `NOLINT discipline`.",
-    ),
-    # NEW (Phase 4+): scoped NOLINT forms that lack a `-- <rationale>` clause
-    # are hard-blocked. The project convention is that every suppression
-    # must explain WHY clang-tidy is being silenced; without that, the
-    # reason for the suppression is lost the moment the developer commits.
-    # The pattern matches NOLINTNEXTLINE/BEGIN/END followed by an optional
-    # check name in parens, then NOT followed by ` -- ` or `--`. We allow
-    # the rationale to be on the same line OR on the immediately following
-    # line as a `//` comment continuation; this hook only checks the same-
-    # line form. NOLINTEND is exempt because the rationale belongs on the
-    # corresponding NOLINTBEGIN.
-    #
-    # Calibration: this is a hard block (FP-near-zero) because the only
-    # legitimate way to add a NOLINT[NEXTLINE|BEGIN] without a same-line
-    # rationale is to put the rationale on a separate comment immediately
-    # above. That's stylistically allowed but rare; we accept the small
-    # FP rate (which is recoverable by combining the two comments) in
-    # exchange for catching the much more common case of un-rationaled
-    # suppressions sneaking in.
-    (
-        re.compile(
-            r"//\s*NOLINT(?:NEXTLINE|BEGIN)\b(?:\([^)]*\))?\s*(?!--|.*--).*$",
-            re.MULTILINE,
-        ),
-        "NOLINT suppression added without a rationale.\n"
-        "  Required form: `// NOLINTNEXTLINE(check-name) -- <rationale>`\n"
-        "  or `// NOLINTBEGIN(check-name) -- <rationale>` for blocks.\n"
-        "  Every suppression must explain WHY clang-tidy is being silenced.\n"
-        "  Without the rationale, the reason is lost the moment the\n"
-        "  commit lands and reviewers cannot assess the suppression.\n"
-        "  This rule is enforced as a hard block per the project's\n"
-        "  hook-calibration philosophy (near-zero false positives) — see\n"
-        "  validate_naming.py docstring for the doctrine.",
+        "  regardless. Also, Claude must disclose any newly added suppression\n"
+        "  in its summary of work; see AGENTS.md `NOLINT discipline`.",
     ),
 ]
+# The Phase-4+ inline `--` rationale check has been replaced by a line-pair
+# walk in `check_nolint_rationale_above` below — the rationale must live on
+# the comment line(s) immediately above the directive, regardless of length.
 
 # ── Soft warnings: suspected violations of the mPascalCase convention ──────
 
@@ -187,6 +160,51 @@ def is_lancet_header(file_path: str) -> bool:
     return bool(_LANCET_SOURCE_PREFIX.search(file_path)) and (
         file_path.endswith(".h") or file_path.endswith(".hpp")
     )
+
+
+# Detector for `// NOLINTNEXTLINE(...)` or `// NOLINTBEGIN(...)` lines.
+# Anchored to start-of-line (with optional indent) so it doesn't false-fire on
+# the literal token appearing inside a string or longer comment.
+_NOLINT_DIRECTIVE_RE = re.compile(
+    r"^\s*//\s*NOLINT(?:NEXTLINE|BEGIN)\b",
+)
+
+# Detector for any `//` comment line. The rationale-above rule accepts any
+# non-empty text after the `//` — we deliberately don't try to validate the
+# rationale content; reviewers and the disclosure rule cover quality.
+_COMMENT_LINE_RE = re.compile(r"^\s*//\s*\S")
+
+
+def check_nolint_rationale_above(new_text: str) -> list[str]:
+    """Return a list of human-readable error messages for NOLINTNEXTLINE /
+    NOLINTBEGIN directives that lack a `//` comment on the line(s) immediately
+    above them.
+
+    Walks new_text line-by-line. For each directive line, looks at the
+    previous line; if it is a non-empty `//` comment, the directive is
+    rationaled. Otherwise it is flagged.
+
+    Note: the inline `// NOLINTNEXTLINE(...) -- <reason>` form is NOT accepted
+    by this check (the inline `--` clause is no longer the rationale token).
+    """
+    lines = new_text.splitlines()
+    errors: list[str] = []
+    for idx, line in enumerate(lines):
+        if not _NOLINT_DIRECTIVE_RE.match(line):
+            continue
+        # Look at the previous line (line above the directive).
+        if idx == 0:
+            errors.append(
+                f"line 1: `{line.strip()}` has no rationale above it (file starts with the directive)."
+            )
+            continue
+        prev = lines[idx - 1]
+        if _COMMENT_LINE_RE.match(prev):
+            continue
+        errors.append(
+            f"line {idx + 1}: `{line.strip()}` lacks a `//` rationale comment on the line immediately above."
+        )
+    return errors
 
 
 def collect_new_text(payload: dict) -> str:
@@ -224,6 +242,21 @@ def main() -> int:
             continue
         if pattern.search(new_text):
             hard_violations.append(f"  - {message}")
+
+    nolint_errors = check_nolint_rationale_above(new_text)
+    if nolint_errors:
+        rationale_msg = (
+            "NOLINT suppression added without a rationale on the line(s) ABOVE the directive.\n"
+            "  Required form (Phase 5+):\n"
+            "      // <WHY this suppression is justified>\n"
+            "      // NOLINTNEXTLINE(check-name)\n"
+            "      <line that needs the suppression>\n"
+            "  The inline `-- <reason>` form is no longer accepted, regardless of brevity.\n"
+            "  See AGENTS.md `NOLINT discipline` for the convention.\n"
+            "  Offending directives:\n"
+            + "\n".join(f"      {err}" for err in nolint_errors)
+        )
+        hard_violations.append(f"  - {rationale_msg}")
 
     if hard_violations:
         print(f"BLOCKED: naming/convention violation in {file_path}", file=sys.stderr)

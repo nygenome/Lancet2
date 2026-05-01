@@ -120,7 +120,7 @@ class Node {
   /// N-sample generalization of the 2-sample (ctrl==1 && case==1) check.
   [[nodiscard]] auto IsAllSingletons() const noexcept -> bool;
 
-  [[nodiscard]] auto KmerData() const noexcept -> Kmer { return mKmer; }
+  [[nodiscard]] auto KmerData() const noexcept -> Kmer const& { return mKmer; }
   [[nodiscard]] auto Identifier() const noexcept -> NodeID { return mKmer.Identifier(); }
   [[nodiscard]] auto Length() const noexcept -> usize { return mKmer.Length(); }
   [[nodiscard]] auto IsEmpty() const noexcept -> bool { return mKmer.IsEmpty(); }
