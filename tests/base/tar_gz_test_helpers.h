@@ -27,6 +27,7 @@ namespace lancet::tests {
 
   std::vector<u8> file_bytes(file_byte_count, u8{0});
   if (file_byte_count > 0) {
+    // istream::read takes char*; our buffer is u8 — layout-compatible but distinct types.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     in_stream.read(reinterpret_cast<char*>(file_bytes.data()),
                    static_cast<std::streamsize>(file_byte_count));
@@ -47,6 +48,8 @@ namespace lancet::tests {
   inflate_stream.zalloc = Z_NULL;
   inflate_stream.zfree = Z_NULL;
   inflate_stream.opaque = Z_NULL;
+  // zlib's `next_in` is non-const `Bytef*` despite read-only semantics — standard idiom for the C
+  // API.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
   inflate_stream.next_in = const_cast<u8*>(gz_bytes.data());
   inflate_stream.avail_in = static_cast<uInt>(gz_bytes.size());
@@ -143,6 +146,8 @@ struct TarEntry {
       auto const* field_end = field_start;
       auto const* field_limit = field_start + field_width;
       while (field_end < field_limit && *field_end != 0) ++field_end;
+      // tar header fields are NUL-padded ASCII; std::string ctor takes char const* over our u8
+      // buffer.
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
       return std::string(reinterpret_cast<char const*>(field_start),
                          static_cast<usize>(field_end - field_start));
@@ -166,6 +171,7 @@ struct TarEntry {
     if (cursor + content_byte_count > tar_bytes.size()) {
       throw std::runtime_error("ParseTarEntries: content runs past buffer end");
     }
+    // string_view ctor takes char const*; tar payload buffer is u8 — layout-compatible bytes.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto const content_view = std::string_view(
         reinterpret_cast<char const*>(tar_bytes.data() + cursor), content_byte_count);

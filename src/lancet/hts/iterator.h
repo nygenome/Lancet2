@@ -29,7 +29,8 @@ namespace lancet::hts {
 ///     that must outlive the current step.
 class Iterator {
  public:
-  // NOLINTBEGIN(readability-identifier-naming)  // std::iterator_traits mandates snake_case
+  // std::iterator_traits mandates snake_case names for the trait aliases below.
+  // NOLINTBEGIN(readability-identifier-naming)
   using iterator_category = std::input_iterator_tag;
   using value_type = Alignment const;
   using difference_type = std::ptrdiff_t;

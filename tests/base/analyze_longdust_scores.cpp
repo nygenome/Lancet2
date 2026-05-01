@@ -260,6 +260,8 @@ auto main(int argc, char** argv) -> int {
 
   // ── Step 2: Stream and accumulate ───────────────────────────────────────
   lancet::base::Timer timer;
+  // gzgets requires a raw `char*` line buffer; std::array would force a span/pointer cast at every
+  // read.
   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[65'536];
   Accumulators accum;

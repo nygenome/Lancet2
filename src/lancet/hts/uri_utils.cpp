@@ -22,7 +22,8 @@ auto IsCloudUri(std::string_view uri) -> bool {
 }
 
 auto ValidateCloudAccess(std::string const& uri, std::string const& mode) -> std::string {
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg) -- htslib C FFI requires vararg-style API
+  // htslib C FFI requires vararg-style API
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   auto* fptr = hopen(uri.c_str(), mode.c_str());
   if (fptr == nullptr) {
     return fmt::format("Could not open cloud/web resource: {}", uri);

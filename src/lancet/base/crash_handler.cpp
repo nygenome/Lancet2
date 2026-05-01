@@ -105,26 +105,31 @@ void WriteStr(int file_desc, char const* str) {
   while (str[len] != '\0') {
     len++;
   }
-  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c) — write() is async-signal-safe per POSIX
+  // write() is async-signal-safe per POSIX
+  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c)
   static_cast<void>(write(file_desc, str, len));
 }
 
 // Writes "0x" followed by exactly 16 hex digits (zero-padded).
 void WriteHex(int file_desc, u64 val) {
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — stack buffer, no heap
+  // stack buffer, no heap
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[18] = {'0', 'x'};
   for (int idx = 17; idx >= 2; --idx) {
+    // index is masked to 0..15 by `val & 0xFU`; bounded access into the 16-char hex digit table.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
     buf[idx] = "0123456789abcdef"[val & 0xFU];
     val >>= 4U;
   }
-  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c) — write() is async-signal-safe per POSIX
+  // write() is async-signal-safe per POSIX
+  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c)
   static_cast<void>(write(file_desc, buf, sizeof(buf)));
 }
 
 // Writes a signed integer in decimal.
 void WriteInt(int file_desc, int val) {
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — stack buffer, no heap
+  // stack buffer, no heap
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[16];
   int pos = 0;
   if (val < 0) {
@@ -133,6 +138,8 @@ void WriteInt(int file_desc, int val) {
   }
 
   int const digit_start = pos;
+  // do-while is the natural shape of the itoa idiom: at least one digit must be emitted even when
+  // val==0.
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
   do {
     buf[pos++] = static_cast<char>('0' + (val % 10));
@@ -145,16 +152,20 @@ void WriteInt(int file_desc, int val) {
     buf[hi] = tmp;
   }
 
-  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c) — write() is async-signal-safe per POSIX
+  // write() is async-signal-safe per POSIX
+  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c)
   static_cast<void>(write(file_desc, buf, pos));
 }
 
 // Writes an unsigned 64-bit integer in decimal.
 void WriteU64(int file_desc, u64 val) {
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — stack buffer, no heap
+  // stack buffer, no heap
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[20];
   int pos = 0;
 
+  // do-while is the natural shape of the itoa idiom: at least one digit must be emitted even when
+  // val==0.
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
   do {
     buf[pos++] = static_cast<char>('0' + (val % 10));
@@ -167,7 +178,8 @@ void WriteU64(int file_desc, u64 val) {
     buf[hi] = tmp;
   }
 
-  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c) — write() is async-signal-safe per POSIX
+  // write() is async-signal-safe per POSIX
+  // NOLINTNEXTLINE(bugprone-signal-handler,cert-sig30-c)
   static_cast<void>(write(file_desc, buf, pos));
 }
 
@@ -211,11 +223,13 @@ struct alignas(64) CrashSlot {
   pthread_t mThreadId;      // 8B — owning thread ID for crash correlation
   int volatile mInUse;      // 4B — 0 = free, 1 = claimed by a thread
   int volatile mActive;     // 4B — 0 = idle, 1 = processing a window
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — fixed buffer, async-signal-safe
+  // fixed buffer, async-signal-safe
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char mRegion[lancet::base::MAX_REGION_LEN];  // 128B — e.g. "chr4:12345-67890"
 };
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables) — mutable by design
+// mutable by design
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::array<CrashSlot, lancet::base::MAX_CRASH_SLOTS> g_crash_slots = {};
 
 // ============================================================================
@@ -231,7 +245,8 @@ void DumpAllThreadContexts(int file_desc) {
     found_any = true;
 
     WriteStr(file_desc, "  Thread ");
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) — pthread_t is a pointer on macOS
+    // pthread_t is a pointer on macOS
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     WriteHex(file_desc, reinterpret_cast<u64>(slot.mThreadId));
 
     if (slot.mActive != 0) {
@@ -280,13 +295,15 @@ void DumpAllThreadContexts(int file_desc) {
 #ifdef __linux__
 
 // Kernel dirent64 layout — must match the kernel's struct exactly.
-// NOLINTNEXTLINE(readability-identifier-naming) — mirrors kernel struct name
+// mirrors kernel struct name
+// NOLINTNEXTLINE(readability-identifier-naming)
 struct linux_dirent64 {
   u64 mIno;                // 8B — inode number
   u64 mOff;                // 8B — offset to next entry
   unsigned short mReclen;  // 2B — total record length
   unsigned char mType;     // 1B — file type (DT_DIR, DT_REG, etc.)
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — variable-length kernel ABI
+  // variable-length kernel ABI
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char mName[1];  // NUL-terminated filename
 };
 
@@ -295,7 +312,8 @@ struct linux_dirent64 {
 // ============================================================================
 void DumpOneThreadIP(int file_desc, char const* tid_str) {
   // Build the path: /proc/self/task/<tid>/syscall
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — stack buffer for path, no heap
+  // stack buffer for path, no heap
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char path[64] = "/proc/self/task/";
   constexpr usize PREFIX_LEN = 16;
   usize plen = PREFIX_LEN;
@@ -305,7 +323,8 @@ void DumpOneThreadIP(int file_desc, char const* tid_str) {
   }
   memcpy(path + plen, "/syscall", 9);
 
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — stack buffer for procfs read, no heap
+  // stack buffer for procfs read, no heap
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char syscall_buf[256] = {};
   int const sfd = open(path, O_RDONLY);
   if (sfd < 0) return;
@@ -335,22 +354,27 @@ void DumpOneThreadIP(int file_desc, char const* tid_str) {
 void DumpAllThreadIPs(int file_desc) {
   WriteStr(file_desc, "\n── All Thread IPs (via /proc/self/task) ────────\n");
 
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg) — open() is a POSIX variadic function
+  // open() is a POSIX variadic function
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   int const dir_fd = open("/proc/self/task", O_RDONLY | O_DIRECTORY);
   if (dir_fd < 0) {
     WriteStr(file_desc, "  (could not open /proc/self/task)\n");
     return;
   }
 
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays) — raw buffer for getdents64 syscall
+  // raw buffer for getdents64 syscall
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char dirents_buf[4096];
 
   while (true) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg) — syscall() is a POSIX variadic function
+    // syscall() is a POSIX variadic function
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     auto const nbytes = syscall(SYS_getdents64, dir_fd, dirents_buf, sizeof(dirents_buf));
     if (nbytes <= 0) break;
 
     for (long offset = 0; offset < nbytes;) {
+      // getdents64 returns variable-length records back-to-back; navigation is by byte offset
+      // through `entry->mReclen` per the kernel ABI. The reinterpret_cast is the documented form.
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
       auto const* entry = reinterpret_cast<linux_dirent64 const*>(dirents_buf + offset);
       offset += entry->mReclen;
@@ -377,7 +401,8 @@ void DumpAllThreadIPs(int file_desc) {
 // will produce a normal core dump instead of infinite recursion.
 // ============================================================================
 
-// NOLINTNEXTLINE(cert-err33-c,cert-dcl03-c) — signature prescribed by POSIX sigaction
+// signature prescribed by POSIX sigaction
+// NOLINTNEXTLINE(cert-err33-c,cert-dcl03-c)
 void CrashHandler(int sig, siginfo_t* info, void* ctx) {
   int const file_desc = STDERR_FILENO;
   WriteStr(file_desc, "\n============================================\n");
@@ -392,7 +417,8 @@ void CrashHandler(int sig, siginfo_t* info, void* ctx) {
   //   0x0000XXXX...     → likely stack corruption (invalid address formed by
   //                        misinterpreting non-pointer data as an address)
   WriteStr(file_desc, "Faulting address (si_addr): ");
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) — printing void* as hex
+  // printing void* as hex
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   WriteHex(file_desc, reinterpret_cast<u64>(info->si_addr));
   WriteStr(file_desc, "\n");
 
@@ -410,7 +436,8 @@ void CrashHandler(int sig, siginfo_t* info, void* ctx) {
   // ============================================================================
   // Match this against the crash slot thread IDs to identify the worker.
   WriteStr(file_desc, "Thread ID:                 ");
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) — pthread_t is a pointer on macOS
+  // pthread_t is a pointer on macOS
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   WriteHex(file_desc, reinterpret_cast<u64>(pthread_self()));
   WriteStr(file_desc, "\n");
 
@@ -481,7 +508,8 @@ void CrashHandler(int sig, siginfo_t* info, void* ctx) {
   WriteStr(file_desc, "============================================\n");
 
   // Re-raise with default handler to produce a core dump.
-  // NOLINTNEXTLINE(cert-err33-c) — raise() return value irrelevant during crash
+  // raise() return value irrelevant during crash
+  // NOLINTNEXTLINE(cert-err33-c)
   static_cast<void>(raise(sig));
 }
 

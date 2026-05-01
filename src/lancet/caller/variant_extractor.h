@@ -99,6 +99,8 @@ class VariantExtractor {
   void SearchAndExtractTo(absl::btree_set<RawVariant>& out_variants);
 
  private:
+  // VariantExtractor is a transient extraction context bound to a single (graph, window) pair —
+  // const-ref members are deliberate and the class is non-copyable by intent.
   // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
   // ── 8B Align ────────────────────────────────────────────────────────────
   std::vector<u32> mNodeToRank;                       // 8B (24B)

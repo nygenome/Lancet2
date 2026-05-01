@@ -68,6 +68,7 @@ auto Alignment::QnameView() const noexcept -> std::string_view {
     return {};
   }
 
+  // htslib bam.h accessor macros (`bam_get_qname`, `bam_get_cigar`) expand to C-style casts.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   return bam_get_qname(mRawAln);
 }
@@ -84,6 +85,7 @@ auto Alignment::CigarData() const -> std::vector<CigarUnit> {
     return {};
   }
 
+  // htslib bam.h accessor macros (`bam_get_qname`, `bam_get_cigar`) expand to C-style casts.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
@@ -100,6 +102,7 @@ auto Alignment::CigarString() const -> std::string {
     return {};
   }
 
+  // htslib bam.h accessor macros (`bam_get_qname`, `bam_get_cigar`) expand to C-style casts.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);
@@ -288,6 +291,7 @@ auto Alignment::GetSoftClips(std::vector<u32>* clip_sizes, std::vector<u32>* rea
     return false;
   }
 
+  // htslib bam.h accessor macros (`bam_get_qname`, `bam_get_cigar`) expand to C-style casts.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
   auto const* raw_cigar = bam_get_cigar(mRawAln);
   auto const n_cigar = static_cast<usize>(mRawAln->core.n_cigar);

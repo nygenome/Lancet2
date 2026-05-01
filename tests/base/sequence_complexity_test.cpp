@@ -112,6 +112,8 @@ TEST_CASE("FindExactRepeats: primitive motif enforcement", "[lancet][base][seque
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("FindApproxRepeats: imperfect trinucleotide repeat",
           "[lancet][base][sequence_complexity]") {

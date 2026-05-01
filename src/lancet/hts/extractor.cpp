@@ -98,6 +98,7 @@ void Extractor::SetRegionBatchToExtract(absl::Span<Reference::Region const> regi
 }
 
 void Extractor::SetNumThreads(int const nthreads) {
+  // hts_set_opt is variadic in the htslib C API; the option payload follows the option enum.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   if (mFilePtr && nthreads > 1 && hts_set_opt(mFilePtr.get(), HTS_OPT_NTHREADS, nthreads) != 0) {
     throw std::runtime_error("Could not set threads");
@@ -115,6 +116,8 @@ auto Extractor::begin() -> Iterator {
   return result;
 }
 
+// STL iterator end() must be a non-static member to participate in range-for via begin()/end();
+// converting to static would break the range-for protocol despite no `this` use.
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 auto Extractor::end() -> Iterator {
   return {};
@@ -132,6 +135,8 @@ auto Extractor::ChromName(i32 chrom_index) const -> std::string {
 
 void Extractor::SetCramRequiredFields(Alignment::Fields fields) {
   if (mFilePtr->format.format == cram && fields != Alignment::Fields::AUX_RGAUX) {
+    // htslib `htsFile::fp` is a tagged union; cram-specific access goes through the cram leg.
+    // cram_set_option is variadic per the htslib C API.
     // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,cppcoreguidelines-pro-type-vararg)
     cram_set_option(mFilePtr->fp.cram, CRAM_OPT_REQUIRED_FIELDS, fields);
     cram_set_option(mFilePtr->fp.cram, CRAM_OPT_DECODE_MD, 0);
@@ -255,7 +260,8 @@ void Extractor::EnsureValidBamOrCram(htsFile* raw_fp, std::string_view aln_path)
     auto* format_description = hts_format_description(&raw_fp->format);
     auto const err_msg =
         fmt::format("Got unexpected alignment file with format: {}", format_description);
-    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc) -- htslib allocates with malloc
+    // htslib allocates with malloc
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
     std::free(format_description);
     throw std::invalid_argument(err_msg);
   }

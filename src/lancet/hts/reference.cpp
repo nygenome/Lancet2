@@ -193,6 +193,8 @@ auto Reference::FetchSeq(std::string const& chrom, OneBasedClosedInterval const&
     }
   }
 
+  // htslib `faidx_fetch_seq*` returns malloc-allocated memory the caller must `free()`;
+  // the C-API ownership contract forces direct std::free here.
   // NOLINTNEXTLINE(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
   std::free(raw_seq);
   return std::move(result_seq);

@@ -50,13 +50,15 @@ namespace {
 // TAIL_MASK lookup table indexed by the number of valid bytes.
 // ============================================================================
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity) -- SIMD paths are flat, not deeply nested
+// SIMD paths are flat, not deeply nested
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 [[nodiscard]] inline auto IsWithinHammingDist(std::string_view first, std::string_view second,
                                               usize max_mismatches) -> bool {
   LANCET_ASSERT(first.length() == second.length())
 
   auto const length = first.length();
-  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) -- SIMD load intrinsics require u8*
+  // SIMD load intrinsics require u8*
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* ptr1 = reinterpret_cast<u8 const*>(first.data());
   auto const* ptr2 = reinterpret_cast<u8 const*>(second.data());
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -70,6 +72,7 @@ namespace {
   // ============================================================================
   if (length >= 32) {
     for (; idx + 32 <= length; idx += 32) {
+      // SIMD load intrinsic _mm256_loadu_si256 requires `__m256i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr1 + idx));
       auto const vec2 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr2 + idx));
@@ -88,6 +91,7 @@ namespace {
     // overlap via right-shift.  Avoids a scalar cleanup loop entirely.
     if (idx < length) {
       auto const offset = length - 32;
+      // SIMD load intrinsic _mm256_loadu_si256 requires `__m256i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr1 + offset));
       auto const vec2 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr2 + offset));
@@ -108,6 +112,7 @@ namespace {
   // SSE: 16-byte path for lengths 16–31
   // ============================================================================
   if (length >= 16) {
+    // SIMD load intrinsic _mm_loadu_si128 requires `__m128i const*` per Intel API contract.
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     auto const vec1 = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr1));
     auto const vec2 = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr2));
@@ -123,6 +128,7 @@ namespace {
     idx = 16;
     if (idx < length) {
       auto const offset = length - 16;
+      // SIMD load intrinsic _mm_loadu_si128 requires `__m128i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1_tail = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr1 + offset));
       auto const vec2_tail = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr2 + offset));
@@ -214,7 +220,8 @@ auto HammingDist(std::string_view first, std::string_view second) -> usize {
   LANCET_ASSERT(first.length() == second.length())
 
   auto const length = first.length();
-  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) -- SIMD load intrinsics require u8*
+  // SIMD load intrinsics require u8*
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* ptr1 = reinterpret_cast<u8 const*>(first.data());
   auto const* ptr2 = reinterpret_cast<u8 const*>(second.data());
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -225,6 +232,7 @@ auto HammingDist(std::string_view first, std::string_view second) -> usize {
 #ifdef __AVX2__
   if (length >= 32) {
     for (; idx + 32 <= length; idx += 32) {
+      // SIMD load intrinsic _mm256_loadu_si256 requires `__m256i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr1 + idx));
       auto const vec2 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr2 + idx));
@@ -235,6 +243,7 @@ auto HammingDist(std::string_view first, std::string_view second) -> usize {
     }
     if (idx < length) {
       auto const offset = length - 32;
+      // SIMD load intrinsic _mm256_loadu_si256 requires `__m256i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr1 + offset));
       auto const vec2 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(ptr2 + offset));
@@ -249,6 +258,7 @@ auto HammingDist(std::string_view first, std::string_view second) -> usize {
   }
 
   if (length >= 16) {
+    // SIMD load intrinsic _mm_loadu_si128 requires `__m128i const*` per Intel API contract.
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     auto const vec1 = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr1));
     auto const vec2 = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr2));
@@ -260,6 +270,7 @@ auto HammingDist(std::string_view first, std::string_view second) -> usize {
     idx = 16;
     if (idx < length) {
       auto const offset = length - 16;
+      // SIMD load intrinsic _mm_loadu_si128 requires `__m128i const*` per Intel API contract.
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
       auto const vec1_tail = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr1 + offset));
       auto const vec2_tail = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ptr2 + offset));

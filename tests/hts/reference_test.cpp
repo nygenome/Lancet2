@@ -19,6 +19,8 @@ TEST_CASE("Reference::Reference()", "[lancet][hts][Reference]") {
   CHECK(Reference(ref_path).FastaPath() == ref_path);
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Reference::ListChroms()", "[lancet][hts][Reference]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));

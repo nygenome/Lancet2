@@ -27,6 +27,8 @@ namespace lancet::base {
   struct rusage usage{};
   if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
 
+  // POSIX `struct rusage` declares `ru_maxrss` inside a tagged union on some libc implementations
+  // for cross-platform layout compatibility; direct member access is the documented contract.
   // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
 #ifdef __APPLE__
   return static_cast<usize>(usage.ru_maxrss);  // macOS: already in bytes

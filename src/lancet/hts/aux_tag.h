@@ -104,9 +104,10 @@ class AuxTag {
     auto const tag_type = static_cast<char>(*data);
     mIsSigned = (tag_type != 'C' && tag_type != 'S' && tag_type != 'I');
 
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case)
     switch (tag_type) {
       case 'A':
+        // bam_aux2A returns the raw signed char from a BAM 'A' (printable ASCII)
+        // tag; the int widening preserves its value and is intentional.
         // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
         mCharData = static_cast<int>(bam_aux2A(data));
         break;
@@ -135,7 +136,6 @@ class AuxTag {
         auto const tag_subtype = static_cast<char>(data[1]);
         mIsSigned = (tag_subtype != 'C' && tag_subtype != 'S' && tag_subtype != 'I');
 
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case)
         switch (tag_subtype) {
           case 'c':
           case 'C':
@@ -150,7 +150,15 @@ class AuxTag {
           case 'd':
             PopulateArrayData<f64>(data, arr_len);
             break;
+
+          default:
+            // Unknown htslib BAM 'B' subtype: leave array data unpopulated.
+            break;
         }
+        break;
+
+      default:
+        // Unknown htslib BAM AUX type code: leave AuxTag default-constructed.
         break;
     }
   }

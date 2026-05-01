@@ -4,6 +4,8 @@
 
 using lancet::cbdg::SampleMask;
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("SampleMask::SetBit and TestBit", "[lancet][cbdg][SampleMask]") {
   SampleMask mask;
@@ -50,6 +52,8 @@ TEST_CASE("SampleMask::SetBit and TestBit", "[lancet][cbdg][SampleMask]") {
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("SampleMask word boundary behavior", "[lancet][cbdg][SampleMask]") {
   SampleMask mask;
@@ -85,6 +89,8 @@ TEST_CASE("SampleMask word boundary behavior", "[lancet][cbdg][SampleMask]") {
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("SampleMask::Merge", "[lancet][cbdg][SampleMask]") {
   SECTION("Merge two non-overlapping masks") {

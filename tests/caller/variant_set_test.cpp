@@ -24,6 +24,8 @@
 
 namespace lancet::caller::tests {
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Topological VariantExtractor securely populates Multiallelic Payload Sets",
           "[lancet][caller][VariantSet]") {

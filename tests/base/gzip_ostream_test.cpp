@@ -26,6 +26,7 @@ namespace {
     gz_out.Write(payload);
   }  // ~GzipOstream calls Close() — gzip trailer + file close happens here.
   auto const decompressed = DecompressGzip(ReadAllBytes(gz_path));
+  // std::string ctor takes char const*; decompressed buffer is u8 (zlib byte type).
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* const decompressed_chars = reinterpret_cast<char const*>(decompressed.data());
   return std::string{decompressed_chars, decompressed.size()};
@@ -77,6 +78,7 @@ TEST_CASE("GzipOstream: concatenates multiple Write() calls correctly",
     gz_out.Write(part_three);
   }
   auto const decompressed = DecompressGzip(ReadAllBytes(gz_path));
+  // std::string ctor takes char const*; decompressed buffer is u8 (zlib byte type).
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* const decompressed_chars = reinterpret_cast<char const*>(decompressed.data());
   auto const decompressed_str = std::string{decompressed_chars, decompressed.size()};
@@ -116,6 +118,7 @@ TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][gzip_ostream]") {
   CHECK_NOTHROW(gz_out.Close());
 
   auto const decompressed = DecompressGzip(ReadAllBytes(gz_path));
+  // std::string ctor takes char const*; decompressed buffer is u8 (zlib byte type).
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* const decompressed_chars = reinterpret_cast<char const*>(decompressed.data());
   CHECK(std::string{decompressed_chars, decompressed.size()} == "payload-bytes");

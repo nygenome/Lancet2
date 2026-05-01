@@ -82,6 +82,8 @@ TEST_CASE("Extractor::SetRegionBatchToExtract(absl::Span<const Reference::Region
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][Extractor]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));
@@ -109,6 +111,7 @@ TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][E
     Extractor cram_extractor(case_cram_path, ref);
     cram_extractor.SetRegionBatchToExtract(regions);
     cram_extractor.SetFilterExpression("invalid");
+    // CHECK_THROWS_AS asserts the call throws; std::distance's return value is irrelevant here.
     // NOLINTNEXTLINE(bugprone-unused-return-value)
     CHECK_THROWS_AS(std::distance(cram_extractor.begin(), cram_extractor.end()),
                     std::runtime_error);
@@ -118,6 +121,7 @@ TEST_CASE("Extractor::SetFilterExpression(const std::string&)", "[lancet][hts][E
     Extractor bam_extractor(case_bam_path, ref);
     bam_extractor.SetRegionBatchToExtract(regions);
     bam_extractor.SetFilterExpression("invalid");
+    // CHECK_THROWS_AS asserts the call throws; std::distance's return value is irrelevant here.
     // NOLINTNEXTLINE(bugprone-unused-return-value)
     CHECK_THROWS_AS(std::distance(bam_extractor.begin(), bam_extractor.end()), std::runtime_error);
   }

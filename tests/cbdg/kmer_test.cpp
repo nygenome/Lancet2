@@ -68,6 +68,8 @@ inline auto MatchesOneOfTwo(std::string_view result, std::array<std::string_view
 static constexpr auto NUM_RANDOM_ITERATIONS = 100;
 static constexpr auto DFLT_ORD = Kmer::Ordering::DEFAULT;
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
   static constexpr auto SEQ_LEN = 151;
@@ -174,6 +176,8 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
   for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {

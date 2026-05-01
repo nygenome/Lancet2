@@ -193,6 +193,8 @@ auto HammingDistSWAR(std::string_view first, std::string_view second) -> usize {
   auto const num_words = (first.length() >> 3);
   auto const rem_words = static_cast<unsigned long long>(first.length() & 7);
 
+  // SWAR (SIMD Within A Register) reinterprets the byte buffer as a packed 64-bit word stream;
+  // the cast is the conventional idiom for SWAR primitives.
   // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* aptr = reinterpret_cast<unsigned long long const*>(first.data());
   auto const* bptr = reinterpret_cast<unsigned long long const*>(second.data());
@@ -238,6 +240,7 @@ void BenchHammingDistIntrinsics(benchmark::State& state) {
   std::string const first = generator(seq_len);
   std::string const second = generator(seq_len);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = lancet::base::HammingDist(first, second);
@@ -252,6 +255,7 @@ void BenchHammingDistAutoVec(benchmark::State& state) {
   std::string const first = generator(seq_len);
   std::string const second = generator(seq_len);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = HammingDistAutoVec(first, second);
@@ -266,6 +270,7 @@ void BenchHammingDistUsizeAccum(benchmark::State& state) {
   std::string const first = generator(seq_len);
   std::string const second = generator(seq_len);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = HammingDistUsizeAccum(first, second);
@@ -280,6 +285,7 @@ void BenchHammingDistU32Accum(benchmark::State& state) {
   std::string const first = generator(seq_len);
   std::string const second = generator(seq_len);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = HammingDistU32Accum(first, second);
@@ -294,6 +300,7 @@ void BenchHammingDistSWAR(benchmark::State& state) {
   std::string const first = generator(seq_len);
   std::string const second = generator(seq_len);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = HammingDistSWAR(first, second);
@@ -318,6 +325,7 @@ void BenchHasRepeatIntrinsics(benchmark::State& state) {
   std::string const seq = generator(seq_len);
   auto const kmers = lancet::base::SlidingView(seq, window);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = lancet::base::HasRepeat(absl::MakeConstSpan(kmers), max_mismatches);
@@ -336,6 +344,7 @@ void BenchHasRepeatAutoVec(benchmark::State& state) {
   std::string const seq = generator(seq_len);
   auto const kmers = lancet::base::SlidingView(seq, window);
 
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     auto result = HasRepeatAutoVec(absl::MakeConstSpan(kmers), max_mismatches);
@@ -364,6 +373,10 @@ void ApplyHasRepeatArgs(benchmark::Benchmark* bench) {
 
 }  // namespace
 
+// google/benchmark BENCHMARK() macros instantiate static registrar objects at namespace scope
+// (cert-err58-cpp), allocate fluent-API state via raw new (owning-memory), are required to live
+// at namespace scope outside an anonymous namespace so the macro emits external linkage symbols
+// (use-anonymous-namespace), and use the library-defined short macro name (identifier-length).
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)
 
 // ── Hamming distance: k-mer sized inputs (11–121 bp), all entropy levels ──

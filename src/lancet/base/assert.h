@@ -18,9 +18,13 @@ inline void ThrowIfAssertFail(
   }
 }
 
+// Macro form is required so LANCET_ASSERT compiles to a no-op in release without evaluating its
+// argument; an inline function would still evaluate the expression.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LANCET_ASSERT(condition) ThrowIfAssertFail(condition);
 #else
+// Macro form is required so LANCET_ASSERT compiles to a no-op in release without evaluating its
+// argument; an inline function would still evaluate the expression.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LANCET_ASSERT(e) ((void)0);
 #endif

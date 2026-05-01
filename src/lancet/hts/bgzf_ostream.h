@@ -40,6 +40,8 @@ class BgzfStreambuf : public std::streambuf {
   auto Open(std::filesystem::path const& path, char const* mode) -> bool;
   void Close();
 
+  // std::streambuf declares these virtuals as protected; we re-expose them as public so the
+  // detail-namespace BgzfStreambuf can be exercised directly by tests without subclassing.
   // NOLINTBEGIN(misc-override-with-different-visibility)
   auto uflow() -> int override;
   auto underflow() -> int override;

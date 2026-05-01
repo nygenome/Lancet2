@@ -49,6 +49,8 @@ inline void SetLancetLoggerLevel(spdlog::level::level_enum log_level) {
   spdlog::default_logger_raw()->set_level(log_level);
 }
 
+// Macro form is required so the logging call sites can be conditionally compiled out (LOG_TRACE
+// becomes a no-op when LANCET_VERBOSE_MODE is undefined) and so __VA_ARGS__ forwarding works.
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #ifdef LANCET_VERBOSE_MODE
 #define LOG_TRACE(...) spdlog::default_logger_raw()->trace(__VA_ARGS__);

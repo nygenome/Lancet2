@@ -58,6 +58,8 @@ struct LdContext {
   ld_opt_t mOpt{};
   ld_data_t* mData = nullptr;
 
+  // mOpt is initialized by the C-API call ld_opt_init(&mOpt); a member initializer would
+  // require a default-constructed value first, forcing a redundant zero-init.
   // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer)
   LdContext() {
     ld_opt_init(&mOpt);
@@ -129,6 +131,8 @@ inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector
 // 1a. Real CHM13 sequences — score parity on authentic genomic DNA
 // ============================================================================
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences",
           "[lancet][base][longdust_scorer][cross_validation]") {
@@ -214,6 +218,8 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
 TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
           "[lancet][base][longdust_scorer][cross_validation]") {
   LdContext const lctx;
+  // Test-only access to longdust's internal struct via the opaque ld_data_t* header for
+  // cross-validation.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* ldat = reinterpret_cast<ld_test_data_s const*>(lctx.mData);
   lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
@@ -234,6 +240,8 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
 // 1c. Synthetic repeats — exact tandem repeat formula validation
 // ============================================================================
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
           "[lancet][base][longdust_scorer][cross_validation]") {
@@ -439,6 +447,8 @@ TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
 //   1.0–2.0    →  highly repetitive (long STRs, HSAT, compact satellites)
 //   > 2.0      →  extremely repetitive (telomeres, long homopolymers)
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
           "[lancet][base][longdust_scorer][calibration]") {

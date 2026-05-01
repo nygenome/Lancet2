@@ -248,8 +248,7 @@ auto Graph::BuildComponentResults(RegionPtr region, ReadList reads) -> Component
       results.cbegin(), results.cend(), u64{0},
       [](u64 const sum, auto const& comp) -> u64 { return sum + comp.NumAltHaplotypes(); });
 
-  // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
-  auto const human_rt = timer.HumanRuntime();
+  [[maybe_unused]] auto const human_rt = timer.HumanRuntime();
   LOG_TRACE("Assembled {} graph haplotypes for {} with k={} in {}", num_haplotypes, region_str,
             mCurrK, human_rt)
 
@@ -381,8 +380,7 @@ void Graph::RemoveLowCovNodes(usize const component_id) {
   }
 
   if (!remove_node_ids.empty()) {
-    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
-    auto const region_str = mRegion->ToSamtoolsRegion();
+    [[maybe_unused]] auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removing {:.4f}% (or) {} low cov nodes for {} in comp{} with k={}",
               100.0 * (static_cast<f64>(remove_node_ids.size()) / static_cast<f64>(mNodes.size())),
               remove_node_ids.size(), region_str, component_id, mCurrK)
@@ -570,8 +568,7 @@ void Graph::CompressGraph(usize const component_id) {
   }
 
   if (!remove_node_ids.empty()) {
-    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
-    auto const region_str = mRegion->ToSamtoolsRegion();
+    [[maybe_unused]] auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Compressed {} nodes in component {} in graph for {} with k={}",
               remove_node_ids.size(), component_id, region_str, mCurrK)
     for (auto const nid : remove_node_ids) RemoveNode(mNodes.find(nid));
@@ -836,8 +833,7 @@ void Graph::RemoveTips(usize const component_id) {
   }
 
   if (total_tips_removed > 0) {
-    // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
-    auto const region_str = mRegion->ToSamtoolsRegion();
+    [[maybe_unused]] auto const region_str = mRegion->ToSamtoolsRegion();
     LOG_TRACE("Removed {} short tips from component {} in graph for {} with k={}",
               total_tips_removed, component_id, region_str, mCurrK);
   }

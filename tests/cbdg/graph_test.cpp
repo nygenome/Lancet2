@@ -65,6 +65,8 @@ struct TestGraph {
 //  TraversalIndex tests
 // ============================================================================
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("TraversalIndex state index helpers", "[lancet][cbdg][TraversalIndex]") {
   SECTION("MakeState encodes node index and sign") {

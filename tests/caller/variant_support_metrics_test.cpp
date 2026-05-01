@@ -59,6 +59,7 @@ TEST_CASE("FSSE returns zero when all ALT starts land in the same 3bp bin",
 
   auto const fsse = support.ComputeFSSE();
   REQUIRE(fsse.has_value());
+  // engaged-optional asserted on the prior REQUIRE; clang-tidy does not see through Catch2 macros.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE_THAT(fsse.value(), Catch::Matchers::WithinAbs(0.0, 1e-6));
 }
@@ -97,8 +98,10 @@ TEST_CASE("FSSE absorbs exonuclease fraying within 3bp bins",
   // Two bins: p1=4/6, p2=2/6. H = -(4/6*log2(4/6) + 2/6*log2(2/6)) ≈ 0.918
   // Normalized by log2(min(6, 20)) = log2(6) ≈ 2.585
   // Normalized H ≈ 0.918 / 2.585 ≈ 0.355
+  // engaged-optional asserted on the prior REQUIRE; clang-tidy does not see through Catch2 macros.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(fsse.value() > 0.3);
+  // engaged-optional asserted on the prior REQUIRE; clang-tidy does not see through Catch2 macros.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(fsse.value() < 0.4);
 }
@@ -148,6 +151,7 @@ TEST_CASE("AHDD returns zero when both groups have equal mean NM",
 
   auto const ahdd = support.ComputeAHDD();
   REQUIRE(ahdd.has_value());
+  // engaged-optional asserted on the prior REQUIRE; clang-tidy does not see through Catch2 macros.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE_THAT(ahdd.value(), Catch::Matchers::WithinAbs(0.0, 1e-6));
 }
@@ -250,6 +254,7 @@ TEST_CASE("PDCV stores f32 value when present", "[lancet][caller][VariantCall][P
   sample.SetField(SampleFormatData::PATH_DEPTH_CV, 0.45);
   auto const pdcv = sample.GetField(SampleFormatData::PATH_DEPTH_CV);
   REQUIRE(pdcv.has_value());
+  // engaged-optional asserted on the prior REQUIRE; clang-tidy does not see through Catch2 macros.
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE_THAT(pdcv.value(), Catch::Matchers::WithinAbs(0.45F, 1e-4F));
 }

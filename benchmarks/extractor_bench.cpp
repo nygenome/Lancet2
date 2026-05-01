@@ -17,6 +17,7 @@ void ExtractorCramCoreQname(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -31,6 +32,7 @@ void ExtractorCramCigarSeqQual(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -44,6 +46,7 @@ void ExtractorCramAuxRgaux(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -58,6 +61,7 @@ void ExtractorBamCoreQname(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -73,6 +77,7 @@ void ExtractorBamCigarSeqQual(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -87,6 +92,7 @@ void ExtractorBamAuxRgaux(benchmark::State& state) {
   using lancet::hts::Alignment;
   using lancet::hts::Extractor;
   using lancet::hts::Reference;
+  // google/benchmark idiom: `_` is the conventional name for the unused iteration variable.
   // NOLINTNEXTLINE(readability-identifier-length)
   for ([[maybe_unused]] auto _ : state) {
     Reference const ref(Hg38Reference);
@@ -100,6 +106,10 @@ void ExtractorBamAuxRgaux(benchmark::State& state) {
 
 }  // namespace
 
+// google/benchmark BENCHMARK() macros instantiate static registrar objects at namespace scope
+// (cert-err58-cpp), allocate fluent-API state via raw new (owning-memory), are required to live
+// at namespace scope outside an anonymous namespace so the macro emits external linkage symbols
+// (use-anonymous-namespace), and use the library-defined short macro name (identifier-length).
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-owning-memory, readability-identifier-length, misc-use-anonymous-namespace)
 BENCHMARK(ExtractorCramCoreQname)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);
 BENCHMARK(ExtractorCramCigarSeqQual)->Unit(benchmark::kMillisecond)->DenseThreadRange(1, 8);

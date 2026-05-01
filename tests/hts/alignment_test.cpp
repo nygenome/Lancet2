@@ -87,6 +87,8 @@ TEST_CASE("Can populate only the requested fields in bam/cram", "[lancet][hts][A
   }
 }
 
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
+// ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Alignment has expected data when reading bam/cram", "[lancet][hts][Alignment]") {
   Reference const ref(MakePath(FULL_DATA_DIR, GRCH38_REF_NAME));

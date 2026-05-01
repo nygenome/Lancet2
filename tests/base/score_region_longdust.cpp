@@ -194,6 +194,8 @@ auto ParseGzippedBed(std::filesystem::path const& filepath, CachedReference cons
     return result;
   }
 
+  // gzgets requires a raw `char*` line buffer; std::array would force a span/pointer cast at every
+  // read.
   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   char buf[4096];
   while (gzgets(gzfp, buf, sizeof(buf)) != nullptr) {
@@ -643,6 +645,8 @@ auto main(int argc, char** argv) -> int {
 
   while (num_completed < num_windows) {
     if (!recv_queue->try_dequeue(consumer_token, incoming)) {
+      // chrono_literals are namespace-scoped UDLs; using namespace inside this block scope is the
+      // documented idiom for `100ms` and is local to the if-body, not file-scope.
       // NOLINTNEXTLINE(google-build-using-namespace)
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(100ms);

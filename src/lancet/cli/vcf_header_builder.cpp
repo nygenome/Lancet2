@@ -107,6 +107,8 @@ auto BuildVcfHeader(CliParams const& params) -> std::string {
   absl::StrAppend(&annotation_info_lines, ANNOTATION_INFO_HDR_LINES);
 
   auto full_hdr = fmt::format(
+      // FORMAT_STR_HEADER is a constexpr `char const[N]`; fmt::format takes a string view and the
+      // array decays to a pointer at the call site. The decay is required and unavoidable.
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
       FORMAT_STR_HEADER,
       fmt::arg("RUN_TIMESTAMP",

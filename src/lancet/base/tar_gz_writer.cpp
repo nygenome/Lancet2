@@ -198,6 +198,7 @@ TarGzWriter::~TarGzWriter() {
   // rationale: throwing during stack unwinding terminates.
   try {
     Close();
+    // intentional swallow: dtor cannot propagate exceptions
     // NOLINTNEXTLINE(bugprone-empty-catch)
   } catch (...) {}
 }

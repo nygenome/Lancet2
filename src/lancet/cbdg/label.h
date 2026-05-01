@@ -7,6 +7,8 @@ namespace lancet::cbdg {
 
 class Label {
  public:
+  // Tag is a deliberate bitmask enum: powers-of-2 OR'd in `Merge`. enum class would force a cast
+  // at every bitwise use site without adding type safety inside this wrapper class.
   // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
   enum Tag : u8 { REFERENCE = 1, CTRL = 2, CASE = 4 };
 

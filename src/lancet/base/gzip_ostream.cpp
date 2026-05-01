@@ -139,6 +139,8 @@ void GzipOstream::DeflateLoopAndDrain(int const flush_mode) {
 }
 
 void GzipOstream::DrainDeflateBuffer(usize const byte_count) {
+  // ofstream::write takes char const*; the deflate output buffer is u8 (zlib `Bytef`).
+  // The two byte-pointer types are layout-compatible but distinct under strict aliasing.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* const buffer_as_chars = reinterpret_cast<char const*>(mDeflateOutBuf.data());
   mOutputStream.write(buffer_as_chars, static_cast<std::streamsize>(byte_count));

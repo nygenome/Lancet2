@@ -16,6 +16,8 @@ static constexpr auto CTRL_CRAM_NAME = "chr4_with_pairs.HCC1395BL_SAMN10102574_S
 static constexpr auto CASE_BAM_NAME = "chr4_with_pairs.HCC1395_SAMN10102573_SRR7890893.bam";
 static constexpr auto CTRL_BAM_NAME = "chr4_with_pairs.HCC1395BL_SAMN10102574_SRR7890943.bam";
 
+// `static inline` over an anonymous namespace because this `.inc` is included into multiple
+// translation units; an anonymous namespace would create a separate copy per TU with a unique name.
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
 [[nodiscard]] static inline auto MakePath(std::string_view prefix, std::string_view suffix) -> std::filesystem::path {
   return fmt::format("{}/{}", prefix, suffix);
