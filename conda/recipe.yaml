@@ -80,17 +80,18 @@ requirements:
     - graphviz ==14.1.2
 
 tests:
-  - script: \
-      if ! command -v Lancet2 >/dev/null 2>&1; then \
-        echo "'Lancet2' not found in PATH" >&2; \
-        return 1; \
-      fi; \
-      if ! command -v dot >/dev/null 2>&1; then \
-        echo "'dot' not found in PATH" >&2; \
-        return 1; \
-      fi; \
-      echo "Lancet2 version $(Lancet2 --version)"; \
-      echo "dot version $(dot --version)"
+  - script:
+      - |
+        if ! command -v Lancet2 >/dev/null 2>&1; then
+          echo "'Lancet2' not found in PATH" >&2
+          exit 1
+        fi
+        if ! command -v dot >/dev/null 2>&1; then
+          echo "'dot' not found in PATH" >&2
+          exit 1
+        fi
+        echo "Lancet2 version $(Lancet2 --version)"
+        echo "dot version $(dot --version)"
 
 about:
   homepage: https://github.com/nygenome/Lancet2
