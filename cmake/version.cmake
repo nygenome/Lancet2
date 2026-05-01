@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Version Detection
 #
-# Reads the base version from the VERSION file at the project root (single
+# Reads the base version from the VERSION.txt file at the project root (single
 # source of truth for CMake, Conda, and Docker). Optionally augments with
 # Git branch and short SHA when available. Generates lancet_version.h for
 # compile-time version embedding.

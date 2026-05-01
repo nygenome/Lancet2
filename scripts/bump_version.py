@@ -60,20 +60,20 @@ def main():
         
     print(f"BUMP_KIND: {bump_kind}")
 
-    # 1. Read current version from VERSION file
+    # 1. Read current version from VERSION.txt file
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    version_file = os.path.join(root, "VERSION")
+    version_file = os.path.join(root, "VERSION.txt")
     with open(version_file) as fh:
         current_version = fh.read().strip()
     
-    # 2. Compute incremented version (VERSION file has no 'v' prefix)
+    # 2. Compute incremented version (VERSION.txt file has no 'v' prefix)
     new_version = bump_version(current_version, bump_kind)
     print(f"Bumping version: {current_version} -> {new_version}")
     
-    # 3. Write new version to VERSION file
+    # 3. Write new version to VERSION.txt file
     with open(version_file, "w") as fh:
         fh.write(f"{new_version}\n")
-    print(f"Updated VERSION file to {new_version}")
+    print(f"Updated VERSION.txt file to {new_version}")
     
     # 4. Update pixi.toml version field
     pixi_toml = os.path.join(root, "pixi.toml")

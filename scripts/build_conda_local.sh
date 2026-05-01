@@ -23,8 +23,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RECIPE="${REPO_ROOT}/conda/recipe.yaml"
 OUTPUT_DIR="${1:-${REPO_ROOT}/output}"
 
-# Read base version from VERSION file (single source of truth)
-BASE_VERSION=$(cat "${REPO_ROOT}/VERSION" | tr -d '[:space:]')
+# Read base version from VERSION.txt file (single source of truth)
+BASE_VERSION=$(cat "${REPO_ROOT}/VERSION.txt" | tr -d '[:space:]')
 
 # Augment with git metadata when available
 BRANCH=$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")

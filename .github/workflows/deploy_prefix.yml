@@ -30,7 +30,7 @@ jobs:
 
       - name: Compute package version
         run: |
-          BASE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          BASE_VERSION=$(cat VERSION.txt | tr -d '[:space:]')
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
           HASH=$(git rev-parse --short=10 HEAD)
           TAG=$(git describe --abbrev=0 --tags 2>/dev/null || echo "")

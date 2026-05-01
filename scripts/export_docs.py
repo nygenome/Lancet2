@@ -37,10 +37,10 @@ MKDOCS_YML = ROOT / "mkdocs.yml"
 
 
 def get_version_info() -> dict[str, str]:
-    """Extract git version metadata matching the docker build script format.
+    """Extract version metadata from VERSION.txt and git.
 
-    Format: VERSION_TAG-BRANCH-COMMIT[-dirty]
-    Example: v0.9.7-main-a3b4c5d6e7
+    Format: VERSION_TAG_BRANCH_COMMIT[-dirty]
+    Example: 2.9.0_main_a3b4c5d6e7
     """
     def git(*args: str) -> str:
         try:
@@ -50,9 +50,8 @@ def get_version_info() -> dict[str, str]:
         except (subprocess.CalledProcessError, FileNotFoundError):
             return "unknown"
 
-    version_tag = git("describe", "--abbrev=0", "--tags")
-    # Keep only major.minor.patch if tag has extra segments
-    version_tag = ".".join(version_tag.split(".")[:3])
+    version_file = ROOT / "VERSION.txt"
+    version_tag = version_file.read_text().strip() if version_file.exists() else "unknown"
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     commit = git("rev-parse", "--short=10", "--verify", "HEAD")
@@ -65,7 +64,7 @@ def get_version_info() -> dict[str, str]:
     except (subprocess.CalledProcessError, FileNotFoundError):
         dirty = "-dirty"
 
-    build_tag = f"{version_tag}-{branch}-{commit}{dirty}"
+    build_tag = f"{version_tag}_{branch}_{commit}{dirty}"
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     return {"build_tag": build_tag, "timestamp": timestamp, "commit": commit}
