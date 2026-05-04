@@ -39,7 +39,7 @@ Pre-built packages are available for **linux-64** (x86-64-v3, Haswell 2013+) and
 
 ### Docker images
 
-Pre-built Docker images are available from [Google Artifact Registry][https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet].
+Pre-built Docker images are available from [Google Artifact Registry](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet).
 A CPU with x86-64-v3 support (Haswell 2013+: AVX2, BMI2, FMA) is required.
 Docker tags follow the same convention: stable releases use clean version numbers (`X.Y.Z`),
 dev builds include branch and commit hash (`X.Y.Z_main_<hash>`).
