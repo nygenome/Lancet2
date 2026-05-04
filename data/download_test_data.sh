@@ -6,4 +6,4 @@ readonly SCRIPT_DIR=$(dirname -- "$(readlink -f -- "${0}")")
 readonly GCS_OAUTH_TOKEN="$(gcloud auth print-access-token)"
 
 export GCS_OAUTH_TOKEN && \
-gcloud storage cp "gs://lancet2-test-datasets/test_harness_data/**" "${SCRIPT_DIR}"
+gcloud storage cp --recursive "gs://lancet2-test-datasets/test_harness_data/*" "${SCRIPT_DIR}"
