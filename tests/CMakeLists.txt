@@ -15,11 +15,14 @@ add_executable(TestLancet2
 		base/crash_handler_test.cpp
 		base/eta_timer_test.cpp
 		base/gzip_ostream_test.cpp
+		base/hash_test.cpp
 		base/longdust_scorer_test.cpp
 		base/mann_whitney_test.cpp
 		base/polar_coords_test.cpp
 		base/repeat_test.cpp
+		base/rev_comp_test.cpp
 		base/sequence_complexity_test.cpp
+		base/sliding_test.cpp
 		base/tar_gz_writer_test.cpp
 		base/timer_test.cpp
 		# Layer 2: hts — CIGAR, reference, alignment, extractor

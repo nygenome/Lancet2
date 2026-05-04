@@ -2,12 +2,14 @@
 
 #include "lancet/base/types.h"
 
+#include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 
 #include <array>
 #include <random>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace lancet::base::tests {
 
@@ -80,6 +82,132 @@ TEST_CASE("Can calculate hamming distance correctly for small test",
   REQUIRE(HammingDist(test, diff_a) == 1);
   REQUIRE(HammingDist(test, diff_b) == 1);
   REQUIRE(HammingDist(diff_a, diff_b) == 2);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  HammingDist: SIMD-aligned and unaligned-tail boundary cases             ║
+// ║                                                                          ║
+// ║  base.md documents that `HammingDist` uses AVX2 (32-byte) on x86 and     ║
+// ║  NEON (16-byte) on ARM64 with overlapping unaligned tail loads. These    ║
+// ║  cases pin the boundaries that matter for the SIMD path: exact 32B / 16B ║
+// ║  multiples (no tail), one-byte-shy multiples (max-overlap tail), and a   ║
+// ║  one-byte sequence (tail-only, no SIMD body).                            ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+TEST_CASE("HammingDist returns 0 on a 32-byte aligned identical block",
+          "[lancet][base][HammingDist]") {
+  // Exact AVX2 lane width. The SIMD body executes once with no tail; a
+  // regression that mishandled the no-tail path would surface here.
+  std::string const seq(32, 'A');
+  CHECK(HammingDist(seq, seq) == 0);
+}
+
+TEST_CASE("HammingDist counts every-byte mismatch on a 32-byte block",
+          "[lancet][base][HammingDist]") {
+  // Pair where every position differs: AAAA…A vs CCCC…C, length 32. The
+  // SIMD popcount must return 32; an off-by-one would return 31 or 33.
+  std::string const lhs(32, 'A');
+  std::string const rhs(32, 'C');
+  CHECK(HammingDist(lhs, rhs) == 32);
+}
+
+TEST_CASE("HammingDist handles a 33-byte input (1-byte unaligned tail)",
+          "[lancet][base][HammingDist]") {
+  // 33 bytes = 32-byte SIMD body + 1-byte tail. The implementation uses an
+  // overlapping unaligned tail load (the last 32 bytes of the buffer)
+  // rather than a scalar tail; the overlap re-counts 31 already-counted
+  // bytes, so the popcount must compensate or the result drifts.
+  std::string lhs(33, 'A');
+  std::string rhs(33, 'A');
+  rhs[32] = 'T';  // single mismatch at the very last byte
+  CHECK(HammingDist(lhs, rhs) == 1);
+
+  // And the symmetric case: mismatch at the first byte (well inside the
+  // SIMD body, no tail involvement).
+  lhs[0] = 'C';
+  rhs[0] = 'A';
+  CHECK(HammingDist(lhs, rhs) == 2);  // [0]: A vs C; [32]: A vs T
+}
+
+TEST_CASE("HammingDist handles a 31-byte input (one-byte-shy of SIMD width)",
+          "[lancet][base][HammingDist]") {
+  // 31 bytes < 32-byte AVX2 width → should fall through to the auto-
+  // vectorized scalar path on x86. On ARM64 (16-byte NEON), 31 bytes =
+  // 16 SIMD + 15-byte tail, exercising the tail-overlap path. The result
+  // is path-dependent in implementation, but the answer must be the same.
+  std::string const lhs(31, 'A');
+  std::string rhs(31, 'A');
+  rhs[10] = 'T';
+  CHECK(HammingDist(lhs, rhs) == 1);
+}
+
+TEST_CASE("HammingDist handles a single-byte input (tail-only, no SIMD body)",
+          "[lancet][base][HammingDist]") {
+  // 1 byte < both SIMD widths → pure scalar path. Smallest non-empty
+  // input; pins the corner where the SIMD body never executes.
+  CHECK(HammingDist(std::string_view("A"), std::string_view("A")) == 0);
+  CHECK(HammingDist(std::string_view("A"), std::string_view("T")) == 1);
+}
+
+TEST_CASE("HammingDist on an empty input returns 0", "[lancet][base][HammingDist]") {
+  // Both empty → 0 differences. The implementation must not deref the data
+  // pointers (which may be null for default-constructed string_views).
+  CHECK(HammingDist(std::string_view(""), std::string_view("")) == 0);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  HasRepeat / HasExactRepeat                                              ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+TEST_CASE("HasExactRepeat detects identical k-mers in a span", "[lancet][base][HasExactRepeat]") {
+  // Two copies of "ACGT" appear in the span — exact repeat. The
+  // implementation routes through HasRepeat(kmers, 0) which uses an O(n)
+  // hash-set duplicate check.
+  std::vector<std::string_view> const kmers{"ACGT", "TGCA", "ACGT", "GGCC"};
+  CHECK(HasExactRepeat(absl::MakeConstSpan(kmers)));
+}
+
+TEST_CASE("HasExactRepeat returns false on all-distinct k-mers", "[lancet][base][HasExactRepeat]") {
+  std::vector<std::string_view> const kmers{"ACGT", "TGCA", "GGCC", "AATT"};
+  CHECK_FALSE(HasExactRepeat(absl::MakeConstSpan(kmers)));
+}
+
+TEST_CASE("HasExactRepeat returns false on an empty or single-element span",
+          "[lancet][base][HasExactRepeat]") {
+  // Cannot have a "repeat" with fewer than two k-mers. The hash-set path
+  // must short-circuit on len < 2 to avoid spurious work.
+  std::vector<std::string_view> const empty;
+  std::vector<std::string_view> const single{"ACGT"};
+  CHECK_FALSE(HasExactRepeat(absl::MakeConstSpan(empty)));
+  CHECK_FALSE(HasExactRepeat(absl::MakeConstSpan(single)));
+}
+
+TEST_CASE("HasRepeat with max_mismatches=0 matches HasExactRepeat", "[lancet][base][HasRepeat]") {
+  // HasRepeat(kmers, 0) is documented to delegate to the exact-repeat
+  // path. Verify the two surface APIs agree on a representative input.
+  std::vector<std::string_view> const kmers{"ACGT", "TGCA", "ACGT"};
+  auto const span = absl::MakeConstSpan(kmers);
+  CHECK(HasRepeat(span, 0) == HasExactRepeat(span));
+}
+
+TEST_CASE("HasRepeat detects approximate repeats within max_mismatches",
+          "[lancet][base][HasRepeat]") {
+  // ACGT and ACGA differ by exactly 1 base; with max_mismatches=1 they
+  // count as an approximate repeat. With max_mismatches=0 they do not.
+  std::vector<std::string_view> const kmers{"ACGT", "TGCA", "ACGA"};
+  auto const span = absl::MakeConstSpan(kmers);
+  CHECK(HasRepeat(span, 1));
+  CHECK_FALSE(HasRepeat(span, 0));
+}
+
+TEST_CASE("HasRepeat returns false when no pair is within max_mismatches",
+          "[lancet][base][HasRepeat]") {
+  // All four k-mers mutually differ in ≥ 2 positions, so max_mismatches=1
+  // finds no approximate repeat. Exercises the early-exit per-pair path
+  // documented in base.md (the SIMD short-circuit collapses the per-pair
+  // cost from O(L) to O(1) on random DNA).
+  std::vector<std::string_view> const kmers{"AAAA", "CCCC", "GGGG", "TTTT"};
+  CHECK_FALSE(HasRepeat(absl::MakeConstSpan(kmers), 1));
 }
 
 }  // namespace lancet::base::tests
