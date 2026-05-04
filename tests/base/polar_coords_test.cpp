@@ -12,15 +12,33 @@
 
 namespace lancet::base::tests {
 
-// PANG uses a Remez minimax cubic; `polar_coords.h` documents max error
-// ~0.0015 rad. Tests against canonical-angle constants (0, π/4, π/2) hit
-// the polynomial's "easy" region near r = 0 and stay within that bound, so
-// we use 1.5e-3 there. The empirical max error across a dense (alt, ref)
-// grid spanning realistic coverage is ~1.0e-2 rad — the documented bound
-// is optimistic for off-diagonal points, and the cross-validation grid
-// sweep below uses the larger empirical bound. Self-comparisons (coverage
-// invariance, monotonicity) use a tighter tolerance because the
+// PANG uses a Remez minimax cubic. `polar_coords.h`'s comment claims
+// "Max absolute error: ~0.0015 radians (~0.086°)" — that bound is real
+// for the polynomial atan(r) ≈ (A·r² + B)·r evaluated on r ∈ [-1, 1] near
+// r = 0, and is what canonical-angle tests in this file (0, π/4, π/2) hit.
+// The 1.5e-3 constant below preserves that contract for those tests.
+//
+// Empirically, however, the FULL atan2 reconstruction does NOT meet 1.5e-3
+// uniformly. The reconstruction folds the input into r = (x − |y|)/(|y| + |x|)
+// and adds a base of π/4 or 3π/4; both steps inflate the polynomial's
+// per-point error. A dense sweep across (alt, ref) ∈ [0, 1000]² (200×200
+// points) reaches a max absolute error of ~1.0e-2 rad (~0.58°) — about 7×
+// the documented bound. The error peaks off-diagonal where the ratio
+// |y|/|x| is far from 1 (e.g. (alt=500, ref=100) gives r ≈ −0.667, where
+// the cubic minimax is at its worst).
+//
+// Two tolerances are therefore exposed: 1.5e-3 for the easy regime that
+// the canonical-angle tests exercise, and 1.1e-2 for the grid sweep that
+// the cross-validation test exercises. Self-comparisons (coverage
+// invariance, monotonicity) use a much tighter tolerance because the
 // approximation error cancels on both sides.
+//
+// If the implementation's claim is ever tightened to actually be 1.5e-3
+// across the full atan2 domain (e.g. by switching to a higher-order
+// polynomial), the grid-sweep tolerance can be tightened to match. Until
+// then, anyone reading this file should know the documented bound is
+// over-tight and the actual max is ~7× larger. (`polar_coords.h`'s
+// comment under-reports the worst-case error of the integrated atan2.)
 static constexpr f64 PANG_MINIMAX_TOLERANCE = 1.5e-3;
 static constexpr f64 PANG_GRID_SWEEP_TOLERANCE = 1.1e-2;
 

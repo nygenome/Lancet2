@@ -142,7 +142,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
   auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   REQUIRE(std::filesystem::exists(ref_path));
   lancet::hts::Reference const ref(ref_path);
-  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
   LdContext lctx;
   REQUIRE(lctx.mData != nullptr);
   constexpr double EPS = 1e-9;
@@ -224,7 +224,7 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust", "[lancet][base][Lon
   // cross-validation.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* ldat = reinterpret_cast<ld_test_data_s const*>(lctx.mData);
-  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
 
   // For a homopolymer of ℓ+k-1 bases: Q = lgamma(ℓ+1) - f(ℓ)
   // so f(ℓ) = lgamma(ℓ+1) - ScoreOneStrand() * ℓ
@@ -242,12 +242,12 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust", "[lancet][base][Lon
 // 1c. Synthetic repeats — exact tandem repeat formula validation
 // ============================================================================
 
-// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
-// ceiling.
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity
+// metric beyond the project ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
           "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
+  LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
   LdContext const lctx;
   constexpr double EPS = 1e-9;
 
@@ -294,7 +294,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   CHECK(scorer.Score("") == 0.0);
   CHECK(scorer.Score("ATCG") == 0.0);
   CHECK(scorer.Score("ATCGAT") == 0.0);
@@ -302,14 +302,14 @@ TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][L
 }
 
 TEST_CASE("Score: near-zero for random DNA", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   CHECK(scorer.Score(RandomDna(100)) < 0.1);
   CHECK(scorer.Score(RandomDna(200, 123)) < 0.1);
   CHECK(scorer.Score(RandomDna(500, 456)) < 0.1);
 }
 
 TEST_CASE("Score: detects homopolymer runs", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   CHECK(scorer.Score(std::string(10, 'A')) > 0.0);
   CHECK(scorer.Score(std::string(20, 'A')) > 0.6);
   CHECK(scorer.Score(std::string(50, 'A')) > 1.0);
@@ -318,7 +318,7 @@ TEST_CASE("Score: detects homopolymer runs", "[lancet][base][LongdustQScorer]") 
 }
 
 TEST_CASE("Score: increases with repeat copy number", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   auto const score5 = scorer.Score(BuildRepeat("TTAGGG", 5));
   auto const score10 = scorer.Score(BuildRepeat("TTAGGG", 10));
   auto const score20 = scorer.Score(BuildRepeat("TTAGGG", 20));
@@ -327,14 +327,14 @@ TEST_CASE("Score: increases with repeat copy number", "[lancet][base][LongdustQS
 }
 
 TEST_CASE("Score: uses both strands (max of fwd/rev)", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   auto const poly_t = std::string(30, 'T');
   CHECK(scorer.Score(poly_t) > 0.6);
   CHECK(scorer.Score(poly_t) >= scorer.ScoreOneStrand(poly_t));
 }
 
 TEST_CASE("Score: case-insensitive", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   auto const upper = BuildRepeat("TTAGGG", 20);
   std::string lower = upper;
   std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
@@ -342,7 +342,7 @@ TEST_CASE("Score: case-insensitive", "[lancet][base][LongdustQScorer]") {
 }
 
 TEST_CASE("Score: N bases reduce score", "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const scorer(7);
+  LongdustQScorer const scorer(7);
   CHECK(scorer.Score("AAAAAAANAAAAAAA") < scorer.Score(std::string(15, 'A')));
 }
 
@@ -352,7 +352,6 @@ TEST_CASE("Score: N bases reduce score", "[lancet][base][LongdustQScorer]") {
 
 TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
           "[lancet][base][LongdustQScorer]") {
-  using lancet::base::FormatComplexityScore;
   CHECK(FormatComplexityScore(0.0) == "0");
   CHECK(FormatComplexityScore(1.0) == "1");
   CHECK(FormatComplexityScore(0.5) == "0.5");
@@ -363,15 +362,14 @@ TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
 }
 
 TEST_CASE("FormatComplexityScores: comma-separated output", "[lancet][base][LongdustQScorer]") {
-  using lancet::base::FormatComplexityScores;
   CHECK(FormatComplexityScores(std::initializer_list<f64>{0, 0, 0, 0, 0}) == "0,0,0,0,0");
   CHECK(FormatComplexityScores(std::initializer_list<f64>{1.8, 0.7, 0.3, 0.15, 0.1}) ==
         "1.8,0.7,0.3,0.15,0.1");
 }
 
 TEST_CASE("Longdust k-mer size constants", "[lancet][base][LongdustQScorer]") {
-  CHECK(lancet::base::LONGDUST_FLANK_K == 4);
-  CHECK(lancet::base::LONGDUST_HAPLOTYPE_K == 7);
+  CHECK(LONGDUST_FLANK_K == 4);
+  CHECK(LONGDUST_HAPLOTYPE_K == 7);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -386,14 +384,14 @@ TEST_CASE("Longdust k-mer size constants", "[lancet][base][LongdustQScorer]") {
 
 TEST_CASE("FTable returns a span of size max_len + 1", "[lancet][base][LongdustQScorer]") {
   // Default ctor uses max_len=1024 → table size 1025 (indices [0, 1024]).
-  lancet::base::LongdustQScorer const scorer;
+  LongdustQScorer const scorer;
   auto const ftable = scorer.FTable();
   CHECK(ftable.size() == 1024U + 1U);
 }
 
 TEST_CASE("FTable returns a span of explicit max_len + 1", "[lancet][base][LongdustQScorer]") {
   // Explicit max_len exercises the resize path in PrecomputeF.
-  lancet::base::LongdustQScorer const scorer(7, 256, 0.5);
+  LongdustQScorer const scorer(7, 256, 0.5);
   auto const ftable = scorer.FTable();
   CHECK(ftable.size() == 256U + 1U);
 }
@@ -401,7 +399,7 @@ TEST_CASE("FTable returns a span of explicit max_len + 1", "[lancet][base][Longd
 TEST_CASE("FTable[0] is 0 (empty-sequence baseline)", "[lancet][base][LongdustQScorer]") {
   // PrecomputeF skips index 0 (the loop starts at 1) and the vector is
   // resized with a default value of 0 — so mF[0] must read back as 0.
-  lancet::base::LongdustQScorer const scorer(7, 64, 0.5);
+  LongdustQScorer const scorer(7, 64, 0.5);
   auto const ftable = scorer.FTable();
   REQUIRE(!ftable.empty());
   CHECK(ftable[0] == Catch::Approx(0.0).margin(1e-12));
@@ -412,7 +410,7 @@ TEST_CASE("FTable values are non-negative and non-decreasing", "[lancet][base][L
   // non-negative; adding one more k-mer can only add non-negative expected
   // log-factorial mass. A regression that broke the Stirling/series path or
   // mixed up the sign would fail this shape invariant.
-  lancet::base::LongdustQScorer const scorer(7, 512, 0.5);
+  LongdustQScorer const scorer(7, 512, 0.5);
   auto const ftable = scorer.FTable();
   for (usize idx = 0; idx < ftable.size(); ++idx) {
     INFO("idx=" << idx);
@@ -498,8 +496,8 @@ TEST_CASE("FTable values are non-negative and non-decreasing", "[lancet][base][L
 //   1.0–2.0    →  highly repetitive (long STRs, HSAT, compact satellites)
 //   > 2.0      →  extremely repetitive (telomeres, long homopolymers)
 
-// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
-// ceiling.
+// Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity
+// metric beyond the project ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
           "[lancet][base][LongdustQScorer]") {
@@ -520,7 +518,7 @@ TEST_CASE("Calibration: multi-scale scores across all annotation sources",
   }
 
   lancet::hts::Reference const ref(ref_path);
-  lancet::base::LongdustQScorer const scorer(7, 10'001);
+  LongdustQScorer const scorer(7, 10'001);
   constexpr double MARGIN = 0.001;
 
   auto const rows = LoadCalibrationTsv(tsv_path);
@@ -531,6 +529,78 @@ TEST_CASE("Calibration: multi-scale scores across all annotation sources",
     DYNAMIC_SECTION(row.mSource << " | " << row.mName << " @" << row.mScale << "bp") {
       auto const rgn = ref.MakeRegion(row.mRegion.c_str());
       CHECK(scorer.Score(rgn.SeqView()) == Catch::Approx(row.mExpectedScore).margin(MARGIN));
+    }
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  Property: Score is monotone non-decreasing in homopolymer copy count    ║
+// ║                                                                          ║
+// ║  Q(x) per-k-mer score derivation                                         ║
+// ║  ────────────────────────────────                                        ║
+// ║      q(x) = max(0, [Σ_t log(c_t!) − f(ℓ)] / ℓ)                           ║
+// ║  where ℓ = L − k + 1 valid k-mers, c_t = count of distinct k-mer t,      ║
+// ║  and f(ℓ) is the Poisson-null expected value of Σ log(c!).               ║
+// ║                                                                          ║
+// ║  For a tandem repeat of motif M with period P and N copies the rolling   ║
+// ║  window of length k yields ≈ P distinct k-mers (one per cyclic rotation  ║
+// ║  of M when P ≤ k), each with count c_t ≈ ℓ / P. So                       ║
+// ║      Σ log(c_t!) ≈ P · log((ℓ/P)!) ≈ ℓ · log(ℓ/P)                        ║
+// ║      q(x)        ≈ log(ℓ/P) − f(ℓ)/ℓ                                     ║
+// ║  which is asymptotically monotone in N (since ℓ ∝ N and log(ℓ/P) is      ║
+// ║  strictly increasing).                                                   ║
+// ║                                                                          ║
+// ║  Why we restrict the test to homopolymers (P = 1)                        ║
+// ║  ────────────────────────────────────────────────                        ║
+// ║  The asymptotic monotonicity is exact for P = 1 (one distinct k-mer,     ║
+// ║  count grows strictly linearly with N once N ≥ k). For P ≥ 2 the         ║
+// ║  property holds in the limit but breaks down empirically in three        ║
+// ║  pre-asymptotic regimes — measured here, not just argued:                ║
+// ║                                                                          ║
+// ║    1. Small N, motif length close to k (e.g. P = 6, k = 7). Each         ║
+// ║       additional copy first introduces new distinct k-mers at count = 1  ║
+// ║       (contributing 0 to Σ log(c!)) before the periodic structure        ║
+// ║       saturates. Numerator grows slower than ℓ; q can dip briefly.       ║
+// ║                                                                          ║
+// ║    2. f(ℓ) interpolation across the Poisson-series → Stirling            ║
+// ║       transition at λ ≥ 30 (see ComputeFSingle). The boundary is         ║
+// ║       continuous in theory but introduces sub-LSB f64 rounding that      ║
+// ║       can locally flip the inequality.                                   ║
+// ║                                                                          ║
+// ║    3. P ≥ k (motif length ≥ k-mer width). The periodic structure         ║
+// ║       collapses — distinct-k-mer count blows up; the scorer treats       ║
+// ║       the sequence like random DNA. q stays near 0 and is non-monotone   ║
+// ║       in copy count.                                                     ║
+// ║                                                                          ║
+// ║  The general-motif case is covered indirectly by the                     ║
+// ║  cross-validation against the longdust C reference earlier in this file. ║
+// ║  This test exercises only the strict-monotone homopolymer regime to      ║
+// ║  document and lock in the load-bearing "more copies → at least as        ║
+// ║  repetitive" property without admitting algorithmic noise.               ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+TEST_CASE("LongdustQScorer.Score is non-decreasing as copy number grows for a homopolymer motif",
+          "[lancet][base][LongdustQScorer]") {
+  // Each homopolymer (poly-A, poly-C, poly-G, poly-T) is monotone independently.
+  // Test all four to cover any base-encoding bias in the scorer.
+  static constexpr usize MIN_COPIES = 7;   // need >= k for a valid k-mer window
+  static constexpr usize MAX_COPIES = 50;  // saturates the asymptote
+
+  // Default constructor: k=7, max_len=1024, gc_frac=0.41.
+  LongdustQScorer const scorer;
+
+  for (auto const base : std::array<char, 4>{'A', 'C', 'G', 'T'}) {
+    f64 prev_score = 0.0;
+    for (usize copies = MIN_COPIES; copies <= MAX_COPIES; ++copies) {
+      auto const seq = std::string(copies, base);
+      auto const score = scorer.Score(seq);
+      INFO("base=" << base << " copies=" << copies << " prev=" << prev_score << " score=" << score);
+      // 1e-9 absorbs sub-LSB f64 noise inside Q(x). For homopolymers
+      // the property is theoretically strict, but we still admit a
+      // tiny epsilon to avoid platform-specific FP ordering false
+      // failures.
+      CHECK(score >= prev_score - 1e-9);
+      prev_score = score;
     }
   }
 }

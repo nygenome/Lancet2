@@ -13,8 +13,8 @@ namespace lancet::base::tests {
 // ║  getrusage(RUSAGE_SELF) and reflects whatever earlier tests in the       ║
 // ║  same suite allocated. Any "after a specific allocation" assertion       ║
 // ║  would be order-dependent — a regression-safe assertion is bounded to    ║
-// ║  "nonzero" (the kernel always reports SOME max RSS for a running        ║
-// ║  process).                                                                ║
+// ║  "nonzero" (the kernel always reports SOME max RSS for a running         ║
+// ║  process).                                                               ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("PeakRssBytes returns a nonzero value for the running process",
@@ -34,7 +34,7 @@ TEST_CASE("PeakRssBytes returns a nonzero value for the running process",
 // ║  FormatPeakRss reads PeakRssBytes() internally, so the exact unit it     ║
 // ║  picks (MB vs GB) is process-state-dependent. We assert structural       ║
 // ║  invariants that hold regardless: the formatted string is non-empty      ║
-// ║  and ends in a recognized unit suffix.                                    ║
+// ║  and ends in a recognized unit suffix.                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("FormatPeakRss produces a non-empty string with a unit suffix",

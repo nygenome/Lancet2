@@ -6,6 +6,7 @@
 #include "catch_amalgamated.hpp"
 
 #include <array>
+#include <random>
 #include <vector>
 
 #include <cmath>
@@ -168,6 +169,143 @@ TEST_CASE("Minimum returns the smallest element on a non-empty span", "[lancet][
 TEST_CASE("Minimum tolerates negative values", "[lancet][base][Minimum]") {
   std::vector<i32> const data{4, -5, 2, -10, 7};
   CHECK(Minimum(absl::MakeConstSpan(data)) == -10);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  Property: OnlineStats.Variance() matches the two-pass formula           ║
+// ║                                                                          ║
+// ║  Welford's recurrence (m1, m2) is supposed to compute the same variance  ║
+// ║  as the textbook two-pass formula                                        ║
+// ║      Var = (1/(n-1)) * Σ(xᵢ − μ)²                                        ║
+// ║  but with better numerical stability when the mean is large relative to  ║
+// ║  the spread. Both formulas should agree on samples where the naive       ║
+// ║  computation doesn't lose precision — that's exactly the input class     ║
+// ║  this test exercises (uniform on [0, 100]).                              ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// Catch2's per-iteration generation drives the cognitive-complexity metric over the project
+// ceiling.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("OnlineStats.Variance matches the two-pass formula on randomly generated samples",
+          "[lancet][base][OnlineStats]") {
+  // Pinned seed: deterministic across platforms and reruns. A regression
+  // that broke Welford's recurrence in some specific input subset would
+  // surface here on the same iteration every run.
+  static constexpr u64 BASE_SEED = 0x5E'ED'5E'ED'5E'ED'5E'EDULL;
+  static constexpr usize NUM_PROPERTY_ITERATIONS = 200;
+  static constexpr usize SAMPLE_SIZE = 50;
+
+  // Const-literal seed is the project's documented determinism convention
+  // (see test_style.md / §A.9). The clang-tidy check is conservatively
+  // designed for production code; in tests, predictability is exactly
+  // what we want.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937_64 generator(BASE_SEED);
+  std::uniform_real_distribution<f64> sampler(0.0, 100.0);
+
+  for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
+    std::vector<f64> samples(SAMPLE_SIZE);
+    for (auto& sample : samples) sample = sampler(generator);
+
+    // Welford via the in-tree implementation.
+    OnlineStats welford;
+    for (auto const sample : samples) welford.Add(sample);
+
+    // Two-pass reference: first pass for mean, second pass for variance.
+    f64 sum = 0.0;
+    for (auto const sample : samples) sum += sample;
+    f64 const mean = sum / static_cast<f64>(samples.size());
+
+    f64 sum_sq_dev = 0.0;
+    for (auto const sample : samples) {
+      f64 const dev = sample - mean;
+      sum_sq_dev += dev * dev;
+    }
+    f64 const two_pass_variance = sum_sq_dev / static_cast<f64>(samples.size() - 1);
+
+    INFO("iter=" << iter);
+    // 1e-9 absorbs the f64 rounding accumulated through Welford's update
+    // path vs the two summations in the reference. Anything tighter risks
+    // false-failing on platform-specific FP rounding.
+    CHECK(welford.Variance() == Catch::Approx(two_pass_variance).margin(1e-9));
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  Property: OnlineStats.Merge is associative                              ║
+// ║                                                                          ║
+// ║  Chan et al.'s parallel-merge formula must produce the same combined     ║
+// ║  accumulator regardless of the order in which three shards are merged:   ║
+// ║      ((A ∪ B) ∪ C) == (A ∪ (B ∪ C)) == ((A ∪ C) ∪ B)                     ║
+// ║  Associativity is the foundation that lets the runtime merge per-thread  ║
+// ║  shards in any tree shape without changing the result.                   ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// Catch2's per-iteration generation drives the cognitive-complexity metric over the project
+// ceiling.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("OnlineStats.Merge is associative across three accumulators",
+          "[lancet][base][OnlineStats]") {
+  // Pinned seed for deterministic input across runs.
+  static constexpr u64 BASE_SEED = 0x5E'ED'5E'ED'5E'ED'5E'EDULL;
+  static constexpr usize NUM_PROPERTY_ITERATIONS = 100;
+
+  // Const-literal seed is the project's documented determinism convention
+  // (see test_style.md / §A.9). The clang-tidy check is conservatively
+  // designed for production code; in tests, predictability is exactly
+  // what we want.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937_64 generator(BASE_SEED);
+  std::uniform_real_distribution<f64> sampler(0.0, 100.0);
+  std::uniform_int_distribution<usize> size_picker(1, 30);
+
+  for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
+    auto const fill_shard = [&](OnlineStats& shard) {
+      auto const shard_size = size_picker(generator);
+      for (usize sample_idx = 0; sample_idx < shard_size; ++sample_idx) {
+        shard.Add(sampler(generator));
+      }
+    };
+
+    OnlineStats shard_a;
+    OnlineStats shard_b;
+    OnlineStats shard_c;
+    fill_shard(shard_a);
+    fill_shard(shard_b);
+    fill_shard(shard_c);
+
+    // Three associativity parens: ((A∪B)∪C), (A∪(B∪C)), ((A∪C)∪B).
+    OnlineStats merged_left = shard_a;
+    merged_left.Merge(shard_b);
+    merged_left.Merge(shard_c);
+
+    OnlineStats merged_right_inner = shard_b;
+    merged_right_inner.Merge(shard_c);
+    OnlineStats merged_right = shard_a;
+    merged_right.Merge(merged_right_inner);
+
+    OnlineStats merged_swap = shard_a;
+    merged_swap.Merge(shard_c);
+    merged_swap.Merge(shard_b);
+
+    // Associativity is exact in real arithmetic but not bit-exact in f64
+    // because Chan's merge formula accumulates rounding differently when
+    // merge order shifts the relative magnitudes of the (n_1, n_2)
+    // weights. `OnlineStats::operator==` uses `epsilon ≈ 2.22e-16` which
+    // is too tight for these accumulated errors; we compare Mean and
+    // Variance directly with a looser tolerance that's still well below
+    // any biologically-meaningful difference.
+    constexpr f64 ASSOCIATIVITY_TOLERANCE = 1e-9;
+    INFO("iter=" << iter);
+    CHECK(merged_left.Count() == merged_right.Count());
+    CHECK(merged_left.Count() == merged_swap.Count());
+    CHECK(merged_left.Mean() == Catch::Approx(merged_right.Mean()).margin(ASSOCIATIVITY_TOLERANCE));
+    CHECK(merged_left.Mean() == Catch::Approx(merged_swap.Mean()).margin(ASSOCIATIVITY_TOLERANCE));
+    CHECK(merged_left.Variance() ==
+          Catch::Approx(merged_right.Variance()).margin(ASSOCIATIVITY_TOLERANCE));
+    CHECK(merged_left.Variance() ==
+          Catch::Approx(merged_swap.Variance()).margin(ASSOCIATIVITY_TOLERANCE));
+  }
 }
 
 }  // namespace lancet::base::tests

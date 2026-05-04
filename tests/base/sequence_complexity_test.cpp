@@ -232,7 +232,7 @@ TEST_CASE("Score: sentinel handling — no TR found → zeros",
 TEST_CASE("Score: ScoreMacro matches LongdustQScorer output",
           "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer(0.5);  // uniform GC for comparison
-  lancet::base::LongdustQScorer const direct_scorer(7, 4096, 0.5);
+  LongdustQScorer const direct_scorer(7, 4096, 0.5);
 
   // Score a repetitive haplotype
   auto const haplotype = std::string(200, 'A');
@@ -250,8 +250,8 @@ TEST_CASE("Score: ScoreMacro matches LongdustQScorer output",
 
 TEST_CASE("GC-bias: gc_frac=0.5 matches pre-GC behavior", "[lancet][base][LongdustQScorer]") {
   // gc_frac=0.5 → uniform null model → identical to original formula
-  lancet::base::LongdustQScorer const uniform_scorer(7, 1024, 0.5);
-  lancet::base::LongdustQScorer const default_human(7, 1024, 0.41);
+  LongdustQScorer const uniform_scorer(7, 1024, 0.5);
+  LongdustQScorer const default_human(7, 1024, 0.41);
 
   // Truly random DNA (no periodic structure)
   std::string const random_dna = "GCTAAGGTCCTTGAACGGATTCATAGCCTGAGATTTCAAC"
@@ -262,8 +262,8 @@ TEST_CASE("GC-bias: gc_frac=0.5 matches pre-GC behavior", "[lancet][base][Longdu
 
 TEST_CASE("GC-bias: gc_frac=0.41 lowers AT-rich non-repetitive scores",
           "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const uniform_scorer(7, 1024, 0.5);
-  lancet::base::LongdustQScorer const human_scorer(7, 1024, 0.41);
+  LongdustQScorer const uniform_scorer(7, 1024, 0.5);
+  LongdustQScorer const human_scorer(7, 1024, 0.41);
 
   // AT-rich non-repetitive DNA: human scorer should give LOWER score
   // because AT-richness is expected in human genome (gc=0.41 → AT=0.59)
@@ -278,7 +278,7 @@ TEST_CASE("GC-bias: gc_frac=0.41 lowers AT-rich non-repetitive scores",
 
 TEST_CASE("GC-bias: structural repeats still score high with gc=0.41",
           "[lancet][base][LongdustQScorer]") {
-  lancet::base::LongdustQScorer const human_scorer(7, 1024, 0.41);
+  LongdustQScorer const human_scorer(7, 1024, 0.41);
 
   // Pure poly-A: indisputably repetitive regardless of GC content
   CHECK(human_scorer.Score(std::string(50, 'A')) > 0.5);
@@ -293,7 +293,7 @@ TEST_CASE("GC-bias: gc_frac=-1 equivalent to gc_frac=0.5", "[lancet][base][Longd
   // gc_frac is clamped to [0,1], so -1.0 becomes 0.0
   // This is NOT equivalent to 0.5 — it's an extreme AT-bias model.
   // The actual equivalence is: gc_frac=0.5 IS the uniform model.
-  lancet::base::LongdustQScorer const scorer_05(7, 1024, 0.5);
+  LongdustQScorer const scorer_05(7, 1024, 0.5);
 
   // Verify gc_frac=0.5 produces the uniform model
   std::string const test_seq = std::string(100, 'A');

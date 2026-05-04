@@ -5,6 +5,7 @@
 #include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 
+#include <algorithm>
 #include <array>
 #include <random>
 #include <string>
@@ -208,6 +209,76 @@ TEST_CASE("HasRepeat returns false when no pair is within max_mismatches",
   // cost from O(L) to O(1) on random DNA).
   std::vector<std::string_view> const kmers{"AAAA", "CCCC", "GGGG", "TTTT"};
   CHECK_FALSE(HasRepeat(absl::MakeConstSpan(kmers), 1));
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  Property: HammingDist agrees with a scalar reference                    ║
+// ║                                                                          ║
+// ║  base.md documents that `HammingDist` uses an AVX2 / NEON SIMD kernel    ║
+// ║  with overlapping-tail loads to avoid scalar cleanup. The SIMD result    ║
+// ║  must agree with a straightforward byte-by-byte scalar reference on      ║
+// ║  every input, regardless of length parity vs the SIMD lane width.        ║
+// ║                                                                          ║
+// ║  The reference is intentionally trivial (no SIMD, no overlap, no early   ║
+// ║  exit) so any disagreement points to a bug in the SIMD path.             ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+namespace {
+
+// Scalar reference: byte-by-byte comparison, used as ground truth for the
+// SIMD path's output. Lives inside the file's anonymous namespace so it has
+// internal linkage and cannot collide with anything in the project.
+[[nodiscard]] auto ScalarHammingDist(std::string_view first, std::string_view second) -> usize {
+  if (first.size() != second.size()) return std::max(first.size(), second.size());
+  usize differences = 0;
+  for (usize idx = 0; idx < first.size(); ++idx) {
+    if (first[idx] != second[idx]) ++differences;
+  }
+  return differences;
+}
+
+}  // namespace
+
+// Catch2's per-iteration generation drives the cognitive-complexity metric over the project
+// ceiling.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("HammingDist (SIMD) agrees with a scalar reference on random DNA",
+          "[lancet][base][HammingDist]") {
+  // Pinned base seed: sequence pairs are deterministic across runs.
+  static constexpr u64 BASE_SEED = 0x5E'ED'5E'ED'5E'ED'5E'EDULL;
+  static constexpr usize NUM_PROPERTY_ITERATIONS = 200;
+
+  // Const-literal seed is the project's documented determinism convention
+  // (see test_style.md / §A.9). The clang-tidy check is conservatively
+  // designed for production code; in tests, predictability is exactly
+  // what we want.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937_64 length_generator(BASE_SEED);
+  // Lengths chosen to span the SIMD-lane boundaries:
+  //   - well below 16 / 32 (pure scalar tail)
+  //   - exactly at 32 (one full AVX2 lane)
+  //   - 33..64 (one lane + 1..32-byte unaligned tail)
+  //   - 1024 (32 full lanes, no tail)
+  // The bounds are inclusive so 32 and 1024 are reachable.
+  std::uniform_int_distribution<usize> length_picker(1, 1024);
+
+  for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
+    auto const seq_len = length_picker(length_generator);
+    auto const lhs = GenerateRandomDnaSequence(BASE_SEED + (iter * 2));
+    auto const rhs = GenerateRandomDnaSequence(BASE_SEED + (iter * 2) + 1);
+
+    // GenerateRandomDnaSequence yields 5000bp; truncate to seq_len so we
+    // exercise the variable-length path uniformly.
+    auto const lhs_view = std::string_view(lhs).substr(0, seq_len);
+    auto const rhs_view = std::string_view(rhs).substr(0, seq_len);
+
+    auto const simd_result = HammingDist(lhs_view, rhs_view);
+    auto const scalar_result = ScalarHammingDist(lhs_view, rhs_view);
+
+    INFO("iter=" << iter << " seq_len=" << seq_len << " simd=" << simd_result
+                 << " scalar=" << scalar_result);
+    CHECK(simd_result == scalar_result);
+  }
 }
 
 }  // namespace lancet::base::tests
