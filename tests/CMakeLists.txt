@@ -12,6 +12,8 @@ configure_file(test_config.h.inc ${LANCET_TEST_CONFIG_H} @ONLY)
 add_executable(TestLancet2
 		# Layer 1: base — math, repeat, sequence complexity, gzip + tar.gz I/O
 		base/compute_stats_test.cpp
+		base/crash_handler_test.cpp
+		base/eta_timer_test.cpp
 		base/gzip_ostream_test.cpp
 		base/longdust_scorer_test.cpp
 		base/mann_whitney_test.cpp
@@ -19,6 +21,7 @@ add_executable(TestLancet2
 		base/repeat_test.cpp
 		base/sequence_complexity_test.cpp
 		base/tar_gz_writer_test.cpp
+		base/timer_test.cpp
 		# Layer 2: hts — CIGAR, reference, alignment, extractor
 		hts/cigar_utils_test.cpp
 		hts/reference_test.cpp

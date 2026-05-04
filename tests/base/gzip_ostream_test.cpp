@@ -6,6 +6,7 @@
 #include "tests/base/tar_gz_test_helpers.h"
 
 #include <filesystem>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -147,4 +148,50 @@ TEST_CASE("GzipOstream constructor throws when output path can't be opened",
   std::filesystem::remove_all(bogus_path.parent_path().parent_path());
 
   CHECK_THROWS_AS(GzipOstream(bogus_path), std::runtime_error);
+}
+
+TEST_CASE("GzipOstream sink ctor round-trips a payload through an in-memory stringstream",
+          "[lancet][base][GzipOstream]") {
+  // The sink ctor lets tests inspect the gzip wire format without touching
+  // the filesystem. Caller owns the stringstream — Close() flushes the gzip
+  // trailer through but does NOT close the sink itself, so we can read back
+  // the bytes after the GzipOstream goes out of scope.
+  auto const payload = std::string("sink-ctor round-trip — no temp file needed.\n");
+
+  std::stringstream sink(std::ios::in | std::ios::out | std::ios::binary);
+  {
+    GzipOstream gz_out(sink);
+    gz_out.Write(payload);
+  }  // ~GzipOstream flushes via mSink->flush() in this branch.
+
+  // Pull the gzip bytes out of the sink and decompress for comparison.
+  auto const gz_str = sink.str();
+  std::vector<u8> gz_bytes(gz_str.size(), u8{0});
+  // string::data() returns char const*; our buffer is u8 (zlib's `Bytef`) —
+  // layout-compatible bytes.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const* const src_bytes = reinterpret_cast<u8 const*>(gz_str.data());
+  for (usize idx = 0; idx < gz_str.size(); ++idx) gz_bytes[idx] = src_bytes[idx];
+
+  auto const decompressed = lancet::tests::DecompressGzip(gz_bytes);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const* const decompressed_chars = reinterpret_cast<char const*>(decompressed.data());
+  CHECK(std::string(decompressed_chars, decompressed.size()) == payload);
+}
+
+TEST_CASE("GzipOstream sink ctor leaves the caller's sink open after Close",
+          "[lancet][base][GzipOstream]") {
+  // Close() in sink-ctor mode must NOT close the underlying sink — the
+  // caller owns its lifetime. This guards against the sink being prematurely
+  // marked closed (e.g., a regression that reused the path-ctor close path).
+  std::stringstream sink(std::ios::in | std::ios::out | std::ios::binary);
+  {
+    GzipOstream gz_out(sink);
+    gz_out.Write("payload-bytes");
+    gz_out.Close();
+  }
+  // good() iff no fail/bad/eof bits; the sink should still accept further
+  // writes if the caller wanted to append.
+  CHECK(sink.good());
+  CHECK_FALSE(sink.str().empty());
 }
