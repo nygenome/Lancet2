@@ -87,10 +87,6 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde
   - pymdownx.superfences
-not_in_nav: |
-  /PROBE_TRACKING.md
-  /PROFILING.md
-  /STYLE_GUIDE.md
 nav:
   - Getting Started: index.md
   - Usage Guides:
