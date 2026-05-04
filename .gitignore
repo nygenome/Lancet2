@@ -240,12 +240,13 @@ venv.bak/
 
 
 # ----------------------------------------------------------------------------
-# Lancet2 test datasets
+# Lancet2 test datasets and results directory from analyses
 # ----------------------------------------------------------------------------
 # Test BAM/VCF datasets are large; tracked separately from the codebase.
 # The download_test_data.sh script IS tracked so contributors can fetch them.
 
 data/**
+results/**
 !data/download_test_data.sh
 
 
