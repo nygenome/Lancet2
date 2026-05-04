@@ -5,6 +5,7 @@
 #include "lancet/base/types.h"
 
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "spdlog/fmt/bundled/format.h"
 
 #include <algorithm>
@@ -432,6 +433,12 @@ class LongdustQScorer {
     f64 const rev_score = ScoreOneStrand(RevComp(seq));
     return std::max(fwd_score, rev_score);
   }
+
+  /// Read-only view over the precomputed f(ℓ) table. Useful for tests that
+  /// verify the precomputation matches a reference implementation, or that
+  /// assert monotonicity / shape properties of f(ℓ). The span is valid for
+  /// the lifetime of the scorer.
+  [[nodiscard]] auto FTable() const -> absl::Span<f64 const> { return absl::MakeConstSpan(mF); }
 
   // ============================================================================
   // ScoreOneStrand: single-strand complexity score q(x) = Q(x) / ℓ

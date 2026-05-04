@@ -7,14 +7,13 @@
 
 #include <cmath>
 
-using lancet::base::SequenceComplexity;
-using lancet::base::SequenceComplexityScorer;
+namespace lancet::base::tests {
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  PART 1: MaxHomopolymerRun                                               ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("MaxHomopolymerRun: basic cases", "[lancet][base][sequence_complexity]") {
+TEST_CASE("MaxHomopolymerRun: basic cases", "[lancet][base][SequenceComplexityScorer]") {
   CHECK(SequenceComplexityScorer::MaxHomopolymerRun("") == 0);
   CHECK(SequenceComplexityScorer::MaxHomopolymerRun("A") == 1);
   CHECK(SequenceComplexityScorer::MaxHomopolymerRun("ACGT") == 1);
@@ -23,7 +22,7 @@ TEST_CASE("MaxHomopolymerRun: basic cases", "[lancet][base][sequence_complexity]
   CHECK(SequenceComplexityScorer::MaxHomopolymerRun("ATCAAAAAGTC") == 5);
 }
 
-TEST_CASE("MaxHomopolymerRun: full homopolymer", "[lancet][base][sequence_complexity]") {
+TEST_CASE("MaxHomopolymerRun: full homopolymer", "[lancet][base][SequenceComplexityScorer]") {
   CHECK(SequenceComplexityScorer::MaxHomopolymerRun(std::string(50, 'T')) == 50);
 }
 
@@ -31,7 +30,8 @@ TEST_CASE("MaxHomopolymerRun: full homopolymer", "[lancet][base][sequence_comple
 // ║  PART 2: LocalShannonEntropy                                             ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("LocalShannonEntropy: edge and known values", "[lancet][base][sequence_complexity]") {
+TEST_CASE("LocalShannonEntropy: edge and known values",
+          "[lancet][base][SequenceComplexityScorer]") {
   CHECK(SequenceComplexityScorer::LocalShannonEntropy("") == 0.0F);
   CHECK(SequenceComplexityScorer::LocalShannonEntropy("AAAA") == 0.0F);
   CHECK(SequenceComplexityScorer::LocalShannonEntropy("TTTTTTTT") == 0.0F);
@@ -53,7 +53,7 @@ TEST_CASE("LocalShannonEntropy: edge and known values", "[lancet][base][sequence
 // ║  PART 3: Tandem Repeat Detection                                         ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("FindExactRepeats: dinucleotide repeat", "[lancet][base][sequence_complexity]") {
+TEST_CASE("FindExactRepeats: dinucleotide repeat", "[lancet][base][SequenceComplexityScorer]") {
   // ATATATATAT → period=2, copies=5.0, span=10
   auto const results = SequenceComplexityScorer::FindExactRepeats("ATATATATAT");
   REQUIRE(!results.empty());
@@ -74,7 +74,7 @@ TEST_CASE("FindExactRepeats: dinucleotide repeat", "[lancet][base][sequence_comp
   CHECK(best->mTotalErrors == 0);
 }
 
-TEST_CASE("FindExactRepeats: homopolymer", "[lancet][base][sequence_complexity]") {
+TEST_CASE("FindExactRepeats: homopolymer", "[lancet][base][SequenceComplexityScorer]") {
   // AAAAAA → period=1, copies=6.0
   auto const results = SequenceComplexityScorer::FindExactRepeats("AAAAAA");
   REQUIRE(!results.empty());
@@ -90,7 +90,7 @@ TEST_CASE("FindExactRepeats: homopolymer", "[lancet][base][sequence_complexity]"
   CHECK(found_period1);
 }
 
-TEST_CASE("FindExactRepeats: no repeat in random DNA", "[lancet][base][sequence_complexity]") {
+TEST_CASE("FindExactRepeats: no repeat in random DNA", "[lancet][base][SequenceComplexityScorer]") {
   // Short non-repetitive sequence — should find no repeats with min_copies=2.5
   auto const results = SequenceComplexityScorer::FindExactRepeats("ACGTACGA");
   // Even if some results, copies should be low
@@ -100,7 +100,8 @@ TEST_CASE("FindExactRepeats: no repeat in random DNA", "[lancet][base][sequence_
   }
 }
 
-TEST_CASE("FindExactRepeats: primitive motif enforcement", "[lancet][base][sequence_complexity]") {
+TEST_CASE("FindExactRepeats: primitive motif enforcement",
+          "[lancet][base][SequenceComplexityScorer]") {
   // ATATATAT should find AT (period=2) but NOT ATAT (period=4, non-primitive)
   auto const results = SequenceComplexityScorer::FindExactRepeats("ATATATAT");
   for (auto const& rslt : results) {
@@ -116,21 +117,46 @@ TEST_CASE("FindExactRepeats: primitive motif enforcement", "[lancet][base][seque
 // ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("FindApproxRepeats: imperfect trinucleotide repeat",
-          "[lancet][base][sequence_complexity]") {
-  // CAGCAACAGCAG → period=3, ~4 copies, with 1 error (A→A mutation in 2nd copy)
+          "[lancet][base][SequenceComplexityScorer]") {
+  // CAGCAACAGCAG → period=3, ~4 copies, with 1 error (G→A mutation in the 2nd
+  // copy). FindApproxRepeats with `period=3, min_copies=3.0, max_errors=1`
+  // should detect this as an approximate trinucleotide repeat. The previous
+  // version of this test discarded the `found_approx` flag without asserting,
+  // so a regression that silently lost the match would have been invisible.
   auto const results = SequenceComplexityScorer::FindApproxRepeats("CAGCAACAGCAG", 6, 3.0F, 1);
-  // Should find approximate repeat with errors
-  bool found_approx = false;
+
+  // Structural invariants on EVERY returned result (any return shape that
+  // breaks these is a bug, regardless of the algorithm's tuning):
+  //   - period ≥ 1 (period=0 is meaningless)
+  //   - copies ≥ 1.0 (a "repeat" of less than one copy isn't one)
+  //   - span ≥ period (one copy is at least period bases)
+  //   - errors are non-negative
+  //   - purity is in [0, 1]
+  for (auto const& rslt : results) {
+    INFO("period=" << rslt.mPeriod << " copies=" << rslt.mCopies << " span=" << rslt.mSpanLength
+                   << " errors=" << rslt.mTotalErrors);
+    CHECK(rslt.mPeriod >= 1);
+    CHECK(rslt.mCopies >= 1.0F);
+    CHECK(rslt.mSpanLength >= rslt.mPeriod);
+    CHECK(rslt.mTotalErrors >= 0);
+    CHECK(rslt.Purity() >= 0.0F);
+    CHECK(rslt.Purity() <= 1.0F);
+  }
+
+  // The hand-checked semantic claim: with period=3 / min_copies=3.0 /
+  // max_errors=1 over "CAGCAACAGCAG", at least one approximate match should
+  // be returned with period 3 and ≥ 3 copies. Per-match assertions inside
+  // the loop verify the error-count and purity stay within the documented
+  // shape (≥ 1 error counted; purity ≥ 0.75 = 1 − 1/12 worst-case).
+  bool found_approx_period_3 = false;
   for (auto const& rslt : results) {
     if (rslt.mPeriod == 3 && rslt.mCopies >= 3.0F) {
-      found_approx = true;
+      found_approx_period_3 = true;
       CHECK(rslt.mTotalErrors >= 1);
       CHECK(rslt.Purity() >= 0.75F);
     }
   }
-  // Approximate detection may or may not find this depending on exact algorithm
-  // The key test is that FindApproxRepeats doesn't crash and returns valid results
-  (void)found_approx;
+  CHECK(found_approx_period_3);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -138,7 +164,7 @@ TEST_CASE("FindApproxRepeats: imperfect trinucleotide repeat",
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("Score: poly-A variant produces expected context/delta/TR features",
-          "[lancet][base][sequence_complexity]") {
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer;
 
   // 200bp REF haplotype: poly-A centered at 90-110
@@ -167,7 +193,7 @@ TEST_CASE("Score: poly-A variant produces expected context/delta/TR features",
 }
 
 TEST_CASE("Score: non-repetitive REF produces low context scores",
-          "[lancet][base][sequence_complexity]") {
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer;
 
   // Balanced, non-repetitive haplotype
@@ -184,7 +210,8 @@ TEST_CASE("Score: non-repetitive REF produces low context scores",
   CHECK(cplx.DeltaEntropy() == Catch::Approx(0.0F).margin(0.01F));
 }
 
-TEST_CASE("Score: sentinel handling — no TR found → zeros", "[lancet][base][sequence_complexity]") {
+TEST_CASE("Score: sentinel handling — no TR found → zeros",
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer;
 
   // Short non-repetitive haplotype
@@ -203,9 +230,9 @@ TEST_CASE("Score: sentinel handling — no TR found → zeros", "[lancet][base][
 }
 
 TEST_CASE("Score: ScoreMacro matches LongdustQScorer output",
-          "[lancet][base][sequence_complexity]") {
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer(0.5);  // uniform GC for comparison
-  lancet::base::LongdustQScorer const direct_scorer(7, 4096, 0.5);
+  LongdustQScorer const direct_scorer(7, 4096, 0.5);
 
   // Score a repetitive haplotype
   auto const haplotype = std::string(200, 'A');
@@ -221,11 +248,10 @@ TEST_CASE("Score: ScoreMacro matches LongdustQScorer output",
 // ║  PART 5: LongdustQScorer GC-Bias Tests                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("GC-bias: gc_frac=0.5 matches pre-GC behavior",
-          "[lancet][base][longdust_scorer][gc_bias]") {
+TEST_CASE("GC-bias: gc_frac=0.5 matches pre-GC behavior", "[lancet][base][LongdustQScorer]") {
   // gc_frac=0.5 → uniform null model → identical to original formula
-  lancet::base::LongdustQScorer const uniform_scorer(7, 1024, 0.5);
-  lancet::base::LongdustQScorer const default_human(7, 1024, 0.41);
+  LongdustQScorer const uniform_scorer(7, 1024, 0.5);
+  LongdustQScorer const default_human(7, 1024, 0.41);
 
   // Truly random DNA (no periodic structure)
   std::string const random_dna = "GCTAAGGTCCTTGAACGGATTCATAGCCTGAGATTTCAAC"
@@ -235,9 +261,9 @@ TEST_CASE("GC-bias: gc_frac=0.5 matches pre-GC behavior",
 }
 
 TEST_CASE("GC-bias: gc_frac=0.41 lowers AT-rich non-repetitive scores",
-          "[lancet][base][longdust_scorer][gc_bias]") {
-  lancet::base::LongdustQScorer const uniform_scorer(7, 1024, 0.5);
-  lancet::base::LongdustQScorer const human_scorer(7, 1024, 0.41);
+          "[lancet][base][LongdustQScorer]") {
+  LongdustQScorer const uniform_scorer(7, 1024, 0.5);
+  LongdustQScorer const human_scorer(7, 1024, 0.41);
 
   // AT-rich non-repetitive DNA: human scorer should give LOWER score
   // because AT-richness is expected in human genome (gc=0.41 → AT=0.59)
@@ -251,8 +277,8 @@ TEST_CASE("GC-bias: gc_frac=0.41 lowers AT-rich non-repetitive scores",
 }
 
 TEST_CASE("GC-bias: structural repeats still score high with gc=0.41",
-          "[lancet][base][longdust_scorer][gc_bias]") {
-  lancet::base::LongdustQScorer const human_scorer(7, 1024, 0.41);
+          "[lancet][base][LongdustQScorer]") {
+  LongdustQScorer const human_scorer(7, 1024, 0.41);
 
   // Pure poly-A: indisputably repetitive regardless of GC content
   CHECK(human_scorer.Score(std::string(50, 'A')) > 0.5);
@@ -263,12 +289,11 @@ TEST_CASE("GC-bias: structural repeats still score high with gc=0.41",
   CHECK(human_scorer.Score(micro) > 0.5);
 }
 
-TEST_CASE("GC-bias: gc_frac=-1 equivalent to gc_frac=0.5",
-          "[lancet][base][longdust_scorer][gc_bias]") {
+TEST_CASE("GC-bias: gc_frac=-1 equivalent to gc_frac=0.5", "[lancet][base][LongdustQScorer]") {
   // gc_frac is clamped to [0,1], so -1.0 becomes 0.0
   // This is NOT equivalent to 0.5 — it's an extreme AT-bias model.
   // The actual equivalence is: gc_frac=0.5 IS the uniform model.
-  lancet::base::LongdustQScorer const scorer_05(7, 1024, 0.5);
+  LongdustQScorer const scorer_05(7, 1024, 0.5);
 
   // Verify gc_frac=0.5 produces the uniform model
   std::string const test_seq = std::string(100, 'A');
@@ -280,15 +305,15 @@ TEST_CASE("GC-bias: gc_frac=-1 equivalent to gc_frac=0.5",
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("SequenceComplexity::FormatVcfValue: 11 comma-separated values",
-          "[lancet][base][sequence_complexity][format]") {
-  SequenceComplexity cplx;  // default-constructed → all zeros
+          "[lancet][base][SequenceComplexityScorer]") {
+  SequenceComplexity const cplx;  // default-constructed → all zeros
   auto const vcf_val = cplx.FormatVcfValue();
   // 11 values → 10 commas
   CHECK(std::count(vcf_val.begin(), vcf_val.end(), ',') == 10);
 }
 
 TEST_CASE("SequenceComplexity: default-constructed → all zeros",
-          "[lancet][base][sequence_complexity]") {
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexity const cplx;
 
   CHECK(cplx.ContextHRun() == 0);
@@ -304,7 +329,8 @@ TEST_CASE("SequenceComplexity: default-constructed → all zeros",
   CHECK(cplx.IsStutterIndel() == 0);
 }
 
-TEST_CASE("SequenceComplexity::MergeMax: element-wise max", "[lancet][base][sequence_complexity]") {
+TEST_CASE("SequenceComplexity::MergeMax: element-wise max",
+          "[lancet][base][SequenceComplexityScorer]") {
   SequenceComplexityScorer const scorer;
 
   // Two different ALT haplotypes for the same variant
@@ -331,3 +357,5 @@ TEST_CASE("SequenceComplexity::MergeMax: element-wise max", "[lancet][base][sequ
   CHECK(cplx1.ContextHRun() >= cplx2.ContextHRun());
   CHECK(cplx1.DeltaHRun() >= cplx2.DeltaHRun());
 }
+
+}  // namespace lancet::base::tests

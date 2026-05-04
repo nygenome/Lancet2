@@ -5,6 +5,7 @@
 #include "lancet/base/types.h"
 
 #include <filesystem>
+#include <ostream>
 #include <string_view>
 
 namespace lancet::base {
@@ -42,6 +43,13 @@ class TarGzWriter {
   /// exists. Throws on file open or zlib init failure.
   explicit TarGzWriter(std::filesystem::path const& bundle_path, EndOfArchive end_marker_policy,
                        int compression_level = GzipOstream::DEFAULT_COMPRESSION_LEVEL);
+
+  /// Sink ctor: write the tar.gz archive to a caller-owned `std::ostream`.
+  /// Delegates the sink to the internal `GzipOstream`. Useful for tests
+  /// that want to inspect bytes without touching the filesystem. The sink
+  /// must outlive the TarGzWriter.
+  TarGzWriter(std::ostream& sink, EndOfArchive end_marker_policy,
+              int compression_level = GzipOstream::DEFAULT_COMPRESSION_LEVEL);
 
   TarGzWriter(TarGzWriter const&) = delete;
   auto operator=(TarGzWriter const&) -> TarGzWriter& = delete;

@@ -6,11 +6,13 @@
 #include "tests/base/tar_gz_test_helpers.h"
 
 #include <filesystem>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-using lancet::base::GzipOstream;
+namespace lancet::base::tests {
+
 using lancet::tests::DecompressGzip;
 using lancet::tests::MakeFreshScratchDir;
 using lancet::tests::ReadAllBytes;
@@ -34,7 +36,7 @@ namespace {
 
 }  // namespace
 
-TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_short");
   auto const gz_path = scratch_dir / "hello.gz";
 
@@ -45,12 +47,12 @@ TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][gzip_
 }
 
 TEST_CASE("GzipOstream: handles empty stream — gzip header + trailer only",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_empty");
   auto const gz_path = scratch_dir / "empty.gz";
 
   {
-    GzipOstream gz_out(gz_path);
+    GzipOstream const gz_out(gz_path);
   }  // Close() in destructor; deflate(Z_FINISH) emits header + trailer with no payload.
 
   // A gzip stream with zero payload still has the 10-byte header + 8-byte
@@ -63,7 +65,7 @@ TEST_CASE("GzipOstream: handles empty stream — gzip header + trailer only",
 }
 
 TEST_CASE("GzipOstream: concatenates multiple Write() calls correctly",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_multi_write");
   auto const gz_path = scratch_dir / "multi.gz";
 
@@ -91,7 +93,7 @@ TEST_CASE("GzipOstream: concatenates multiple Write() calls correctly",
 }
 
 TEST_CASE("GzipOstream: round-trips a large repetitive payload (compresses well)",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_large");
   auto const gz_path = scratch_dir / "large.gz";
 
@@ -106,7 +108,7 @@ TEST_CASE("GzipOstream: round-trips a large repetitive payload (compresses well)
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_close_idempotent");
   auto const gz_path = scratch_dir / "idempotent.gz";
 
@@ -126,7 +128,7 @@ TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][gzip_ostream]") {
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_write_after_close");
   auto const gz_path = scratch_dir / "post_close.gz";
 
@@ -138,7 +140,7 @@ TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][gzip_ostream]
 }
 
 TEST_CASE("GzipOstream constructor throws when output path can't be opened",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   // A path inside a non-existent directory makes ofstream::open fail.
   auto const bogus_path = std::filesystem::temp_directory_path() /
                           "lancet_gzip_ostream_no_such_dir" /
@@ -148,3 +150,51 @@ TEST_CASE("GzipOstream constructor throws when output path can't be opened",
 
   CHECK_THROWS_AS(GzipOstream(bogus_path), std::runtime_error);
 }
+
+TEST_CASE("GzipOstream sink ctor round-trips a payload through an in-memory stringstream",
+          "[lancet][base][GzipOstream]") {
+  // The sink ctor lets tests inspect the gzip wire format without touching
+  // the filesystem. Caller owns the stringstream — Close() flushes the gzip
+  // trailer through but does NOT close the sink itself, so we can read back
+  // the bytes after the GzipOstream goes out of scope.
+  auto const payload = std::string("sink-ctor round-trip — no temp file needed.\n");
+
+  std::stringstream sink(std::ios::in | std::ios::out | std::ios::binary);
+  {
+    GzipOstream gz_out(sink);
+    gz_out.Write(payload);
+  }  // ~GzipOstream flushes via mSink->flush() in this branch.
+
+  // Pull the gzip bytes out of the sink and decompress for comparison.
+  auto const gz_str = sink.str();
+  std::vector<u8> gz_bytes(gz_str.size(), u8{0});
+  // string::data() returns char const*; our buffer is u8 (zlib's `Bytef`) —
+  // layout-compatible bytes.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const* const src_bytes = reinterpret_cast<u8 const*>(gz_str.data());
+  for (usize idx = 0; idx < gz_str.size(); ++idx) gz_bytes[idx] = src_bytes[idx];
+
+  auto const decompressed = lancet::tests::DecompressGzip(gz_bytes);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const* const decompressed_chars = reinterpret_cast<char const*>(decompressed.data());
+  CHECK(std::string(decompressed_chars, decompressed.size()) == payload);
+}
+
+TEST_CASE("GzipOstream sink ctor leaves the caller's sink open after Close",
+          "[lancet][base][GzipOstream]") {
+  // Close() in sink-ctor mode must NOT close the underlying sink — the
+  // caller owns its lifetime. This guards against the sink being prematurely
+  // marked closed (e.g., a regression that reused the path-ctor close path).
+  std::stringstream sink(std::ios::in | std::ios::out | std::ios::binary);
+  {
+    GzipOstream gz_out(sink);
+    gz_out.Write("payload-bytes");
+    gz_out.Close();
+  }
+  // good() iff no fail/bad/eof bits; the sink should still accept further
+  // writes if the caller wanted to append.
+  CHECK(sink.good());
+  CHECK_FALSE(sink.str().empty());
+}
+
+}  // namespace lancet::base::tests

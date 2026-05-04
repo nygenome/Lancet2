@@ -10,6 +10,11 @@
 
 static constexpr auto FULL_DATA_DIR = "@LANCET_FULL_DATA_DIR@";
 
+// Git-tracked golden-master fixtures committed into the repo
+// at `tests/data/base/`. Distinct from `FULL_DATA_DIR` (multi-GB
+// out-of-band genomic assets fetched via `data/download_test_data.sh`).
+static constexpr auto TESTS_BASE_DATA_DIR = "@LANCET_TESTS_BASE_DATA_DIR@";
+
 static constexpr auto GRCH38_REF_NAME = "GRCh38_full_analysis_set_plus_decoy_hla.fa.gz";
 static constexpr auto CASE_CRAM_NAME = "chr4_with_pairs.HCC1395_SAMN10102573_SRR7890893.cram";
 static constexpr auto CTRL_CRAM_NAME = "chr4_with_pairs.HCC1395BL_SAMN10102574_SRR7890943.cram";

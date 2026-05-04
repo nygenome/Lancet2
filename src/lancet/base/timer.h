@@ -10,15 +10,24 @@ namespace lancet::base {
 
 class Timer {
  public:
-  Timer() : mStartTime(absl::Now()) {}
+  // Function-pointer clock seam. The default ctor wires `&absl::Now`, so
+  // production callers see no behavior change. A test ctor injecting a fixture
+  // clock makes every "now" read inside Runtime/HumanRuntime/Reset deterministic.
+  // A start-time-only seam is insufficient — those methods read the current
+  // time during their work, not at construction.
+  using ClockFn = absl::Time (*)();
 
-  [[nodiscard]] auto Runtime() -> absl::Duration { return absl::Now() - mStartTime; }
+  Timer() : Timer(&absl::Now) {}
+  explicit Timer(ClockFn clock) : mClock(clock), mStartTime(clock()) {}
+
+  [[nodiscard]] auto Runtime() -> absl::Duration { return mClock() - mStartTime; }
   [[nodiscard]] auto HumanRuntime() -> std::string { return absl::FormatDuration(Runtime()); }
 
-  void Reset() { mStartTime = absl::Now(); }
+  void Reset() { mStartTime = mClock(); }
 
  private:
   // ── 8B Align ────────────────────────────────────────────────────────────
+  ClockFn mClock;
   absl::Time mStartTime;
 };
 

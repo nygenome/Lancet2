@@ -2,7 +2,7 @@
 #define SRC_LANCET_BASE_VERSION_H_
 
 #include "lancet_version.h"
-#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 #include <string>
 

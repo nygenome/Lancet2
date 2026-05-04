@@ -475,5 +475,6 @@ Breaking changes produce a dedicated "BREAKING CHANGE" section in the changelog.
 ## Cross-references
 
 - The comment conventions that interact with comment-reflowing rules and the size-annotation convention live in `code_comments.md`.
+- The conventions for adding or editing tests under `tests/` (per-symbol PascalCase tag rule, `namespace lancet::<layer>::tests`, determinism discipline, property-test rules, test-fixture-script layout) live in `test_style.md`.
 - The synchronization rule for keeping code consistent with website docs and dev docs lives in `sync_and_verification.md`.
 - The voice and tone rules for the user-facing website docs are in `website_docs.md` — different audience, different bar.

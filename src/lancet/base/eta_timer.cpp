@@ -1,12 +1,17 @@
 #include "lancet/base/eta_timer.h"
 
+#include "lancet/base/timer.h"
 #include "lancet/base/types.h"
 
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 
 namespace lancet::base {
 
-EtaTimer::EtaTimer(usize const num_iterations) : mNumTotal(num_iterations) {}
+EtaTimer::EtaTimer(usize const num_iterations) : EtaTimer(num_iterations, &absl::Now) {}
+
+EtaTimer::EtaTimer(usize const num_iterations, Timer::ClockFn const clock)
+    : mProgressTimer(clock), mNumTotal(num_iterations) {}
 
 void EtaTimer::Increment() {
   mNumDone++;

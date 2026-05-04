@@ -61,17 +61,58 @@ The script's outline:
 3. Validate per-profile env vars and data-file existence.
 4. Run the germline stage; capture variant counts.
 5. Run the somatic stage; capture variant counts.
-6. Print a summary table with both stages' result, wall time,
-   total variants, and PASS variants.
+6. Print a summary table with both stages' result, wall time, and
+   raw variant count. PASS/FAIL filtering is downstream-only — Lancet2
+   emits FILTER="." on every record by design — so no PASS column.
+7. Print an "ARTIFACT MANIFEST:" line followed by the per-stage VCF
+   output paths, their `.tbi` indexes, and the per-stage tee'd log
+   files. The manifest path itself is the file at
+   `/tmp/lancet2_e2e_artifacts_<run_ts>.list`.
 
 Stages skip cleanly with a `skipped` rather than `fail` status
 if their required env vars are unset or data files are absent.
 
+**Post-run cleanup prompt (mandatory).** After the script returns,
+the assistant MUST parse the `ARTIFACT MANIFEST:` line from the
+script's output, locate the manifest file, and ask the user via
+the `AskUserQuestion` tool whether to delete the listed artifacts.
+This step exists because:
+
+- The script does NOT auto-delete its `/tmp/` outputs. Multi-GB VCFs
+  or tens-of-MBs log files would otherwise vanish on the next OS
+  /tmp-reaper sweep without the developer being asked.
+- A subset of post-run analyses (truth-set comparison, profile
+  attribution, debug archaeology) explicitly need the artifacts to
+  remain. The default answer is "cleanup" because the common case
+  is a smoke-test run, but the prompt MUST be presented so the
+  developer can opt out.
+
+The `AskUserQuestion` shape:
+
+- `question`: "Clean up the e2e artifacts listed above?"
+- `multiSelect`: false
+- `options`:
+  - `Yes, delete them all` — `rm -f` each path in the manifest, then
+    `rm -f` the manifest file itself. Skip paths that no longer exist.
+  - `Keep, I need them for analysis` — leave every file in place and
+    print the manifest path so the developer can act later.
+
+The deletions go through the project's `block_dangerous_bash` hook,
+so each `rm` must use an absolute path. `/tmp/` is in the hook's
+approved deletion roots; pass each path on its own command, not via
+glob expansion.
+
 ## What the user sees
 
 A successful run prints two stage banners with file paths and
-elapsed wall times, then a final summary table. A skipped stage
-shows `skipped` so the developer can tell apart missing-data
+elapsed wall times, live per-window EtaTimer progress (the script
+uses `tee` so progress is visible while the stage runs, not just
+at completion), a final summary table, and an artifact manifest
+listing the VCFs / indexes / per-stage logs the run produced.
+
+The run ends with a single `AskUserQuestion` prompt asking the
+developer whether to clean up the manifest's contents. A skipped
+stage shows `skipped` so the developer can tell apart missing-data
 situations from real failures.
 
 ## Maintenance

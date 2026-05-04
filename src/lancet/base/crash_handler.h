@@ -64,6 +64,39 @@ void SetSlotWindowInfo(CrashSlotIdx slot_idx, u64 genome_idx, char const* region
 /// Clear a slot after ProcessWindow() completes (marks thread as idle).
 void ClearSlotWindowInfo(CrashSlotIdx slot_idx);
 
+/// RAII wrapper around `RegisterThreadSlot` / `UnregisterThreadSlot`.
+/// Construct on a worker thread to claim a crash-context slot; destruct
+/// (typically at thread exit) to release it. The free-function API
+/// continues to exist for call sites that already manage the slot lifetime
+/// directly; new call sites should prefer this scope guard so a return
+/// path or thrown exception can't leak the slot.
+class CrashContextScope {
+ public:
+  CrashContextScope() : mSlotIdx(RegisterThreadSlot()) {}
+
+  ~CrashContextScope() {
+    if (mSlotIdx != INVALID_CRASH_SLOT) {
+      UnregisterThreadSlot(mSlotIdx);
+    }
+  }
+
+  CrashContextScope(CrashContextScope const&) = delete;
+  auto operator=(CrashContextScope const&) -> CrashContextScope& = delete;
+  CrashContextScope(CrashContextScope&&) noexcept = delete;
+  auto operator=(CrashContextScope&&) noexcept -> CrashContextScope& = delete;
+
+  /// The slot index assigned to the calling thread, or INVALID_CRASH_SLOT
+  /// if all slots were occupied at construction time. Callers pass this
+  /// index to SetSlotWindowInfo / ClearSlotWindowInfo.
+  [[nodiscard]] auto SlotIdx() const noexcept -> CrashSlotIdx { return mSlotIdx; }
+
+  /// True iff a slot was successfully claimed.
+  [[nodiscard]] auto IsValid() const noexcept -> bool { return mSlotIdx != INVALID_CRASH_SLOT; }
+
+ private:
+  CrashSlotIdx mSlotIdx;
+};
+
 }  // namespace lancet::base
 
 #endif  // SRC_LANCET_BASE_CRASH_HANDLER_H_

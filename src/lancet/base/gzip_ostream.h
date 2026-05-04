@@ -40,9 +40,18 @@ class GzipOstream {
   /// Open `path` for writing (truncates if exists). Initialises a zlib-ng
   /// `z_stream` with `windowBits = 15 + 16` so deflate emits gzip-format
   /// output (header + trailer auto-managed). Throws on file open failure
-  /// or zlib init error.
+  /// or zlib init error. Internally opens a `std::ofstream` and forwards
+  /// to the sink ctor below.
   explicit GzipOstream(std::filesystem::path const& path,
                        int compression_level = DEFAULT_COMPRESSION_LEVEL);
+
+  /// Sink ctor: write the gzip stream to a caller-owned `std::ostream`.
+  /// Useful for tests (write into a `std::stringstream` and inspect the
+  /// bytes without touching the filesystem) and for any caller that already
+  /// has an open ostream. The sink must outlive the GzipOstream. Close()
+  /// flushes the gzip trailer through the sink but does NOT close the sink
+  /// itself — that lifetime stays with the caller.
+  explicit GzipOstream(std::ostream& sink, int compression_level = DEFAULT_COMPRESSION_LEVEL);
 
   GzipOstream(GzipOstream const&) = delete;
   auto operator=(GzipOstream const&) -> GzipOstream& = delete;
@@ -62,18 +71,27 @@ class GzipOstream {
   void Close();
 
  private:
+  /// Initialise the zlib `z_stream` for gzip output at `compression_level`.
+  /// Called from both ctors after the sink is wired up.
+  void InitDeflateStream(int compression_level);
+
   /// Drive the deflate inner loop with `flush_mode` (typically Z_NO_FLUSH
   /// during writes, Z_FINISH on close). Drains the deflate output buffer
-  /// to the backing file as it fills. Returns when zlib has consumed all
+  /// to the backing sink as it fills. Returns when zlib has consumed all
   /// pending input AND (for Z_FINISH) has emitted Z_STREAM_END.
   void DeflateLoopAndDrain(int flush_mode);
 
   /// Helper: write `byte_count` bytes from `mDeflateOutBuf` to the
-  /// underlying ofstream.
+  /// underlying sink (via `mSink`).
   void DrainDeflateBuffer(usize byte_count);
 
   // ── 8B Align ────────────────────────────────────────────────────────────
-  std::ofstream mOutputStream;
+  // Path-ctor mode: `mOwnedFile` is the open backing ofstream and `mSink`
+  // points at it. Sink-ctor mode: `mOwnedFile` stays unopened; `mSink`
+  // points at the caller's ostream. Close() inspects `mOwnedFile.is_open()`
+  // to decide whether to close (path ctor) or just flush (sink ctor).
+  std::ofstream mOwnedFile;
+  std::ostream* mSink = nullptr;
   z_stream mDeflateStream{};
   std::vector<u8> mDeflateOutBuf;  // 64 KiB reusable scratch
 

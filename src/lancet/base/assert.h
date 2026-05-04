@@ -2,7 +2,7 @@
 #define SRC_LANCET_BASE_ASSERT_H_
 
 #ifdef LANCET_DEBUG_MODE
-#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 
 #include <source_location>
 #include <stdexcept>

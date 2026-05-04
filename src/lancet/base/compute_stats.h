@@ -9,7 +9,6 @@
 #include <concepts>
 #include <limits>
 #include <numeric>
-#include <ranges>
 #include <vector>
 
 #include <cmath>

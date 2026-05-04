@@ -32,20 +32,29 @@ static constexpr int GZIP_WINDOW_BITS = MAX_WBITS + 16;
 static constexpr int DEFLATE_MEM_LEVEL = 8;
 
 GzipOstream::GzipOstream(std::filesystem::path const& path, int const compression_level)
-    : mOutputStream(path, std::ios::binary | std::ios::trunc),
+    : mOwnedFile(path, std::ios::binary | std::ios::trunc),
       mDeflateOutBuf(DEFLATE_OUTPUT_BUFFER_BYTES, u8{0}) {
-  if (!mOutputStream.is_open()) {
+  if (!mOwnedFile.is_open()) {
     throw std::runtime_error(
         fmt::format("GzipOstream: failed to open output file: {}", path.string()));
   }
+  mSink = &mOwnedFile;
+  InitDeflateStream(compression_level);
+}
 
+GzipOstream::GzipOstream(std::ostream& sink, int const compression_level)
+    : mSink(&sink), mDeflateOutBuf(DEFLATE_OUTPUT_BUFFER_BYTES, u8{0}) {
+  InitDeflateStream(compression_level);
+}
+
+void GzipOstream::InitDeflateStream(int const compression_level) {
   // mDeflateStream is value-initialised in the class body, which zeroes
   // every field (including zalloc/zfree/opaque, equivalent to Z_NULL).
   auto const init_result = deflateInit2(&mDeflateStream, compression_level, Z_DEFLATED,
                                         GZIP_WINDOW_BITS, DEFLATE_MEM_LEVEL, Z_DEFAULT_STRATEGY);
   if (init_result != Z_OK) {
-    throw std::runtime_error(fmt::format("GzipOstream: deflateInit2 failed for {} with code {}",
-                                         path.string(), init_result));
+    throw std::runtime_error(
+        fmt::format("GzipOstream: deflateInit2 failed with code {}", init_result));
   }
 }
 
@@ -95,9 +104,15 @@ void GzipOstream::Close() {
         fmt::format("GzipOstream::Close: deflateEnd failed with code {}", end_result));
   }
 
-  mOutputStream.close();
-  if (mOutputStream.fail() && !mOutputStream.eof()) {
-    throw std::runtime_error("GzipOstream::Close: ofstream close reported failure");
+  // Path-ctor mode: we own the backing file — close it. Sink-ctor mode:
+  // the caller owns the sink — only flush the gzip trailer through.
+  if (mOwnedFile.is_open()) {
+    mOwnedFile.close();
+    if (mOwnedFile.fail() && !mOwnedFile.eof()) {
+      throw std::runtime_error("GzipOstream::Close: ofstream close reported failure");
+    }
+  } else if (mSink != nullptr) {
+    mSink->flush();
   }
   mIsClosed = true;
 }
@@ -139,13 +154,13 @@ void GzipOstream::DeflateLoopAndDrain(int const flush_mode) {
 }
 
 void GzipOstream::DrainDeflateBuffer(usize const byte_count) {
-  // ofstream::write takes char const*; the deflate output buffer is u8 (zlib `Bytef`).
+  // ostream::write takes char const*; the deflate output buffer is u8 (zlib `Bytef`).
   // The two byte-pointer types are layout-compatible but distinct under strict aliasing.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const* const buffer_as_chars = reinterpret_cast<char const*>(mDeflateOutBuf.data());
-  mOutputStream.write(buffer_as_chars, static_cast<std::streamsize>(byte_count));
-  if (!mOutputStream.good()) {
-    throw std::runtime_error("GzipOstream: ofstream::write failed mid-stream");
+  mSink->write(buffer_as_chars, static_cast<std::streamsize>(byte_count));
+  if (!mSink->good()) {
+    throw std::runtime_error("GzipOstream: ostream::write failed mid-stream");
   }
 }
 

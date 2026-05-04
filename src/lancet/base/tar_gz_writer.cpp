@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -192,6 +193,10 @@ void SplitPathIntoNameAndPrefix(std::string_view const entry_path, std::string_v
 TarGzWriter::TarGzWriter(std::filesystem::path const& bundle_path,
                          EndOfArchive const end_marker_policy, int const compression_level)
     : mOutputSink(bundle_path, compression_level), mEndMarkerPolicy(end_marker_policy) {}
+
+TarGzWriter::TarGzWriter(std::ostream& sink, EndOfArchive const end_marker_policy,
+                         int const compression_level)
+    : mOutputSink(sink, compression_level), mEndMarkerPolicy(end_marker_policy) {}
 
 TarGzWriter::~TarGzWriter() {
   // Best-effort close. See GzipOstream::~GzipOstream for the same
