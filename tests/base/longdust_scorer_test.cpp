@@ -3,6 +3,7 @@
 #include "lancet/base/types.h"
 #include "lancet/hts/reference.h"
 
+#include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 #include "lancet_test_config.h"
 
@@ -369,6 +370,55 @@ TEST_CASE("FormatComplexityScores: comma-separated output", "[lancet][base][Long
 TEST_CASE("Longdust k-mer size constants", "[lancet][base][LongdustQScorer]") {
   CHECK(lancet::base::LONGDUST_FLANK_K == 4);
   CHECK(lancet::base::LONGDUST_HAPLOTYPE_K == 7);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  FTable accessor                                                         ║
+// ║                                                                          ║
+// ║  PrecomputeF fills mF[ℓ] for ℓ ∈ [0, max_len]. The accessor exposes the  ║
+// ║  table for property tests that verify the precomputation matches a       ║
+// ║  reference or assert shape invariants. mF[0] is the empty-sequence       ║
+// ║  baseline and must be 0; the table grows with ℓ but slowly because each  ║
+// ║  step adds the expected log-factorial under a Poisson(λ=ℓ/4^k) null.     ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+TEST_CASE("FTable returns a span of size max_len + 1", "[lancet][base][LongdustQScorer]") {
+  // Default ctor uses max_len=1024 → table size 1025 (indices [0, 1024]).
+  lancet::base::LongdustQScorer const scorer;
+  auto const ftable = scorer.FTable();
+  CHECK(ftable.size() == 1024U + 1U);
+}
+
+TEST_CASE("FTable returns a span of explicit max_len + 1", "[lancet][base][LongdustQScorer]") {
+  // Explicit max_len exercises the resize path in PrecomputeF.
+  lancet::base::LongdustQScorer const scorer(7, 256, 0.5);
+  auto const ftable = scorer.FTable();
+  CHECK(ftable.size() == 256U + 1U);
+}
+
+TEST_CASE("FTable[0] is 0 (empty-sequence baseline)", "[lancet][base][LongdustQScorer]") {
+  // PrecomputeF skips index 0 (the loop starts at 1) and the vector is
+  // resized with a default value of 0 — so mF[0] must read back as 0.
+  lancet::base::LongdustQScorer const scorer(7, 64, 0.5);
+  auto const ftable = scorer.FTable();
+  REQUIRE(!ftable.empty());
+  CHECK(ftable[0] == Catch::Approx(0.0).margin(1e-12));
+}
+
+TEST_CASE("FTable values are non-negative and non-decreasing", "[lancet][base][LongdustQScorer]") {
+  // f(ℓ) is the expected Σ log(c!) under Poisson(λ=ℓ/4^k). Both factors are
+  // non-negative; adding one more k-mer can only add non-negative expected
+  // log-factorial mass. A regression that broke the Stirling/series path or
+  // mixed up the sign would fail this shape invariant.
+  lancet::base::LongdustQScorer const scorer(7, 512, 0.5);
+  auto const ftable = scorer.FTable();
+  for (usize idx = 0; idx < ftable.size(); ++idx) {
+    INFO("idx=" << idx);
+    CHECK(ftable[idx] >= 0.0);
+    if (idx > 0) {
+      CHECK(ftable[idx] >= ftable[idx - 1]);
+    }
+  }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
