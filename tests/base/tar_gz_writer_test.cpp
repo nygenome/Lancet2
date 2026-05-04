@@ -12,7 +12,8 @@
 #include <string>
 #include <vector>
 
-using lancet::base::TarGzWriter;
+namespace lancet::base::tests {
+
 using lancet::tests::DecompressGzip;
 using lancet::tests::HasEndOfArchiveMarker;
 using lancet::tests::MakeFreshScratchDir;
@@ -271,3 +272,5 @@ TEST_CASE("TarGzWriter sink ctor round-trips an entry through an in-memory strin
   CHECK(parsed_entries[0].mContents == "no temp file needed");
   CHECK(HasEndOfArchiveMarker(decompressed));
 }
+
+}  // namespace lancet::base::tests

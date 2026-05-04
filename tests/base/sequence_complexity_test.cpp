@@ -7,8 +7,7 @@
 
 #include <cmath>
 
-using lancet::base::SequenceComplexity;
-using lancet::base::SequenceComplexityScorer;
+namespace lancet::base::tests {
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  PART 1: MaxHomopolymerRun                                               ║
@@ -119,20 +118,45 @@ TEST_CASE("FindExactRepeats: primitive motif enforcement",
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("FindApproxRepeats: imperfect trinucleotide repeat",
           "[lancet][base][SequenceComplexityScorer]") {
-  // CAGCAACAGCAG → period=3, ~4 copies, with 1 error (A→A mutation in 2nd copy)
+  // CAGCAACAGCAG → period=3, ~4 copies, with 1 error (G→A mutation in the 2nd
+  // copy). FindApproxRepeats with `period=3, min_copies=3.0, max_errors=1`
+  // should detect this as an approximate trinucleotide repeat. The previous
+  // version of this test discarded the `found_approx` flag without asserting,
+  // so a regression that silently lost the match would have been invisible.
   auto const results = SequenceComplexityScorer::FindApproxRepeats("CAGCAACAGCAG", 6, 3.0F, 1);
-  // Should find approximate repeat with errors
-  bool found_approx = false;
+
+  // Structural invariants on EVERY returned result (any return shape that
+  // breaks these is a bug, regardless of the algorithm's tuning):
+  //   - period ≥ 1 (period=0 is meaningless)
+  //   - copies ≥ 1.0 (a "repeat" of less than one copy isn't one)
+  //   - span ≥ period (one copy is at least period bases)
+  //   - errors are non-negative
+  //   - purity is in [0, 1]
+  for (auto const& rslt : results) {
+    INFO("period=" << rslt.mPeriod << " copies=" << rslt.mCopies << " span=" << rslt.mSpanLength
+                   << " errors=" << rslt.mTotalErrors);
+    CHECK(rslt.mPeriod >= 1);
+    CHECK(rslt.mCopies >= 1.0F);
+    CHECK(rslt.mSpanLength >= rslt.mPeriod);
+    CHECK(rslt.mTotalErrors >= 0);
+    CHECK(rslt.Purity() >= 0.0F);
+    CHECK(rslt.Purity() <= 1.0F);
+  }
+
+  // The hand-checked semantic claim: with period=3 / min_copies=3.0 /
+  // max_errors=1 over "CAGCAACAGCAG", at least one approximate match should
+  // be returned with period 3 and ≥ 3 copies. Per-match assertions inside
+  // the loop verify the error-count and purity stay within the documented
+  // shape (≥ 1 error counted; purity ≥ 0.75 = 1 − 1/12 worst-case).
+  bool found_approx_period_3 = false;
   for (auto const& rslt : results) {
     if (rslt.mPeriod == 3 && rslt.mCopies >= 3.0F) {
-      found_approx = true;
+      found_approx_period_3 = true;
       CHECK(rslt.mTotalErrors >= 1);
       CHECK(rslt.Purity() >= 0.75F);
     }
   }
-  // Approximate detection may or may not find this depending on exact algorithm
-  // The key test is that FindApproxRepeats doesn't crash and returns valid results
-  (void)found_approx;
+  CHECK(found_approx_period_3);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -282,7 +306,7 @@ TEST_CASE("GC-bias: gc_frac=-1 equivalent to gc_frac=0.5", "[lancet][base][Longd
 
 TEST_CASE("SequenceComplexity::FormatVcfValue: 11 comma-separated values",
           "[lancet][base][SequenceComplexityScorer]") {
-  SequenceComplexity cplx;  // default-constructed → all zeros
+  SequenceComplexity const cplx;  // default-constructed → all zeros
   auto const vcf_val = cplx.FormatVcfValue();
   // 11 values → 10 commas
   CHECK(std::count(vcf_val.begin(), vcf_val.end(), ',') == 10);
@@ -333,3 +357,5 @@ TEST_CASE("SequenceComplexity::MergeMax: element-wise max",
   CHECK(cplx1.ContextHRun() >= cplx2.ContextHRun());
   CHECK(cplx1.DeltaHRun() >= cplx2.DeltaHRun());
 }
+
+}  // namespace lancet::base::tests

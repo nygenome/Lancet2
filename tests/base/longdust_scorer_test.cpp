@@ -24,6 +24,8 @@
 #include "base/longdust_test_helpers.h"
 #include "longdust.h"
 
+namespace lancet::base::tests {
+
 namespace {
 
 // ── Shared constants & helpers ──────────────────────────────────────────────
@@ -501,10 +503,22 @@ TEST_CASE("FTable values are non-negative and non-decreasing", "[lancet][base][L
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
           "[lancet][base][LongdustQScorer]") {
+  // The CHM13 reference and the calibration TSV are intentionally out-of-band
+  // fixtures (multi-GB genome assets distributed via the project's
+  // `data/download_test_data.sh`). When they are absent, SKIP with an
+  // explicit reason so CI logs and developer terminals show *why* this case
+  // didn't run — rather than a silent `return;` that looks like a pass and
+  // a `REQUIRE(exists)` that looks like a real failure.
   auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
-  REQUIRE(std::filesystem::exists(ref_path));
+  if (!std::filesystem::exists(ref_path)) {
+    SKIP("calibration reference not present at " << ref_path.string()
+                                                 << " — run data/download_test_data.sh");
+  }
   auto const tsv_path = MakePath(FULL_DATA_DIR, CALIBRATION_TSV);
-  REQUIRE(std::filesystem::exists(tsv_path));
+  if (!std::filesystem::exists(tsv_path)) {
+    SKIP("calibration TSV not present at " << tsv_path.string()
+                                           << " — run data/download_test_data.sh");
+  }
 
   lancet::hts::Reference const ref(ref_path);
   lancet::base::LongdustQScorer const scorer(7, 10'001);
@@ -521,3 +535,5 @@ TEST_CASE("Calibration: multi-scale scores across all annotation sources",
     }
   }
 }
+
+}  // namespace lancet::base::tests

@@ -11,7 +11,8 @@
 #include <string>
 #include <vector>
 
-using lancet::base::GzipOstream;
+namespace lancet::base::tests {
+
 using lancet::tests::DecompressGzip;
 using lancet::tests::MakeFreshScratchDir;
 using lancet::tests::ReadAllBytes;
@@ -51,7 +52,7 @@ TEST_CASE("GzipOstream: handles empty stream — gzip header + trailer only",
   auto const gz_path = scratch_dir / "empty.gz";
 
   {
-    GzipOstream gz_out(gz_path);
+    GzipOstream const gz_out(gz_path);
   }  // Close() in destructor; deflate(Z_FINISH) emits header + trailer with no payload.
 
   // A gzip stream with zero payload still has the 10-byte header + 8-byte
@@ -195,3 +196,5 @@ TEST_CASE("GzipOstream sink ctor leaves the caller's sink open after Close",
   CHECK(sink.good());
   CHECK_FALSE(sink.str().empty());
 }
+
+}  // namespace lancet::base::tests
