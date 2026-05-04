@@ -51,14 +51,14 @@ set_property(TARGET TestLancet2 PROPERTY $<$<ENABLE_LTO>:INTERPROCEDURAL_OPTIMIZ
 
 # ── Standalone Longdust tools (calibration utilities) ─────────────────────────
 # Score computation tool: reads BAM regions, outputs scored TSV
-add_executable(ScoreRegionLongdust base/score_region_longdust.cpp)
+add_executable(ScoreRegionLongdust tools/score_region_longdust.cpp)
 target_include_directories(ScoreRegionLongdust PRIVATE "${CMAKE_BINARY_DIR}/generated" "${CMAKE_SOURCE_DIR}")
 target_link_libraries(ScoreRegionLongdust
 		PRIVATE lancet_hts concurrentqueue absl::btree absl::fixed_array absl::strings absl::synchronization)
 set_target_properties(ScoreRegionLongdust PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 # Score analysis tool: reads scored TSV, generates aggregate statistics
-add_executable(AnalyzeLongdustScores base/analyze_longdust_scores.cpp)
+add_executable(AnalyzeLongdustScores tools/analyze_longdust_scores.cpp)
 target_include_directories(AnalyzeLongdustScores PRIVATE "${CMAKE_BINARY_DIR}/generated" "${CMAKE_SOURCE_DIR}")
 target_link_libraries(AnalyzeLongdustScores PRIVATE lancet_hts absl::btree absl::flat_hash_set absl::strings)
 set_target_properties(AnalyzeLongdustScores PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
