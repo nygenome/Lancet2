@@ -33,6 +33,30 @@ done
 
 set +e
 
+# ── Artifact manifest ─────────────────────────────────────────────────────
+# Every path the script writes to /tmp during this run gets recorded here.
+# Reasons (a) so the developer can clean up explicitly rather than waiting
+# for the OS's /tmp reaper to silently delete a multi-GB VCF after a few
+# days, (b) so the post-run AskUserQuestion step (handled by Claude per
+# `.claude/commands/e2e-pipeline-test.md`) has a single source of truth
+# for which files are eligible for cleanup, and (c) so a developer who
+# wants to keep the artifacts for further analysis (truth-set comparison,
+# pprof attribution, etc.) gets an explicit list to copy-paste.
+LANCET_E2E_RUN_TS=$(date +%s)
+LANCET_E2E_MANIFEST="/tmp/lancet2_e2e_artifacts_${LANCET_E2E_RUN_TS}.list"
+: > "$LANCET_E2E_MANIFEST"
+echo "Artifact manifest: $LANCET_E2E_MANIFEST (paths appended as the run progresses)"
+
+record_artifact() {
+  # Args: one path per call. Filters out empty strings and already-recorded
+  # entries so the manifest stays a clean deduplicated list.
+  local path="$1"
+  [ -z "$path" ] && return 0
+  if ! grep -Fxq -- "$path" "$LANCET_E2E_MANIFEST" 2>/dev/null; then
+    printf '%s\n' "$path" >> "$LANCET_E2E_MANIFEST"
+  fi
+}
+
 # ── Thread budget ─────────────────────────────────────────────────────────
 # Use 2/3 of the machine's logical cores rather than all of them. Saturating
 # every core makes the workstation unresponsive while the test runs and gives
@@ -110,10 +134,21 @@ run_germline() {
   echo "Reference: $LANCET_TEST_GERMLINE_REFERENCE"
   echo "Region:    $LANCET_TEST_GERMLINE_REGION"
 
-  local out_vcf=/tmp/lancet2_e2e_germline_$(date +%s).vcf.gz
+  local out_vcf stage_log
+  out_vcf=/tmp/lancet2_e2e_germline_${LANCET_E2E_RUN_TS}.vcf.gz
+  stage_log=/tmp/lancet2_e2e_germline_${LANCET_E2E_RUN_TS}.log
+  record_artifact "$out_vcf"
+  record_artifact "${out_vcf}.tbi"
+  record_artifact "$stage_log"
   echo "Output:    $out_vcf"
+  echo "Log:       $stage_log"
   echo ""
 
+  # `tee` streams Lancet2's progress lines (per-window EtaTimer ticks,
+  # SKIPPED/FOUND breakdown, PeakRSS) to stdout in real time AND mirrors
+  # the same content into $stage_log for postmortem inspection. The
+  # previous `| tail -10` buffered everything until the stage ended,
+  # losing all live visibility.
   local start end elapsed
   start=$(date +%s)
   ./cmake-build-release/Lancet2 pipeline \
@@ -121,7 +156,7 @@ run_germline() {
     --reference "$LANCET_TEST_GERMLINE_REFERENCE" \
     --region "$LANCET_TEST_GERMLINE_REGION" \
     --num-threads "$LANCET_E2E_NUM_THREADS" \
-    --out-vcfgz "$out_vcf" 2>&1 | tail -10
+    --out-vcfgz "$out_vcf" 2>&1 | tee "$stage_log"
   rc=${PIPESTATUS[0]}
   end=$(date +%s); elapsed=$((end - start))
 
@@ -162,10 +197,18 @@ run_somatic() {
   echo "Reference: $LANCET_TEST_SOMATIC_REFERENCE"
   echo "Region:    $LANCET_TEST_SOMATIC_REGION"
 
-  local out_vcf=/tmp/lancet2_e2e_somatic_$(date +%s).vcf.gz
+  local out_vcf stage_log
+  out_vcf=/tmp/lancet2_e2e_somatic_${LANCET_E2E_RUN_TS}.vcf.gz
+  stage_log=/tmp/lancet2_e2e_somatic_${LANCET_E2E_RUN_TS}.log
+  record_artifact "$out_vcf"
+  record_artifact "${out_vcf}.tbi"
+  record_artifact "$stage_log"
   echo "Output:    $out_vcf"
+  echo "Log:       $stage_log"
   echo ""
 
+  # See germline path for the rationale on `tee`-vs-`tail` for live
+  # progress capture.
   local start end elapsed
   start=$(date +%s)
   ./cmake-build-release/Lancet2 pipeline \
@@ -174,7 +217,7 @@ run_somatic() {
     --reference "$LANCET_TEST_SOMATIC_REFERENCE" \
     --region "$LANCET_TEST_SOMATIC_REGION" \
     --num-threads "$LANCET_E2E_NUM_THREADS" \
-    --out-vcfgz "$out_vcf" 2>&1 | tail -10
+    --out-vcfgz "$out_vcf" 2>&1 | tee "$stage_log"
   rc=${PIPESTATUS[0]}
   end=$(date +%s); elapsed=$((end - start))
 
@@ -214,6 +257,32 @@ case $SOMATIC_RC in
    *) printf "  %-10s %-12s %12s %12s\n" "somatic" "fail($SOMATIC_RC)" "$SOMATIC_ELAPSED" "$SOMATIC_TOTAL" ;;
 esac
 echo "──────────────────────────────────────────────────────────────"
+
+# Surface the artifact manifest in a clearly-marked block so the post-run
+# AskUserQuestion step (driven by the Claude command spec at
+# `.claude/commands/e2e-pipeline-test.md`) has a stable anchor to parse.
+# The literal "ARTIFACT MANIFEST:" prefix is matched by that step — do
+# not change without updating the command spec.
+echo ""
+echo "─── /e2e-pipeline-test artifacts ───────────────────────────────"
+echo "ARTIFACT MANIFEST: $LANCET_E2E_MANIFEST"
+if [ -s "$LANCET_E2E_MANIFEST" ]; then
+  while IFS= read -r path; do
+    if [ -e "$path" ]; then
+      printf "  %-7s  %s\n" "exists" "$path"
+    else
+      printf "  %-7s  %s\n" "missing" "$path"
+    fi
+  done < "$LANCET_E2E_MANIFEST"
+else
+  echo "  (no artifacts recorded)"
+fi
+echo "──────────────────────────────────────────────────────────────"
+echo ""
+echo "These files are NOT auto-deleted. The Claude post-run hook will ask"
+echo "via AskUserQuestion whether to clean them up. Default answer: yes."
+echo "Reply 'keep' if a follow-up analysis (truth-set comparison, profile"
+echo "attribution, debug session) needs them."
 
 if [ $GERMLINE_RC -gt 0 ] || [ $SOMATIC_RC -gt 0 ]; then
   exit 1
