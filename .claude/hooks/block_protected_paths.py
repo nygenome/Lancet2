@@ -14,7 +14,15 @@ hook AND settings.json's permissions.deny block reference it. The
 
 Protocol:
 - Reads tool input as JSON on stdin.
-- Exits 2 (deny) if the proposed file_path matches any protected pattern.
+- Resolves the proposed `file_path` relative to `project_root()` and substring-
+  matches each protected pattern against the relative form. Edits inside a
+  `.worktrees/<branch>/` checkout — the project's recommended workflow per
+  `AGENTS.md` — therefore do not false-positive on the `.worktrees/` pattern,
+  while edits from the main checkout into a sibling worktree still match
+  (`.worktrees/<branch>/...` is the relative form there). Paths outside
+  `project_root()` fall through to the absolute form so the hook stays
+  conservative on unexpected inputs.
+- Exits 2 (deny) if a pattern matches.
 - Exits 0 (allow) otherwise, including on protocol errors (fail-open).
 """
 import json
@@ -83,8 +91,22 @@ def main() -> int:
         # command catches the missing file as a separate concern.
         return 0
 
+    # Match against the path RELATIVE to project_root so that operating *inside*
+    # a `.worktrees/<branch>/` checkout doesn’t false-positive on the
+    # `.worktrees/` pattern. That pattern is meant to block reaching across
+    # worktrees from the MAIN checkout, not to block edits to a worktree’s
+    # own files. When the current project root IS a worktree, files under it
+    # have no `.worktrees/` segment in their relative form — that is the
+    # principled match. Files outside project_root fall through to the
+    # absolute path so the hook stays conservative on unexpected inputs.
+    root = project_root().resolve()
+    try:
+        rel_path = str(Path(file_path).resolve().relative_to(root))
+    except ValueError:
+        rel_path = file_path
+
     for pattern in protected:
-        if pattern in file_path:
+        if pattern in rel_path:
             print(
                 f"BLOCKED: {file_path} matches protected pattern "
                 f"'{pattern}'.\n"

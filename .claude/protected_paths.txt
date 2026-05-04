@@ -5,9 +5,13 @@
 #
 #   1. .claude/hooks/block_protected_paths.py — the PreToolUse hook
 #      registered against `Edit|Write|MultiEdit` only. It substring-matches
-#      these patterns against the proposed file_path and exits 2 (deny) on
-#      match. Read, Glob, Grep, and Bash are not gated by this hook — they
-#      can freely access every path below.
+#      these patterns against the proposed file_path **resolved relative to
+#      `project_root()`**, and exits 2 (deny) on match. Path-relative
+#      matching prevents the `.worktrees/` pattern from false-positively
+#      blocking edits when the agent is itself operating inside a
+#      `.worktrees/<branch>/` checkout (the project's recommended workflow
+#      per `AGENTS.md`). Read, Glob, Grep, and Bash are not gated by this
+#      hook — they can freely access every path below.
 #
 #   2. .claude/settings.json `permissions.deny` rules — declarative
 #      deny rules of the form `Edit(<glob>)` and `Bash(<command-glob>)`.
