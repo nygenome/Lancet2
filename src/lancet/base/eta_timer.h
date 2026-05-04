@@ -13,6 +13,11 @@ class EtaTimer {
  public:
   explicit EtaTimer(usize num_iterations);
 
+  // Test ctor: inject a function-pointer clock that the internal Timer uses
+  // for every "now" read. The default ctor delegates here with `&absl::Now`,
+  // so production callers are unaffected.
+  EtaTimer(usize num_iterations, Timer::ClockFn clock);
+
   void Increment();
   [[nodiscard]] auto EstimatedEta() const -> absl::Duration;
   [[nodiscard]] auto RatePerSecond() const -> f64;
