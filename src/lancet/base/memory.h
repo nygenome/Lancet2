@@ -5,11 +5,14 @@
 
 #include "absl/strings/str_format.h"
 
-// POSIX header — not part of the C/C++ standard library
-extern "C" {}
+// POSIX header — quote-included and `extern "C"`-wrapped per the project
+// convention for non-stdlib C headers (cpp_style.md, mirrors lancet/hts/).
+// IWYU pragma: no_include <sys/resource.h>
+extern "C" {
+#include "sys/resource.h"  // IWYU pragma: keep
+}
 
 #include <string>
-#include <sys/resource.h>
 
 namespace lancet::base {
 
