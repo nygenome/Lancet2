@@ -35,8 +35,7 @@ namespace {
 
 }  // namespace
 
-TEST_CASE("TarGzWriter: name field exactly 100 chars (no prefix)",
-          "[lancet][base][tar_gz_writer]") {
+TEST_CASE("TarGzWriter: name field exactly 100 chars (no prefix)", "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_name_100");
   auto const archive_path = scratch_dir / "name_100.tar.gz";
 
@@ -49,8 +48,7 @@ TEST_CASE("TarGzWriter: name field exactly 100 chars (no prefix)",
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("TarGzWriter: path 101 chars splits into name + prefix",
-          "[lancet][base][tar_gz_writer]") {
+TEST_CASE("TarGzWriter: path 101 chars splits into name + prefix", "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_split_101");
   auto const archive_path = scratch_dir / "split_101.tar.gz";
 
@@ -70,7 +68,7 @@ TEST_CASE("TarGzWriter: path 101 chars splits into name + prefix",
 }
 
 TEST_CASE("TarGzWriter: path near 255-char USTAR ceiling round-trips",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_split_max");
   auto const archive_path = scratch_dir / "split_max.tar.gz";
 
@@ -88,8 +86,7 @@ TEST_CASE("TarGzWriter: path near 255-char USTAR ceiling round-trips",
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("TarGzWriter: throws when entry path exceeds 255 chars",
-          "[lancet][base][tar_gz_writer]") {
+TEST_CASE("TarGzWriter: throws when entry path exceeds 255 chars", "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_too_long");
   auto const archive_path = scratch_dir / "too_long.tar.gz";
 
@@ -105,7 +102,7 @@ TEST_CASE("TarGzWriter: throws when entry path exceeds 255 chars",
 }
 
 TEST_CASE("TarGzWriter: throws when path > 100 chars has no `/` for split",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_no_slash");
   auto const archive_path = scratch_dir / "no_slash.tar.gz";
 
@@ -120,7 +117,7 @@ TEST_CASE("TarGzWriter: throws when path > 100 chars has no `/` for split",
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("TarGzWriter: zero-byte entry round-trips", "[lancet][base][tar_gz_writer]") {
+TEST_CASE("TarGzWriter: zero-byte entry round-trips", "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_empty_content");
   auto const archive_path = scratch_dir / "empty_content.tar.gz";
 
@@ -134,7 +131,7 @@ TEST_CASE("TarGzWriter: zero-byte entry round-trips", "[lancet][base][tar_gz_wri
 }
 
 TEST_CASE("TarGzWriter: content size that's an exact 512-byte multiple skips padding",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_aligned_size");
   auto const archive_path = scratch_dir / "aligned_size.tar.gz";
 
@@ -157,7 +154,7 @@ TEST_CASE("TarGzWriter: content size that's an exact 512-byte multiple skips pad
 }
 
 TEST_CASE("TarGzWriter: 1-byte content gets 511 bytes of trailing pad",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_single_byte");
   auto const archive_path = scratch_dir / "single_byte.tar.gz";
 
@@ -174,7 +171,7 @@ TEST_CASE("TarGzWriter: 1-byte content gets 511 bytes of trailing pad",
 }
 
 TEST_CASE("TarGzWriter: writes multiple entries in insertion order",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_multi_entry");
   auto const archive_path = scratch_dir / "multi_entry.tar.gz";
 
@@ -197,7 +194,7 @@ TEST_CASE("TarGzWriter: writes multiple entries in insertion order",
 }
 
 TEST_CASE("TarGzWriter: EndOfArchive::OMIT emits no trailing zero blocks",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_omit_eof");
   auto const archive_path = scratch_dir / "omit_eof.tar.gz";
 
@@ -221,7 +218,7 @@ TEST_CASE("TarGzWriter: EndOfArchive::OMIT emits no trailing zero blocks",
 }
 
 TEST_CASE("TarGzWriter: EndOfArchive::EMIT writes the 1024-byte zero trailer",
-          "[lancet][base][tar_gz_writer]") {
+          "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_emit_eof");
   auto const archive_path = scratch_dir / "emit_eof.tar.gz";
 
@@ -235,7 +232,7 @@ TEST_CASE("TarGzWriter: EndOfArchive::EMIT writes the 1024-byte zero trailer",
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("TarGzWriter::AddRegularFileEntry after Close throws", "[lancet][base][tar_gz_writer]") {
+TEST_CASE("TarGzWriter::AddRegularFileEntry after Close throws", "[lancet][base][TarGzWriter]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_writer_post_close");
   auto const archive_path = scratch_dir / "post_close.tar.gz";
 

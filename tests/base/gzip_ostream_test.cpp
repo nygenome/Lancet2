@@ -34,7 +34,7 @@ namespace {
 
 }  // namespace
 
-TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_short");
   auto const gz_path = scratch_dir / "hello.gz";
 
@@ -45,7 +45,7 @@ TEST_CASE("GzipOstream: round-trips a known short string", "[lancet][base][gzip_
 }
 
 TEST_CASE("GzipOstream: handles empty stream — gzip header + trailer only",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_empty");
   auto const gz_path = scratch_dir / "empty.gz";
 
@@ -63,7 +63,7 @@ TEST_CASE("GzipOstream: handles empty stream — gzip header + trailer only",
 }
 
 TEST_CASE("GzipOstream: concatenates multiple Write() calls correctly",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_multi_write");
   auto const gz_path = scratch_dir / "multi.gz";
 
@@ -91,7 +91,7 @@ TEST_CASE("GzipOstream: concatenates multiple Write() calls correctly",
 }
 
 TEST_CASE("GzipOstream: round-trips a large repetitive payload (compresses well)",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_large");
   auto const gz_path = scratch_dir / "large.gz";
 
@@ -106,7 +106,7 @@ TEST_CASE("GzipOstream: round-trips a large repetitive payload (compresses well)
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_close_idempotent");
   auto const gz_path = scratch_dir / "idempotent.gz";
 
@@ -126,7 +126,7 @@ TEST_CASE("GzipOstream::Close is idempotent", "[lancet][base][gzip_ostream]") {
   std::filesystem::remove_all(scratch_dir);
 }
 
-TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][gzip_ostream]") {
+TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][GzipOstream]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_gzip_ostream_write_after_close");
   auto const gz_path = scratch_dir / "post_close.gz";
 
@@ -138,7 +138,7 @@ TEST_CASE("GzipOstream::Write after Close throws", "[lancet][base][gzip_ostream]
 }
 
 TEST_CASE("GzipOstream constructor throws when output path can't be opened",
-          "[lancet][base][gzip_ostream]") {
+          "[lancet][base][GzipOstream]") {
   // A path inside a non-existent directory makes ofstream::open fail.
   auto const bogus_path = std::filesystem::temp_directory_path() /
                           "lancet_gzip_ostream_no_such_dir" /

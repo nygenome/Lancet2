@@ -17,7 +17,7 @@ namespace lancet::base::tests {
 // ============================================================================
 
 TEST_CASE("MannWhitneyEffectSize returns nullopt when REF group is empty",
-          "[lancet][base][MannWhitney]") {
+          "[lancet][base][MannWhitneyEffectSize]") {
   std::vector<f64> const ref_vals = {};
   std::vector<f64> const alt_vals = {1.0, 2.0, 3.0};
   auto const result =
@@ -26,7 +26,7 @@ TEST_CASE("MannWhitneyEffectSize returns nullopt when REF group is empty",
 }
 
 TEST_CASE("MannWhitneyEffectSize returns nullopt when ALT group is empty",
-          "[lancet][base][MannWhitney]") {
+          "[lancet][base][MannWhitneyEffectSize]") {
   std::vector<f64> const ref_vals = {1.0, 2.0, 3.0};
   std::vector<f64> const alt_vals = {};
   auto const result =
@@ -35,7 +35,7 @@ TEST_CASE("MannWhitneyEffectSize returns nullopt when ALT group is empty",
 }
 
 TEST_CASE("MannWhitneyEffectSize returns nullopt when both groups are empty",
-          "[lancet][base][MannWhitney]") {
+          "[lancet][base][MannWhitneyEffectSize]") {
   std::vector<f64> const ref_vals = {};
   std::vector<f64> const alt_vals = {};
   auto const result =
@@ -44,7 +44,7 @@ TEST_CASE("MannWhitneyEffectSize returns nullopt when both groups are empty",
 }
 
 TEST_CASE("MannWhitneyEffectSize returns 0.0 when all values are identical",
-          "[lancet][base][MannWhitney]") {
+          "[lancet][base][MannWhitneyEffectSize]") {
   std::vector<f64> const ref_vals = {5.0, 5.0, 5.0};
   std::vector<f64> const alt_vals = {5.0, 5.0, 5.0};
   auto const result =
@@ -56,7 +56,7 @@ TEST_CASE("MannWhitneyEffectSize returns 0.0 when all values are identical",
 }
 
 TEST_CASE("MannWhitneyEffectSize returns nonzero for biased groups",
-          "[lancet][base][MannWhitney]") {
+          "[lancet][base][MannWhitneyEffectSize]") {
   // ALT values are clearly higher than REF → positive effect size
   std::vector<f64> const ref_vals = {1.0, 2.0, 3.0, 4.0, 5.0};
   std::vector<f64> const alt_vals = {6.0, 7.0, 8.0, 9.0, 10.0};
@@ -68,7 +68,7 @@ TEST_CASE("MannWhitneyEffectSize returns nonzero for biased groups",
   REQUIRE(result.value() > 0.0);
 }
 
-TEST_CASE("MannWhitneyEffectSize works with u8 type", "[lancet][base][MannWhitney]") {
+TEST_CASE("MannWhitneyEffectSize works with u8 type", "[lancet][base][MannWhitneyEffectSize]") {
   std::vector<u8> const ref_vals = {60, 60, 60};
   std::vector<u8> const alt_vals = {};
   auto const result =

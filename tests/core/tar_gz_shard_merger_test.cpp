@@ -36,7 +36,7 @@ void WriteWorkerShard(std::filesystem::path const& shards_dir, u32 const worker_
 }  // namespace
 
 TEST_CASE("TarGzShardMerger: concatenates per-worker shards in worker-index order",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_basic");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   auto const final_archive_path = scratch_dir / "out.tar.gz";
@@ -73,7 +73,7 @@ TEST_CASE("TarGzShardMerger: concatenates per-worker shards in worker-index orde
 }
 
 TEST_CASE("TarGzShardMerger: parses worker indices as integers, not lexically",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_numeric_sort");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   auto const final_archive_path = scratch_dir / "out.tar.gz";
@@ -98,7 +98,7 @@ TEST_CASE("TarGzShardMerger: parses worker indices as integers, not lexically",
 }
 
 TEST_CASE("TarGzShardMerger: ignores files in the shards dir whose names don't match the pattern",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_unrelated_files");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   auto const final_archive_path = scratch_dir / "out.tar.gz";
@@ -123,7 +123,7 @@ TEST_CASE("TarGzShardMerger: ignores files in the shards dir whose names don't m
 }
 
 TEST_CASE("TarGzShardMerger: produces an EOF-only archive when there are no shards",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_empty_shards");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   auto const final_archive_path = scratch_dir / "out.tar.gz";
@@ -142,7 +142,7 @@ TEST_CASE("TarGzShardMerger: produces an EOF-only archive when there are no shar
 }
 
 TEST_CASE("TarGzShardMerger: throws and preserves shards when final archive can't be opened",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_open_fail");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   std::filesystem::create_directories(shards_dir);
@@ -162,7 +162,7 @@ TEST_CASE("TarGzShardMerger: throws and preserves shards when final archive can'
 }
 
 TEST_CASE("TarGzShardMerger: multi-entry shards round-trip end-to-end",
-          "[lancet][core][tar_gz_shard_merger]") {
+          "[lancet][core][TarGzShardMerger]") {
   auto const scratch_dir = MakeFreshScratchDir("lancet_tar_gz_shard_merger_multi_entry_shards");
   auto const shards_dir = scratch_dir / ".out.tar.gz.shards";
   auto const final_archive_path = scratch_dir / "out.tar.gz";

@@ -41,7 +41,8 @@ inline auto GenerateRandomDnaSequence() -> std::string {
 // Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
 // ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_CASE("Can calculate hamming distance correctly for random strings", "[lancet][base][repeat]") {
+TEST_CASE("Can calculate hamming distance correctly for random strings",
+          "[lancet][base][HammingDist]") {
   static constexpr usize NUM_ITERATIONS = 1000;
 
   for (usize idx = 0; idx <= NUM_ITERATIONS; ++idx) {
@@ -57,7 +58,8 @@ TEST_CASE("Can calculate hamming distance correctly for random strings", "[lance
 //  Hamming distance: small known-answer tests
 // ============================================================================
 
-TEST_CASE("Can calculate hamming distance correctly for small test", "[lancet][base][repeat]") {
+TEST_CASE("Can calculate hamming distance correctly for small test",
+          "[lancet][base][HammingDist]") {
   std::string_view const test = "aaaa";
   std::string_view const diff_a = "abaa";
   std::string_view const diff_b = "aaba";

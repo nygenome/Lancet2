@@ -15,7 +15,7 @@
 // because the fields are private (populated only by ComputeGraphComplexity).
 // IsComplex() tests use the default-constructed state plus the public constants.
 
-TEST_CASE("GraphComplexity::IsComplex default is not complex", "[lancet][cbdg][graph_complexity]") {
+TEST_CASE("GraphComplexity::IsComplex default is not complex", "[lancet][cbdg][GraphComplexity]") {
   using lancet::cbdg::GraphComplexity;
 
   GraphComplexity const cplx;
@@ -24,7 +24,7 @@ TEST_CASE("GraphComplexity::IsComplex default is not complex", "[lancet][cbdg][g
   CHECK(cplx.NumBranchPoints() == 0);
 }
 
-TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][graph_complexity]") {
+TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][GraphComplexity]") {
   using lancet::cbdg::GraphComplexity;
 
   CHECK(GraphComplexity::MAX_CYCLOMATIC_COMPLEXITY == 50);
@@ -35,7 +35,8 @@ TEST_CASE("GraphComplexity::IsComplex thresholds are correct", "[lancet][cbdg][g
 // ║  GraphComplexity::GraphEntanglementIndex (GEI)                           ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("GEI: default-constructed → GEI = 0", "[lancet][cbdg][graph_complexity][gei]") {
+TEST_CASE("GEI: default-constructed → GEI = 0",
+          "[lancet][cbdg][GraphComplexity][GraphEntanglementIndex]") {
   using lancet::cbdg::GraphComplexity;
 
   GraphComplexity const cplx;
@@ -47,7 +48,7 @@ TEST_CASE("GEI: default-constructed → GEI = 0", "[lancet][cbdg][graph_complexi
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("GraphMetrics::FormatVcfValue: 3 comma-separated values",
-          "[lancet][cbdg][graph_complexity][format]") {
+          "[lancet][cbdg][GraphComplexity]") {
   lancet::caller::GraphMetrics gmtx;
   gmtx.mGraphEntanglementIndex = 2.345;
   gmtx.mTipToPathCovRatio = 0.15;

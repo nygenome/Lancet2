@@ -135,7 +135,7 @@ inline auto LoadCalibrationTsv(std::filesystem::path const& path) -> std::vector
 // ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences",
-          "[lancet][base][longdust_scorer][cross_validation]") {
+          "[lancet][base][LongdustQScorer]") {
   auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   REQUIRE(std::filesystem::exists(ref_path));
   lancet::hts::Reference const ref(ref_path);
@@ -215,8 +215,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on real CHM13 sequences
 // 1b. f(ℓ) table parity — internal Poisson expectation function
 // ============================================================================
 
-TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
-          "[lancet][base][longdust_scorer][cross_validation]") {
+TEST_CASE("Cross-validation: f(ℓ) table matches longdust", "[lancet][base][LongdustQScorer]") {
   LdContext const lctx;
   // Test-only access to longdust's internal struct via the opaque ld_data_t* header for
   // cross-validation.
@@ -244,7 +243,7 @@ TEST_CASE("Cross-validation: f(ℓ) table matches longdust",
 // ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
-          "[lancet][base][longdust_scorer][cross_validation]") {
+          "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7, 5001, 0.5);  // gc_frac=0.5 for longdust parity
   LdContext const lctx;
   constexpr double EPS = 1e-9;
@@ -291,7 +290,7 @@ TEST_CASE("Cross-validation: LongdustQScorer vs longdust on synthetic repeats",
 // ║  Unit tests for edge cases, monotonicity, and strand behaviour.          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score("") == 0.0);
   CHECK(scorer.Score("ATCG") == 0.0);
@@ -299,14 +298,14 @@ TEST_CASE("Score: zero for short, empty, or N-only sequences", "[lancet][base][l
   CHECK(scorer.Score("NNNNNNNNNNNNNNNNNNN") == 0.0);
 }
 
-TEST_CASE("Score: near-zero for random DNA", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: near-zero for random DNA", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score(RandomDna(100)) < 0.1);
   CHECK(scorer.Score(RandomDna(200, 123)) < 0.1);
   CHECK(scorer.Score(RandomDna(500, 456)) < 0.1);
 }
 
-TEST_CASE("Score: detects homopolymer runs", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: detects homopolymer runs", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score(std::string(10, 'A')) > 0.0);
   CHECK(scorer.Score(std::string(20, 'A')) > 0.6);
@@ -315,7 +314,7 @@ TEST_CASE("Score: detects homopolymer runs", "[lancet][base][longdust_scorer]") 
   CHECK(scorer.Score(std::string(50, 'A')) < scorer.Score(std::string(100, 'A')));
 }
 
-TEST_CASE("Score: increases with repeat copy number", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: increases with repeat copy number", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   auto const score5 = scorer.Score(BuildRepeat("TTAGGG", 5));
   auto const score10 = scorer.Score(BuildRepeat("TTAGGG", 10));
@@ -324,14 +323,14 @@ TEST_CASE("Score: increases with repeat copy number", "[lancet][base][longdust_s
   CHECK(score10 <= score20);
 }
 
-TEST_CASE("Score: uses both strands (max of fwd/rev)", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: uses both strands (max of fwd/rev)", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   auto const poly_t = std::string(30, 'T');
   CHECK(scorer.Score(poly_t) > 0.6);
   CHECK(scorer.Score(poly_t) >= scorer.ScoreOneStrand(poly_t));
 }
 
-TEST_CASE("Score: case-insensitive", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: case-insensitive", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   auto const upper = BuildRepeat("TTAGGG", 20);
   std::string lower = upper;
@@ -339,7 +338,7 @@ TEST_CASE("Score: case-insensitive", "[lancet][base][longdust_scorer]") {
   CHECK(scorer.Score(upper) == Catch::Approx(scorer.Score(lower)));
 }
 
-TEST_CASE("Score: N bases reduce score", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Score: N bases reduce score", "[lancet][base][LongdustQScorer]") {
   lancet::base::LongdustQScorer const scorer(7);
   CHECK(scorer.Score("AAAAAAANAAAAAAA") < scorer.Score(std::string(15, 'A')));
 }
@@ -349,7 +348,7 @@ TEST_CASE("Score: N bases reduce score", "[lancet][base][longdust_scorer]") {
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
-          "[lancet][base][longdust_scorer]") {
+          "[lancet][base][LongdustQScorer]") {
   using lancet::base::FormatComplexityScore;
   CHECK(FormatComplexityScore(0.0) == "0");
   CHECK(FormatComplexityScore(1.0) == "1");
@@ -360,14 +359,14 @@ TEST_CASE("FormatComplexityScore: precision and trailing-zero stripping",
   CHECK(FormatComplexityScore(0.100) == "0.1");
 }
 
-TEST_CASE("FormatComplexityScores: comma-separated output", "[lancet][base][longdust_scorer]") {
+TEST_CASE("FormatComplexityScores: comma-separated output", "[lancet][base][LongdustQScorer]") {
   using lancet::base::FormatComplexityScores;
   CHECK(FormatComplexityScores(std::initializer_list<f64>{0, 0, 0, 0, 0}) == "0,0,0,0,0");
   CHECK(FormatComplexityScores(std::initializer_list<f64>{1.8, 0.7, 0.3, 0.15, 0.1}) ==
         "1.8,0.7,0.3,0.15,0.1");
 }
 
-TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
+TEST_CASE("Longdust k-mer size constants", "[lancet][base][LongdustQScorer]") {
   CHECK(lancet::base::LONGDUST_FLANK_K == 4);
   CHECK(lancet::base::LONGDUST_HAPLOTYPE_K == 7);
 }
@@ -451,7 +450,7 @@ TEST_CASE("Longdust k-mer size constants", "[lancet][base][longdust_scorer]") {
 // ceiling.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
-          "[lancet][base][longdust_scorer][calibration]") {
+          "[lancet][base][LongdustQScorer]") {
   auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   REQUIRE(std::filesystem::exists(ref_path));
   auto const tsv_path = MakePath(FULL_DATA_DIR, CALIBRATION_TSV);
