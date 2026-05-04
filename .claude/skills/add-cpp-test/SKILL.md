@@ -54,6 +54,32 @@ Do not use this skill for benchmarks; benchmarks live in `benchmarks/` and the p
 
 Test sources in `tests/<layer>/` may include from any layer of `src/lancet/`. Tests are exempt from the layer-direction rule because they exist to exercise the layered code, not to be part of it.
 
+## Headline rules from `docs_dev/style/test_style.md`
+
+The full project-wide test-style guide lives at `docs_dev/style/test_style.md`. Read it once end-to-end before adding a non-trivial test file. The headline rules below summarise the dimensions Claude is most likely to get wrong by default; each paragraph ends with a pointer to the full guidance.
+
+**File layout.** One test file per source unit at `tests/<layer>/<unit>_test.cpp`. The file's body lives inside `namespace lancet::<layer>::tests { ... }`, mirroring the source-layer namespace. File-private helpers go in an anonymous `namespace { ... }` block *inside* the named namespace; cross-file helpers go in a header under `tests/<layer>/`. See `docs_dev/style/test_style.md` § 1 for full guidance.
+
+**TEST_CASE naming.** Present-tense full sentence describing the verified behavior — "RevComp returns the canonical complement for each base", not "test foo". The name surfaces in CI logs and failure reports. See `docs_dev/style/test_style.md` § 2 for full guidance.
+
+**Tags.** Required and only: `[lancet][<layer>][<unit>]`. The `<unit>` is the PascalCase name of the primary public symbol the TEST_CASE exercises (per-symbol rule). No semantic tags like `[property]`, `[edge]`, `[golden]`. See `docs_dev/style/test_style.md` § 3 for full guidance.
+
+**Test types and the quality bar.** Bar 1 (default): one happy-path TEST_CASE, one edge-case TEST_CASE per input type, one error-path TEST_CASE per documented failure mode. Bar 3 (numerical kernels where it pays): a property test with a pinned seed, plus cross-validation against an in-tree reference, a std-lib equivalent, or a precomputed scientific-Python TSV. See `docs_dev/style/test_style.md` § 4 for full guidance.
+
+**SECTION vs separate TEST_CASE.** Use `SECTION` for variants that share setup; use separate TEST_CASEs for conceptually-independent scenarios. A SECTION-heavy TEST_CASE that mixes happy + edge + error paths is worse than three separate TEST_CASEs. See `docs_dev/style/test_style.md` § 5 for full guidance.
+
+**Edge-case taxonomy.** A table indexed by input type (string, float, integer, span, group, file, state machine) listing the standard edge-case classes. Pick at least one per input type the unit accepts. See `docs_dev/style/test_style.md` § 6 for full guidance.
+
+**Random-input rules.** Pin the seed with a const literal. No `std::random_device()` in `tests/`. Don't use random generation for happy-path fixtures. 100–1000 iterations per property as the default range. See `docs_dev/style/test_style.md` § 7 for full guidance.
+
+**Assertion macros.** `REQUIRE` for invariants subsequent code depends on; `CHECK` for non-fatal multi-property verification; `REQUIRE_THROWS_AS` for error-path type checks; `INFO`/`CAPTURE` for failure-log context. See `docs_dev/style/test_style.md` § 8 for full guidance.
+
+**Determinism discipline.** No `std::random_device`. No wall-clock dependencies — use the codebase's clock-injection seam where available. No own-filesystem dependencies outside `tests/data/` (read-only) and the temp directory (writable) — use IO-sink seams (e.g. `std::ostream&` ctor overloads) where available. Tests are independent of execution order. See `docs_dev/style/test_style.md` § 9 for full guidance.
+
+**Skipping.** `SKIP("reason: ...")` with an explicit reason; never `return;` silently. Skip-on-missing-fixture is fine when the fixture is intentionally out-of-band. See `docs_dev/style/test_style.md` § 10 for full guidance.
+
+**Test fixtures and generator scripts.** Generators live in `tests/scripts/<name>.py`; generated data lives in `tests/data/<layer>/<name>.tsv` (or analogous). The script's docstring documents the regeneration command (`pixi run -e test-fixtures python tests/scripts/<name>.py`). The fixture is committed alongside the script — tests do not depend on the script being runnable at test time. See `docs_dev/style/test_style.md` § 11 for full guidance.
+
 ## References
 
 These are loaded on demand when this skill points to them.

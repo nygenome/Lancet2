@@ -1,12 +1,13 @@
 # Style Conventions
 
-This directory holds the project's writing and code conventions. Four documents, split by audience:
+This directory holds the project's writing and code conventions. Five documents, split by audience:
 
 | Document | Audience | When to read |
 |:---|:---|:---|
 | `website_docs.md` | Lancet2 user reading the rendered MkDocs site | Authoring or editing a page in `docs/` |
 | `code_comments.md` | Developer with the source open | Writing or reviewing inline comments in `src/` |
 | `cpp_style.md` | Anyone editing C++ in `src/` | Adding code, hitting a clang-tidy finding, structuring a struct |
+| `test_style.md` | Anyone editing C++ in `tests/` | Adding a TEST_CASE, picking a tag, writing a property test, generating a fixture |
 | `sync_and_verification.md` | Anyone committing | Cross-document sync rule and the pre-commit verification checklist |
 
 Voice, tone, and audience expectations differ between website docs and code comments — see the focused documents for each. The principles below apply across all four.
@@ -42,5 +43,7 @@ If you are writing user-facing content, read `website_docs.md` end-to-end before
 If you are writing or editing code comments, `code_comments.md` is the reference. The six comment-type templates there (block headers, ASCII diagrams, pipeline annotations, formula comments, data-structure tables, design-decision comments) cover ~90% of comment-writing situations in the project.
 
 If you are touching C++ source, `cpp_style.md` is the rulebook. clang-format and clang-tidy enforce most of it automatically, but several rules — quote-vs-angle-bracket includes, struct member layout, the prefer-`<algorithm>`-and-Abseil rule — are enforced by code review.
+
+If you are adding or editing tests, `test_style.md` is the rulebook for `tests/`. It covers the per-symbol PascalCase tag convention, the `namespace lancet::<layer>::tests` wrapper, the determinism discipline (no `random_device`, no wall clock, no own-filesystem dependencies), the property-test rules, and the test-fixture-script layout (`tests/scripts/<name>.py` produces `tests/data/<layer>/<name>.tsv`).
 
 Before every commit, run through `sync_and_verification.md`'s pre-commit verification checklist. The list is short by design.
