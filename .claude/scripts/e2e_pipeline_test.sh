@@ -33,6 +33,19 @@ done
 
 set +e
 
+# ── Thread budget ─────────────────────────────────────────────────────────
+# Use 2/3 of the machine's logical cores rather than all of them. Saturating
+# every core makes the workstation unresponsive while the test runs and gives
+# Lancet2 nothing in return — the per-window dispatcher is bottlenecked on
+# I/O at the high end of the thread count, not CPU. 2/3 is a heuristic: it
+# leaves headroom for system tasks, the developer's editor, and the bcftools
+# subprocess at the end of each stage. Floor at 1 for tiny machines (single-
+# core CI runners).
+LANCET_E2E_TOTAL_CORES=$(nproc)
+LANCET_E2E_NUM_THREADS=$(( (LANCET_E2E_TOTAL_CORES * 2) / 3 ))
+[ "$LANCET_E2E_NUM_THREADS" -lt 1 ] && LANCET_E2E_NUM_THREADS=1
+echo "Thread budget: ${LANCET_E2E_NUM_THREADS} of ${LANCET_E2E_TOTAL_CORES} cores (2/3)"
+
 # ── Validate prerequisites ────────────────────────────────────────────────
 
 if [ ! -x cmake-build-release/Lancet2 ]; then
@@ -107,24 +120,28 @@ run_germline() {
     --normal "$LANCET_TEST_GERMLINE_CRAM" \
     --reference "$LANCET_TEST_GERMLINE_REFERENCE" \
     --region "$LANCET_TEST_GERMLINE_REGION" \
-    --num-threads "$(nproc)" \
+    --num-threads "$LANCET_E2E_NUM_THREADS" \
     --out-vcfgz "$out_vcf" 2>&1 | tail -10
   rc=${PIPESTATUS[0]}
   end=$(date +%s); elapsed=$((end - start))
 
   if [ $rc -ne 0 ]; then
     echo "❌ germline pipeline exited with code $rc (wall: ${elapsed}s)"
-    GERMLINE_RC=$rc; GERMLINE_ELAPSED=$elapsed; GERMLINE_TOTAL=0; GERMLINE_PASS=0
+    GERMLINE_RC=$rc; GERMLINE_ELAPSED=$elapsed; GERMLINE_TOTAL=0
     return $rc
   fi
 
-  local n_pass=0 n_total=0
+  # Lancet2 itself does not emit a PASS/FAIL FILTER value — the FILTER
+  # column on every output record is "." (untestable) by design. PASS-vs-
+  # FAIL filtering is the responsibility of the downstream Python ML
+  # module that consumes Lancet2's VCFs. We therefore report only the
+  # total raw-variant count, not a PASS count.
+  local n_total=0
   if [ -f "$out_vcf" ]; then
     n_total=$(pixi run --quiet -e hts-tools bcftools view "$out_vcf" 2>/dev/null | grep -v '^#' | wc -l)
-    n_pass=$(pixi run --quiet -e hts-tools bcftools view -f PASS "$out_vcf" 2>/dev/null | grep -v '^#' | wc -l)
   fi
-  echo "✓ germline complete in ${elapsed}s — ${n_total} variants total, ${n_pass} PASS"
-  GERMLINE_RC=0; GERMLINE_ELAPSED=$elapsed; GERMLINE_TOTAL=$n_total; GERMLINE_PASS=$n_pass
+  echo "✓ germline complete in ${elapsed}s — ${n_total} raw variants"
+  GERMLINE_RC=0; GERMLINE_ELAPSED=$elapsed; GERMLINE_TOTAL=$n_total
 }
 
 # ── Run the somatic stage ─────────────────────────────────────────────────
@@ -156,24 +173,25 @@ run_somatic() {
     --normal "$LANCET_TEST_SOMATIC_NORMAL" \
     --reference "$LANCET_TEST_SOMATIC_REFERENCE" \
     --region "$LANCET_TEST_SOMATIC_REGION" \
-    --num-threads "$(nproc)" \
+    --num-threads "$LANCET_E2E_NUM_THREADS" \
     --out-vcfgz "$out_vcf" 2>&1 | tail -10
   rc=${PIPESTATUS[0]}
   end=$(date +%s); elapsed=$((end - start))
 
   if [ $rc -ne 0 ]; then
     echo "❌ somatic pipeline exited with code $rc (wall: ${elapsed}s)"
-    SOMATIC_RC=$rc; SOMATIC_ELAPSED=$elapsed; SOMATIC_TOTAL=0; SOMATIC_PASS=0
+    SOMATIC_RC=$rc; SOMATIC_ELAPSED=$elapsed; SOMATIC_TOTAL=0
     return $rc
   fi
 
-  local n_pass=0 n_total=0
+  # See germline path for the rationale: Lancet2 emits FILTER="." on
+  # every record; PASS filtering is downstream-only.
+  local n_total=0
   if [ -f "$out_vcf" ]; then
     n_total=$(pixi run --quiet -e hts-tools bcftools view "$out_vcf" 2>/dev/null | grep -v '^#' | wc -l)
-    n_pass=$(pixi run --quiet -e hts-tools bcftools view -f PASS "$out_vcf" 2>/dev/null | grep -v '^#' | wc -l)
   fi
-  echo "✓ somatic complete in ${elapsed}s — ${n_total} variants total, ${n_pass} PASS"
-  SOMATIC_RC=0; SOMATIC_ELAPSED=$elapsed; SOMATIC_TOTAL=$n_total; SOMATIC_PASS=$n_pass
+  echo "✓ somatic complete in ${elapsed}s — ${n_total} raw variants"
+  SOMATIC_RC=0; SOMATIC_ELAPSED=$elapsed; SOMATIC_TOTAL=$n_total
 }
 
 # ── Drive both stages and summarize ───────────────────────────────────────
@@ -184,16 +202,16 @@ run_somatic
 
 echo ""
 echo "─── /e2e-pipeline-test summary ─────────────────────────────────────────────"
-printf "  %-10s %-12s %12s %12s %s\n" "stage" "result" "wall(s)" "variants" "PASS"
+printf "  %-10s %-12s %12s %12s\n" "stage" "result" "wall(s)" "raw_variants"
 case $GERMLINE_RC in
-  -1) printf "  %-10s %-12s %12s %12s %s\n" "germline" "skipped" "-" "-" "-" ;;
-   0) printf "  %-10s %-12s %12s %12s %s\n" "germline" "ok" "$GERMLINE_ELAPSED" "$GERMLINE_TOTAL" "$GERMLINE_PASS" ;;
-   *) printf "  %-10s %-12s %12s %12s %s\n" "germline" "fail($GERMLINE_RC)" "$GERMLINE_ELAPSED" "$GERMLINE_TOTAL" "$GERMLINE_PASS" ;;
+  -1) printf "  %-10s %-12s %12s %12s\n" "germline" "skipped" "-" "-" ;;
+   0) printf "  %-10s %-12s %12s %12s\n" "germline" "ok" "$GERMLINE_ELAPSED" "$GERMLINE_TOTAL" ;;
+   *) printf "  %-10s %-12s %12s %12s\n" "germline" "fail($GERMLINE_RC)" "$GERMLINE_ELAPSED" "$GERMLINE_TOTAL" ;;
 esac
 case $SOMATIC_RC in
-  -1) printf "  %-10s %-12s %12s %12s %s\n" "somatic" "skipped" "-" "-" "-" ;;
-   0) printf "  %-10s %-12s %12s %12s %s\n" "somatic" "ok" "$SOMATIC_ELAPSED" "$SOMATIC_TOTAL" "$SOMATIC_PASS" ;;
-   *) printf "  %-10s %-12s %12s %12s %s\n" "somatic" "fail($SOMATIC_RC)" "$SOMATIC_ELAPSED" "$SOMATIC_TOTAL" "$SOMATIC_PASS" ;;
+  -1) printf "  %-10s %-12s %12s %12s\n" "somatic" "skipped" "-" "-" ;;
+   0) printf "  %-10s %-12s %12s %12s\n" "somatic" "ok" "$SOMATIC_ELAPSED" "$SOMATIC_TOTAL" ;;
+   *) printf "  %-10s %-12s %12s %12s\n" "somatic" "fail($SOMATIC_RC)" "$SOMATIC_ELAPSED" "$SOMATIC_TOTAL" ;;
 esac
 echo "──────────────────────────────────────────────────────────────"
 

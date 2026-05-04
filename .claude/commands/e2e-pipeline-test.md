@@ -61,8 +61,9 @@ The script's outline:
 3. Validate per-profile env vars and data-file existence.
 4. Run the germline stage; capture variant counts.
 5. Run the somatic stage; capture variant counts.
-6. Print a summary table with both stages' result, wall time,
-   total variants, and PASS variants.
+6. Print a summary table with both stages' result, wall time, and
+   raw variant count. PASS/FAIL filtering is downstream-only — Lancet2
+   emits FILTER="." on every record by design — so no PASS column.
 
 Stages skip cleanly with a `skipped` rather than `fail` status
 if their required env vars are unset or data files are absent.
