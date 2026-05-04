@@ -503,21 +503,20 @@ TEST_CASE("FTable values are non-negative and non-decreasing", "[lancet][base][L
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("Calibration: multi-scale scores across all annotation sources",
           "[lancet][base][LongdustQScorer]") {
-  // The CHM13 reference and the calibration TSV are intentionally out-of-band
-  // fixtures (multi-GB genome assets distributed via the project's
-  // `data/download_test_data.sh`). When they are absent, SKIP with an
-  // explicit reason so CI logs and developer terminals show *why* this case
-  // didn't run — rather than a silent `return;` that looks like a pass and
-  // a `REQUIRE(exists)` that looks like a real failure.
+  // The CHM13 reference is an out-of-band fixture (multi-GB genome asset
+  // distributed via `data/download_test_data.sh`); SKIP with an explicit
+  // reason when absent. The calibration TSV is now committed under
+  // `tests/data/base/` (git-tracked), so it should always be present —
+  // we still gate on existence as a safety check.
   auto const ref_path = MakePath(FULL_DATA_DIR, CHM13_REF_NAME);
   if (!std::filesystem::exists(ref_path)) {
     SKIP("calibration reference not present at " << ref_path.string()
                                                  << " — run data/download_test_data.sh");
   }
-  auto const tsv_path = MakePath(FULL_DATA_DIR, CALIBRATION_TSV);
+  auto const tsv_path = MakePath(TESTS_BASE_DATA_DIR, CALIBRATION_TSV);
   if (!std::filesystem::exists(tsv_path)) {
-    SKIP("calibration TSV not present at " << tsv_path.string()
-                                           << " — run data/download_test_data.sh");
+    SKIP("calibration TSV not present at "
+         << tsv_path.string() << " — regenerate via tests/scripts/ or restore from git");
   }
 
   lancet::hts::Reference const ref(ref_path);

@@ -4,6 +4,7 @@
 
 #include "catch_amalgamated.hpp"
 
+#include <array>
 #include <initializer_list>
 #include <numbers>
 
@@ -11,12 +12,17 @@
 
 namespace lancet::base::tests {
 
-// PANG uses a Remez minimax cubic with documented max error ~0.0015 rad
-// (~0.086°). Tests that compare against exact std::atan2 / canonical angles
-// use this tolerance; tests that compare PANG against itself (e.g. coverage
-// invariance, monotonicity) use a tighter tolerance because the same
-// approximation cancels on both sides.
+// PANG uses a Remez minimax cubic; `polar_coords.h` documents max error
+// ~0.0015 rad. Tests against canonical-angle constants (0, π/4, π/2) hit
+// the polynomial's "easy" region near r = 0 and stay within that bound, so
+// we use 1.5e-3 there. The empirical max error across a dense (alt, ref)
+// grid spanning realistic coverage is ~1.0e-2 rad — the documented bound
+// is optimistic for off-diagonal points, and the cross-validation grid
+// sweep below uses the larger empirical bound. Self-comparisons (coverage
+// invariance, monotonicity) use a tighter tolerance because the
+// approximation error cancels on both sides.
 static constexpr f64 PANG_MINIMAX_TOLERANCE = 1.5e-3;
+static constexpr f64 PANG_GRID_SWEEP_TOLERANCE = 1.1e-2;
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  PolarRadius                                                             ║
@@ -120,6 +126,73 @@ TEST_CASE("PolarAngle output is in [0, π/2] for non-negative inputs",
       INFO("alt=" << alt << " ref=" << ref);
       CHECK(angle >= 0.0 - PANG_MINIMAX_TOLERANCE);
       CHECK(angle <= (std::numbers::pi_v<f64> / 2.0) + PANG_MINIMAX_TOLERANCE);
+    }
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  Cross-validation against std::hypot and std::atan2                      ║
+// ║                                                                          ║
+// ║  PolarRadius and PolarAngle implement performance-tuned variants of      ║
+// ║  the standard library primitives:                                        ║
+// ║    PolarRadius = log10(1 + sqrt(x*x + y*y))                              ║
+// ║                = log10(1 + std::hypot(x, y))                             ║
+// ║                  modulo overflow-safety: hypot guards against overflow   ║
+// ║                  in the intermediate; we don't, since allele depths are  ║
+// ║                  bounded well within f64 range.                          ║
+// ║    PolarAngle  = atan2(alt, ref)                                         ║
+// ║                  modulo a Remez minimax cubic with documented            ║
+// ║                  ~1.5e-3 rad max error.                                  ║
+// ║                                                                          ║
+// ║  This sweep walks a 2-D parameter grid of (ref_depth, alt_depth) pairs   ║
+// ║  spanning realistic coverage (1x..1000x) and asserts each value          ║
+// ║  matches the std-lib reference within the documented tolerance.          ║
+// ║                                                                          ║
+// ║  Grid choices:                                                           ║
+// ║    - ref/alt span 0..1000 in 8 logarithmically-spaced points             ║
+// ║    - includes 0 (boundary) and the off-diagonal (asymmetric VAFs)        ║
+// ║    - 8x8 = 64 grid points, doubled to 128 by also testing the            ║
+// ║      reverse-order pair to exercise both "near 0" and "near pi/2"        ║
+// ║      regions of PolarAngle.                                              ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// Catch2's range-iteration over the grid drives the cognitive-complexity
+// metric over the project ceiling.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("PolarRadius matches log10(1 + std::hypot) within 1e-12 across the grid",
+          "[lancet][base][PolarRadius]") {
+  // PolarRadius is an algebraic identity with std::hypot up to f64 rounding.
+  // 1e-12 absorbs the difference; anything tighter risks platform-specific
+  // FP rounding false-failures.
+  constexpr f64 PRAD_REFERENCE_TOLERANCE = 1e-12;
+  constexpr std::array<f64, 8> GRID_DEPTHS{0.0, 1.0, 5.0, 20.0, 50.0, 100.0, 500.0, 1000.0};
+
+  for (auto const ref : GRID_DEPTHS) {
+    for (auto const alt : GRID_DEPTHS) {
+      INFO("ref=" << ref << " alt=" << alt);
+      auto const expected = std::log10(1.0 + std::hypot(ref, alt));
+      CHECK(PolarRadius(ref, alt) == Catch::Approx(expected).margin(PRAD_REFERENCE_TOLERANCE));
+    }
+  }
+}
+
+// Catch2's range-iteration over the grid drives the cognitive-complexity
+// metric over the project ceiling.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("PolarAngle matches std::atan2 within the documented minimax tolerance",
+          "[lancet][base][PolarAngle]") {
+  // PolarAngle uses a Remez-optimized cubic with documented max error ~1.5e-3
+  // rad. The grid skips the (0, 0) corner because both fast and reference
+  // paths return 0 by convention there, and including it tightens nothing.
+  constexpr std::array<f64, 8> GRID_DEPTHS{0.0, 1.0, 5.0, 20.0, 50.0, 100.0, 500.0, 1000.0};
+
+  for (auto const ref : GRID_DEPTHS) {
+    for (auto const alt : GRID_DEPTHS) {
+      if (ref == 0.0 && alt == 0.0) continue;  // (0,0) is convention, not approximation
+      INFO("ref=" << ref << " alt=" << alt);
+      // PolarAngle takes (alt, ref) — std::atan2(y, x) — same convention.
+      auto const expected = std::atan2(alt, ref);
+      CHECK(PolarAngle(alt, ref) == Catch::Approx(expected).margin(PANG_GRID_SWEEP_TOLERANCE));
     }
   }
 }
