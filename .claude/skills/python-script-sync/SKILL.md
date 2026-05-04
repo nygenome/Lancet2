@@ -40,11 +40,11 @@ Before editing a script, identify its inputs and outputs from the source itself.
 
 For pipeline-output analysis scripts specifically, find the C++ code that produces the consumed artifact:
 
-- `analyze_probe_results.py` consumes `probe_results.tsv` produced by `src/lancet/caller/probe_writer.cpp` (or whichever file owns the probe output emission).
+- `analyze_probe_results.py` consumes `probe_results.tsv` produced by `src/lancet/caller/probe_diagnostics.cpp` (or whichever file owns the probe output emission).
 - `analyze_profile.py` consumes `*.bin` files produced by gperftools, with environment baked in `src/lancet/cli/pipeline_runner.cpp`.
 - `truth_concordance.py` consumes Lancet2 VCFs and produces `missed_variants.txt` consumed in turn by the C++ `--probe-variants` flag (a round-trip).
 
-The C++ side is the source of truth for the data format. If the script is wrong, fix the script. If the C++ format genuinely needs to change, the change goes through `schema-migration` (for VCF) or normal review (for TSV/log formats), and the script update is part of the same commit.
+The C++ side is the source of truth for the data format. If the script is wrong, fix the script. If the C++ format genuinely needs to change, the change goes through `external-interface-changes` (for VCF) or normal review (for TSV/log formats), and the script update is part of the same commit.
 
 ## Step 2 — When the C++ side changes, find the affected scripts
 
@@ -82,10 +82,10 @@ If the change altered:
 - The script's output format (new column, renamed column, different file extension)
 - The script's input expectations (new required argument, changed file format)
 
-Then the documentation that describes the script needs updating too. The `documentation-sync` skill handles the procedural part. Specifically:
+Then the documentation that describes the script needs updating too. The `doc-sync` skill handles the procedural part. Specifically:
 
-- Profile-related script changes → `docs/PROFILING.md` and the `profile-and-optimize` skill.
-- Probe-related script changes → `docs/PROBE_TRACKING.md` and the `probe-tracking` skill.
+- Profile-related script changes → `notes/scratch/profiling-runs/` and the `profile-and-optimize` skill.
+- Probe-related script changes → `.claude/skills/probe-tracking/SKILL.md` and the `probe-tracking` skill.
 - Lint/format script changes → likely no user-facing docs (they're invoked through pixi tasks); update the pixi task descriptions in `pixi.toml` if behavior changed.
 
 If the change was internal-only (refactor, performance, comment edits), no doc update needed.
@@ -113,7 +113,7 @@ C++ side unchanged; this is purely a Python consumer fix.
 Do not use this skill for:
 
 - Python under `tests/` — those are not pipeline tooling; they're test fixtures or test harnesses for C++ code.
-- Python in mkdocs config (`docs/overrides/`, mkdocs plugins) — those are documentation infrastructure, handled by `documentation-sync` if relevant.
+- Python in mkdocs config (`docs/overrides/`, mkdocs plugins) — those are documentation infrastructure, handled by `doc-sync` if relevant.
 - One-off ad-hoc analysis scripts in `notes/scratch/` — those are throwaway; no contract to maintain.
 
 ## When a new script should be added

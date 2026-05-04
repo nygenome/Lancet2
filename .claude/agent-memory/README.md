@@ -61,7 +61,7 @@ Each agent's memory specializes by what knowledge accumulates fastest:
 - `vcf-validator.md` — schema invariants that have been re-derived
   in past reviews, edge cases (multi-ALT, missing-value), downstream
   consumers that broke when fields changed.
-- `sanitizer-triage.md` — known-benign sanitizer warnings (with
+- `sanitizer-expert.md` — known-benign sanitizer warnings (with
   rationale), patterns of new warnings that turned out to be real
   bugs.
 - `probe-interpreter.md` — common probe-tracking interpretive

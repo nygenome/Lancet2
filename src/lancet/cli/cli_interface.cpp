@@ -137,7 +137,7 @@ $$$$$$$$\\$$$$$$$ |$$ |  $$ |\$$$$$$$\ \$$$$$$$\  \$$$$  |
 )raw";
 // clang-format on
 
-static constexpr auto APP_NAME_FMT_STR = "Lancet, {}\nMicroassembly based somatic variant caller\n";
+static constexpr auto APP_NAME_FMT_STR = "Lancet, {}\nMicroassembly based variant caller\n";
 
 namespace lancet::cli {
 

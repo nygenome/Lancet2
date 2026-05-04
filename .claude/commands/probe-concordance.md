@@ -22,7 +22,7 @@ If the user did not supply explicit paths, use `AskUserQuestion` to gather:
 - Sample BAM/CRAM file(s) — `--samples`
 - Output directory — defaults to `notes/probe-debug-<YYYY-MM-DD>/`
 
-Suggest defaults from the `test-data-reference` skill. If the user names "germline", suggest the GIAB+Manta+NA12878 set; if they name "somatic" before truth VCFs are added, surface the gap explicitly.
+Suggest defaults from the `test-data-locations` skill. If the user names "germline", suggest the GIAB+Manta+NA12878 set; if they name "somatic" before truth VCFs are added, surface the gap explicitly.
 
 If the user runs the command bare with no args at all, walk through `AskUserQuestion` to gather every input. Do not silently fail.
 

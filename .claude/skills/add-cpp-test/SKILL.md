@@ -48,7 +48,7 @@ Resist the temptation to add more tests in the same change. Each additional test
 
 ## When NOT to use this skill
 
-Do not use this skill for benchmarks; benchmarks live in `benchmarks/` and the procedure is different (use the `profile-and-optimize` skill, which incorporates the canonical benchmark workflow). Do not use it for end-to-end pipeline tests that exercise the binary against real BAMs; that is the `/e2e` slash command's job.
+Do not use this skill for benchmarks; benchmarks live in `benchmarks/` and the procedure is different (use the `profile-and-optimize` skill, which incorporates the canonical benchmark workflow). Do not use it for end-to-end pipeline tests that exercise the binary against real BAMs; that is the `/e2e-pipeline-test` slash command's job.
 
 ## Layer-direction reminder
 

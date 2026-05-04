@@ -1,6 +1,6 @@
 # VCF Output Reference
 
-Lancet2 produces bgzipped VCF output following the VCF 4.3 specification.
+Lancet2 produces bgzipped VCF output following the VCF 4.5 specification.
 This page is the authoritative reference for every INFO and FORMAT field
 emitted, including expected value ranges and interpretation guidelines.
 Detailed computation methods are linked in separate guides.

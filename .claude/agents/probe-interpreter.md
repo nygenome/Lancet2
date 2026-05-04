@@ -142,7 +142,7 @@ You must not stop at the dominant stage if the second-most-attributed stage tell
 
 You must not invent stages. The 27-level cascade in `analyze_probe_results.py` is fixed; if you don't recognize a stage name, it has been added or renamed since this agent was last updated — flag the discrepancy and recommend running `/audit-probe-pipeline`.
 
-You must not exceed your scope: you do not validate VCF schema (use `vcf-validator`), you do not analyze profiles (use `perf-analyst`), you do not analyze sanitizer reports (use `sanitizer-triage`). If the user's question is actually one of those, name the right surface and stop.
+You must not exceed your scope: you do not validate VCF schema (use `vcf-validator`), you do not analyze profiles (use `perf-analyst`), you do not analyze sanitizer reports (use `sanitizer-expert`). If the user's question is actually one of those, name the right surface and stop.
 
 # Memory
 

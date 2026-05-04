@@ -17,13 +17,13 @@ Top-level files (`AGENTS.md`, `CLAUDE.md`) sit at the repo root. `AGENTS.md` is 
 
 The bundle implements the standard Claude Code mechanism layering. Each mechanism is used for what it's best at; using one mechanism to do another's job is the most common bundle anti-pattern.
 
-**Hooks** for rules that must be enforced deterministically. Layer direction, naming, dangerous bash, protected paths, commit format, pre-commit summary. Hooks fire every time, run outside the model's context window, and cannot be persuaded out of by any context signal. Every hook is technical debt, so the set is kept minimal — eleven hooks, collectively encoding the project's hardest correctness rules.
+**Hooks** for rules that must be enforced deterministically. Layer direction, naming, dangerous bash, protected paths, commit format, pre-commit summary. Hooks fire every time, run outside the model's context window, and cannot be persuaded out of by any context signal. Every hook is technical debt, so the set is kept minimal — eight hooks, collectively encoding the project's hardest correctness rules.
 
 **Subagents** for delegation patterns where context isolation pays for itself. Pre-merge review, VCF schema validation, performance analysis, sanitizer report analysis, variant-discovery code review, probe-tracking interpretation. Six of them. The discriminator is whether the work would pollute the main session's context if done inline; if yes, it earns a subagent slot.
 
-**Skills** for procedures that benefit from being written down once and applied consistently. Eleven of them. Skills load on demand and cost nothing baseline; their cost is paid only when invoked, into the main session's context.
+**Skills** for procedures that benefit from being written down once and applied consistently. Twelve of them. Skills load on demand and cost nothing baseline; their cost is paid only when invoked, into the main session's context.
 
-**Slash commands** for one-keystroke invocations of repeatable workflows. The thirteen commands group by purpose: validation (`/check`, `/e2e`), commit hygiene (`/commit`), feature kickoff (`/spec`), document scaffolding (`/arch-decision-record`, `/investigation`), probe-tracking forensics (`/probe-concordance`, `/probe-run`, `/probe-analyze`), and bundle hygiene (`/sync-cost-model`, `/audit-bundle`, `/audit-vcf-schema`, `/audit-probe-pipeline`). These are user-initiated and explicit by design — workflows the user wants to start deliberately rather than have inferred from context.
+**Slash commands** for one-keystroke invocations of repeatable workflows. The sixteen commands group by purpose: validation (`/fix-and-validate`, `/e2e-pipeline-test`), commit hygiene (`/commit`), feature kickoff (`/brainstorm`, `/spec`, `/execute-spec`), end-of-branch (`/wrap-branch`), document scaffolding (`/arch-decision-record`, `/investigate`), probe-tracking forensics (`/probe-concordance`, `/probe-run`, `/probe-analyze`), and bundle hygiene (`/sync-cost-model`, `/audit-bundle`, `/audit-vcf-schema`, `/audit-probe-pipeline`). These are user-initiated and explicit by design — workflows the user wants to start deliberately rather than have inferred from context.
 
 **`AGENTS.md`** for rules that should shape every conversation. Layer architecture, naming conventions, commit-message rules, the chr1/chr4 (not chr22) test data correction. Kept under 200 lines per Anthropic's costs guide; per-message cost is the binding constraint.
 
@@ -33,11 +33,11 @@ It does not duplicate the project's style conventions. Those live in `docs_dev/s
 
 It does not encode general C++ best practice. Claude knows that already; restating it just adds noise that dilutes the project-specific signal.
 
-It does not have one file per source-tree layer. An earlier iteration of the bundle did (six per-layer expert agents). Taxonomy is not delegation — when Claude's natural action when asked about a layer is to read the actual files, an agent that says "consult me about this layer" provides little value over what reading provides. The current bundle has one expert that spans the two algorithmically-densest layers (`assembly-and-calling-expert` covering `cbdg/` + `caller/`) plus task-shaped specialists (review, schema, perf, sanitizer).
+It does not have one agent per source-tree layer. Taxonomy is not delegation — when Claude's natural action when asked about a layer is to read the actual files, an agent that says "consult me about this layer" provides little value over what reading provides. The bundle has one expert that spans the two algorithmically-densest layers (`assembly-and-calling-expert` covering `cbdg/` + `caller/`) plus task-shaped specialists for review, schema, perf, sanitizer reports, and probe-tracking interpretation.
 
 It does not push every workflow into a slash command. Most workflows should be inferred from context (skill descriptions trigger them) rather than invoked by hotkey. Slash commands are reserved for workflows where explicit user intent matters.
 
-It does not include MCP servers. MCP servers add per-process maintenance burden and per-call token cost, and the bundle has not yet identified a workflow where that overhead pays for itself for solo-developer use. Re-evaluate if the workflow shifts.
+It does not include MCP servers. MCP servers add per-process maintenance burden and per-call token cost, and the bundle has not yet identified a workflow where that overhead pays for itself. Re-evaluate if the workflow shifts.
 
 ## How contributors use the bundle
 

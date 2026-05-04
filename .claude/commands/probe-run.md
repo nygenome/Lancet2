@@ -20,7 +20,7 @@ ls <outdir>/missed_variants.txt
 
 If the file is missing, surface the error and suggest running `/probe-concordance` first. Do not proceed with synthetic input — that pattern silently produces wrong results.
 
-If the user did not name `--normal`, `--tumor`, `--reference`, or output paths, gather them via `AskUserQuestion`. Suggest defaults from the `test-data-reference` skill. For single-sample germline, the lone CRAM goes as `--normal` (the CLI's `--normal` flag is `required=true`); the case-control mode flag in `pipeline_runner.cpp` only fires when both case and control labels are present. Do not silently use `--tumor` for a germline run — the CLI rejects that combination.
+If the user did not name `--normal`, `--tumor`, `--reference`, or output paths, gather them via `AskUserQuestion`. Suggest defaults from the `test-data-locations` skill. For single-sample germline, the lone CRAM goes as `--normal` (the CLI's `--normal` flag is `required=true`); the case-control mode flag in `pipeline_runner.cpp` only fires when both case and control labels are present. Do not silently use `--tumor` for a germline run — the CLI rejects that combination.
 
 ### Phase 2 — Build staleness check
 
@@ -66,7 +66,7 @@ Tell the user when rebuild is needed and why, before invoking the build. Do not 
 
 ### Phase 3 — Verify CLI shape
 
-Same pattern as `/e2e`:
+Same pattern as `/e2e-pipeline-test`:
 
 ```bash
 help_out=$(./cmake-build-release/Lancet2 pipeline --help 2>&1)

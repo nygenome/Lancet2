@@ -1,19 +1,20 @@
 # Skills
 
-Eleven skills live here. Each one is a procedure that Claude applies with judgment — not a checklist, not a rulebook. Project-wide rules go in `AGENTS.md`; deterministic enforcement goes in hooks; everything that benefits from being written down once and applied consistently across multiple invocations goes here.
+Twelve skills live here. Each one is a procedure that Claude applies with judgment — not a checklist, not a rulebook. Project-wide rules go in `AGENTS.md`; deterministic enforcement goes in hooks; everything that benefits from being written down once and applied consistently across multiple invocations goes here.
 
 ## What's here
 
 - **`add-cpp-test`** — adding a unit or integration test, scaffolding a Catch2 fixture, doing TDD work. Enforces the project's test layout and TDD discipline. Has a `references/` directory with the Catch2 idioms cheat sheet and the bench-binary invocation reference.
 - **`profile-and-optimize`** — full performance-improvement workflow: build the profiling tree, capture against real data, analyze via pprof (optionally with the `perf-analyst` subagent), validate with the google/benchmark suite, validate VCF identity. Composes with `perf-analyst`. Has a `references/` directory with four reference files (google/benchmark idioms, bench invocation, gperftools internals, pprof and analyze_profile.py).
-- **`sanitizer-triage`** — full procedure from "I have a repro" to "merged with regression test." Drives pixi-managed sanitizer build trees (cmake-build-{asan,msan,tsan,ubsan}). Has a `references/sanitizer_matrix.md` with per-sanitizer detail. Different from the `sanitizer-triage` agent, which does analysis-only of an existing report.
-- **`semantic-audit`** — five-pass methodology for auditing comments, docs, and cross-file synchronization across a subdirectory. Used after refactors that renamed metrics or fields, and on a quarterly cadence over one namespace at a time.
-- **`test-data-reference`** — documents the GCS dataset (gs://lancet2-test-datasets/test_harness_data/), the env vars that map to each fixture, and a decision tree for which fixture fits which workflow.
+- **`sanitizer-build-analysis`** — full procedure from "I have a repro" to "merged with regression test." Drives pixi-managed sanitizer build trees (cmake-build-{asan,msan,tsan,ubsan}). Has a `references/sanitizer_matrix.md` with per-sanitizer detail. Different from the `sanitizer-expert` agent, which does analysis-only of an existing report.
+- **`systematic-debugging`** — methodology for any bug, test failure, or unexpected behavior. The Iron Law: no fixes without root-cause investigation first. Has two reference files: `root-cause-tracing.md` walks the trace-to-cause procedure; `defense-in-depth.md` covers tiered prevention so the same bug class doesn't recur.
+- **`doc-sync`** — keeps in-source comments, developer docs in `docs_dev/`, and user docs in `docs/` in sync with each other and with code. Two modes: Mode A is targeted sync after a code change (find every cross-layer reference, propose a coordinated edit set, gate on a consistency check); Mode B is a periodic semantic audit (file-by-file walk of a subdirectory applying a five-pass methodology — structural compliance, comment quality, language compliance, header-vs-implementation split, cross-file synchronization — producing a tiered backlog of findings). Excludes `docs_dev/investigations/` (immutable by design), agent-memory files, `.claude/` READMEs, `AGENTS.md`, and `CHANGELOG.md`.
+- **`test-data-locations`** — documents the GCS dataset (gs://lancet2-test-datasets/test_harness_data/), the env vars that map to each fixture, and a decision tree for which fixture fits which workflow.
 - **`probe-tracking`** — operational playbook for the probe variant forensic pipeline (truth_concordance → Lancet2 with --probe-variants → analyze_probe_results). Covers inputs, the flag dance between steps, the data layout, --verbose requirements, and the somatic-no-truth-VCF gap. For interpreting an existing report, delegates to the `probe-interpreter` subagent.
-- **`schema-migration`** — interview-driven workflow for VCF FORMAT/INFO/FILTER changes and CLI flag changes. Walks the five-operation matrix (add / rename / cardinality-change / remove / silent-semantic-change), proposes coordinated edits across vcf_header_builder.cpp + caller code + tests + docs, and invokes the `vcf-validator` subagent before merge.
-- **`documentation-sync`** — keeps in-source documentation (header comments, docstrings) in sync with the user-facing guides under `docs/`. Surfaces drift in both directions (code → docs and docs → code) before applying coordinated edits.
+- **`external-interface-changes`** — interview-driven workflow for VCF FORMAT/INFO/FILTER changes and CLI flag changes. Walks the five-operation matrix (add / rename / cardinality-change / remove / silent-semantic-change), proposes coordinated edits across vcf_header_builder.cpp + caller code + tests + docs, and invokes the `vcf-validator` subagent before merge.
 - **`python-script-sync`** — maintains the contract between the C++ pipeline and the Python tooling under `scripts/` (analyze_*, run_clang_*, build_*, bump_version, update_changelog, etc.). Catches drift when the C++ side changes a TSV column or log format that a script consumes.
 - **`cmake-sync`** — covers the full chain of changes for adding source files, layers, dependencies, build options, link-line changes, and compile-flag changes. Aware of the protected-paths boundary around `cmake/` and `pixi.toml`.
+- **`clang-tidy-discipline`** — procedural how-to for resolving clang-tidy violations and shaping NOLINT suppressions. Covers diagnose-before-acting (most violations are real and should be fixed, not suppressed), the canonical scoped suppression forms (`NOLINTNEXTLINE` for one line; `NOLINTBEGIN`/`NOLINTEND` for a block), the cognitive-complexity ceiling that gates further function growth, and the project-specific reason `clang-tidy --fix` is forbidden. Defers to `docs_dev/style/cpp_style.md` for the canonical rule statements.
 - **`release-notes`** — distills a CHANGELOG range into a categorized impact summary (breaking / schema / feature / fix / perf / internal). Complements but does not replace the chglog-generated CHANGELOG.md; produces the announcement-style narrative for users.
 
 ## Why skills and not AGENTS.md content?
@@ -28,7 +29,7 @@ A useful test: would Claude consistently get this wrong without it being a stand
 
 Slash commands are user-typed shortcuts. Skills are procedures Claude invokes based on context — when you say "this is slow, can you profile it" Claude should reach for `profile-and-optimize` without you typing `/profile`. Slash-command form would force the explicit invocation and bury the procedure behind keystrokes.
 
-The exception is workflows that benefit from explicit user intent — `/check`, `/e2e`, `/commit`, `/spec`, `/sync-cost-model`. Each of these earns slash-command form because the user wants deliberate invocation rather than context-driven inference.
+The exception is workflows that benefit from explicit user intent — `/fix-and-validate`, `/e2e-pipeline-test`, `/commit`, `/brainstorm`, `/spec`, `/execute-spec`, `/wrap-branch`, `/sync-cost-model`. Each of these earns slash-command form because the user wants deliberate invocation rather than context-driven inference.
 
 ## Description-as-trigger discipline
 
@@ -81,13 +82,13 @@ Common patterns:
 
 **Body pruning.** Skill bodies accumulate edge cases. When a skill body crosses ~150-200 lines, walk every section and ask: is this used? If a section hasn't been hit in two quarters, delete.
 
-**Merging.** Two skills with overlapping triggers — for example, an earlier version of this bundle had `benchmark-changes` and `profile-and-optimize` skills that both covered performance measurement. They merged into one (`profile-and-optimize` absorbed `benchmark-changes`) because the trigger overlap was producing inconsistent routing.
+**Merging.** Two skills with overlapping triggers may merge into one. The signal is inconsistent routing — Claude fires skill A on a query that skill B should have handled, and vice versa, because the descriptions overlap on the same trigger phrases. Merging into a single skill with the union of expertise resolves the routing ambiguity at the cost of a longer body.
 
 **Promotion or demotion.** A skill that's grown to cover something that should be enforced rather than suggested may need to become a hook. A skill whose content is reference rather than procedure may need to become a doc in `docs/`.
 
 ### Reviewing the skill set
 
-Quarterly. Walk all eleven skills in turn:
+Quarterly. Walk all twelve skills in turn:
 
 - Has this skill fired? When? Was the result useful?
 - Does the description still reflect what the skill does? Has the codebase changed in ways that make the procedure stale?
@@ -103,11 +104,3 @@ Retire a skill when it has been on the deletion candidate list for two quarters 
 ## Cost model
 
 See `../cost-model.md` for the full breakdown of how skill descriptions and bodies cost context tokens. Briefly: each skill's description pays per-session baseline cost; the body costs nothing until invocation, at which point it loads into the main session's context (not an isolated one like a subagent body). This makes skills cheaper than subagents at the margin, and the right choice when context isolation isn't needed.
-
-## Recent changes (this directory)
-
-This section records changes to the skill set — additions, deletions,
-description tightening that materially changes triggering behaviour,
-and substantive body rewrites. Cosmetic edits do not belong here.
-Bundle-wide reorganizations are recorded in the top-level `README.md`
-instead. Entries accumulate from production cutover onward.

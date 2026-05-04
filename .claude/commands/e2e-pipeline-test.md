@@ -3,7 +3,7 @@ description: Run the full Lancet2 pipeline on both test profiles back-to-back. G
 allowed-tools: Bash
 ---
 
-# /e2e — end-to-end smoke test
+# /e2e-pipeline-test — end-to-end smoke test
 
 Run the full Lancet2 pipeline twice in succession against the
 project's test data. The germline stage exercises the single-sample
@@ -18,8 +18,8 @@ pipeline-level code in `src/lancet/core/` or any layer below, to
 confirm the binary still produces variant calls. Use it before
 invoking `fresh-reviewer` on a substantive change as a final
 sanity check. Use the `LANCET_TEST_*_REGION_SMALL` regions (1 Mb
-subsets) via the `sanitizer-triage` skill for fast iteration;
-`/e2e` always runs the full-chromosome regions.
+subsets) via the `sanitizer-build-analysis` skill for fast iteration;
+`/e2e-pipeline-test` always runs the full-chromosome regions.
 
 ## Prerequisites
 
@@ -47,11 +47,11 @@ the pipeline.
 
 ## What this command does
 
-The full execution lives in `.claude/scripts/e2e.sh` and is
+The full execution lives in `.claude/scripts/e2e-pipeline-test.sh` and is
 invoked here as a thin wrapper:
 
 ```bash
-bash "$CLAUDE_PROJECT_DIR/.claude/scripts/e2e.sh"
+bash "$CLAUDE_PROJECT_DIR/.claude/scripts/e2e-pipeline-test.sh"
 ```
 
 The script's outline:
@@ -80,7 +80,7 @@ The script's CLI-shape verification (`for required_flag in
 --tumor --normal --reference --region --out-vcfgz`) tracks the
 flag surface of `src/lancet/cli/cli_interface.cpp`. If a flag is
 renamed or removed there, update the verification list in
-`.claude/scripts/e2e.sh`. The `/audit-bundle` slash command
+`.claude/scripts/e2e-pipeline-test.sh`. The `/audit-bundle` slash command
 catches drift between this script and `cli_interface.cpp`.
 
 The variant-count parsing depends on `bcftools view`'s output

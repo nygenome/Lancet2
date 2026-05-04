@@ -1,8 +1,6 @@
 {
-  "_comment": "Lancet2 Claude Code settings — aggressive hook profile. See .claude/hooks/README.md for what each hook does and why. The Edit(...) deny rules below mirror .claude/protected_paths.txt; that file is the single source of truth, and the /audit-bundle slash command verifies the two stay in sync. Note on deletions: rm/rmdir/shred are NOT in deny, so Claude Code prompts the user per-invocation. The block_dangerous_bash hook validates path safety before the prompt is shown — only deletions whose paths land under /tmp/, /var/tmp/, /scratch/, or a gitignored path inside the project root reach the user-approval prompt; everything else is blocked at the hook layer. git push and git reset --hard origin remain blanket-blocked because they have no safe variant for an autonomous agent.",
-
+  "_comment": "Lancet2 Claude Code settings – aggressive hook profile. See .claude/hooks/README.md for what each hook does and why. The Edit(...) deny rules below mirror .claude/protected_paths.txt; that file is the single source of truth, and the /audit-bundle slash command verifies the two stay in sync. Note on deletions: rm/rmdir/shred are NOT in deny, so Claude Code prompts the user per-invocation. The block_dangerous_bash hook validates path safety before the prompt is shown \u2014 only deletions whose paths land under /tmp/, /var/tmp/, /scratch/, or a gitignored path inside the project root reach the user-approval prompt; everything else is blocked at the hook layer. git push and git reset --hard origin remain blanket-blocked because they have no safe variant for an autonomous agent.",
   "autoUpdatesChannel": "stable",
-
   "hooks": {
     "PreToolUse": [
       {
@@ -18,7 +16,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate_naming.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate_cpp_identifiers.py\""
           }
         ]
       },
@@ -44,7 +42,6 @@
         ]
       }
     ],
-
     "Stop": [
       {
         "matcher": "",
@@ -57,7 +54,6 @@
       }
     ]
   },
-
   "permissions": {
     "deny": [
       "Bash(git push:*)",
@@ -77,5 +73,9 @@
       "Edit(CHANGELOG.md)",
       "Edit(LICENSE)"
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": ".claude/ui/statusline.sh"
   }
 }

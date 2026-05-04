@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
-# Lancet2 /e2e end-to-end smoke test
+
+# Fixture presence check
+required_vars=(
+    LANCET_TEST_GERMLINE_CRAM
+    LANCET_TEST_GERMLINE_REFERENCE LANCET_TEST_GERMLINE_REGION
+    LANCET_TEST_SOMATIC_TUMOR LANCET_TEST_SOMATIC_NORMAL
+    LANCET_TEST_SOMATIC_REFERENCE LANCET_TEST_SOMATIC_REGION
+)
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var:-}" ]; then
+        echo "X required env var $var is not set" >&2
+        echo "  Source the project's test fixture script before running this command." >&2
+        exit 1
+    fi
+done
+# Lancet2 /e2e-pipeline-test end-to-end smoke test
 #
 # Run the full pipeline against both test profiles back-to-back:
 #   germline (NA12878 / chr1, single-sample) then somatic (HCC1395 +
 #   HCC1395BL / chr4, tumor/normal). Confirms exit-0 and a reasonable
 #   variant count on each; truth-set comparison is out of scope.
 #
-# This script is invoked by the /e2e slash command (.claude/commands/e2e.md)
-# but is also runnable standalone as `bash .claude/scripts/e2e.sh`.
+# This script is invoked by the /e2e-pipeline-test slash command (.claude/commands/e2e-pipeline-test.md)
+# but is also runnable standalone as `bash .claude/scripts/e2e-pipeline-test.sh`.
 #
 # Required env vars (typically loaded from .claude/settings.local.json):
 #   LANCET_TEST_GERMLINE_CRAM, _REFERENCE, _REGION
@@ -24,7 +39,7 @@ if [ ! -x cmake-build-release/Lancet2 ]; then
   echo "Release binary missing; building first ..."
   pixi run --quiet build-release
   if [ $? -ne 0 ]; then
-    echo "❌ pixi run build-release failed; aborting /e2e"
+    echo "❌ pixi run build-release failed; aborting /e2e-pipeline-test"
     exit 1
   fi
 fi
@@ -35,8 +50,8 @@ help_out=$(./cmake-build-release/Lancet2 pipeline --help 2>&1)
 for required_flag in "--tumor" "--normal" "--reference" "--region" "--out-vcfgz"; do
   if ! echo "$help_out" | grep -q -- "$required_flag"; then
     echo "❌ Lancet2 pipeline --help does not mention $required_flag."
-    echo "   The CLI shape this command assumes has changed; update /e2e or"
-    echo "   .claude/commands/e2e.md to match the current flags."
+    echo "   The CLI shape this command assumes has changed; update /e2e-pipeline-test or"
+    echo "   .claude/commands/e2e-pipeline-test.md to match the current flags."
     exit 1
   fi
 done
@@ -77,7 +92,7 @@ run_germline() {
   local rc=$?
   if [ $rc -ne 0 ]; then return $rc; fi
 
-  echo "─── /e2e germline (chr1, single-sample NA12878) ─────────────"
+  echo "─── /e2e-pipeline-test germline (chr1, single-sample NA12878) ─────────────"
   echo "Sample:    $LANCET_TEST_GERMLINE_CRAM"
   echo "Reference: $LANCET_TEST_GERMLINE_REFERENCE"
   echo "Region:    $LANCET_TEST_GERMLINE_REGION"
@@ -124,7 +139,7 @@ run_somatic() {
   if [ $rc -ne 0 ]; then return $rc; fi
 
   echo ""
-  echo "─── /e2e somatic (chr4, HCC1395 tumor / HCC1395BL normal) ────"
+  echo "─── /e2e-pipeline-test somatic (chr4, HCC1395 tumor / HCC1395BL normal) ────"
   echo "Tumor:     $LANCET_TEST_SOMATIC_TUMOR"
   echo "Normal:    $LANCET_TEST_SOMATIC_NORMAL"
   echo "Reference: $LANCET_TEST_SOMATIC_REFERENCE"
@@ -168,7 +183,7 @@ run_germline
 run_somatic
 
 echo ""
-echo "─── /e2e summary ─────────────────────────────────────────────"
+echo "─── /e2e-pipeline-test summary ─────────────────────────────────────────────"
 printf "  %-10s %-12s %12s %12s %s\n" "stage" "result" "wall(s)" "variants" "PASS"
 case $GERMLINE_RC in
   -1) printf "  %-10s %-12s %12s %12s %s\n" "germline" "skipped" "-" "-" "-" ;;

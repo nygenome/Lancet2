@@ -1,6 +1,6 @@
 # /spec — Interview-driven feature specification
 
-Capture a precise spec for a substantive feature or change before any code is written. The output is two files in `notes/<FEATURE>/` that a fresh Claude Code session can pick up to execute the work.
+Capture a precise spec for a substantive feature or change before any code is written. The output is two files in `notes/<topic>/` that a fresh Claude Code session can pick up to execute the work.
 
 ## Why this command exists
 
@@ -28,11 +28,11 @@ The dimensions to cover, in priority order:
 
 **Open questions.** What does the user not yet know that needs research before implementation can begin? Items here are flagged as TODO in the spec; the executing session will need to resolve them before writing code.
 
-**Test data.** Which test data fixtures will be used to validate the change? The `test-data-reference` skill catalogs the available datasets; if the answer is "I don't know," consult that skill before continuing.
+**Test data.** Which test data fixtures will be used to validate the change? The `test-data-locations` skill catalogs the available datasets; if the answer is "I don't know," consult that skill before continuing.
 
 ### Phase 2 — Draft the spec
 
-After the interview, write `notes/<FEATURE>/spec.md` where `<FEATURE>` is a short slug derived from the goal (kebab-case, ≤30 characters). If the directory does not exist, create it.
+After the interview, write `notes/<topic>/<YYYY-MM-DD>-spec.md` where `<FEATURE>` is a short slug derived from the goal (kebab-case, ≤30 characters). If the directory does not exist, create it.
 
 The spec template is:
 
@@ -77,13 +77,13 @@ After writing the spec, summarize it back to the user in chat and ask for explic
 
 ### Phase 3 — Write the kickoff prompt
 
-After approval, write `notes/<FEATURE>/kickoff.md`. This is the prompt the user will paste into a fresh Claude Code session to execute the work. The kickoff prompt:
+After approval, write `notes/<topic>/kickoff.md`. This is the prompt the user will paste into a fresh Claude Code session to execute the work. The kickoff prompt:
 
 ```markdown
 # Kickoff: <Feature title>
 
 You are picking up implementation of a feature whose spec lives at
-`notes/<FEATURE>/spec.md`. Read that file first, in full, before doing
+`notes/<topic>/<YYYY-MM-DD>-spec.md`. Read that file first, in full, before doing
 anything else.
 
 ## Execution discipline
@@ -97,8 +97,8 @@ anything else.
    build / test gauntlet after each.
 4. Use the layer-direction hook, naming hook, and commit-message hook —
    they will catch violations the executor would otherwise miss.
-5. When all acceptance criteria are checked, run `/check` for the full
-   gauntlet, then `/e2e` if the change touches the pipeline runtime,
+5. When all acceptance criteria are checked, run `/fix-and-validate` for the full
+   gauntlet, then `/e2e-pipeline-test` if the change touches the pipeline runtime,
    then `/commit` to compose the merge commit.
 
 ## Skills and agents that may apply
@@ -136,8 +136,8 @@ To execute the spec in a fresh session:
   cd .worktrees/<FEATURE>
   claude  # start a fresh Claude Code session in the worktree
 
-Then paste the contents of notes/<FEATURE>/kickoff.md as the first
-message. Note that notes/<FEATURE>/spec.md is in the main checkout
+Then paste the contents of notes/<topic>/kickoff.md as the first
+message. Note that notes/<topic>/<YYYY-MM-DD>-spec.md is in the main checkout
 but visible to the worktree session through the kickoff prompt's
 explicit path reference.
 ```

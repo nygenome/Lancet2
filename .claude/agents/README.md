@@ -8,20 +8,20 @@ Six subagents live here. Each one earns its place by satisfying two conditions t
 - **`assembly-and-calling-expert`** — variant-discovery pipeline expert covering `cbdg/` (de Bruijn graph assembly) and `caller/` (MSA, scoring, genotyping, VCF construction). Read-only. Use for review or reasoning about correctness, scoring math, FORMAT/INFO/FILTER semantics, or graph algorithm invariants.
 - **`vcf-validator`** — VCF v4.5 schema validation when adding, removing, or changing FORMAT/INFO/FILTER fields. Read-only.
 - **`perf-analyst`** — interprets gperftools/pprof CPU profiles, identifies hotspots, proposes optimizations with trade-off analysis.
-- **`sanitizer-triage`** — analyzes existing sanitizer reports (ASan/TSan/UBSan/MSan output) when you want focused interpretation without a full reproduce-fix workflow. The full workflow lives in the `sanitizer-triage` skill (different artifact, same name; the agent does analysis, the skill does the procedure).
+- **`sanitizer-expert`** — analyzes existing sanitizer reports (ASan/TSan/UBSan/MSan output) when you want focused interpretation without a full reproduce-fix workflow. The full workflow lives in the `sanitizer-build-analysis` skill (the agent does analysis, the skill does the procedure).
 - **`probe-interpreter`** — reads a probe tracking analysis report and produces focused recommendations grounded in C++ source. Maps each `lost_at_stage` to the responsible code, proposes specific files/functions/parameters to investigate, frames in terms of sensitivity vs specificity. May write a written-up analysis next to the raw probe outputs in `notes/probe-debug-<date>/`. The operational mechanics of running the workflow live in the `probe-tracking` skill.
 
 ## Why subagents and not skills?
 
-Skills don't have isolated context windows. The six agents here all benefit specifically from context isolation: `fresh-reviewer` needs to read the diff cold, `vcf-validator` walks the v4.5 spec without polluting the main session, `perf-analyst` digs into profile state that would otherwise dominate the conversation, `assembly-and-calling-expert` reasons about deep correctness without bringing all of that reasoning back into the main session, `sanitizer-triage` analyzes multi-thousand-line traces, `probe-interpreter` walks a 27-stage attribution cascade and traces each stage to its C++ owner.
+Skills don't have isolated context windows. The six agents here all benefit specifically from context isolation: `fresh-reviewer` needs to read the diff cold, `vcf-validator` walks the v4.5 spec without polluting the main session, `perf-analyst` digs into profile state that would otherwise dominate the conversation, `assembly-and-calling-expert` reasons about deep correctness without bringing all of that reasoning back into the main session, `sanitizer-expert` analyzes multi-thousand-line traces, `probe-interpreter` walks a 27-stage attribution cascade and traces each stage to its C++ owner.
 
 For information-only "expert" content where context isolation doesn't pay for itself, prefer a skill — skills are easier to maintain, easier to compose, and cheaper at the margin (no per-session description cost). The choice between subagent and skill for "expert" content is whether the context-isolation benefit matters for the use case.
 
 ## Why few agents?
 
-Earlier versions of this bundle had thirteen agents, including one per source-tree layer. Those were taxonomy-driven (one agent per kind of question) rather than delegation-driven (one agent per kind of work). For solo-developer use the cost outweighed the benefit: see `.claude/cost-model.md` for the per-session description cost. If Claude's natural action when asked about a layer is to read the actual files anyway, the agent provides no delegation value over what reading provides.
+The bar is delegation, not taxonomy: an agent earns its slot when context isolation pays for the per-session description cost (see `.claude/cost-model.md`). One agent per source-tree layer or one per kind of question doesn't clear that bar — when Claude's natural action when asked about a layer is to read the actual files, the agent provides no delegation value over what reading provides.
 
-The six kept here all pass that test. Pre-merge review legitimately benefits from a fresh context (otherwise you're reviewing your own writing through your own writing). VCF schema validation is bulky read-only work. Performance analysis benefits from context isolation while trade-offs are reasoned through. Sanitizer-report analysis is a focused task with structured output. The merged variant-discovery expert covers the two most algorithmically-dense layers as a delegation pattern (when reasoning gets deep, hand it off). Probe-interpretation maps a structured stage-attribution report onto specific C++ source locations and is bulky enough that doing it inline would crowd out the calling session's other state.
+The six kept here all pass the delegation test. Pre-merge review legitimately benefits from a fresh context (otherwise you're reviewing your own writing through your own writing). VCF schema validation is bulky read-only work. Performance analysis benefits from context isolation while trade-offs are reasoned through. Sanitizer-report analysis is a focused task with structured output. The variant-discovery expert covers the two most algorithmically-dense layers (`cbdg/` and `caller/`) as a delegation pattern (when reasoning gets deep, hand it off). Probe-interpretation maps a structured stage-attribution report onto specific C++ source locations and is bulky enough that doing it inline would crowd out the calling session's other state.
 
 ## Description-as-trigger discipline
 
@@ -39,7 +39,7 @@ Adding an agent should pass two filters before you write a single line of YAML.
 
 **Filter 1 — does it need context isolation?** If the work could be done in the main session without polluting context, it should be a skill, not an agent. Ask: does this work involve reading hundreds of lines of state (a profile, a sanitizer trace, a long spec) that would otherwise sit in the main session for the rest of the work? If no, it's a skill.
 
-**Filter 2 — would I actually delegate to it?** Imagine the workflow that would invoke this agent. If your imagined invocation is "Claude, please consult the X expert about Y" and you cannot articulate why you wouldn't just have Claude read X's files directly, the agent provides no value. Solo-developer agents fail this filter most often.
+**Filter 2 — would I actually delegate to it?** Imagine the workflow that would invoke this agent. If your imagined invocation is "Claude, please consult the X expert about Y" and you cannot articulate why you wouldn't just have Claude read X's files directly, the agent provides no value.
 
 If both filters pass, write the agent. The frontmatter must include `name`, `description` (as a trigger, not a label), `tools` (allowlist; restrict to read-only when the agent is for analysis or review), and `model` (typically `opus` for reasoning-heavy work; `sonnet` for routine tasks; `haiku` for simple sweeps). Update this README's "What's here" section.
 
@@ -83,12 +83,3 @@ If you've decided to retire and then realize there's a workflow that legitimatel
 ## Cost model
 
 See `../cost-model.md` for the full breakdown of how subagent descriptions and bodies cost context tokens. Briefly: each agent's description pays per-session baseline cost (loaded into Claude's awareness at session start so the main agent knows what subagents exist); the body costs nothing until invocation, at which point it loads into the subagent's isolated context window (not the main session's). This makes subagents the right choice when you want bulky reasoning kept out of the main conversation.
-
-## Recent changes (this directory)
-
-This section records changes to the subagent set — additions,
-deletions, merges, scope changes, and description tightening that
-materially changes triggering behaviour. Cosmetic edits do not belong
-here. Bundle-wide reorganizations are recorded in the top-level
-`README.md` instead. Entries accumulate from production cutover
-onward.

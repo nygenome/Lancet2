@@ -41,7 +41,7 @@ Flag removal/renaming requires:
 2. A deprecation cycle: keep the old name as an alias for one release
 3. CHANGELOG entry under "Breaking changes"
 4. `/audit-bundle` pairing 3 (CLI flag surface) catches drift between
-   `cli_interface.cpp` and the `e2e.sh` script's flag verification
+   `cli_interface.cpp` and the `e2e_pipeline_test.sh` script's flag verification
 
 Use `vcf-validator`-style review for flag changes — they're
 analogous to schema changes in their downstream impact.

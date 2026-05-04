@@ -1,82 +1,62 @@
-### C++ template
-# Prerequisites
-*.d
+# ----------------------------------------------------------------------------
+# C/C++ build artifacts
+# ----------------------------------------------------------------------------
+# Object files, libraries, debug symbols, binaries produced by clang.
+# Lancet2 is a C++20 codebase built with clang+libcxx via pixi-driven cmake.
 
-# Compiled Object files
+# Compiled object files
+*.d
 *.slo
 *.lo
 *.o
 *.obj
+*.ko
+*.elf
 
-# Precompiled Headers
+# Precompiled headers
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
+# Dynamic libraries
 *.so
+*.so.*
 *.dylib
 *.dll
 
-# Compiled Static libraries
+# Static libraries
 *.lai
 *.la
 *.a
 *.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# CMake
-build*/
-cmake-build-*/
-
-# File-based project format
-*.iws
-
-### C template
-# Prerequisites
-
-# Object files
-*.ko
-*.elf
 
 # Linker output
 *.ilk
 *.map
 *.exp
 
-# Shared objects (inc. Windows DLLs)
-*.so.*
-
 # Executables
+*.exe
+*.out
+*.app
 *.i*86
 *.x86_64
 *.hex
 
-# Debug files
+# Debug symbols
 *.dSYM/
 *.su
 *.idb
 *.pdb
 
-### Linux template
-*~
 
-# temporary files which can be created if a process still has a handle open of a deleted file
-.fuse_hidden*
+# ----------------------------------------------------------------------------
+# CMake build outputs
+# ----------------------------------------------------------------------------
+# Pixi drives cmake builds into prefixed directories (build*, cmake-build-*).
 
-# KDE directory preferences
-.directory
+build*/
+cmake-build-*/
 
-# Linux trash folder which might appear on any partition or disk
-.Trash-*
-
-# .nfs files are created when an open file is removed but is still being accessed
-.nfs*
-
-### CMake template
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
@@ -89,27 +69,60 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
-### Vim template
-# Swap
+
+# ----------------------------------------------------------------------------
+# Vim editor state
+# ----------------------------------------------------------------------------
+# Swap, session, and undo files for Vim users. The !*.svg negation keeps
+# vector files in docs/assets/ tracked.
+
+# Swap files
 [._]*.s[a-v][a-z]
-!*.svg  # comment out if you don't need vector files
+!*.svg
 [._]*.sw[a-p]
 [._]s[a-rt-v][a-z]
 [._]ss[a-gi-z]
 [._]sw[a-p]
 
-# Session
+# Session files
 Session.vim
 Sessionx.vim
 
-# Temporary
+# Temporary files
 .netrwhist
+
 # Auto-generated tag files
 tags
+
 # Persistent undo
 [._]*.un~
 
-### macOS template
+
+# ----------------------------------------------------------------------------
+# Other IDE / editor state
+# ----------------------------------------------------------------------------
+# Per-developer IDE workspace files.
+
+.vscode/
+*.iws
+
+
+# ----------------------------------------------------------------------------
+# Linux / Unix system noise
+# ----------------------------------------------------------------------------
+# Temporary and hidden files from Linux dev environments.
+
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+
+# ----------------------------------------------------------------------------
+# macOS system noise
+# ----------------------------------------------------------------------------
+# Filesystem metadata and volume artifacts created by macOS.
+
 # General
 .DS_Store
 .AppleDouble
@@ -118,7 +131,7 @@ tags
 # Icon must end with two \r
 Icon
 
-# Thumbnails
+# Resource forks (AFP/SMB shares)
 ._*
 
 # Files that might appear in the root of a volume
@@ -137,17 +150,20 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# Byte-compiled / optimized / DLL files
+
+# ----------------------------------------------------------------------------
+# Python build/test artifacts
+# ----------------------------------------------------------------------------
+# Lancet2 has Python helper scripts in scripts/ and python/.
+# Pixi orchestrates Python tasks via the .pixi virtual environment.
+
+# Compiled Python
 __pycache__/
 *.py[codz]
 *$py.class
 
-# C extensions
-*.so
-
-# Distribution / packaging
+# Distribution / packaging (defensive coverage for Python setup.py-style builds)
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -155,6 +171,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!.claude/hooks/lib/
 parts/
 sdist/
 var/
@@ -165,17 +182,15 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# PyInstaller
-#   Usually these files are written by a python script from a template
-#   before PyInstaller builds the exe, so as to inject date/other infos into it.
+# PyInstaller (defensive)
 *.manifest
 *.spec
 
-# Installer logs
+# Installer / pip logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit test / coverage
 htmlcov/
 .tox/
 .nox/
@@ -190,7 +205,7 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Translations
+# Translations (defensive)
 *.mo
 *.pot
 
@@ -201,17 +216,11 @@ cover/
 profile_default/
 ipython_config.py
 
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-# pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
+# Pixi virtual environment
+.pixi/*
+!.pixi/config.toml
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Environments
+# Generic Python virtual environments
 .env
 .envrc
 .venv
@@ -221,89 +230,60 @@ ENV/
 env.bak/
 venv.bak/
 
-# mkdocs documentation
+
+# ----------------------------------------------------------------------------
+# Documentation builds
+# ----------------------------------------------------------------------------
+# Lancet2 mkdocs site builds to /site at repo root.
+
 /site
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
-# Pyre type checker
-.pyre/
+# ----------------------------------------------------------------------------
+# Lancet2 test datasets
+# ----------------------------------------------------------------------------
+# Test BAM/VCF datasets are large; tracked separately from the codebase.
+# The download_test_data.sh script IS tracked so contributors can fetch them.
 
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# Visual Studio Code
-.vscode/
-
-# PyPI configuration file
-.pypirc
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-
-# Streamlit
-.streamlit/secrets.toml
-
-# Ignore datasets except download script
 data/**
 !data/download_test_data.sh
 
-# documentation
-.cache/
-pyenv/
-site/
 
-# pixi environments
-.pixi/*
-!.pixi/config.toml
-
-
-### Claude code
-# They cover Claude Code's internal state
-# and per-developer configuration.
-
+# ----------------------------------------------------------------------------
 # Claude Code internal state
+# ----------------------------------------------------------------------------
+# Per-session and per-developer Claude Code state that should not be committed.
+
+# Claude Code internal directories
 .claude/worktrees/
 .claude/projects/
 .claude/cache/
 
-# Per-developer Claude Code settings (paths to test data, etc.)
+# Per-developer settings (paths to test data, local API keys, etc.)
 .claude/settings.local.json
 
-# Observability logs (append-only JSONL; quarterly /audit-bundle reads them)
-.claude/observability/
-
-# User-scoped agent memory: perf-analyst's observations are tied to
-# specific hardware/kernel/BIOS/conditions and don't generalize across
-# the team. The other agent-memory files (project-scoped) ARE tracked.
+# User-scoped agent memory: perf-analyst's observations are tied to specific
+# hardware/kernel/BIOS conditions and don't generalize across the team.
+# The other agent-memory files (project-scoped) ARE tracked.
 .claude/agent-memory/perf-analyst.md
 
-# Profile captures
+# Profile captures (binary, large)
 *cpu_profile*.bin
 *.prof
 
 # Notes area used by Claude Code skills and slash commands.
 # Claude is free to write into these subdirectories without triggering
-# protected-path hooks; gitignoring them keeps experimental work and
-# feature-spec drafts out of git status.
+# protected-path hooks; gitignoring keeps experimental work and feature-spec
+# drafts out of git status. notes/** is recursive.
 notes/**
-notes/scratch/
-notes/*/spec.md
-notes/*/kickoff.md
-notes/*/*.draft.md
 
 # Feature worktrees created by /spec when the user opts in.
-# The directory is bundle-protected (via .claude/protected_paths.txt)
-# so the agent cannot accidentally edit a worktree's contents from the
-# main checkout, and gitignored here so worktree state does not appear
-# in `git status` of the main checkout.
+# The directory is bundle-protected via .claude/protected_paths.txt and
+# gitignored here so worktree state does not appear in git status of the
+# main checkout.
 .worktrees/
 
+# /fix-and-validate writes .claude/cache/validation-state.txt with four
+# key=value fields: stash_hash, head_sha, timestamp, status. pre_commit_gate.sh
+# reads stash_hash; statusline.sh reads status. Per-session state, already
+# covered by .claude/cache/ above.

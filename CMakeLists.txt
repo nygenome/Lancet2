@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Lancet2 — Micro-assembly based somatic variant caller
+# Lancet2 — Micro-assembly based variant caller
 #
 # Build dependency chain (each layer depends on everything above it):
 #   lancet_base  → lancet_hts → lancet_cbdg → lancet_caller → lancet_core → lancet_cli → Lancet2
@@ -15,7 +15,7 @@ file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" LANCET_VERSION_FROM_FILE 
 string(STRIP "${LANCET_VERSION_FROM_FILE}" LANCET_VERSION_FROM_FILE)
 project(lancet VERSION ${LANCET_VERSION_FROM_FILE} LANGUAGES C CXX
 		HOMEPAGE_URL https://github.com/nygenome/Lancet2
-		DESCRIPTION "Micro-assembly based somatic variant caller")
+		DESCRIPTION "Micro-assembly based variant caller")
 
 # ── Version & Options ─────────────────────────────────────────────────────────
 include(cmake/version.cmake)

@@ -15,7 +15,7 @@ here affect every window in every run.
 `base/types.h` defines `i8/i16/i32/i64`, `u8/u16/u32/u64`, `usize`,
 `f32`, `f64`. All Lancet2 code uses these aliases instead of
 `std::int32_t`/etc. directly. **These aliases are exempt from the
-project's snake_case identifier rule** — `validate_naming.py` carries
+project's snake_case identifier rule** — `validate_cpp_identifiers.py` carries
 this exemption explicitly. New aliases added to `types.h` should be
 short and follow the same pattern.
 

@@ -6,34 +6,19 @@ A thin wrapper at `CLAUDE.md` imports this file (`@AGENTS.md`) so Claude Code re
 
 ## Project at a glance
 
-Lancet2 is a modern C++20 somatic variant caller (SNVs and InDels) by the New York Genome Center. It performs joint multi-sample localized colored de Bruijn graph assembly. The CLI entry point is `Lancet2 pipeline`. The `main` branch is the source of truth; the documentation site at `nygenome.github.io/Lancet2` typically lags `main`.
+Lancet2 is a modern C++20 variant caller (SNVs and InDels) by the New York Genome Center. It performs joint multi-sample localized colored de Bruijn graph assembly. The CLI entry point is `Lancet2 pipeline`. The `main` branch is the source of truth; the documentation site at `nygenome.github.io/Lancet2` typically lags `main`.
 
 ## Build and tooling
 
-The build is driven by [pixi](https://pixi.sh) (`pixi task list` for the full catalog). The toolchain (gcc, clang, cmake, ninja, clang-tidy, IWYU, go) is pinned in `pixi.toml` and installed under `.pixi/`. Always prefer pixi tasks over hand-rolled CMake invocations so you pick up the locked toolchain rather than whatever is on `PATH`.
+The build is driven by [pixi](https://pixi.sh). Always prefer pixi tasks over hand-rolled CMake invocations so you pick up the locked toolchain (gcc, clang, cmake, ninja, clang-tidy, IWYU, go) rather than whatever is on `PATH`. Run `pixi task list` for the full catalog.
 
-```
-pixi run configure-release            # CMake Release configure → cmake-build-release/
-pixi run build-release                # Release build (auto-runs configure-release first)
-pixi run configure-debug              # Debug configure with tests + compile_commands.json
-pixi run build-debug                  # Debug build (auto-runs configure-debug first)
-pixi run test                         # Run Catch2 tests (auto-builds Release first)
-pixi run bench                        # Run benchmarks (configure with -DLANCET_BENCHMARKS=ON)
-pixi run lint-all                     # fmt-check + lint-check + iwyu-check (CI gates)
-pixi run fmt-fix                      # apply clang-format
-pixi run iwyu-fix                     # apply IWYU then re-format
-pixi run docs-build                   # strict, zero-warning
-```
-
-Sanitizer trees (`cmake-build-asan/`, `cmake-build-tsan/`) are configured manually by the `sanitizer-triage` skill because they require disabling the static mimalloc link. The profiling build (`pixi run configure-profile` / `pixi run build-profile`) is documented in the `profile-and-optimize` skill; reach for the skill rather than configuring profiling builds inline.
+Sanitizer trees (`cmake-build-asan/`, `cmake-build-tsan/`, `cmake-build-msan/`, `cmake-build-ubsan/`) are configured by the `sanitizer-build-analysis` skill and the matching pixi tasks; they require disabling the static mimalloc link via the `LANCET_SANITIZE_BUILD` source guard. The profiling build (`pixi run configure-profile` / `pixi run build-profile`) is documented in the `profile-and-optimize` skill; reach for the skill rather than configuring profiling builds inline.
 
 The `test` task uses the Release tree (`cmake-build-release/tests/TestLancet2`) because `lint-check` and `iwyu-check` already build that tree at commit time, and `tests/CMakeLists.txt` defines `LANCET_DEBUG_MODE` on the test target unconditionally so `LANCET_ASSERT` keeps firing under Release. The `build-debug` tree exists for explicit debug iteration but is not on the default flow.
 
-`/check` is the canonical validation entry point. It runs `pixi run iwyu-fix` (mutating; auto-formats and fixes includes), then read-only `lint-check` and `test` against the Release tree. On full success it writes a `git stash create` hash to `.claude/cache/last-check-state` (gitignored). The `pre_commit_gate.sh` PreToolUse hook reads that marker at `git commit` time and silently passes if the hash matches the about-to-be-committed working tree (~50ms). If the marker is missing or stale, the gate blocks with "run /check first". Run `/check` whenever you've made non-trivial source changes; commits without a fresh `/check` will be blocked.
+`/fix-and-validate` is the canonical validation entry point. It runs `pixi run iwyu-fix` (mutating; auto-formats and fixes includes), then read-only `lint-check` and `test` against the Release tree. On full success it writes a key=value record to `.claude/cache/validation-state.txt` (gitignored) with four fields: `stash_hash` (a `git stash create` hash of the validated working tree), `head_sha`, `timestamp`, and `status` (pass/fail). The `pre_commit_gate.sh` PreToolUse hook reads `stash_hash` at `git commit` time and silently passes if it matches the about-to-be-committed working tree (~50ms). The `statusline.sh` Claude-Code statusline reads `status` and surfaces it as `[validation-check: pass|fail|stale]` on every prompt. If the marker is missing or stale, the gate blocks with "run /fix-and-validate first". Run `/fix-and-validate` whenever you've made non-trivial source changes; commits without a fresh validation will be blocked.
 
-<important_if context="invoking clang-tidy">
-**Never reach for clang-tidy's `--fix` / `-fix` mode.** It has historically broken compilation in this project (modernize-use-trailing-return-type rewriting lambdas, modernize-use-ranges breaking sort with no `<=>`, misc-include-cleaner reordering includes). The `lint-fix` pixi task and the `--fix` flag on `scripts/run_clang_tidy.py` were removed for this reason. Resolve every `lint-check` warning by reading the diagnostic, understanding the root cause, and editing the source by hand. `pixi run iwyu-fix` (which auto-fixes includes and re-formats) is fine; clang-tidy auto-fix is not.
-</important_if>
+For clang-tidy violations, NOLINT discipline, and the project-specific reason `clang-tidy --fix` is forbidden, see the `clang-tidy-discipline` skill — it carries the procedural how-to. The canonical rule statements live in `docs_dev/style/cpp_style.md`.
 
 ## Architecture: six-layer dependency chain
 
@@ -52,7 +37,7 @@ lancet_cli    → CLI11 parsing, VCF header construction, pipeline_runner
 Lancet2       → main.cpp, links lancet_cli + mimalloc
 ```
 
-A file in layer N may depend on layers 1 through N. It must NOT depend on layers above it. The at-write hook in `.claude/hooks/validate_layer_direction.py` enforces this on every edit.
+A file in layer N may depend on layers 1 through N. It must NOT depend on layers above it. The at-write hook in `.claude/hooks/validate_layer_direction.py` enforces this on every edit; a companion hook `.claude/hooks/validate_cpp_identifiers.py` enforces naming conventions and NOLINT-suppression discipline (see the clang-tidy-discipline skill for details).
 
 `CMakeLists.txt` documents each layer's intra-module data flow at the top of its `add_library(...)` block. Sources are listed in foundational → orchestrator order, not alphabetical. **When you add or rename files in a layer, update the data-flow comment at the top of that layer's `add_library(...)` block** — it goes stale silently.
 
@@ -69,48 +54,7 @@ When Claude is reasoning about correctness inside a layer, the relevant rule fil
 
 ## Naming and code conventions
 
-`docs_dev/style/` (entry point: `docs_dev/style/README.md`) is authoritative; `.clang-tidy` is the source of truth for the auto-enforced rules. The conventions below are the ones reviewers flag and are NOT all caught by clang-format or clang-tidy.
-
-**Names.** `PascalCase` for types, methods, free functions. `mPascalCase` for member variables (the `m` prefix is required; trailing underscores are not used). `snake_case` for parameters, locals, and namespaces. `UPPER_CASE` for constants, enumerators, and macros. The `i8`/`i16`/`i32`/`i64`/`u8`/`u16`/`u32`/`u64`/`f32`/`f64`/`usize` aliases (defined in `src/lancet/base/types.h`) are project-wide and exempt from the snake_case rule; new code uses them rather than `int`/`unsigned`/`size_t`/`double`.
-
-**East const, everywhere.** `int const x`, `auto const& ref` — never `const int x` or `const auto& ref`. Clang-format does not fix this; reviewers will.
-
-**Quote vs angle-bracket includes.** `<>` is reserved for the C/C++ standard library only. Project headers, Abseil, spdlog, htslib, fmtlib, SPOA, minimap2, moodycamel, Catch2 — all use `""`. Clang-format will not fix this. C-only third-party headers (htslib, minimap2) are wrapped in `extern "C" {}` with a short comment noting they are POSIX/C headers.
-
-**Member layout: descending alignment, with size annotations.** Place 8-byte members first, then 4-byte, then 2-byte, then 1-byte. Annotate members with `// 8B`, `// 4B`, `// 2B`, `// 1B` comments so padding is visible at a glance. Constructor initializer lists must match declaration order. Audited gold-standard examples: `cbdg::Read`, `ReadEvidence`, `RawVariant`, `VariantCall` (the `assembly-and-calling-expert` subagent's body has the full list with paths).
-
-**Logging and formatting.** Use spdlog macros (`SPDLOG_INFO`, `SPDLOG_DEBUG`, etc.) and fmtlib (`fmt::format`, `fmt::print`). `std::format` and `std::print` are forbidden; the at-write hook hard-blocks both.
-
-**Assertions and namespaces.** Use `LANCET_ASSERT` (defined in `src/lancet/base/assert.h`); bare `assert()` is forbidden. `using namespace std` is forbidden in headers. Both are hook-enforced.
-
-**Algorithms over manual loops.** Prefer `<algorithm>`, `<ranges>`, and Abseil utility headers when intent is clearer. Exception: when the algorithm form would hurt readability, complicate the code, or degrade performance, keep the loop. Use judgment — the goal is clarity, not dogma.
-
-<important_if intent="adding a NOLINT suppression of any kind">
-**NOLINT discipline.** Suppressions must be scoped: `// NOLINTNEXTLINE(check-name)` for one line, paired `NOLINTBEGIN(check-name)` / `NOLINTEND(check-name)` for blocks. Bare `// NOLINT` and `// NOLINT(check-name)` (the inline same-line forms) are forbidden — they pollute the statement line and make scannability hard. The `validate_naming.py` hook hard-blocks bare-NOLINT additions inside `src/lancet/`. The first answer to "should I suppress this?" is always "no — fix the underlying issue." Reach for a suppression only when the check is genuinely wrong about this case, the diagnostic cannot be fixed without harming clarity or correctness, and you can articulate why. When refactoring, do not carry suppressions forward; remove all and re-add only after a documented simplification attempt.
-
-**Scoped vs bare NOLINT — the structural reason.** The bare inline form (`int x; // NOLINT(check)`) is fragile under clang-format: when clang-format wraps long lines, it can move the comment away from the statement it suppresses, silently invalidating the suppression and re-introducing the warning. The scoped forms (`NOLINTNEXTLINE` and `NOLINTBEGIN`/`NOLINTEND`) anchor to surrounding lines, not the wrapped statement, so they survive any future formatting pass. This is not stylistic preference — it is the only form that's robust to the project's auto-format policy.
-
-**Rationale placement: always on lines ABOVE the NOLINT directive, regardless of length.** Every suppression carries a WHY-rationale, and that rationale is written on one or more `//` comment lines **immediately above** the `NOLINTNEXTLINE` or `NOLINTBEGIN` line. Do not put the rationale inline on the NOLINT line itself (no trailing `-- <reason>` clause). This rule applies to short rationales as well as long ones — uniform placement keeps the directive line scannable and keeps the WHY adjacent to the directive without crowding it. The canonical form is:
-
-```cpp
-// <WHY this suppression is justified>
-// NOLINTNEXTLINE(check-name)
-<line that needs the suppression>
-```
-
-For block suppressions:
-
-```cpp
-// <WHY this block needs to be silenced>
-// NOLINTBEGIN(check-name)
-<block>
-// NOLINTEND(check-name)
-```
-
-`NOLINTEND` carries no rationale (it's a closing token; the WHY belongs on the matching `NOLINTBEGIN`). The `validate_naming.py` hook enforces this layout for new NOLINT additions inside `src/lancet/` — it hard-blocks any new `NOLINTNEXTLINE`/`NOLINTBEGIN` that lacks a `//` comment on the line(s) immediately preceding it.
-
-**Disclosure rule for suppressions.** Whenever Claude adds a NOLINT suppression of any form (NOLINTNEXTLINE or NOLINTBEGIN/NOLINTEND), it must surface the addition explicitly in the summary of work — what was suppressed, where, why, and what was tried first. The disclosure is not optional and not for the user's review only; it is the mechanism that prevents the suppression from being a quiet workaround for a real violation. The `fresh-reviewer` subagent flags any undisclosed new suppression at PR time as a finding.
-</important_if>
+`docs_dev/style/cpp_style.md` is the source of truth for naming, member layout, include style, NOLINT discipline, complexity ceilings, logging/formatting (spdlog + fmtlib; `std::format` and `std::print` are forbidden), and assertions/namespaces (`LANCET_ASSERT` only; bare `assert()` and `using namespace std` in headers are forbidden). `.clang-tidy` is the source of truth for the auto-enforced rules.
 
 **Function complexity ceilings** (from `.clang-tidy`): cognitive complexity ≤ 35, statement count ≤ 150, line count ≤ 200, parameter count ≤ 6, nesting depth ≤ 4. The Rule of 5 is enforced.
 
@@ -120,15 +64,15 @@ For block suppressions:
 
 Comments serve a developer with the source open trying to understand *what* the code does, *why* it was designed this way, and *what would break* if it were done differently. Explain the why, not the what. Include math with representative values. State invariants and boundary conditions with a `CRITICAL:` prefix when non-obvious. Use ASCII diagrams (wrapped in `// clang-format off` / `// clang-format on`) for spatial code. No filler words, no anthropomorphization, no unexplained jargon.
 
-The full code-comment convention with worked examples and the filler-word catalog lives in `docs_dev/style/code_comments.md`. The `semantic-audit` skill encodes the methodology that catches comment violations across a subdirectory; use it after a refactor that renamed a metric or field, and on a quarterly cadence.
+The full code-comment convention with worked examples and the filler-word catalog lives in `docs_dev/style/code_comments.md`. The `doc-sync` skill encodes the methodology that catches comment violations across a subdirectory; use it after a refactor that renamed a metric or field, and on a quarterly cadence. Use Mode A for targeted post-change sync; Mode B for periodic semantic audits.
 
 ## Downstream sync requirements
 
 The following pairs go stale silently. Grep the codebase when changing any of them.
 
-**VCF FORMAT/INFO/FILTER field names.** The field is defined in `src/lancet/caller/variant_call.{h,cpp}` and the value is computed in `src/lancet/caller/variant_support.cpp`. The VCF header `##FORMAT` / `##INFO` / `##FILTER` line is registered in `src/lancet/cli/vcf_header_builder.cpp` (the canonical site for header definitions). The user-facing description is in `docs/guides/vcf_output.md` and, for FORMAT fields, also in `docs/guides/alignment_annotations.md`. A change to the field name, the formula, or the value range must update all four locations. **Always invoke the `vcf-validator` subagent before merging FORMAT/INFO/FILTER changes.**
+**VCF FORMAT/INFO/FILTER field names.** The field is defined in `src/lancet/caller/variant_call.{h,cpp}` and the value is computed in `src/lancet/caller/variant_support.cpp`. The VCF header `##FORMAT` / `##INFO` / `##FILTER` line is registered in `src/lancet/cli/vcf_header_builder.cpp` (the canonical site for header definitions). The user-facing description is in `docs/guides/vcf_output.md` and, for FORMAT fields, also in `docs/guides/alignment_annotations.md`. A change to the field name, the formula, or the value range must update all four locations. **Always invoke the `vcf-validator` subagent before merging FORMAT/INFO/FILTER changes.** For any rename, cardinality change, removal, or silent-semantic-change, use the `external-interface-changes` skill.
 
-**CLI flag names and defaults.** Defined in `src/lancet/cli/cli_interface.cpp`. Documented in `docs/reference.md`. Cross-linked from `docs/guides/*.md` for any flag with behavioral implications.
+**CLI flag names and defaults.** Defined in `src/lancet/cli/cli_interface.cpp`. Documented in `docs/reference.md`. Cross-linked from `docs/guides/*.md` for any flag with behavioral implications. CLI flag changes also go through `external-interface-changes`.
 
 **Architecture and data-flow comments.** Each layer's `add_library(...)` block in `CMakeLists.txt` carries a top-of-block comment. When files move between layers, are added, or are renamed, update it.
 
@@ -157,23 +101,32 @@ Use plan mode (Shift-Tab twice) for any change touching multiple files or the al
 
 Use one of the four conventional-commit prefixes the project's `.chglog/config.yml` filters on: `feat:` (new features), `fix:` (bug fixes), `perf:` (performance), `chore:` (everything else). Other prefixes parse but are silently dropped by chglog. The header pattern does NOT support scopes, so write `fix: ...` rather than `fix(caller): ...`. Body shape (trivial vs. substantive, two-section format with file-list bullets, 72-char wrap) is enforced by the `validate_commit_message` hook against `.claude/commit-style.json`. Use the `/commit` slash command rather than writing the message by hand.
 
-Use a worktree (`git worktree add`) for any change above thirty minutes or spanning multiple layers.
+Use a worktree (`git worktree add`) for any change above thirty minutes or spanning multiple layers. The statusline shows `wt:<name>` when CWD is a linked worktree.
 
-Use the `fresh-reviewer` subagent before merging any change to `main`. The fresh-context review catches what the writer rationalized away.
+Use the `fresh-reviewer` subagent before merging any change to `main`. The fresh-context review catches what the writer rationalized away. When receiving its findings, verify before implementing, push back with technical reasoning when warranted, and implement in severity order — see `fresh-reviewer.md` § "Receiving review findings" for the full discipline.
+
+When the user says "grill me," "push back hard," or otherwise asks for adversarial review, the responding session should hold its assumptions to a higher bar: question the framing, demand specific evidence for claims, and refuse to validate vague reasoning. The grill-me posture is opt-in by the user and applies to the immediate exchange, not the rest of the session.
+
+When the user asks a binary or near-binary question and a single-syllable answer is the truth, give that answer. The "caveman acknowledgment" — "Yes." / "No." / "Don't know" / "Maybe" — is appropriate when the user is checking a fact, not when they want analysis. Wrapping a single-syllable answer in three sentences of qualification dilutes the signal.
+
+For substantive features, use `/spec` first, before writing code. It interviews you to surface scope, acceptance criteria, and constraints, then writes a spec at `notes/<topic>/<YYYY-MM-DD>-spec.md` for a fresh execution session via `/execute-spec`. For exploratory work where the approach is unclear, use `/brainstorm` first to generate options, then `/spec` against the chosen option. Skipping the interview on substantive work is a known failure mode.
+
+The `notes/<topic>/` directory naming convention applies to all interview-driven artifacts: `<YYYY-MM-DD>-spec.md` for `/spec`, `<YYYY-MM-DD>-options.md` for `/brainstorm`, `<YYYY-MM-DD>-investigation.md` for `/investigate`. The date prefix preserves history when the same topic is revisited later.
 
 ## Where to reach for what
 
 A few specific routes worth keeping in mind, because the natural default is wrong:
 
 - **Tests.** When adding a unit or integration test, use the `add-cpp-test` skill. It encodes the `tests/<layer>/<file>_test.cpp` layout, the project's Catch2 v3.14.0 conventions, and a complete cheat sheet of Catch2 idioms (assertions, sections, generators, fixtures, matchers, logging, skipping) plus a flexible-invocation reference for the test binary (tag/name filtering, `--section`, `--generator-index`, reporters, sharding, seed reproduction). Reach for the skill any time the test workflow needs more than `pixi run test`.
-- **Test data.** Before picking a fixture for a sanitizer run, profile, or `/e2e`, consult the `test-data-reference` skill — it has a decision tree mapping workflow to fixture (germline NA12878 / chr1; somatic HCC1395 / chr4; truth comparisons; T2T).
+- **Test data.** Before picking a fixture for a sanitizer run, profile, or `/e2e-pipeline-test`, consult the `test-data-locations` skill — it has a decision tree mapping workflow to fixture (germline NA12878 / chr1; somatic HCC1395 / chr4; truth comparisons; T2T).
 - **Profiling and optimization.** When the user mentions slow runs, hotspots, or wants to optimize, use the `profile-and-optimize` skill. It composes with the `perf-analyst` subagent for analysis.
 - **Variant-discovery code (cbdg/, caller/).** Delegate review and deep correctness reasoning to the `assembly-and-calling-expert` subagent. It carries the bi-directed de Bruijn graph mental model and the layer-specific correctness concerns. For VCF schema specifics, that agent delegates to `vcf-validator`.
-- **Substantive features.** Use `/spec` first, before writing code. It interviews you to surface scope, acceptance criteria, and constraints, then writes both a spec and a kickoff prompt to `notes/<FEATURE>/` for a fresh execution session. Skipping the interview on substantive work is a known failure mode.
+- **Substantive features.** Use `/spec` first, before writing code. Skipping the interview on substantive work is a known failure mode.
+- **Open problem space, no chosen approach.** Use `/brainstorm` to generate options before committing to one.
 - **Probe tracking / missed-variant forensics.** Use the `probe-tracking` skill for the operational mechanics (running `truth_concordance.py`, the Lancet2 probe invocation, `analyze_probe_results.py`) and the `probe-interpreter` subagent for interpreting an existing report. The three slash commands `/probe-concordance`, `/probe-run`, `/probe-analyze` are independent and composable; run them in sequence for end-to-end, run any one alone if its inputs already exist. The skill+agent split is intentional: the skill is the playbook, the agent is the consultant.
-- **Substantive design decisions or postmortems.** Use `/arch-decision-record` for an Architecture Decision Record (a deliberate, single-decision document future contributors need to understand the *why*). Use `/investigation` for a postmortem, debug archaeology, or performance investigation (an immutable snapshot of a moment of debugging). Both are interview-driven and produce drafts under `docs_dev/architecture/` or `docs_dev/investigations/` respectively, following the writing guides in those directories' READMEs. The failure mode without these commands is writing the rationale inline in the chat instead of producing the persistent document.
+- **Substantive design decisions or postmortems.** Use `/arch-decision-record` for an Architecture Decision Record (a deliberate, single-decision document future contributors need to understand the *why*). Use `/investigate` for a postmortem, debug archaeology, or performance investigation (an immutable snapshot of a moment of debugging). Both are interview-driven and produce drafts under `docs_dev/architecture/` or `docs_dev/investigations/` respectively, following the writing guides in those directories' READMEs. The failure mode without these commands is writing the rationale inline in the chat instead of producing the persistent document.
 
-`/check` mid-session validates without waiting for the Stop hook. `/e2e` confirms pipeline-level changes did not break variant calling on either profile.
+`/fix-and-validate` mid-session validates without waiting for the Stop hook. `/e2e-pipeline-test` confirms pipeline-level changes did not break variant calling on either profile. `/wrap-branch` finalizes the branch (merge / PR / keep / discard) when work is done.
 
 ## Scratch space
 
@@ -183,10 +136,10 @@ When you need to experiment, write throwaway scripts, or jot analysis notes, use
 
 Do not WRITE to `pixi.toml`, `pixi.lock`, the `cmake/` superbuild modules, `Dockerfile`, `.github/`, `data/`, `CHANGELOG.md`, `LICENSE`, or any path under `cmake-build-*/`, `_deps/`, `.pixi/`, `.worktrees/`, or `.chglog/`. The at-write hook blocks these paths. The full canonical list lives in `.claude/protected_paths.txt`. Note the asymmetry: these paths are write-blocked, not read-blocked. Source under `cmake-build-*/_deps/` (vendored htslib, abseil, spdlog, SPOA, minimap2, etc.) remains freely readable and is often the authoritative answer for deep "why does this dependency behave this way?" questions — read it directly rather than guessing.
 
-Do not rename or remove user-facing CLI flags without explicit user approval. The flag surface is documented and downstream-keyed.
+Do not rename or remove user-facing CLI flags without explicit user approval. The flag surface is documented and downstream-keyed. Use `external-interface-changes` for any operation on the CLI flag surface.
 
 <important_if intent="proposing or accepting an optimization">
 Do not propose optimizations whose correctness implications you cannot articulate. Lancet2's priorities are correctness first, performance second.
 </important_if>
 
-Do not modify VCF FORMAT/INFO/FILTER definitions without invoking `vcf-validator`. Schema drift breaks downstream pipelines silently.
+Do not modify VCF FORMAT/INFO/FILTER definitions without invoking `vcf-validator`. Schema drift breaks downstream pipelines silently. Use `external-interface-changes` for any operation on the VCF schema.

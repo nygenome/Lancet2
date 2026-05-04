@@ -1,4 +1,4 @@
-# sanitizer-triage agent memory
+# sanitizer-expert agent memory
 
 This file is project-scoped, git-tracked, and bundled into the next
 feat/fix/perf/chore commit. See `.claude/agent-memory/README.md` for

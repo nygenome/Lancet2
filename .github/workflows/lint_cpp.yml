@@ -34,6 +34,15 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.5
 
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          # Lancet2's cmake/platform_checks.cmake auto-detects ccache via
+          # find_program(CCACHE_EXE ccache) and wires it as the compile/link
+          # launcher when present in PATH. No project-side changes needed.
+          key: lint-clang-tidy
+          max-size: 500M
+
       - name: Build and run clang-tidy
         run: pixi run lint-check
 
@@ -47,6 +56,12 @@ jobs:
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.5
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: lint-iwyu
+          max-size: 500M
 
       - name: Build and check include hygiene
         run: pixi run iwyu-check

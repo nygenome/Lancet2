@@ -1,15 +1,24 @@
 # Slash commands
 
-Thirteen slash commands live here. Each one is a workflow the user wants to start deliberately rather than have inferred from context. Skills fire automatically when Claude judges them relevant; slash commands fire only when the user types them. The discriminator: does explicit user intent matter for this workflow?
+Sixteen slash commands live here. Each one is a workflow the user wants to start deliberately rather than have inferred from context. Skills fire automatically when Claude judges them relevant; slash commands fire only when the user types them. The discriminator: does explicit user intent matter for this workflow?
 
 ## What's here
 
 Operational commands:
 
-- **`/check`** — fix-mode validation: runs `pixi run iwyu-fix` (which chains clang-format), `pixi run lint-check` (read-only; clang-tidy auto-fix is forbidden), then `pixi run test` against the Release tree. Mirrors the scope of the `pre_commit_gate.sh` PreToolUse hook but applies fixes where the gate runs read-only equivalents. Use to make the diff clean before staging; the gate is the safety net at `git commit` time.
-- **`/e2e`** — runs the full Lancet2 pipeline twice: germline (NA12878 / chr1) then somatic (HCC1395 tumor + HCC1395BL normal / chr4). Confirms exit-0 and a reasonable variant count for each. Truth-set comparison is a separate harness and is not done here.
+- **`/fix-and-validate`** — fix-mode validation: runs `pixi run iwyu-fix` (which chains clang-format), `pixi run lint-check` (read-only; clang-tidy auto-fix is forbidden), then `pixi run test` against the Release tree. Mirrors the scope of the `pre_commit_gate.sh` PreToolUse hook but applies fixes where the gate runs read-only equivalents. Use to make the diff clean before staging; the gate is the safety net at `git commit` time.
+- **`/e2e-pipeline-test`** — runs the full Lancet2 pipeline twice: germline (NA12878 / chr1) then somatic (HCC1395 tumor + HCC1395BL normal / chr4). Confirms exit-0 and a reasonable variant count for each. Truth-set comparison is a separate harness and is not done here.
 - **`/commit`** — composes a commit message in the project's two-section style (subject + context paragraphs + optional file-list bullets), grounded in `docs_dev/style/cpp_style.md` § Git commit messages and `.chglog/config.yml`. The validate_commit_message hook independently double-checks at the moment of `git commit`.
+
+Feature kickoff workflow (three composable steps; `/brainstorm` → `/spec` → `/execute-spec`):
+
+- **`/brainstorm`** — option exploration when the user has a problem but no chosen approach. Surfaces 2-4 distinct approaches with explicit tradeoffs, picks one, hands off to `/spec`. Output: `notes/<topic>/<YYYY-MM-DD>-options.md`.
 - **`/spec`** — interview-driven feature specification. Asks the user 3-7 questions via `AskUserQuestion`, drafts a spec at `notes/<FEATURE>/spec.md`, and writes a kickoff prompt at `notes/<FEATURE>/kickoff.md` for a fresh execution session. Use for substantive features (above ~50 lines or touching multiple files).
+- **`/execute-spec`** — picks up a spec written by `/spec` and executes it as a sequence of TodoWrite-tracked tasks with per-task verification and explicit stop conditions. The spec drives; the executing session follows.
+
+End-of-branch:
+
+- **`/wrap-branch`** — end-of-branch cleanup. Pre-checks the tree, then asks the user to pick: merge to main locally, push + PR, keep the branch, or discard. Handles worktree cleanup based on the choice.
 
 Probe tracking workflow (three composable steps; run any subset):
 
@@ -27,7 +36,7 @@ Drift-and-refresh commands:
 Document scaffolding commands:
 
 - **`/arch-decision-record`** — interview-driven scaffolding for an Architecture Decision Record. Walks the four required sections (Context, Decision, Alternatives Considered, Consequences) via `AskUserQuestion`, assigns the next sequential ADR number, and produces a draft at `docs_dev/architecture/<NNNN>-<slug>.md` following the writing guide in `docs_dev/architecture/README.md`. Use when making a substantive architectural decision worth preserving.
-- **`/investigation`** — interview-driven scaffolding for an investigation document (postmortem, debug archaeology, or performance investigation). Asks one disambiguating question for the type, then walks the seven required sections, producing a draft at `docs_dev/investigations/<YYYY-MM-DD>-<slug>.md` following the writing guide in `docs_dev/investigations/README.md`. Use after debugging a non-trivial issue worth preserving as an immutable snapshot.
+- **`/investigate`** — interview-driven scaffolding for an investigation document (postmortem, debug archaeology, or performance investigation). Asks one disambiguating question for the type, then walks the seven required sections, producing a draft at `docs_dev/investigations/<YYYY-MM-DD>-<slug>.md` following the writing guide in `docs_dev/investigations/README.md`. Use after debugging a non-trivial issue worth preserving as an immutable snapshot.
 
 ## Drift-and-refresh commands at a glance
 
@@ -38,21 +47,24 @@ The bundle has four "drift" commands that look different at a glance but serve t
 - **`/audit-vcf-schema`** is a focused subset of `/audit-bundle`. Run more often, since the VCF schema is the surface that drifts most frequently.
 - **`/audit-probe-pipeline`** drifts against the probe tracking surface specifically — wide enough (8 C++ files + 2 scripts + 1 doc) that bundling into `/audit-bundle` would dilute focus.
 
-If you want one mnemonic: the bundle is correct against three things (Anthropic, project source, VCF schema), and there is one command for each.
+If you want one mnemonic: the bundle is correct against four surfaces (Anthropic docs, project source, VCF schema, probe-tracking pipeline), one command per surface.
 
 ## Why slash commands and not skills?
 
 Slash commands are user-typed, so they fire only with explicit intent. Skills can fire from context, which is the right pattern for "consult on demand" workflows but the wrong pattern for "run this specific procedure right now."
 
-The thirteen commands here all benefit from explicit intent:
+The sixteen commands here all benefit from explicit intent:
 
-- `/check` — running it is a deliberate "I want to verify this is clean now" decision; it takes minutes, not seconds.
-- `/e2e` — runs the pipeline against tens of GB of test data; takes 10-30+ minutes; explicit intent matters.
+- `/fix-and-validate` — running it is a deliberate "I want to verify this is clean now" decision; it takes minutes, not seconds.
+- `/e2e-pipeline-test` — runs the pipeline against tens of GB of test data; takes 10-30+ minutes; explicit intent matters.
 - `/commit` — the user wants the commit composed at a specific moment, not whenever Claude infers it might be appropriate.
 - `/spec` — the interview phase is a deliberate setup for a substantive feature, not something Claude should infer from a passing remark.
+- `/brainstorm` — option exploration before commitment. The interview clarifies the underlying problem, then 2-4 distinct approaches are surfaced with explicit tradeoffs before the user picks. Hands off to `/spec` once a direction is chosen.
+- `/execute-spec` — TodoWrite-tracked execution of a `/spec` document, with per-task verification and explicit stop conditions. The spec drives; the executing session follows.
+- `/wrap-branch` — end-of-branch workflow with four reasonable paths (merge, push + PR, keep, discard). Makes the choice explicit and the steps consistent rather than recalling the right git incantation under "I just finished work and want to ship it" conditions.
 - `/sync-cost-model`, `/audit-bundle`, `/audit-vcf-schema`, `/audit-probe-pipeline` — maintenance rituals, deliberate by design. Auto-firing them on context would mean refreshing/auditing during normal work, which is the wrong time.
 - `/probe-concordance`, `/probe-run`, `/probe-analyze` — each step is independently expensive (especially step 2's 10-30 minute Lancet2 run) and the user often wants to run only one or two of them. Forcing a single monolithic command would obscure what each step contributes.
-- `/arch-decision-record`, `/investigation` — document creation is a deliberate act. The failure mode without explicit intent is Claude writing the architectural rationale or postmortem inline in the chat instead of producing the persistent document the user wants on disk.
+- `/arch-decision-record`, `/investigate` — document creation is a deliberate act. The failure mode without explicit intent is Claude writing the architectural rationale or postmortem inline in the chat instead of producing the persistent document the user wants on disk.
 
 Workflows that don't need explicit intent — "while you're working on X, also keep Y in mind" — are skills, not slash commands.
 
@@ -107,7 +119,7 @@ Common patterns:
 
 ### Reviewing the slash command set
 
-Quarterly. Walk all thirteen commands:
+Quarterly. Walk all sixteen commands:
 
 - Have you typed each one? When? Was the result useful?
 - Does each command's body still match the codebase? Have any of the cited paths or commands moved?
@@ -120,12 +132,3 @@ Retire when on the deletion candidate list two quarters in a row. Slash commands
 ## Cost model
 
 See `../cost-model.md` for the full breakdown. Briefly: slash command names are listed but bodies are not loaded into context until typed. Per-session cost is essentially zero; per-invocation cost is the body length added to the main session.
-
-## Recent changes (this directory)
-
-This section records changes to the slash command set — additions,
-deletions, renames, scope changes, and substantive behaviour changes.
-Cosmetic edits and prose tightening that does not change triggering
-behaviour do not belong here. Bundle-wide reorganizations are recorded
-in the top-level `README.md` instead. Entries accumulate from
-production cutover onward.

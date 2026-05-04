@@ -100,6 +100,56 @@ Large literals get `'` separators for readability. Only applied to literals with
 
 clang-format **reflows long comments** to fit within the 100-column limit. This interacts directly with code comment conventions — keep comment lines concise so reflowing doesn't produce awkward breaks. Use `// clang-format off` / `// clang-format on` around ASCII art diagrams and visual tables to prevent reflowing. See `code_comments.md` for the full set of comment patterns.
 
+### Logging and formatting
+
+Use **spdlog macros** for all logging — `SPDLOG_INFO`, `SPDLOG_DEBUG`, `SPDLOG_WARN`, `SPDLOG_ERROR`, `SPDLOG_TRACE`, `SPDLOG_CRITICAL`. The macros are zero-cost when the corresponding log level is disabled (compile-time elided), where the function-call form is not.
+
+Use **fmtlib** (`fmt::format`, `fmt::print`, `fmt::format_to`) for all formatting. spdlog uses fmtlib internally, so the format-string syntax is consistent across the codebase.
+
+```cpp
+// ✅ Correct
+SPDLOG_INFO("Loaded {} reads in {:.2f}s", num_reads, elapsed_seconds);
+auto msg = fmt::format("region {}:{}-{}", chrom, start, end);
+fmt::print(stderr, "warning: {}\n", text);
+```
+
+`std::format` and `std::print` (C++20/C++23 stdlib) are **forbidden**. The at-write hook (`validate_cpp_identifiers.py`) hard-blocks both. Three reasons:
+
+1. **Toolchain coverage.** Lancet2 supports gcc and clang at the project's pinned versions; `std::format` support has been inconsistent across compiler versions, with subtle semantic differences in formatter dispatch.
+2. **Library coupling.** spdlog uses fmtlib; mixing `std::format` with spdlog logging splits the format-string ecosystem with no benefit.
+3. **Locale behavior.** `std::format` is locale-sensitive by default in some implementations; fmtlib is locale-free unless explicitly opted in. For a bioinformatics tool, locale-free is the safer default.
+
+If a third-party header pulls in `<format>` or `<print>` transitively, that is fine — the rule is about *Lancet2 source* invoking these facilities directly.
+
+### Assertions and namespaces
+
+**`LANCET_ASSERT` is the only assertion macro permitted in Lancet2 source.** It is defined in `src/lancet/base/assert.h` and behaves like `assert()` under `LANCET_DEBUG_MODE` builds (Debug, sanitizer, and test builds — the test target unconditionally defines `LANCET_DEBUG_MODE` so assertions fire under Release tests as well). Under Release-without-tests, `LANCET_ASSERT` is a no-op.
+
+```cpp
+#include "lancet/base/assert.h"
+
+LANCET_ASSERT(idx < container.size());
+LANCET_ASSERT(state == State::INITIALIZED && "must call Init() first");
+```
+
+**Bare `assert()` from `<cassert>` is forbidden.** The at-write hook hard-blocks it. The reason: bare `assert()` is controlled by `NDEBUG`, which Lancet2's build system flips off under Release; a bare `assert()` written in Release-deployed code is dead. `LANCET_ASSERT` makes the project's debug-mode policy explicit and consistent.
+
+**`using namespace std` is forbidden in headers.** It pollutes every translation unit that transitively includes the header with the entire `std` namespace, breaking ADL in unpredictable ways and causing compile errors when downstream code introduces a name that collides with a `std` symbol. The at-write hook hard-blocks `using namespace std` (and `using namespace absl`) in `.h` files. In `.cpp` files, it is also strongly discouraged but not hook-blocked — prefer named `using std::vector` declarations or fully-qualified names.
+
+```cpp
+// ✅ Correct (in a .cpp file)
+#include <vector>
+using std::vector;
+vector<int> values;
+
+// ✅ Even better (no using-declaration)
+#include <vector>
+std::vector<int> values;
+
+// ❌ Forbidden in headers; discouraged in .cpp
+using namespace std;
+```
+
 ## Prefer `<algorithm>` and Abseil over manual loops
 
 Use `<algorithm>`, `<ranges>`, and Abseil utility headers (`absl/algorithm/`, `absl/strings/`, `absl/container/`) instead of hand-written loops and conditional branching wherever possible. The primary goal is **readability, maintainability, and expressiveness** — a `std::ranges::transform` or `absl::StrJoin` communicates intent more clearly than a raw `for` loop with manual index tracking.

@@ -1,6 +1,6 @@
 # Lancet2
 
-Lancet2 is a command line somatic variant caller (SNVs and InDels) for short
+Lancet2 is a command line variant caller (SNVs and InDels) for short
 read sequencing data implemented with modern C++. It performs joint multi-sample
 localized colored de-bruijn graph assembly for more accurate variant calls,
 especially InDels.

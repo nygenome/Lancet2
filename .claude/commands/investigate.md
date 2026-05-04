@@ -1,4 +1,4 @@
-# /investigation — Capture a postmortem, debug archaeology, or performance investigation
+# /investigate — Capture a postmortem, debug archaeology, or performance investigation
 
 Interview the user to capture an investigation document — a snapshot of what was learned during a hard-to-find bug, a regression postmortem, or a performance puzzle. Write the result into `docs_dev/investigations/`.
 

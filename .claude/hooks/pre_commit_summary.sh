@@ -22,7 +22,7 @@
 #
 # Architecture: this script is a presentation layer. The diff classification
 # itself lives in .claude/hooks/lib/diff_analysis.py — a shared Python module
-# also imported by agent-memory commit-bundling, schema-migration interview,
+# also imported by agent-memory commit-bundling, external-interface-changes interview,
 # and any other Lancet2 hook/skill that needs to reason about staged
 # changes. Keeping the heuristics in one place avoids the diverged-
 # duplicate-implementations bug class.

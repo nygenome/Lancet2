@@ -1,5 +1,5 @@
 ---
-name: test-data-reference
+name: test-data-locations
 description: Use whenever the user asks "which test data should I use", "what's in the dataset", "which BAM has X", or when planning a test/benchmark/sanitizer run and you need to pick the right fixture. Documents every file at gs://lancet2-test-datasets/test_harness_data/, the env vars that map to them, and which fixture fits which workflow (somatic, germline, truth comparison, T2T, longdust calibration). Read-only reference.
 allowed-tools: Read, Glob, Grep
 ---
@@ -24,13 +24,13 @@ The dataset has five logical groups:
 ## Decision tree: which fixture for which job
 
 **"I want to run the pipeline end-to-end on a small representative input."**
-- Tumor/normal somatic mode → `LANCET_TEST_SOMATIC_TUMOR` + `LANCET_TEST_SOMATIC_NORMAL`, region `LANCET_TEST_SOMATIC_REGION_SMALL` (a 1 Mb subregion of chr4) for fast iteration; `LANCET_TEST_SOMATIC_REGION` (full chr4) for `/e2e`.
-- Germline single-sample mode → `LANCET_TEST_GERMLINE_CRAM` only, region `LANCET_TEST_GERMLINE_REGION_SMALL` (1 Mb of chr1) for fast iteration; `LANCET_TEST_GERMLINE_REGION` (full chr1) for `/e2e`. Note that single-sample germline runs by passing the lone CRAM as `--normal` (the CLI's `--normal` flag is `required=true`); the case-control mode flag in `pipeline_runner.cpp` only fires when both case and control samples are present.
+- Tumor/normal somatic mode → `LANCET_TEST_SOMATIC_TUMOR` + `LANCET_TEST_SOMATIC_NORMAL`, region `LANCET_TEST_SOMATIC_REGION_SMALL` (a 1 Mb subregion of chr4) for fast iteration; `LANCET_TEST_SOMATIC_REGION` (full chr4) for `/e2e-pipeline-test`.
+- Germline single-sample mode → `LANCET_TEST_GERMLINE_CRAM` only, region `LANCET_TEST_GERMLINE_REGION_SMALL` (1 Mb of chr1) for fast iteration; `LANCET_TEST_GERMLINE_REGION` (full chr1) for `/e2e-pipeline-test`. Note that single-sample germline runs by passing the lone CRAM as `--normal` (the CLI's `--normal` flag is `required=true`); the case-control mode flag in `pipeline_runner.cpp` only fires when both case and control samples are present.
 
 **"I'm validating a correctness change against truth and need a high-confidence callset."**
 - Small variants (SNVs and small indels) → use the GIAB truth VCF for chr1: `expected_small_variants_giab.chr1.vcf.gz`. This pairs naturally with the germline NA12878 fixture above.
 - Large variants (SVs) → use the Manta truth VCF for chr1: `expected_large_variants_manta.chr1.vcf.gz`. Same pairing.
-- Truth comparison is a separate harness from `/e2e` (which only checks exit-0 and variant count). The bundle exposes the probe variant forensic pipeline as the truth-comparison workflow: `/probe-concordance` produces the missed-variants TSV, `/probe-run` collects forensic data, `/probe-analyze` attributes each missed variant to a pipeline stage. The `probe-tracking` skill is the operational playbook; the `probe-interpreter` subagent does the interpretive work. For ad-hoc comparison without the forensic pipeline, `bcftools isec` works fine; the probe pipeline is for "why was this variant missed" rather than just "was it missed."
+- Truth comparison is a separate harness from `/e2e-pipeline-test` (which only checks exit-0 and variant count). The bundle exposes the probe variant forensic pipeline as the truth-comparison workflow: `/probe-concordance` produces the missed-variants TSV, `/probe-run` collects forensic data, `/probe-analyze` attributes each missed variant to a pipeline stage. The `probe-tracking` skill is the operational playbook; the `probe-interpreter` subagent does the interpretive work. For ad-hoc comparison without the forensic pipeline, `bcftools isec` works fine; the probe pipeline is for "why was this variant missed" rather than just "was it missed."
 - Somatic case (HCC1395 / chr4) currently has no truth VCFs in the dataset. Step 1 of the probe pipeline cannot be run for the somatic case until truth VCFs are added. Step 2 and step 3 work fine if the user has a hand-curated `missed_variants.txt`.
 
 **"I'm running sanitizers and need a fast-iterating fixture."**
@@ -48,7 +48,7 @@ The dataset has five logical groups:
 
 ## Env-var reference
 
-The skills and the `/e2e` command consume these env vars. Copy `.claude/settings.local.json.example` to `.claude/settings.local.json` and adjust paths if your checkout location differs from `data/`.
+The skills and the `/e2e-pipeline-test` command consume these env vars. Copy `.claude/settings.local.json.example` to `.claude/settings.local.json` and adjust paths if your checkout location differs from `data/`.
 
 ```
 LANCET_TEST_GERMLINE_CRAM         data/NA12878.final.cram

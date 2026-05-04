@@ -10,7 +10,7 @@ The Clang documentation is the authoritative source for sanitizer
 behavior. Each section ends with the canonical doc URL — read it
 before customizing options or interpreting unfamiliar output.
 
-This reference is loaded on demand by the `sanitizer-triage` skill
+This reference is loaded on demand by the `sanitizer-build-analysis` skill
 when configuring a build, interpreting a report, or deciding which
 sanitizer fits a given symptom. Read the section that matches the
 sanitizer you're using, not the whole file.

@@ -281,7 +281,7 @@ update-changelog = {
 # Production-allocator coverage trade-off: sanitizer runs do NOT
 # exercise mimalloc-specific behavior. Bugs that depend on mimalloc's
 # allocation pattern, page recycling, or thread-local heap layout
-# won't surface under sanitizers. The sanitizer-triage SKILL
+# won't surface under sanitizers. The sanitizer-build-analysis SKILL
 # documents this explicitly so a clean ASan run is not mistaken for
 # "production is clean."
 #
@@ -329,8 +329,8 @@ update-changelog = {
 # `./cmake-build-asan/Lancet2` (no value over typing it directly).
 #
 # Pipeline-level sanitizer runs are therefore ad-hoc. The canonical
-# invocation is documented in the sanitizer-triage SKILL (search
-# `.claude/skills/sanitizer-triage/SKILL.md` for "pipeline-level
+# invocation is documented in the sanitizer-build-analysis SKILL (search
+# `.claude/skills/sanitizer-build-analysis/SKILL.md` for "pipeline-level
 # reproduction"). The `pixi run` prefix is mandatory: sanitizer
 # builds are dynamically linked (-DLANCET_BUILD_STATIC=OFF) and
 # need the pixi env's library path for libasan.so / libtsan.so /

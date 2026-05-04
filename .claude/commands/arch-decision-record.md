@@ -20,7 +20,7 @@ Ask the user to confirm in one sentence what decision they're capturing. Then ch
 
 - If the user describes a *decision between alternatives*, ADR is right.
 - If the user describes *how a system works*, redirect to subsystem deep-dive or architecture overview.
-- If the user describes *what was learned during debugging*, redirect to `/investigation`.
+- If the user describes *what was learned during debugging*, redirect to `/investigate`.
 - If the user can't describe the alternatives that were considered, ADR is wrong — they need either an overview (the system is what it is) or no document at all.
 
 Do not proceed to drafting without a clear yes that this is a decision-with-alternatives.
@@ -94,7 +94,7 @@ Do not commit the file or open a PR — that's the user's choice.
 
 - **For a decision under 50 lines of explanation.** If the decision is genuinely small, a comment in the source plus a `chore:` commit may be enough. Don't pad an ADR to look substantial.
 - **For documenting how something works.** That's not a decision; it's an explanation. Use `docs_dev/architecture/<name>.md` (overview) or `docs_dev/subsystems/<name>.md` (deep-dive).
-- **For postmortems or debug archaeology.** Those have a different lifecycle (immutable snapshots) and live in `docs_dev/investigations/`. Use `/investigation` instead.
+- **For postmortems or debug archaeology.** Those have a different lifecycle (immutable snapshots) and live in `docs_dev/investigations/`. Use `/investigate` instead.
 - **For tentative or speculative decisions.** ADRs document decisions that are in force or proposed for force. A "we might want to do X someday" note belongs in a design doc, not an ADR.
 
 ## Maintenance

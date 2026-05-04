@@ -11,14 +11,14 @@
     "",
     "  GERMLINE — single-sample run on NA12878 (chr1) against GRCh38",
     "    Used to exercise the single-sample/germline pipeline path.",
-    "    Full chr1 in /e2e; 1 Mb subregion for sanitizer/quick-iter work.",
+    "    Full chr1 in /e2e-pipeline-test; 1 Mb subregion for sanitizer/quick-iter work.",
     "",
     "  SOMATIC  — tumor/normal pair (HCC1395 / HCC1395BL) on chr4 against GRCh38",
     "    Used to exercise the primary somatic case/control pipeline.",
-    "    Full chr4 in /e2e; 1 Mb subregion for sanitizer/quick-iter work.",
+    "    Full chr4 in /e2e-pipeline-test; 1 Mb subregion for sanitizer/quick-iter work.",
     "",
     "Truth-comparison VCFs (expected_small_variants_giab.chr1.vcf.gz,",
-    "expected_large_variants_manta.chr1.vcf.gz) ship in the dataset but /e2e",
+    "expected_large_variants_manta.chr1.vcf.gz) ship in the dataset but /e2e-pipeline-test",
     "does not consume them; truth comparison is a separate harness."
   ],
 
@@ -39,9 +39,9 @@
 
   "_notes": [
     "Skill-to-region mapping:",
-    "  /e2e                   → REGION (full chromosome) for both profiles, back-to-back",
+    "  /e2e-pipeline-test     → REGION (full chromosome) for both profiles, back-to-back",
     "  profile-and-optimize   → REGION (full chromosome) of the somatic profile",
-    "  sanitizer-triage       → REGION_SMALL (1 Mb) of either profile, default somatic",
+    "  sanitizer-build-analysis → REGION_SMALL (1 Mb) of either profile, default somatic",
     "  add-cpp-test           → REGION_SMALL (1 Mb) of the somatic profile",
     "",
     "LANCET_TEST_REFERENCE_T2T is optional; it supports T2T-CHM13 stratified",

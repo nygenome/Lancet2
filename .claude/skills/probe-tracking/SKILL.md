@@ -89,7 +89,7 @@ When using `notes/probe-debug-<date>/`, pass it as `--output-dir` to all three s
 
 ## Test-data inputs
 
-The `test-data-reference` skill catalogs the available fixtures; consult it before picking inputs. The relevant pairings for the probe pipeline:
+The `test-data-locations` skill catalogs the available fixtures; consult it before picking inputs. The relevant pairings for the probe pipeline:
 
 - **Germline (NA12878 / chr1)**: full small + large truth available (`expected_small_variants_giab.chr1.vcf.gz`, `expected_large_variants_manta.chr1.vcf.gz`). Use `--mode all` with both `--truth-small` and `--truth-large`.
 - **Somatic (HCC1395 / chr4)**: no truth VCFs currently in the dataset. Step 1 cannot be run as documented for the somatic case until truth VCFs are added. Step 2 and step 3 can be run if a hand-curated `missed_variants.txt` is available, but the standard workflow is blocked here.

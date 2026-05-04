@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lancet2 PreToolUse hook: validate_naming
+Lancet2 PreToolUse hook: validate_cpp_identifiers
 
 Catches common Lancet2 naming-convention violations at write time, before
 clang-tidy runs at Stop. The full source of truth is .clang-tidy; this hook
@@ -57,7 +57,6 @@ The bar is operationalized as three rules:
 
   3. Calibration is validated quarterly. The /audit-bundle command
      reviews each hook's stderr output from the prior quarter (logged
-     via the InstructionsLoaded observability hooks) and checks that
      hard-block invocations were genuine and soft warnings were
      either fixed or acknowledged. A hook with a >5% false-positive
      rate is downgraded to soft warning or removed.

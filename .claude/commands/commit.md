@@ -111,7 +111,7 @@ When a body would need a fourth or fifth context paragraph, the change is too la
 
 It does not stage files. Staging is the developer's decision; conflating staging with committing produces too-large commits.
 
-It does not run the test suite, the linter, or the validator before committing. The Stop hook and `/check` are for that.
+It does not run the test suite, the linter, or the validator before committing. The Stop hook and `/fix-and-validate` are for that.
 
 It does not push. After committing, the user reviews the result and pushes manually.
 

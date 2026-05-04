@@ -104,11 +104,14 @@ The rule file goes in the same commit as the CMakeLists changes. The bundle's `v
 
 ## Step 5 — Cross-validate with the architecture guide
 
-If the change affects layer structure (category 2) or introduces a new major dependency (category 3), `docs/guides/architecture.md` describes the layer chain at a high level. Update it via the `documentation-sync` skill in the same commit.
+If the change affects layer structure (category 2) or introduces a new major dependency (category 3), `docs/guides/architecture.md` describes the layer chain at a high level. Update it via the `doc-sync` skill in the same commit.
 
 For categories 1, 4, 5, 6 the architecture guide usually doesn't need changes.
 
 ## Step 6 — Commit with the right scope
+
+> **Note:** `lancet_assembly` below is a hypothetical example layer used to illustrate the sync pattern; the real Lancet2 layers are `base`, `hts`, `cbdg`, `caller`, `core`, `cli`.
+
 
 The Lancet2 chglog filter accepts only `feat`, `fix`, `perf`, and `chore` as commit types; `build:`, `refactor:`, `docs:`, etc. parse but are silently dropped from `CHANGELOG.md`. Pure build-system changes (a new layer, a new build option, a CMakeLists refactor) take `chore:` because the user does not see them in pipeline output. A new layer that ships a user-visible feature alongside the build wiring takes `feat:`. A build change that fixes a broken build takes `fix:`.
 

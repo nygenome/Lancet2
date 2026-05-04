@@ -6,7 +6,7 @@
 # meant a 5-15 min build+test+iwyu+lint cycle after every Q&A turn,
 # regardless of whether C++ files changed. The new design moves all
 # heavy work to the pre_commit_gate hook (gates `git commit` only) and
-# the /check slash command (explicit user invocation). This hook is
+# the /fix-and-validate slash command (explicit user invocation). This hook is
 # now a quiet reminder: silent if no relevant files dirty, one-liner
 # otherwise.
 
@@ -19,7 +19,7 @@ relevant=$(git status --porcelain -- \
 
 if [ -n "$relevant" ]; then
     count=$(printf '%s\n' "$relevant" | wc -l | tr -d ' ')
-    echo "⚠ $count unstaged/staged C++/CMake change(s); run /check or commit to validate"
+    echo "⚠ $count unstaged/staged C++/CMake change(s); run /fix-and-validate or commit to validate"
 fi
 
 exit 0
