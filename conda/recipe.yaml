@@ -97,17 +97,17 @@ about:
   homepage: https://github.com/nygenome/Lancet2
   license: BSD-3-Clause
   license_file: LICENSE
-  summary: Lancet2 is an accurate, C++-based variant caller utilizing localized colored de Bruijn graph assembly
+  summary: Lancet2 is an accurate variant caller (SNVs and InDels) for short read sequencing data
   description: |
-    Lancet2 is an accurate, C++-based variant caller utilizing localized 
-    colored de Bruijn graph assembly to detect SNVs and indels from
-    paired tumor/normal short-read sequencing data.
+    Lancet2 is an accurate variant caller (SNVs and InDels) for short read
+    sequencing data, supporting flexible single-sample through multi-sample
+    analysis via localized colored de Bruijn graph assembly.
 
     Hardware requirements:
       linux-64:  compiled with -march=x86-64-v3 (Haswell 2013+: AVX2,
                  BMI2, FMA, LZCNT). Pre-Haswell CPUs will crash with
                  SIGILL on the first AVX2 instruction.
-      osx-arm64: compiled for Apple Silicon (M1 and later). Intel Macs
-                 are not supported by this package.
+      osx-arm64: compiled for Apple Silicon (M1 and later). Intel Macs can
+                 build from source but pre-built packages are not available.
     To target other hardware, rebuild from source with
-    -DLANCET_NATIVE_BUILD=ON or edit cmake/optimization_flags.cmake.
+    -DLANCET_NATIVE_BUILD=ON or edit cmake/compiler_flags.cmake.

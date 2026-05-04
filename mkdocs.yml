@@ -90,6 +90,7 @@ markdown_extensions:
 nav:
   - Getting Started: index.md
   - Usage Guides:
+    - Installation: guides/installation.md
     - Whole Genome Analysis: guides/wgs_analysis.md
     - Targeted Analysis: guides/targeted_analysis.md
     - Native Cloud Streaming: guides/cloud_streaming.md

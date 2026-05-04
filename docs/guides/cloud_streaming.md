@@ -3,7 +3,7 @@
 Lancet2 supports streaming reads, reference genomes, BED windows, and writing output VCFs directly from/to cloud buckets on AWS (Amazon S3) and GCP (Google Cloud Storage), as well as standard HTTP(S) and FTP(S) endpoints. This eliminates the need for local file copies or data staging.
 
 > [!TIP]
-> Pre-built packages from [prefix.dev](https://prefix.dev/channels/lancet2) include cloud I/O support out of the box. See [Getting Started](../index.md#pre-built-packages-recommended) for install commands — no source build required.
+> Pre-built packages from [prefix.dev](https://prefix.dev/channels/lancet2) include cloud I/O support out of the box. See [Installation](installation.md#pre-built-packages-recommended) for install commands — no source build required.
 
 ## Enabling Cloud I/O Support
 

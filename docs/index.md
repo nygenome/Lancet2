@@ -7,17 +7,17 @@ hide:
 
 ## Background
 
-Lancet2 is a command line somatic variant caller (SNVs and InDels) for short
-read sequencing data implemented with modern C++. It performs joint multi-sample
-localized colored de-bruijn graph assembly for more accurate variant calls,
-especially InDels.
+Lancet2 is an accurate variant caller (SNVs and InDels) for short read
+sequencing data, supporting flexible single-sample through multi-sample
+analysis via localized colored de Bruijn graph assembly.
 
-In addition to variant calling accuracy and improved somatic filtering, Lancet2 has significant runtime performance improvements compared to Lancet1 (upto ∼10x speedup and 50% less peak memory usage)
+In addition to variant calling accuracy and improved somatic filtering, Lancet2 has significant
+runtime performance improvements compared to Lancet1 (up to ~10× speedup and ~50% less peak memory usage).
 
 ## Installation
 
-### Pre-built packages (Recommended)
-Lancet2 packages with **full Cloud I/O support** (`s3://`, `gs://`, `http(s)://`, `ftp(s)://`) are published to [prefix.dev/channels/lancet2](https://prefix.dev/channels/lancet2). Install using your preferred package manager:
+Install a pre-built package using [Pixi](https://pixi.sh/), [Conda](https://docs.conda.io/), or [Mamba](https://mamba.readthedocs.io/).
+Packages with **Cloud I/O support** (`s3://`, `gs://`, `http(s)://`, `ftp(s)://`) are published to [prefix.dev/channels/lancet2](https://prefix.dev/channels/lancet2):
 
 | Package Manager | Install Command |
 |---|---|
@@ -25,67 +25,20 @@ Lancet2 packages with **full Cloud I/O support** (`s3://`, `gs://`, `http(s)://`
 | [Conda](https://docs.conda.io/) | `conda install -c https://prefix.dev/channels/lancet2 lancet2` |
 | [Mamba](https://mamba.readthedocs.io/) | `mamba install -c https://prefix.dev/channels/lancet2 lancet2` |
 
-Development builds are published automatically on every commit. To install a specific stable release, pin the version:
 ```bash
-pixi global install --channel https://prefix.dev/channels/lancet2 'lancet2==v2.9.0'
+# Find the latest stable version at https://prefix.dev/channels/lancet2/packages/lancet2
+# Stable releases: clean numbers (e.g., 2.9.0)
+# Dev builds: version_branch_hash (e.g., 2.9.0_main_441d081927)
+export LANCET_VERSION="2.9.0"
+pixi global install --channel https://prefix.dev/channels/lancet2 "lancet2==${LANCET_VERSION}"
 ```
 
-### Docker images
-
-!!! note "Note"
-
-    A CPU that supports the [AVX2 instruction set](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#CPUs_with_AVX2) is required
-    to use the pre-built public docker images. Custom docker images for older CPUs can be built by the user by
-    modifying the `BUILD_ARCH` argument in the [Dockerfile](https://github.com/nygenome/Lancet2/blob/main/Dockerfile).
-
-Public docker images hosted on Google Cloud are available for [recent tagged releases](https://console.cloud.google.com/artifacts/docker/nygc-app-c-148c/us-central1/lancet-public/lancet).
-
-### Build from source
-
-!!! note "Note"
-
-    Building from source on the target machine is recommended for maximum runtime performance.
-
-!!! warning "Cloud support in static builds"
-
-    Static builds (the default) **do not** support Cloud Streaming (`gs://`, `s3://`, `http(s)://`, `ftp(s)://`) because cloud I/O requires dynamic linking of the host OS's network stack (`libcurl` / `openssl`).
-    Use the pre-built packages or Docker images instead, or build with `-DLANCET_ENABLE_CLOUD_IO=ON` (see below).
-
-#### Build prerequisites
-- [Linux](https://kernel.org/) or [macOS](https://www.apple.com/macos/) (x86-64 or ARM64 architectures)
-- [Make](https://command-not-found.com/make)
-- [GCC](https://gcc.gnu.org) (12.x or greater) or [Clang](https://clang.llvm.org) (14.x or greater)
-- [CMake](https://cmake.org/download) (3.25 or greater)
-- [BZip2](https://sourceware.org/bzip2/), [LibLZMA](https://tukaani.org/xz/)
-- [CURL](https://curl.se/) and [OpenSSL](https://www.openssl.org/) (optional, required for Cloud I/O)
-
-#### Build commands
-```bash
-git clone https://github.com/nygenome/Lancet2.git
-cd Lancet2 && mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)
-```
-
-!!! note "macOS Homebrew Configuration"
-
-    To fix CMake failing to find Homebrew-installed BZip2 on macOS, explicitly set the `CMAKE_PREFIX_PATH` to the Homebrew prefix when running CMake. Homebrew often skips linking `bzip2` into the shared prefix to prevent conflicts with system libraries.
-    
-    For Apple Silicon (M1/M2/M3):
-    ```
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/bzip2 ..
-    ```
-    
-    For Intel Mac:
-    ```
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/local/opt/bzip2 ..
-    ```
-
-#### Cloud I/O Support (GCS, S3, HTTP/S, FTP/S)
-Cloud streaming can be enabled by setting `-DLANCET_ENABLE_CLOUD_IO=ON` during CMake configuration. This is opt-in and requires dynamic linkage (`-DLANCET_BUILD_STATIC=OFF`) with `libcurl` and `openssl` installed. For usage details, see the [Cloud Streaming Guide](guides/cloud_streaming.md).
-```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DLANCET_BUILD_STATIC=OFF -DLANCET_ENABLE_CLOUD_IO=ON ..
-make -j$(nproc)
-```
+!!! note "Hardware and platform support"
+    Pre-built packages are available for linux-64 (x86-64-v3, Haswell 2013+)
+    and macOS ARM64 (Apple Silicon M1+). Intel Macs can
+    [build from source](guides/installation.md#standalone-build).
+    See the [Installation Guide](guides/installation.md) for Docker,
+    build-from-source, and Cloud I/O instructions.
 
 ## Basic Usage
 
