@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <cmath>
+#include <cstdlib>
 
 namespace lancet::core {
 

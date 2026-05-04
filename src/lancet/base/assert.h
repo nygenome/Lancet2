@@ -1,9 +1,8 @@
 #ifndef SRC_LANCET_BASE_ASSERT_H_
 #define SRC_LANCET_BASE_ASSERT_H_
 
+#include "spdlog/fmt/bundled/format.h"
 #ifdef LANCET_DEBUG_MODE
-#include "spdlog/fmt/bundled/core.h"
-
 #include <source_location>
 #include <stdexcept>
 #endif
