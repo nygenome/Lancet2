@@ -23,11 +23,18 @@ using lancet::cbdg::RevEdgeKind;
 namespace {
 
 /// Generate a random DNA sequence of the given length for fuzz testing.
-inline auto GenerateRandomDnaSequence(usize const seq_len) -> std::string {
+/// Caller passes a const literal seed so the same TEST_CASE produces
+/// the same sequence on every run — `std::random_device` is forbidden
+/// in tests (per the project's determinism convention) because two
+/// failing runs would be impossible to compare.
+inline auto GenerateRandomDnaSequence(usize const seq_len, u64 const seed) -> std::string {
   static constexpr std::array<char, 4> BASES = {'A', 'C', 'G', 'T'};
 
-  std::random_device device;
-  std::mt19937_64 generator(device());
+  // Const-literal seed is the project's documented determinism
+  // convention. The clang-tidy check is conservatively designed for
+  // production code; in tests, predictability is exactly what we want.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937_64 generator(seed);
 
   std::uniform_int_distribution<usize> base_chooser(0, 3);
   std::string result(seq_len, 'N');
@@ -67,6 +74,11 @@ inline auto MatchesOneOfTwo(std::string_view result, std::array<std::string_view
 
 static constexpr auto NUM_RANDOM_ITERATIONS = 100;
 static constexpr auto DFLT_ORD = Kmer::Ordering::DEFAULT;
+// Pinned base seed: every iteration derives a distinct seed by adding
+// the loop index, so iterations produce deterministic sequences across
+// runs. Re-running a TEST_CASE on a different machine (or after an
+// unrelated refactor) reproduces the same sequences on every iteration.
+static constexpr u64 BASE_SEED = 0x5E'ED'5E'ED'5E'ED'5E'EDULL;
 
 // Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
 // ceiling.
@@ -77,7 +89,7 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
 
   absl::FixedArray<std::string, NUM_RANDOM_ITERATIONS> sequences(NUM_RANDOM_ITERATIONS, "");
   for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
-    sequences.at(iter) = GenerateRandomDnaSequence(SEQ_LEN);
+    sequences.at(iter) = GenerateRandomDnaSequence(SEQ_LEN, BASE_SEED + iter);
   }
 
   for (auto const& sequence : sequences) {
@@ -121,8 +133,11 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
 }
 
 TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") {
-  std::random_device device;
-  std::mt19937_64 generator(device());
+  // Const-literal seed is the project's documented determinism
+  // convention. The clang-tidy check is conservatively designed for
+  // production code; in tests, predictability is exactly what we want.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937_64 generator(BASE_SEED);
 
   static constexpr usize MIN_KMER_SIZE = 11;
   static constexpr usize MAX_KMER_SIZE = 101;
@@ -140,7 +155,7 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
     auto const second_length = (total_length - first_length) + (kmer_size - 1);
 
     CAPTURE(kmer_size, total_length, first_length, second_start, second_length);
-    auto const sequence = GenerateRandomDnaSequence(total_length);
+    auto const sequence = GenerateRandomDnaSequence(total_length, BASE_SEED + iter);
     std::string_view const slide = sequence;
     auto const rc_seq = lancet::base::RevComp(sequence);
 
@@ -184,7 +199,7 @@ TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]
     static constexpr usize LONG_SEQ_LEN = 1024;
     static constexpr usize MER_SIZE = 21;
 
-    auto const sequence = GenerateRandomDnaSequence(LONG_SEQ_LEN);
+    auto const sequence = GenerateRandomDnaSequence(LONG_SEQ_LEN, BASE_SEED + iter);
     auto const rc_sequence = lancet::base::RevComp(sequence);
     auto const mers_list = SlidingKmers(sequence, MER_SIZE);
 
