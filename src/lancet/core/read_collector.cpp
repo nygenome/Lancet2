@@ -188,8 +188,11 @@ auto ReadCollector::ProfileAndDownsample(hts::Extractor& extractor, std::string 
   // Fixed seed=0 is intentional: variant calls MUST be deterministic across
   // runs on identical inputs. A random seed would cause non-reproducible VCF
   // output, violating the pipeline's reproducibility guarantee.
+  // The engine is the C++-standard seed-stable Mersenne Twister; its output
+  // sequence is fixed by the C++ standard so the same seed produces the
+  // same shuffle order on any conforming compiler.
   // NOLINTBEGIN(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
-  std::shuffle(pass_qname_hashes.begin(), pass_qname_hashes.end(), std::default_random_engine(0));
+  std::shuffle(pass_qname_hashes.begin(), pass_qname_hashes.end(), std::mt19937_64{0});
   // NOLINTEND(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
 
   auto const keep_qnames_end = pass_qname_hashes.begin() + static_cast<i64>(sampled_read_count);
