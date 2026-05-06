@@ -26,6 +26,7 @@
 #include "lancet/base/types.h"
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/random/distributions.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
 
@@ -52,12 +53,18 @@ namespace {
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(42);
 
-  // Heavily biased toward A — 75% A, ~8% each for C/G/T
-  std::discrete_distribution<usize> base_chooser({75, 8, 8, 9});
+  // Heavily biased toward A — 75% A, ~8% each for C/G/T. Cumulative
+  // exclusive boundaries derived from the {75, 8, 8, 9} weight vector;
+  // a uniform draw from [0, 100) maps to the smallest index whose
+  // cumulative threshold exceeds the draw.
+  static constexpr std::array<u32, 4> CUM_WEIGHTS = {75, 83, 91, 100};
   std::string result(seq_len, 'N');
 
   for (usize idx = 0; idx < seq_len; ++idx) {
-    result[idx] = BASES.at(base_chooser(generator));
+    auto const draw = absl::Uniform<u32>(generator, 0, 100);
+    usize chooser_idx = 0;
+    while (draw >= CUM_WEIGHTS[chooser_idx]) ++chooser_idx;
+    result[idx] = BASES.at(chooser_idx);
   }
 
   return result;
@@ -71,11 +78,10 @@ namespace {
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(137);
 
-  std::uniform_int_distribution<usize> base_chooser(0, 3);
   std::string result(seq_len, 'N');
 
   for (usize idx = 0; idx < seq_len; ++idx) {
-    result[idx] = BASES.at(base_chooser(generator));
+    result[idx] = BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3));
   }
 
   return result;
@@ -91,11 +97,10 @@ namespace {
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(271);
 
-  std::uniform_int_distribution<usize> base_chooser(0, 15);
   std::string result(seq_len, 'N');
 
   for (usize idx = 0; idx < seq_len; ++idx) {
-    result[idx] = CYCLE.at(base_chooser(generator));
+    result[idx] = CYCLE.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 15));
   }
 
   return result;

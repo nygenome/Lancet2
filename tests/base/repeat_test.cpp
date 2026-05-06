@@ -2,6 +2,7 @@
 
 #include "lancet/base/types.h"
 
+#include "absl/random/distributions.h"
 #include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 
@@ -29,12 +30,11 @@ inline auto GenerateRandomDnaSequence(u64 seed) -> std::string {
   std::mt19937_64 generator(seed);
 
   static constexpr usize SEQ_LENGTH = 5000;
-  std::uniform_int_distribution<usize> base_chooser(0, 3);
   std::string result;
   result.reserve(SEQ_LENGTH);
 
   for (usize idx = 0; idx < SEQ_LENGTH; ++idx) {
-    result.push_back(BASES.at(base_chooser(generator)));
+    result.push_back(BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3)));
   }
 
   return result;
@@ -260,10 +260,9 @@ TEST_CASE("HammingDist (SIMD) agrees with a scalar reference on random DNA",
   //   - 33..64 (one lane + 1..32-byte unaligned tail)
   //   - 1024 (32 full lanes, no tail)
   // The bounds are inclusive so 32 and 1024 are reachable.
-  std::uniform_int_distribution<usize> length_picker(1, 1024);
 
   for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
-    auto const seq_len = length_picker(length_generator);
+    auto const seq_len = absl::Uniform<usize>(absl::IntervalClosed, length_generator, 1, 1024);
     auto const lhs = GenerateRandomDnaSequence(BASE_SEED + (iter * 2));
     auto const rhs = GenerateRandomDnaSequence(BASE_SEED + (iter * 2) + 1);
 

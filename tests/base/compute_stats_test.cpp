@@ -2,6 +2,7 @@
 
 #include "lancet/base/types.h"
 
+#include "absl/random/distributions.h"
 #include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 
@@ -201,11 +202,12 @@ TEST_CASE("OnlineStats.Variance matches the two-pass formula on randomly generat
   // what we want.
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(BASE_SEED);
-  std::uniform_real_distribution<f64> sampler(0.0, 100.0);
 
   for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
     std::vector<f64> samples(SAMPLE_SIZE);
-    for (auto& sample : samples) sample = sampler(generator);
+    for (auto& sample : samples) {
+      sample = absl::Uniform<f64>(absl::IntervalClosed, generator, 0.0, 100.0);
+    }
 
     // Welford via the in-tree implementation.
     OnlineStats welford;
@@ -256,14 +258,12 @@ TEST_CASE("OnlineStats.Merge is associative across three accumulators",
   // what we want.
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(BASE_SEED);
-  std::uniform_real_distribution<f64> sampler(0.0, 100.0);
-  std::uniform_int_distribution<usize> size_picker(1, 30);
 
   for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
     auto const fill_shard = [&](OnlineStats& shard) {
-      auto const shard_size = size_picker(generator);
+      auto const shard_size = absl::Uniform<usize>(absl::IntervalClosed, generator, 1, 30);
       for (usize sample_idx = 0; sample_idx < shard_size; ++sample_idx) {
-        shard.Add(sampler(generator));
+        shard.Add(absl::Uniform<f64>(absl::IntervalClosed, generator, 0.0, 100.0));
       }
     };
 

@@ -3,6 +3,7 @@
 #include "lancet/base/types.h"
 #include "lancet/hts/reference.h"
 
+#include "absl/random/distributions.h"
 #include "absl/types/span.h"
 #include "catch_amalgamated.hpp"
 #include "lancet_test_config.h"
@@ -47,11 +48,10 @@ inline auto BuildRepeat(std::string_view motif, usize copies) -> std::string {
 inline auto RandomDna(usize length, u64 seed = 42) -> std::string {
   static constexpr std::array<char, 4> BASES = {'A', 'C', 'G', 'T'};
   std::mt19937_64 gen(seed);
-  std::uniform_int_distribution<usize> dist(0, 3);
   std::string result;
   result.reserve(length);
   for (usize iter = 0; iter < length; ++iter) {
-    result.push_back(BASES.at(dist(gen)));
+    result.push_back(BASES.at(absl::Uniform<usize>(absl::IntervalClosed, gen, 0, 3)));
   }
   return result;
 }

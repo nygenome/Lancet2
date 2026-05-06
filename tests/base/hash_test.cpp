@@ -2,6 +2,7 @@
 
 #include "lancet/base/types.h"
 
+#include "absl/random/distributions.h"
 #include "catch_amalgamated.hpp"
 
 #include <array>
@@ -140,22 +141,24 @@ TEST_CASE("HashStr64 produces avalanche-like bit spread on single-character DNA 
   // what we want.
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(BASE_SEED);
-  std::uniform_int_distribution<usize> base_picker(0, 3);
-  std::uniform_int_distribution<usize> position_picker(0, STRING_LEN - 1);
 
   u64 total_bits_flipped = 0;
   u64 pairs_compared = 0;
 
   for (usize iter = 0; iter < NUM_PROPERTY_ITERATIONS; ++iter) {
     std::string original(STRING_LEN, 'N');
-    for (auto& chr : original) chr = BASES.at(base_picker(generator));
+    for (auto& chr : original) {
+      chr = BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3));
+    }
 
     // Flip one base at a random position to a different base.
     std::string mutated = original;
-    auto const flip_pos = position_picker(generator);
+    auto const flip_pos = absl::Uniform<usize>(absl::IntervalClosed, generator, 0, STRING_LEN - 1);
     char const original_base = original[flip_pos];
-    char new_base = BASES.at(base_picker(generator));
-    while (new_base == original_base) new_base = BASES.at(base_picker(generator));
+    char new_base = BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3));
+    while (new_base == original_base) {
+      new_base = BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3));
+    }
     mutated[flip_pos] = new_base;
 
     auto const xor_diff = HashStr64(original) ^ HashStr64(mutated);

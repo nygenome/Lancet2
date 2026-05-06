@@ -6,6 +6,7 @@
 #include "lancet/base/types.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/random/distributions.h"
 #include "absl/strings/string_view.h"
 #include "catch_amalgamated.hpp"
 
@@ -36,11 +37,10 @@ inline auto GenerateRandomDnaSequence(usize const seq_len, u64 const seed) -> st
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937_64 generator(seed);
 
-  std::uniform_int_distribution<usize> base_chooser(0, 3);
   std::string result(seq_len, 'N');
 
   for (usize iter = 0; iter < seq_len; ++iter) {
-    result[iter] = BASES.at(base_chooser(generator));
+    result[iter] = BASES.at(absl::Uniform<usize>(absl::IntervalClosed, generator, 0, 3));
   }
 
   return result;
@@ -143,12 +143,12 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
   static constexpr usize MAX_KMER_SIZE = 101;
   static constexpr usize MAX_SEQ_LEN = 999;
 
-  std::uniform_int_distribution<usize> seq_len_picker(3 * MAX_KMER_SIZE, MAX_SEQ_LEN);
-  std::uniform_int_distribution<usize> ksize_picker(MIN_KMER_SIZE, MAX_KMER_SIZE);
-
   for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
-    auto const kmer_size = static_cast<usize>((2 * ksize_picker(generator)) + 1);
-    auto const total_length = static_cast<usize>(seq_len_picker(generator));
+    auto const kmer_size =
+        (2 * absl::Uniform<usize>(absl::IntervalClosed, generator, MIN_KMER_SIZE, MAX_KMER_SIZE)) +
+        1;
+    auto const total_length =
+        absl::Uniform<usize>(absl::IntervalClosed, generator, 3 * MAX_KMER_SIZE, MAX_SEQ_LEN);
 
     auto const first_length = kmer_size;
     auto const second_start = first_length - kmer_size + 1;
