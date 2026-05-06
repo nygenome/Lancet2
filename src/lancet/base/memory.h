@@ -3,7 +3,7 @@
 
 #include "lancet/base/types.h"
 
-#include "absl/strings/str_format.h"
+#include "spdlog/fmt/bundled/format.h"
 
 // POSIX header — quote-included and `extern "C"`-wrapped per the project
 // convention for non-stdlib C headers (cpp_style.md, mirrors lancet/hts/).
@@ -49,11 +49,11 @@ namespace lancet::base {
   static constexpr f64 BYTES_PER_MB = 1024.0 * 1024.0;
 
   if (auto const mem_in_gb = static_cast<f64>(bytes) / BYTES_PER_GB; mem_in_gb >= 1.0) {
-    return absl::StrFormat("%.2f GB", mem_in_gb);
+    return fmt::format("{:.2f} GB", mem_in_gb);
   }
 
   auto const mem_in_mb = static_cast<f64>(bytes) / BYTES_PER_MB;
-  return absl::StrFormat("%.1f MB", mem_in_mb);
+  return fmt::format("{:.1f} MB", mem_in_mb);
 }
 
 }  // namespace lancet::base
