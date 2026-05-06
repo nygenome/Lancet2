@@ -552,7 +552,7 @@ git = "==2.53.0"
 make = "==4.4.1"
 cmake = "==4.3.2"
 ninja = "==1.13.2"
-ccache = "==4.13.4"
+ccache = "==4.13.6"
 bzip2 = "==1.0.8"
 liblzma = "==5.8.3"
 liblzma-devel = "==5.8.3"
@@ -650,7 +650,7 @@ polars = "==1.40.0"
 channels = ["conda-forge", "bioconda"]
 
 [feature.walk-palette.dependencies]
-python = ">=3.14"
+python = "==3.14.4"
 numpy = "==2.4.3"
 scipy = "==1.17.1"
 scikit-image = "==0.26.0"
@@ -661,7 +661,7 @@ scikit-learn = "==1.8.0"
 channels = ["conda-forge", "bioconda"]
 
 [feature.test-fixtures.dependencies]
-python = ">=3.14"
+python = "==3.14.4"
 numpy = "==2.4.3"
 scipy = "==1.17.1"
 
