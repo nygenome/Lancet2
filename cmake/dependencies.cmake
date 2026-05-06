@@ -91,9 +91,9 @@ FetchContent_Declare(mimalloc GIT_REPOSITORY https://github.com/microsoft/mimall
 lancet_dep_status("Configuring mimalloc v3.3.2 ...")
 FetchContent_MakeAvailable(mimalloc)
 
-# abseil-cpp deaf349 - Committed on May 1st 2026
-lancet_dep_status("Configuring abseil-cpp deaf349 ...")
-FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG deaf349 SYSTEM)
+# abseil-cpp 4dcbb59 - Committed on May 5, 2026
+lancet_dep_status("Configuring abseil-cpp 4dcbb59 ...")
+FetchContent_Declare(abseil GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git GIT_TAG 4dcbb59 SYSTEM)
 FetchContent_GetProperties(abseil)
 if (NOT abseil_POPULATED)
 	set(BUILD_TESTING OFF)
