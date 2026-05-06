@@ -42,6 +42,26 @@
 
 namespace {
 
+// ── Weighted index pick over a cumulative-threshold table ──────────────────
+// Stand-in for `std::discrete_distribution` (which has no 1:1 absl
+// replacement). Encapsulates the half-open `absl::Uniform<u32>(gen, 0,
+// cumulative_weights.back())` invariant so callers cannot accidentally
+// break loop termination by switching to `absl::IntervalClosed`. Picks
+// an index in `[0, N)` proportional to the per-bucket weights implied
+// by the cumulative-threshold table; the trailing `return N - 1`
+// handles the (statistically-impossible-with-half-open) tie at the
+// upper bound, keeping the helper safe even if the draw form is later
+// changed by a maintainer.
+template <usize n>
+[[nodiscard]] inline auto WeightedPick(std::array<u32, n> const& cumulative_weights,
+                                       std::mt19937_64& gen) -> usize {
+  auto const draw = absl::Uniform<u32>(gen, 0, cumulative_weights.back());
+  for (usize idx = 0; idx < n - 1; ++idx) {
+    if (draw < cumulative_weights[idx]) return idx;
+  }
+  return n - 1;
+}
+
 // ── Sequence generators with controllable entropy ──────────────────────────
 
 // Low entropy: heavily biased toward A (75% A, ~8% each C/G/T).
@@ -54,17 +74,12 @@ namespace {
   std::mt19937_64 generator(42);
 
   // Heavily biased toward A — 75% A, ~8% each for C/G/T. Cumulative
-  // exclusive boundaries derived from the {75, 8, 8, 9} weight vector;
-  // a uniform draw from [0, 100) maps to the smallest index whose
-  // cumulative threshold exceeds the draw.
+  // boundaries derived from the {75, 8, 8, 9} weight vector.
   static constexpr std::array<u32, 4> CUM_WEIGHTS = {75, 83, 91, 100};
   std::string result(seq_len, 'N');
 
   for (usize idx = 0; idx < seq_len; ++idx) {
-    auto const draw = absl::Uniform<u32>(generator, 0, 100);
-    usize chooser_idx = 0;
-    while (draw >= CUM_WEIGHTS[chooser_idx]) ++chooser_idx;
-    result[idx] = BASES.at(chooser_idx);
+    result[idx] = BASES.at(WeightedPick(CUM_WEIGHTS, generator));
   }
 
   return result;

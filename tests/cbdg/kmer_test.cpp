@@ -79,6 +79,18 @@ static constexpr auto DFLT_ORD = Kmer::Ordering::DEFAULT;
 // runs. Re-running a TEST_CASE on a different machine (or after an
 // unrelated refactor) reproduces the same sequences on every iteration.
 static constexpr u64 BASE_SEED = 0x5E'ED'5E'ED'5E'ED'5E'EDULL;
+// Per-TEST_CASE salts so iter=N in one TEST_CASE does not produce the
+// same RNG stream as iter=N in another. The current TEST_CASEs assert
+// only algebraic invariants of `Kmer::Merge` (so the correlation is
+// harmless today), but pre-emptively breaking the correlation prevents
+// a future property test from inheriting correlated streams via copy.
+static constexpr u64 EQUAL_SIZED_SALT = 0x00'00'00'00'00'00'00'00ULL;
+static constexpr u64 UNEQUAL_SIZED_SALT = 0x00'00'10'00'00'00'00'00ULL;
+static constexpr u64 MULTI_KMER_SALT = 0x00'00'20'00'00'00'00'00ULL;
+// Within UNEQUAL_SIZED, the size-picker engine is offset further so
+// it does not collide with the DNA-helper engine at iter=0. Mirrors
+// the offset idiom in `tests/base/repeat_test.cpp:65`.
+static constexpr u64 PICKER_STREAM_SALT = 0x00'00'00'00'10'00'00'00ULL;
 
 // Catch2 SECTION fan-out inflates clang-tidy's cognitive-complexity metric beyond the project
 // ceiling.
@@ -89,7 +101,7 @@ TEST_CASE("Can merge two adjacent equal sized kmers", "[lancet][cbdg][Kmer]") {
 
   absl::FixedArray<std::string, NUM_RANDOM_ITERATIONS> sequences(NUM_RANDOM_ITERATIONS, "");
   for (usize iter = 0; iter < NUM_RANDOM_ITERATIONS; ++iter) {
-    sequences.at(iter) = GenerateRandomDnaSequence(SEQ_LEN, BASE_SEED + iter);
+    sequences.at(iter) = GenerateRandomDnaSequence(SEQ_LEN, BASE_SEED + EQUAL_SIZED_SALT + iter);
   }
 
   for (auto const& sequence : sequences) {
@@ -137,7 +149,7 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
   // convention. The clang-tidy check is conservatively designed for
   // production code; in tests, predictability is exactly what we want.
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
-  std::mt19937_64 generator(BASE_SEED);
+  std::mt19937_64 generator(BASE_SEED + UNEQUAL_SIZED_SALT + PICKER_STREAM_SALT);
 
   static constexpr usize MIN_KMER_SIZE = 11;
   static constexpr usize MAX_KMER_SIZE = 101;
@@ -155,7 +167,8 @@ TEST_CASE("Can merge two adjacent unequal sized kmers", "[lancet][cbdg][Kmer]") 
     auto const second_length = (total_length - first_length) + (kmer_size - 1);
 
     CAPTURE(kmer_size, total_length, first_length, second_start, second_length);
-    auto const sequence = GenerateRandomDnaSequence(total_length, BASE_SEED + iter);
+    auto const sequence =
+        GenerateRandomDnaSequence(total_length, BASE_SEED + UNEQUAL_SIZED_SALT + iter);
     std::string_view const slide = sequence;
     auto const rc_seq = lancet::base::RevComp(sequence);
 
@@ -199,7 +212,8 @@ TEST_CASE("Can merge multiple adjacent equal sized kmers", "[lancet][cbdg][Kmer]
     static constexpr usize LONG_SEQ_LEN = 1024;
     static constexpr usize MER_SIZE = 21;
 
-    auto const sequence = GenerateRandomDnaSequence(LONG_SEQ_LEN, BASE_SEED + iter);
+    auto const sequence =
+        GenerateRandomDnaSequence(LONG_SEQ_LEN, BASE_SEED + MULTI_KMER_SALT + iter);
     auto const rc_sequence = lancet::base::RevComp(sequence);
     auto const mers_list = SlidingKmers(sequence, MER_SIZE);
 
