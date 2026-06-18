@@ -7,7 +7,7 @@ analysis via localized colored de Bruijn graph assembly.
 In addition to variant calling accuracy and improved somatic filtering, Lancet2 has significant
 runtime performance improvements compared to Lancet1 (up to ~10× speedup and ~50% less peak memory usage).
 
-[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?mLabel=Documentation&style=flat)](https://nygenome.github.io/Lancet2)
+[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg?mLabel=Documentation&style=flat)](https://nygenome.github.io/Lancet2/latest/)
 [![GitHub Release](https://img.shields.io/github/v/release/nygenome/Lancet2?include_prereleases&sort=semver&display_name=release&style=flat)](https://github.com/nygenome/Lancet2/releases)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
@@ -68,19 +68,19 @@ Lancet2 pipeline \
 ```
 
 Lancet2 also supports **single-sample** (germline/mosaic) and **multi-sample**
-modes. See the [full documentation](https://nygenome.github.io/Lancet2/) for
+modes. See the [full documentation](https://nygenome.github.io/Lancet2/latest/) for
 details.
 
 ## Documentation
 
-See [full documentation](https://nygenome.github.io/Lancet2/) for
-[VCF output format](https://nygenome.github.io/Lancet2/guides/vcf_output/),
-[CLI reference](https://nygenome.github.io/Lancet2/reference/), and
-[pipeline architecture](https://nygenome.github.io/Lancet2/guides/architecture/).
+See [full documentation](https://nygenome.github.io/Lancet2/latest/) for
+[VCF output format](https://nygenome.github.io/Lancet2/latest/guides/vcf_output/),
+[CLI reference](https://nygenome.github.io/Lancet2/latest/reference/), and
+[pipeline architecture](https://nygenome.github.io/Lancet2/latest/guides/architecture/).
 
 ## Citing
 
-See [publications](https://nygenome.github.io/Lancet2/publications) associated with Lancet.
+See [publications](https://nygenome.github.io/Lancet2/latest/publications) associated with Lancet.
 
 ## License
 
