@@ -30,7 +30,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
       - name: Setup Pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.0
 
       - name: Compute cache key
         run: echo "cache_id=$(date --utc '+%F')" >> $GITHUB_ENV
